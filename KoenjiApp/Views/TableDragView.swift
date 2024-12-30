@@ -1,5 +1,5 @@
-
 import SwiftUI
+
 
 struct TableDragView: View {
     let table: TableModel
@@ -19,15 +19,19 @@ struct TableDragView: View {
     @GestureState private var dragOffset: CGSize = .zero
     let isLayoutLocked: Bool
 
-    var body: some View {
-        // Calculate cell size from LayoutViewModel
-        let cellSize = layoutVM.cellSize
+    // State variable for animation
+    @State private var isSwapped: Bool = false
 
-        // Calculate table's current position based on row and column
+    var body: some View {
+        // Calculate cell size
+        let cellSize = layoutVM.cellSize
         let tableWidth = CGFloat(table.width) * cellSize
         let tableHeight = CGFloat(table.height) * cellSize
         let xPos = CGFloat(table.column) * cellSize + tableWidth / 2
         let yPos = CGFloat(table.row) * cellSize + tableHeight / 2
+        
+        let isHighlighted = store.tableAnimationState[table.id] ?? false
+
 
         // Retrieve active reservation for the table
         let activeReservation = store.activeReservation(
@@ -38,8 +42,12 @@ struct TableDragView: View {
 
         ZStack {
             Rectangle()
-                .fill(activeReservation != nil ? Color.green.opacity(0.3) : Color.blue.opacity(0.15))
-                .overlay(Rectangle().stroke(Color.blue, lineWidth: 2))
+                .fill(
+                    isHighlighted
+                        ? Color.orange.opacity(0.4) // Highlight during swap
+                        : (activeReservation != nil ? Color.green.opacity(0.3) : Color.blue.opacity(0.15))
+                )
+                .overlay(Rectangle().stroke(isHighlighted ? Color.orange : Color.blue, lineWidth: 2))
                 .frame(width: tableWidth, height: tableHeight)
 
             if let reservation = activeReservation {
@@ -74,9 +82,6 @@ struct TableDragView: View {
                     guard !isLayoutLocked else { return }
                     state = value.translation
                 }
-                .onChanged { _ in
-                    layoutVM.isDragging = true
-                }
                 .onEnded { value in
                     layoutVM.isDragging = false
                     guard !isLayoutLocked else { return }
@@ -91,14 +96,29 @@ struct TableDragView: View {
                     let newRow = table.row + deltaRows
                     let newCol = table.column + deltaCols
 
-                    // Directly invoke moveTable from the store
-                    let moveSuccess = store.moveTable(table, toRow: newRow, toCol: newCol)
+                    // Invoke moveTable and check the result
+                    let moveResult = store.moveTable(table, toRow: newRow, toCol: newCol)
 
-                    if moveSuccess {
-                        print("Table \(table.name) successfully moved or swapped.")
+                    switch moveResult {
+                    case .swap:
+                        print("Table \(table.name) successfully swapped.")
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            isSwapped = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            withAnimation {
+                                isSwapped = false
+                            }
+                        }
                         store.saveLayout(for: selectedDate, category: selectedCategory)
                         store.saveToDisk()
-                    } else {
+
+                    case .move:
+                        print("Table \(table.name) successfully moved.")
+                        store.saveLayout(for: selectedDate, category: selectedCategory)
+                        store.saveToDisk()
+
+                    case .invalid:
                         print("Failed to move or swap table \(table.name).")
                         layoutVM.showInvalidMoveFeedback()
                     }
