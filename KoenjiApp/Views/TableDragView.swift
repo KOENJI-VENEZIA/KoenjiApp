@@ -176,7 +176,7 @@ struct TableDragView: View {
             formatter.timeZone = TimeZone.current
 
             let startTimeString = formatter.string(from: currentTime)
-            let endTimeString = TimeHelpers.calculateEndTime(startTime: startTimeString)
+            let endTimeString = TimeHelpers.calculateEndTime(startTime: startTimeString, category: selectedCategory)
 
             let isOccupied = store.isTableOccupied(
                 table,
