@@ -11,9 +11,8 @@ struct AddReservationView: View {
     @EnvironmentObject var store: ReservationStore
     @Environment(\.dismiss) var dismiss
     
-    let selectedDate: Date
     let forcedTable: TableModel?
-    
+    // Replace or add whatever states you need for your form
     @State private var name: String = ""
     @State private var phone: String = ""
     @State private var numberOfPersons: Int = 2
@@ -21,7 +20,13 @@ struct AddReservationView: View {
     @State private var startTime: String = "12:00"
     @State private var endTime: String = "13:45"
     @State private var notes: String = ""
+    @State private var selectedDate: Date
 
+    init(forcedTable: TableModel?, preselectedDate: Date = Date()) {
+        self.forcedTable = forcedTable
+        self._selectedDate = State(initialValue: preselectedDate)
+    }
+    
     var body: some View {
         NavigationView {
             Form {
@@ -34,6 +39,23 @@ struct AddReservationView: View {
                             value: $numberOfPersons,
                             in: 2...14)
 
+                    
+                    
+                    if category == .noBookingZone {
+                        Text("Reservations cannot be created in 'No Booking Zone' times.")
+                            .foregroundColor(.red)
+                            .font(.caption)
+                            .padding(.top, 8)
+                    }
+
+                    // Date Picker and Day Display
+                    DatePicker("Seleziona data", selection: $selectedDate, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                    
+                    Text(formattedDate())
+                        .font(.headline)
+                        .padding(.vertical, 4)
+                    
                     Picker("Categoria", selection: $category) {
                         ForEach(Reservation.ReservationCategory.allCases, id: \.self) { cat in
                             if cat != .noBookingZone {
@@ -41,12 +63,8 @@ struct AddReservationView: View {
                             }
                         }
                     }
-                    
-                    if category == .noBookingZone {
-                        Text("Reservations cannot be created in 'No Booking Zone' times.")
-                            .foregroundColor(.red)
-                            .font(.caption)
-                            .padding(.top, 8)
+                    .onChange(of: category) { _ in
+                        adjustTimesForCategory()
                     }
 
                     if category != .noBookingZone {
@@ -56,10 +74,6 @@ struct AddReservationView: View {
                             }
 
                         EndTimeSelectionView(selectedTime: $endTime, category: category)
-                    } else {
-                        Text("Impossibile inserire prenotazioni in questa categoria.")
-                            .foregroundColor(.red)
-                            .font(.caption)
                     }
                 }
 
@@ -90,15 +104,12 @@ struct AddReservationView: View {
             guard !newStartTime.isEmpty else { return }
             endTime = TimeHelpers.calculateEndTime(startTime: newStartTime, category: category)
         }
-        .onChange(of: category) { newCategory in
-            adjustTimesForCategory()
-        }
     }
-
+    
     private func saveReservation() {
-        let df = DateFormatter()
-        df.dateFormat = "dd/MM/yyyy"
-        let dateString = df.string(from: selectedDate)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM/yyyy"
+        let dateString = formatter.string(from: selectedDate)
 
         store.addReservation(
             name: name,
@@ -115,7 +126,7 @@ struct AddReservationView: View {
         store.saveReservationsToDisk()
         dismiss()
     }
-
+    
     private func adjustTimesForCategory() {
         switch category {
         case .lunch:
@@ -128,5 +139,11 @@ struct AddReservationView: View {
             startTime = "09:00"
             endTime = TimeHelpers.calculateEndTime(startTime: startTime, category: .noBookingZone)
         }
+    }
+    
+    private func formattedDate() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, dd/MM/yyyy"
+        return formatter.string(from: selectedDate)
     }
 }
