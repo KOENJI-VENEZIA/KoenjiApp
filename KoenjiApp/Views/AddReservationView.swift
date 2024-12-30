@@ -138,38 +138,9 @@ struct AddReservationView: View {
             category: category,
             startTime: startTime,
             endTime: endTime,
-            notes: notes.isEmpty ? nil : notes
+            notes: notes.isEmpty ? nil : notes,
+            forcedTable: forcedTable // Pass the forcedTable
         )
-
-        // Assign tables to the last added reservation
-        if let lastReservation = store.reservations.last {
-            let startingTable = forcedTable ?? store.tables.first(where: {
-                !store.isTableOccupied(
-                    $0,
-                    date: selectedDate, // Pass the date as is
-                    startTimeString: startTime, // Pass startTime directly
-                    endTimeString: endTime // Pass endTime directly
-                )
-            }) ?? store.tables.first! // Fallback to the first table if all are occupied
-
-            print("Debug: Assigning tables for reservation \(lastReservation.id). Starting from table: \(startingTable.name)")
-
-            store.assignTables(
-                for: lastReservation.id,
-                startingFrom: startingTable,
-                numberOfPersons: numberOfPersons,
-                dateString: dateString,
-                startTimeString: startTime,
-                endTimeString: endTime
-            )
-
-            // Debug assigned tables
-            if let updatedReservation = store.reservations.first(where: { $0.id == lastReservation.id }) {
-                print("Debug: Tables assigned to reservation \(lastReservation.id): \(updatedReservation.tables.map { $0.name })")
-            }
-        } else {
-            print("Debug: Failed to find the last reservation for table assignment.")
-        }
 
         // Save all reservations to disk
         store.saveReservationsToDisk()
@@ -177,6 +148,7 @@ struct AddReservationView: View {
         // Dismiss the sheet
         dismiss()
     }
+
 
 
 
