@@ -149,8 +149,7 @@ struct ReservationListView: View {
         // *** CHANGED: Add Reservation sheet
         .sheet(isPresented: $showingAddReservation) {
             AddReservationView(
-                selectedDate: searchDate,
-                forcedTable: nil)
+                forcedTable: nil, preselectedDate: searchDate)
                 .environmentObject(store)
         }
         .sheet(item: $currentReservation) { reservation in

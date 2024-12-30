@@ -69,8 +69,8 @@ struct LayoutView: View {
         }
         .sheet(isPresented: $showingAddReservationSheet) {
             AddReservationView(
-                selectedDate: selectedDate,
-                forcedTable: tableForNewReservation
+                forcedTable: tableForNewReservation,
+                preselectedDate: selectedDate
             )
             .environmentObject(store)
         }
