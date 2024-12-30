@@ -5,6 +5,7 @@ struct EditReservationView: View {
     @Environment(\.dismiss) var dismiss
     
     @State var reservation: Reservation
+    @State private var selectedDate: Date = Date() // Default to reservation's current date
     
     var body: some View {
         NavigationView {
@@ -17,6 +18,19 @@ struct EditReservationView: View {
                     Stepper("Numero ospiti: \(reservation.numberOfPersons)",
                             value: $reservation.numberOfPersons,
                             in: 2...14)
+                    
+
+                    
+                    // Date Picker and Day Display
+                    DatePicker("Seleziona data", selection: $selectedDate, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .onChange(of: selectedDate) { newDate in
+                            reservation.dateString = formatDate(newDate)
+                        }
+                    
+                    Text(formattedDate())
+                        .font(.headline)
+                        .padding(.vertical, 4)
                     
                     Picker("Categoria", selection: $reservation.category) {
                         ForEach(Reservation.ReservationCategory.allCases, id: \.self) { cat in
@@ -34,7 +48,7 @@ struct EditReservationView: View {
                     
                     EndTimeSelectionView(selectedTime: $reservation.endTime, category: reservation.category)
                 }
-                
+
                 Section("Note") {
                     TextEditor(text: $reservation.notes.orEmpty())
                         .frame(minHeight: 80)
@@ -55,6 +69,7 @@ struct EditReservationView: View {
             }
             .onAppear {
                 adjustTimesForCategory()
+                loadInitialDate()
             }
         }
     }
@@ -77,5 +92,23 @@ struct EditReservationView: View {
             reservation.startTime = "09:00"
             reservation.endTime = TimeHelpers.calculateEndTime(startTime: reservation.startTime, category: .noBookingZone)
         }
+    }
+    
+    private func loadInitialDate() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM/yyyy"
+        selectedDate = formatter.date(from: reservation.dateString) ?? Date()
+    }
+    
+    private func formattedDate() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, dd/MM/yyyy"
+        return formatter.string(from: selectedDate)
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM/yyyy"
+        return formatter.string(from: date)
     }
 }
