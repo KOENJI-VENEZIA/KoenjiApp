@@ -1,10 +1,3 @@
-//
-//  EditReservationView.swift
-//  KoenjiApp
-//
-//  Created by Matteo Nassini on 28/12/24.
-//
-
 import SwiftUI
 
 struct EditReservationView: View {
@@ -30,18 +23,16 @@ struct EditReservationView: View {
                             Text(cat.rawValue.capitalized).tag(cat)
                         }
                     }
-                    
-                    
-                    // A custom time picker if you want the 15-min increment
+                    .onChange(of: reservation.category) { _ in
+                        adjustTimesForCategory()
+                    }
                     
                     TimeSelectionView(selectedTime: $reservation.startTime, category: reservation.category)
                         .onChange(of: reservation.startTime) { newStartTime in
-                            // Recalculate the end time whenever start time changes
-                            reservation.endTime = TimeHelpers.calculateEndTime(startTime: newStartTime)
+                            reservation.endTime = TimeHelpers.calculateEndTime(startTime: newStartTime, category: reservation.category)
                         }
-                    // End Time Picker
-                    EndTimeSelectionView(selectedTime: $reservation.endTime, category: reservation.category)
                     
+                    EndTimeSelectionView(selectedTime: $reservation.endTime, category: reservation.category)
                 }
                 
                 Section("Note") {
@@ -62,13 +53,29 @@ struct EditReservationView: View {
                     }
                 }
             }
+            .onAppear {
+                adjustTimesForCategory()
+            }
         }
     }
     
     private func saveChanges() {
-        // Just update store
         store.updateReservation(reservation)
         store.saveReservationsToDisk()
         dismiss()
+    }
+    
+    private func adjustTimesForCategory() {
+        switch reservation.category {
+        case .lunch:
+            reservation.startTime = "12:00"
+            reservation.endTime = TimeHelpers.calculateEndTime(startTime: reservation.startTime, category: .lunch)
+        case .dinner:
+            reservation.startTime = "18:00"
+            reservation.endTime = TimeHelpers.calculateEndTime(startTime: reservation.startTime, category: .dinner)
+        case .noBookingZone:
+            reservation.startTime = "09:00"
+            reservation.endTime = TimeHelpers.calculateEndTime(startTime: reservation.startTime, category: .noBookingZone)
+        }
     }
 }
