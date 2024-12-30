@@ -124,7 +124,8 @@ class ReservationStore: ObservableObject {
         category: Reservation.ReservationCategory,
         startTime: String,
         endTime: String,
-        notes: String? = nil
+        notes: String? = nil,
+        forcedTable: TableModel? = nil // Add the forcedTable parameter
     ) {
         let newReservation = Reservation(
             id: UUID(),
@@ -139,21 +140,36 @@ class ReservationStore: ObservableObject {
             tables: [],
             creationDate: Date()
         )
+
+        // Add the new reservation without assigning tables yet
         reservations.append(newReservation)
 
-        // Assign tables immediately
-        if let firstTable = tables.first {
-            assignTables(
-                for: newReservation.id,
-                startingFrom: firstTable,
-                numberOfPersons: numberOfPersons,
-                dateString: date,
-                startTimeString: startTime,
-                endTimeString: endTime
-            )
+        guard let addedReservation = reservations.last else {
+            print("Debug: Failed to add reservation.")
+            return
         }
+
+        let startingTable = forcedTable ?? tables.first(where: {
+            !isTableOccupied($0, date: addedReservation.date ?? Date(), startTimeString: startTime, endTimeString: endTime)
+        }) ?? tables.first!
+
+        print("Debug: Assigning tables for reservation \(addedReservation.id). Starting from table: \(startingTable.name)")
+
+        // Directly assign tables
+        assignTables(
+            for: addedReservation.id,
+            startingFrom: startingTable,
+            numberOfPersons: numberOfPersons,
+            dateString: date,
+            startTimeString: startTime,
+            endTimeString: endTime
+        )
+
+        // Save the state after assigning tables
         saveReservationsToDisk()
     }
+
+
 
     
     func resetLayout(for date: Date, category: Reservation.ReservationCategory) {
@@ -513,7 +529,7 @@ class ReservationStore: ObservableObject {
     // MARK: - Active Reservation
     
     func activeReservation(for table: TableModel, date: Date, time: Date) -> Reservation? {
-        print("Debug: Checking active reservation for table \(table.name) at date \(date), time \(time)")
+
 
         let calendar = Calendar.current
 
@@ -535,7 +551,7 @@ class ReservationStore: ObservableObject {
 
             // Compare the stripped date components
             if queryDateComponents != reservationDateComponents {
-                print("Debug: Date mismatch for reservation \(reservation.id). Reservation date: \(reservationDateComponents), Query date: \(queryDateComponents)")
+ 
                 continue
             }
 
@@ -619,7 +635,6 @@ class ReservationStore: ObservableObject {
             return
         }
 
-        // Convert `dateString` into a `Date` object
         let formatter = DateFormatter()
         formatter.dateFormat = "dd/MM/yyyy"
         guard let reservationDate = formatter.date(from: dateString) else {
@@ -627,39 +642,45 @@ class ReservationStore: ObservableObject {
             return
         }
 
-        // Calculate the number of tables needed based on the max capacity of the forced table
-        let neededCount = Int(ceil(Double(numberOfPersons) / Double(forcedTable.maxCapacity)))
-
-        // Define the preferred order of tables
-        let preferredOrder = [1, 2, 3, 4, 6, 7, 5]
-
-        // Filter available tables, skipping occupied ones
-        let availableTables = preferredOrder.compactMap { tableID in
-            tables.first(where: { table in
-                table.id == tableID &&
-                !isTableOccupied(
-                    table,
-                    date: reservationDate, // Pass converted `Date` for date
-                    startTimeString: startTimeString,
-                    endTimeString: endTimeString
-                )
-            })
-        }
-
-        // Start assigning tables
+        let neededCapacity = numberOfPersons
+        var assignedCapacity = 0
         var assignedTables = [TableModel]()
-        
-        // Add the forcedTable if it is not occupied
+
+        // Handle forced table first
         if !isTableOccupied(forcedTable, date: reservationDate, startTimeString: startTimeString, endTimeString: endTimeString) {
             assignedTables.append(forcedTable)
+            assignedCapacity += forcedTable.maxCapacity
         } else {
             print("Debug: Forced table \(forcedTable.name) is occupied.")
         }
 
-        // Add additional tables from the available tables list to meet the needed count
-        for table in availableTables {
-            if assignedTables.count < neededCount && !assignedTables.contains(where: { $0.id == table.id }) {
+        // Calculate additional tables needed
+        let additionalCapacityNeeded = neededCapacity - assignedCapacity
+
+        if additionalCapacityNeeded > 0 {
+            // Filter available tables in preferred order
+            let preferredOrder = [1, 2, 3, 4, 6, 7, 5]
+            let availableTables = preferredOrder.compactMap { tableID in
+                tables.first(where: { table in
+                    table.id == tableID &&
+                    !isTableOccupied(
+                        table,
+                        date: reservationDate,
+                        startTimeString: startTimeString,
+                        endTimeString: endTimeString
+                    ) &&
+                    !assignedTables.contains(where: { $0.id == table.id }) // Avoid duplicates
+                })
+            }
+            
+            print("Available tables: \(tables.map { $0.name })")
+            print("Filtered tables: \(availableTables.map { $0.name })")
+
+            // Assign additional tables
+            for table in availableTables {
+                if assignedCapacity >= neededCapacity { break }
                 assignedTables.append(table)
+                assignedCapacity += table.maxCapacity
             }
         }
 
@@ -671,12 +692,13 @@ class ReservationStore: ObservableObject {
             markTable(table, occupied: true)
         }
 
-        // Debugging assigned tables
         print("Debug: Assigned tables for reservation \(reservationID): \(assignedTables.map { $0.name })")
 
         // Trigger UI updates
         objectWillChange.send()
     }
+
+
     
     private func layoutKey(for date: Date, category: Reservation.ReservationCategory) -> String {
         let formatter = DateFormatter()
