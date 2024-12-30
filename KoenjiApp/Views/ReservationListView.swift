@@ -48,7 +48,9 @@ struct ReservationListView: View {
                 HStack {
                     if filterPeople == nil {
                         Button("Filtra per Numero Ospiti...") {
-                            filterPeople = 1
+                            withAnimation {
+                                filterPeople = 1
+                            }
                         }
                         .padding(.top, 3)
                         .padding(.leading, 8.5)
@@ -68,7 +70,9 @@ struct ReservationListView: View {
                                 .frame(height: 40)
                         }
                         Button("Rimuovi Filtro") {
-                            filterPeople = nil
+                            withAnimation {
+                                filterPeople = nil
+                            }
                         }
                         .foregroundStyle(.red)
                     }
@@ -79,8 +83,10 @@ struct ReservationListView: View {
                 VStack(alignment: .leading) {
                     if filterStartDate == nil || filterEndDate == nil {
                         Button("Filtra per Intervallo di Date...") {
-                            filterStartDate = Date()
-                            filterEndDate = Date()
+                            withAnimation {
+                                filterStartDate = Date()
+                                filterEndDate = Date()
+                            }
                         }
                         .padding(.top, 3)
                         .padding(.leading, 8.5)
@@ -120,8 +126,10 @@ struct ReservationListView: View {
                             Spacer()
                             
                             Button("Rimuovi Filtro") {
-                                filterStartDate = nil
-                                filterEndDate = nil
+                                withAnimation {
+                                    filterStartDate = nil
+                                    filterEndDate = nil
+                                }
                             }
                             .foregroundStyle(.red)
                         }
@@ -130,6 +138,8 @@ struct ReservationListView: View {
                 }
             }
             .padding()
+            .animation(.easeInOut, value: filterPeople)
+            .animation(.easeInOut, value: filterStartDate)
             
             // Reservation list
             List(selection: $selection) {
