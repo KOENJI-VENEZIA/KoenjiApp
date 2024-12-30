@@ -14,13 +14,13 @@ struct ReservationListView: View {
     @State private var filterPeople: Int? = nil
     @State private var filterStartDate: Date? = nil // Start date for interval
     @State private var filterEndDate: Date? = nil   // End date for interval
-    @State private var selection = Set<UUID>() // multi-select
-    
+    @State private var selection = Set<UUID>() // Multi-select
     @State private var showingAddReservation = false
     @State private var showingNotesAlert = false
     @State private var notesToShow: String = ""
     @State private var currentReservation: Reservation? = nil
-    
+    @State private var selectedReservationID: UUID? = nil // Track tapped entry
+
     var filteredReservations: [Reservation] {
         store.reservations.filter { reservation in
             var matchesFilter = true
@@ -77,7 +77,7 @@ struct ReservationListView: View {
                         .foregroundStyle(.red)
                     }
                 }
-                .padding(.bottom, 8)
+
                 
                 // Date interval filter
                 VStack(alignment: .leading) {
@@ -133,11 +133,11 @@ struct ReservationListView: View {
                             }
                             .foregroundStyle(.red)
                         }
-                        .padding(.top, 8)
                     }
                 }
             }
-            .padding()
+            .padding(.leading)
+            .padding(.trailing)
             .animation(.easeInOut, value: filterPeople)
             .animation(.easeInOut, value: filterStartDate)
             
@@ -157,18 +157,38 @@ struct ReservationListView: View {
                                 .foregroundStyle(.blue)
                         }
                         Spacer()
-                        
+
+                        // Info Button for Notes Popup
                         Button {
-                            currentReservation = reservation
-                            notesToShow = reservation.notes?.isEmpty == false ?
-                                reservation.notes! : "(no further notes)"
+                            if let notes = reservation.notes, !notes.isEmpty {
+                                notesToShow = notes
+                            } else {
+                                notesToShow = "(no further notes)"
+                            }
                             showingNotesAlert = true
                         } label: {
                             Image(systemName: "info.circle")
                         }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .tag(reservation.id)
-                    .contentShape(Rectangle())
+                    .padding()
+                    .background(
+                        selectedReservationID == reservation.id
+                            ? Color.gray.opacity(0.3)
+                            : Color.clear
+                    )
+                    .cornerRadius(8)
+                    .contentShape(Rectangle()) // Ensures the row is tappable outside the button
+                    .onTapGesture {
+                        guard selectedReservationID == nil else { return }
+                        selectedReservationID = reservation.id
+                        withAnimation {
+                            currentReservation = reservation
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            selectedReservationID = nil
+                        }
+                    }
                     .contextMenu {
                         Button("Edit") {
                             currentReservation = reservation
