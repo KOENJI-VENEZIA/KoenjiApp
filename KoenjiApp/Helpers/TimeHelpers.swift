@@ -8,43 +8,29 @@
 import Foundation
 
 struct TimeHelpers {
-    static func calculateEndTime(startTime: String) -> String {
+    static func calculateEndTime(startTime: String, category: Reservation.ReservationCategory) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         formatter.timeZone = TimeZone.current
 
-        
         guard let start = formatter.date(from: startTime) else {
             return startTime
         }
-        
-        let last_full = "13:15"
-        let first_incomplete = "13:30"
-        let second_incomplete = "13:45"
-        
-        guard let last_full_start = formatter.date(from: last_full) else {
-            return last_full
-        }
-        
-        guard let first_incomplete_time = formatter.date(from: first_incomplete) else {
-            return first_incomplete
-        }
-        
-        guard let second_incomplete_time = formatter.date(from: second_incomplete) else {
-            return second_incomplete
-        }
-        
-        var end = Date()
-        
-        if start == first_incomplete_time {
-            end = Calendar.current.date(byAdding: .minute, value: 90, to: start) ?? start
-        } else if start == second_incomplete_time {
-            end = Calendar.current.date(byAdding: .minute, value: 75, to: start) ?? start
-        } else {
-            end = Calendar.current.date(byAdding: .minute, value: 105, to: start) ?? start
-        }
+
+        // Define category-specific time constraints
+        let lastLunchTime = formatter.date(from: "15:00")!
+        let lastDinnerTime = formatter.date(from: "23:45")!
+        let maxEndTime = category == .lunch ? lastLunchTime : lastDinnerTime
+
+        // Adjust end time based on start time
+        var end = Calendar.current.date(byAdding: .minute, value: 105, to: start) ?? start
+
+        // Ensure the calculated end time does not exceed the maximum allowed time
+        end = min(end, maxEndTime)
+
         return formatter.string(from: end)
     }
+
     
     static func remainingTimeString(endTime: String, currentTime: Date) -> String? {
         let formatter = DateFormatter()
