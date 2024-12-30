@@ -12,12 +12,11 @@ struct ReservationListView: View {
     
     @State private var searchDate = Date()
     @State private var filterPeople: Int? = nil
+    @State private var filterStartDate: Date? = nil // Start date for interval
+    @State private var filterEndDate: Date? = nil   // End date for interval
     @State private var selection = Set<UUID>() // multi-select
     
-    // *** CHANGED: Add sheet presentation to add a reservation
     @State private var showingAddReservation = false
-    
-    // For displaying notes in a popup
     @State private var showingNotesAlert = false
     @State private var notesToShow: String = ""
     @State private var currentReservation: Reservation? = nil
@@ -25,10 +24,14 @@ struct ReservationListView: View {
     var filteredReservations: [Reservation] {
         store.reservations.filter { reservation in
             var matchesFilter = true
-            // Filter by date
-
             
-            // Filter by # people if set
+            // Filter by date interval if set
+            if let start = filterStartDate, let end = filterEndDate {
+                guard let reservationDate = reservation.date else { return false }
+                matchesFilter = matchesFilter && (reservationDate >= start && reservationDate <= end)
+            }
+            
+            // Filter by guest number if set
             if let filterP = filterPeople {
                 matchesFilter = matchesFilter && (reservation.numberOfPersons == filterP)
             }
@@ -37,54 +40,98 @@ struct ReservationListView: View {
         }
     }
     
-    struct TestToolbar: View {
-        var body: some View {
-            NavigationView {
-                Text("Hello, toolbar!")
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("OK") {}
-                        }
-                    }
-            }
-        }
-    }
-    
     var body: some View {
         VStack {
             // Filter controls
-            HStack {
-                if filterPeople == nil {
-                    Button("Filtra per Numero Ospiti...") {
-                        filterPeople = 1
-                    }
-                    .padding(.top, 3)
-                    .padding(.leading, 8.5)
-                    .frame(height: 40)
-
-                }
-                
-                Spacer()
-                
-                if filterPeople != nil {
-                Stepper(value: Binding(
-                    get: { filterPeople ?? 1 },
-                    set: { newValue in
-                        filterPeople = newValue
-                    }
-                ), in: 1...14, step: 1) {
-                    Text(filterPeople ?? 1 < 14 ? "Filtra per Numero Ospiti: da \(filterPeople ?? 1) in su" : "Filtra per Numero Ospiti: \(filterPeople ?? 1)")
+            VStack(alignment: .leading) {
+                // Guest number filter
+                HStack {
+                    if filterPeople == nil {
+                        Button("Filtra per Numero Ospiti...") {
+                            filterPeople = 1
+                        }
+                        .padding(.top, 3)
+                        .padding(.leading, 8.5)
                         .frame(height: 40)
-                }
-                    Button("Rimuovi Filtro") {
-                        filterPeople = nil
                     }
-                    .foregroundStyle(.red)
+                    
+                    Spacer()
+                    
+                    if filterPeople != nil {
+                        Stepper(value: Binding(
+                            get: { filterPeople ?? 1 },
+                            set: { newValue in
+                                filterPeople = newValue
+                            }
+                        ), in: 1...14, step: 1) {
+                            Text(filterPeople ?? 1 < 14 ? "Filtra per Numero Ospiti: da \(filterPeople ?? 1) in su" : "Filtra per Numero Ospiti: \(filterPeople ?? 1)")
+                                .frame(height: 40)
+                        }
+                        Button("Rimuovi Filtro") {
+                            filterPeople = nil
+                        }
+                        .foregroundStyle(.red)
+                    }
+                }
+                .padding(.bottom, 8)
+                
+                // Date interval filter
+                VStack(alignment: .leading) {
+                    if filterStartDate == nil || filterEndDate == nil {
+                        Button("Filtra per Intervallo di Date...") {
+                            filterStartDate = Date()
+                            filterEndDate = Date()
+                        }
+                        .padding(.top, 3)
+                        .padding(.leading, 8.5)
+                        .frame(height: 40)
+                    }
+                    
+                    if filterStartDate != nil && filterEndDate != nil {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text("Da data:")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                DatePicker("", selection: Binding(
+                                    get: { filterStartDate ?? Date() },
+                                    set: { newValue in
+                                        filterStartDate = newValue
+                                    }
+                                ), displayedComponents: .date)
+                                .labelsHidden()
+                                .datePickerStyle(.compact)
+                            }
+                            
+                            VStack(alignment: .leading) {
+                                Text("A data:")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                DatePicker("", selection: Binding(
+                                    get: { filterEndDate ?? Date() },
+                                    set: { newValue in
+                                        filterEndDate = newValue
+                                    }
+                                ), displayedComponents: .date)
+                                .labelsHidden()
+                                .datePickerStyle(.compact)
+                            }
+                            
+                            Spacer()
+                            
+                            Button("Rimuovi Filtro") {
+                                filterStartDate = nil
+                                filterEndDate = nil
+                            }
+                            .foregroundStyle(.red)
+                        }
+                        .padding(.top, 8)
+                    }
                 }
             }
             .padding()
             
-            
+            // Reservation list
             List(selection: $selection) {
                 ForEach(filteredReservations) { reservation in
                     HStack {
@@ -101,7 +148,6 @@ struct ReservationListView: View {
                         }
                         Spacer()
                         
-                        // *** CHANGED: The "i" button to show notes popup
                         Button {
                             currentReservation = reservation
                             notesToShow = reservation.notes?.isEmpty == false ?
@@ -113,12 +159,9 @@ struct ReservationListView: View {
                     }
                     .tag(reservation.id)
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        currentReservation = reservation
-                    }
                     .contextMenu {
                         Button("Edit") {
-                            // show edit
+                            currentReservation = reservation
                         }
                         Button("Delete", role: .destructive) {
                             if let idx = store.reservations.firstIndex(where: { $0.id == reservation.id }) {
@@ -130,10 +173,8 @@ struct ReservationListView: View {
                 .onDelete(perform: delete)
             }
             .navigationTitle("Tutte le prenotazioni")
-            
         }
         .toolbar {
-            // *** CHANGED: Add a "+" button
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     showingAddReservation = true
@@ -146,26 +187,19 @@ struct ReservationListView: View {
                 EditButton()
             }
         }
-        // *** CHANGED: Add Reservation sheet
         .sheet(isPresented: $showingAddReservation) {
-            AddReservationView(
-                forcedTable: nil, preselectedDate: searchDate)
+            AddReservationView(forcedTable: nil, preselectedDate: searchDate)
                 .environmentObject(store)
         }
         .sheet(item: $currentReservation) { reservation in
             EditReservationView(reservation: reservation)
                 .environmentObject(store)
         }
-        // *** CHANGED: Show notes popup
-        .alert("Notes", isPresented: $showingNotesAlert, actions: {
-            Button("Edit") {
-                // If you have an EditReservationView or you want to inline-edit the notes
-                // you can present a sheet or do inline editing
-            }
+        .alert("Notes", isPresented: $showingNotesAlert) {
             Button("OK", role: .cancel) { }
-        }, message: {
+        } message: {
             Text(notesToShow)
-        })
+        }
     }
     
     private func delete(at offsets: IndexSet) {
