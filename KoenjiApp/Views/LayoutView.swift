@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
+    @Namespace private var animationNamespace
 
     // Use the LayoutViewModel for manual dragging logic + pop-up alerts
     @StateObject private var layoutVM: LayoutViewModel
@@ -192,6 +193,8 @@ struct LayoutView: View {
             isLayoutLocked: isLayoutLocked
         )
         .environmentObject(store)
+        .matchedGeometryEffect(id: table.id, in: animationNamespace)
+
     }
 
     private var unlockButton: some View {

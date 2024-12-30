@@ -2,6 +2,7 @@
 //  ReservationStore.swift
 //  KoenjiApp
 //
+import Foundation
 
 import SwiftUI
 
@@ -14,6 +15,8 @@ class ReservationStore: ObservableObject {
     }
     
     @Published var tableAnimationState: [Int: Bool] = [:] // Track animation state for tables
+    @Published var currentlyDraggedTableID: Int? = nil
+    
 
     
     @Published var isSidebarVisible = true
@@ -218,11 +221,11 @@ class ReservationStore: ObservableObject {
     /// Moves a table to (toRow, toCol) if no overlap with other tables, allowing fine-tuning within its own cells.
     /// If the new position completely overlaps another table of the same size, perform a swap.
     enum MoveResult {
-        case move
-        case swap(swappedTableID: Int) // Include swapped table ID
-        case invalid
-    }
-
+           case move
+           case swap(swappedTableID: Int)
+           case invalid
+       }
+       
     func moveTable(_ table: TableModel, toRow: Int, toCol: Int) -> MoveResult {
         let maxRow = totalRows - table.height
         let maxCol = totalColumns - table.width
@@ -246,22 +249,31 @@ class ReservationStore: ObservableObject {
                 print("moveTable: Found overlapping table \(otherTable.name) at (\(otherTable.row), \(otherTable.column))")
 
                 // Attempt to swap
-                if swapTables(table, otherTable) {
+                let swapResult = swapTables(table, otherTable)
+                switch swapResult {
+                case .swap(let swappedID):
                     print("moveTable: Swapped \(table.name) with \(otherTable.name) successfully.")
-                    return .swap(swappedTableID: otherTable.id)
-                } else {
+                    return .swap(swappedTableID: swappedID)
+                case .invalid:
                     // Swap failed; re-mark the original table's position
                     markTable(table, occupied: true)
                     print("moveTable: Swap failed. \(table.name) reverted to original position.")
                     return .invalid
+                case .move:
+                    // This case shouldn't occur here, but handle it gracefully
+                    markTable(newTable, occupied: true)
+                    print("moveTable: Unexpected move result.")
+                    return .move
                 }
             }
 
             // No overlap; perform a normal move
-            markTable(newTable, occupied: true)
-            if let idx = tables.firstIndex(where: { $0.id == table.id }) {
-                tables[idx] = newTable
+            withAnimation(.easeInOut(duration: 0.3)) {
+                if let idx = tables.firstIndex(where: { $0.id == table.id }) {
+                    tables[idx] = newTable
+                }
             }
+            markTable(newTable, occupied: true)
             saveToDisk()
             print("moveTable: Moved \(table.name) to (\(clampedRow), \(clampedCol)) successfully.")
             return .move
@@ -272,7 +284,6 @@ class ReservationStore: ObservableObject {
             return .invalid
         }
     }
-
 
 
 
@@ -309,72 +320,84 @@ class ReservationStore: ObservableObject {
     /// Swaps the positions of two tables if the swap does not cause overlaps with other tables.
     /// Swaps the positions of two tables if the swap does not cause overlaps with other tables.
     /// Swaps the positions of two tables if the swap does not cause overlaps with other tables.
-    func swapTables(_ tableA: TableModel, _ tableB: TableModel) -> Bool {
-            print("swapTables: Initiating swap between \(tableA.name) and \(tableB.name)")
-            
-            // Unmark both tables from their current positions
-            unmarkTable(tableA)
-            unmarkTable(tableB)
-
-            // Swap their positions
-            let swappedRowA = tableB.row
-            let swappedColA = tableB.column
-            let swappedRowB = tableA.row
-            let swappedColB = tableA.column
-
-            var swappedTableA = tableA
-            swappedTableA.row = swappedRowA
-            swappedTableA.column = swappedColA
-
-            var swappedTableB = tableB
-            swappedTableB.row = swappedRowB
-            swappedTableB.column = swappedColB
-
-            // Temporarily update the tables array
-            if let indexA = tables.firstIndex(where: { $0.id == tableA.id }) {
-                tables[indexA] = swappedTableA
-            }
-            if let indexB = tables.firstIndex(where: { $0.id == tableB.id }) {
-                tables[indexB] = swappedTableB
-            }
-
-            // Validate the swap
-            if canPlaceTable(swappedTableA) && canPlaceTable(swappedTableB) {
-                markTable(swappedTableA, occupied: true)
-                markTable(swappedTableB, occupied: true)
-
-                // Set animation state for both tables
-                tableAnimationState[tableA.id] = true
-                tableAnimationState[tableB.id] = true
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.tableAnimationState[tableA.id] = false
-                    self.tableAnimationState[tableB.id] = false
-                }
-
-                saveToDisk()
-                print("swapTables: Swap successful between \(tableA.name) and \(tableB.name).")
-                return true
-            } else {
-                // Revert positions
-                if let indexA = tables.firstIndex(where: { $0.id == tableA.id }) {
-                    tables[indexA] = tableA
-                }
-                if let indexB = tables.firstIndex(where: { $0.id == tableB.id }) {
-                    tables[indexB] = tableB
-                }
-                markTable(tableA, occupied: true)
-                markTable(tableB, occupied: true)
-                return false
-            }
+    func swapTables(_ tableA: TableModel, _ tableB: TableModel) -> MoveResult {
+        print("swapTables: Initiating swap between \(tableA.name) and \(tableB.name)")
+        
+        // Unmark both tables from their current positions
+        unmarkTable(tableA)
+        unmarkTable(tableB)
+        print("swapTables: Unmarked \(tableA.name) and \(tableB.name) from grid.")
+        
+        // Swap their row and column positions
+        let swappedRowA = tableB.row
+        let swappedColA = tableB.column
+        let swappedRowB = tableA.row
+        let swappedColB = tableA.column
+        
+        var swappedTableA = tableA
+        swappedTableA.row = swappedRowA
+        swappedTableA.column = swappedColA
+        
+        var swappedTableB = tableB
+        swappedTableB.row = swappedRowB
+        swappedTableB.column = swappedColB
+        
+        print("swapTables: Swapped coordinates - \(swappedTableA.name): (\(swappedTableA.row), \(swappedTableA.column)), \(swappedTableB.name): (\(swappedTableB.row), \(swappedTableB.column))")
+        
+        // **1. Safely Retrieve Indexes Before Animation**
+        // Use guard statements to ensure both tables exist in the `tables` array.
+        guard let indexA = tables.firstIndex(where: { $0.id == tableA.id }) else {
+            print("swapTables: Table \(tableA.name) not found in tables array.")
+            return .invalid
         }
+        
+        guard let indexB = tables.firstIndex(where: { $0.id == tableB.id }) else {
+            print("swapTables: Table \(tableB.name) not found in tables array.")
+            return .invalid
+        }
+        
+        // **2. Update Table Positions**
 
+        withAnimation(.easeInOut(duration: 0.6)) {
+            tables[indexA] = swappedTableA
+            tables[indexB] = swappedTableB
+        }
+        
+        // **3. Validate the New Positions**
+        if canPlaceTable(swappedTableA) && canPlaceTable(swappedTableB) {
+            // Mark new positions in the grid.
+            markTable(swappedTableA, occupied: true)
+            markTable(swappedTableB, occupied: true)
+            print("swapTables: Marked swapped positions in grid.")
+        
+            // **4. Trigger Flash Animation for the Swapped Table Only**
+            triggerFlashAnimation(for: swappedTableA.id)
+            triggerFlashAnimation(for: swappedTableB.id)
+        
+            // Save the updated layout.
+            saveToDisk()
+            print("swapTables: Swap successful between \(swappedTableA.name) and \(swappedTableB.name).")
+            return .swap(swappedTableID: swappedTableB.id)
+        } else {
+            // **5. Handle Invalid Swap: Revert Changes**
+            print("swapTables: Swap invalid. Reverting tables to original positions.")
+            
+            // Revert tableA's position without animation.
 
-
-
-
-
-
+            
+            // Revert tableB's position with animation.
+            withAnimation(.easeInOut(duration: 0.6)) {
+                tables[indexA] = tableA
+                tables[indexB] = tableB
+            }
+            
+            // Re-mark original positions in the grid.
+            markTable(tableA, occupied: true)
+            markTable(tableB, occupied: true)
+            print("swapTables: Re-marked original positions in grid.")
+            return .invalid
+        }
+    }
 
     
     // MARK: - Intersection / Overlap
@@ -809,5 +832,20 @@ extension ReservationStore {
     private func getReservationsFileURL() -> URL {
         let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         return documentDirectory.appendingPathComponent(reservationsFileName)
+    }
+}
+
+extension ReservationStore {
+    func triggerFlashAnimation(for tableID: Int) {
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.3)) { // Adjusted duration
+                self.tableAnimationState[tableID] = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { // Match the duration
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self.tableAnimationState[tableID] = false
+                }
+            }
+        }
     }
 }
