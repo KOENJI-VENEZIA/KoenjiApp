@@ -97,11 +97,6 @@ struct LayoutView: View {
                 }
                 .clipped() // Ensures content doesn’t overflow the parent view
 
-                HStack {
-                    unlockButton
-                    resetButton
-                    resetZoomButton // Newly added reset zoom button
-                }
             }
             .dynamicBackground(light: Color.gray, dark: Color.black)
 
@@ -109,6 +104,34 @@ struct LayoutView: View {
         }
         .dynamicBackground(light: Color(hex: "#BFC3E3"), dark: Color(hex: "#4A4E6D"))
         .italianLocale()
+        .toolbar {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button(action: {
+                    isLayoutLocked.toggle()
+                }) {
+                    Image(systemName: isLayoutLocked ? "lock.fill" : "lock.open.fill")
+                }
+                .accessibilityLabel(isLayoutLocked ? "Unlock Layout" : "Lock Layout")
+
+                Button(action: {
+                    store.resetLayout(for: selectedDate, category: selectedCategory ?? .lunch)
+                    layoutVM.tables = store.tables
+                    isLayoutLocked = true
+                }) {
+                    Image(systemName: "arrow.counterclockwise.circle")
+                }
+                .accessibilityLabel("Reset Layout")
+
+                Button(action: {
+                    withAnimation {
+                        NotificationCenter.default.post(name: .resetZoom, object: nil)
+                    }
+                }) {
+                    Image(systemName: "arrow.up.left.and.down.right.magnifyingglass")
+                }
+                .accessibilityLabel("Reset Zoom")
+            }
+        }
         .sheet(item: $selectedReservation) { reservation in
             EditReservationView(reservation: reservation)
                 .environmentObject(store)
@@ -253,33 +276,6 @@ struct LayoutView: View {
         .matchedGeometryEffect(id: table.id, in: animationNamespace)
     }
 
-    private var unlockButton: some View {
-        Button(action: {
-            isLayoutLocked.toggle()
-        }) {
-            Image(systemName: isLayoutLocked ? "lock.fill" : "lock.open.fill")
-                .resizable()
-                .frame(width: 44, height: 44)
-                .padding()
-                .foregroundColor(isLayoutLocked ? .red : .green)
-        }
-        .padding(16)
-    }
-
-    private var resetButton: some View {
-        Button(action: {
-            store.resetLayout(for: selectedDate, category: selectedCategory ?? .lunch)
-            layoutVM.tables = store.tables
-            isLayoutLocked = true
-        }) {
-            Image(systemName: "arrow.counterclockwise.circle.fill")
-                .resizable()
-                .frame(width: 44, height: 44)
-                .padding()
-                .foregroundColor(.blue)
-        }
-        .padding(16)
-    }
 
     private var datePicker: some View {
         VStack(alignment: .leading) {
