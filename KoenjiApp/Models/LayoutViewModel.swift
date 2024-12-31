@@ -14,7 +14,7 @@ class LayoutViewModel: ObservableObject {
 
     // MARK: - Grid / Cell size
     /// The cell size in our grid. You can adjust this for spacing and layout dimensions.
-    let cellSize: CGFloat = 45
+    let cellSize: CGFloat = 40
 
     /// The set of tables that the view should display
     @Published var tables: [TableModel] = [] {
