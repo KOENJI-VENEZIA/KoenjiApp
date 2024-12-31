@@ -36,7 +36,8 @@ struct LayoutView: View {
     @State private var tableForNewReservation: TableModel? = nil
 
     // MARK: - Cell Size (for each grid cell)
-    private let cellSize: CGFloat = 45
+    private let cellSize: CGFloat = 40
+   
 
     // MARK: - Zoom and Pan State
     // No longer needed as UIScrollView manages zooming and panning
@@ -64,18 +65,20 @@ struct LayoutView: View {
             
             ZStack(alignment: .bottomTrailing) {
                 GeometryReader { geometry in
-                    ZoomableScrollView (zoomScale: $zoomScale) {
+                    let totalWidth = CGFloat(store.totalColumns) * layoutVM.cellSize
+                    let totalHeight = CGFloat(store.totalRows) * layoutVM.cellSize
+                    ZoomableScrollView(zoomScale: $zoomScale, contentSize: CGSize(width: totalWidth, height: totalHeight)) {
                         ZStack {
                             gridBackground
 
-                            ForEach(layoutVM.tables) { table in
+                            ForEach(layoutVM.tables, id: \.id) { table in
                                 let rect = layoutVM.calculateTableRect(for: table)
                                 tableView(table: table, zoomScale: zoomScale, rect: rect, isLayoutLocked: isLayoutLocked)
                             }
                         }
                         .frame(
-                            width: CGFloat(store.totalColumns) * layoutVM.cellSize,
-                            height: CGFloat(store.totalRows) * layoutVM.cellSize
+                            width: totalWidth,
+                            height: totalHeight
                         )
                     }
                     .onAppear {
@@ -98,7 +101,7 @@ struct LayoutView: View {
                 .clipped() // Ensures content doesn’t overflow the parent view
 
             }
-            .dynamicBackground(light: Color.gray, dark: Color.black)
+            .dynamicBackground(light: Color.white, dark: Color.black)
 
             Spacer()
         }
@@ -239,42 +242,136 @@ struct LayoutView: View {
     }
 
     private var gridBackground: some View {
-        GeometryReader { _ in
+        GeometryReader { geometry in
             let rows = store.totalRows
             let cols = store.totalColumns
             let cellSize = layoutVM.cellSize
+            let totalWidth = CGFloat(cols) * cellSize
+            let totalHeight = CGFloat(rows) * cellSize
 
-            VStack(spacing: 0) {
-                ForEach(0..<rows, id: \.self) { _ in
-                    HStack(spacing: 0) {
-                        ForEach(0..<cols, id: \.self) { _ in
-                            Rectangle()
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                .frame(width: cellSize, height: cellSize)
-                        }
+            ZStack {
+                // Outer Border with Windows
+                Path { path in
+                    // Top Border
+                    addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: 0), to: CGPoint(x: totalWidth - 1, y: 0), windows: [(2, 5), (14, 17)], isThick: true)
+                    // Right Border
+                    addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth, y: 0), to: CGPoint(x: totalWidth, y: totalHeight - 1), windows: [(4, 7)], isThick: true)
+                    // Left Border
+                    addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: totalHeight - 1), to: CGPoint(x: 0, y: 0), windows: [], isThick: true)
+
+                    // Bottom Border
+                    addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth - 1, y: totalHeight), to: CGPoint(x: 0, y: totalHeight), windows: [(3, 7)], isThick: true)
+                }
+                .stroke(
+                    dynamicColor(light: .gray, dark: .gray),
+                    style: StrokeStyle(
+                        lineWidth: 4
+                    )
+                )
+                
+                Path { path in
+                    // Top Border
+                    addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: 0), to: CGPoint(x: totalWidth, y: 0), windows: [(2, 5), (14, 17)], isThick: false)
+                    // Right Border
+                    addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth, y: 0), to: CGPoint(x: totalWidth, y: totalHeight), windows: [(4, 7)], isThick: false)
+                    // Left Border
+                    addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: totalHeight - 1), to: CGPoint(x: 0, y: 0), windows: [], isThick: false)
+
+                    // Bottom Border
+                    addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth - 1, y: totalHeight), to: CGPoint(x: 0, y: totalHeight), windows: [(3, 7)], isThick: false)
+                }
+                .stroke(
+                    dynamicColor(light: .gray, dark: .gray),
+                    style: StrokeStyle(
+                        lineWidth: 2,
+                        dash: [6, 4]
+                    )
+                )
+
+                // Inner Grid Lines
+                Path { path in
+                    // Horizontal Inner Grid Lines
+                    for row in 1..<rows {
+                        let y = CGFloat(row) * cellSize
+                        path.move(to: CGPoint(x: 0, y: y))
+                        path.addLine(to: CGPoint(x: totalWidth, y: y))
+                    }
+
+                    // Vertical Inner Grid Lines
+                    for col in 1..<cols {
+                        let x = CGFloat(col) * cellSize
+                        path.move(to: CGPoint(x: x, y: 0))
+                        path.addLine(to: CGPoint(x: x, y: totalHeight))
                     }
                 }
+                .stroke(
+                    dynamicColor(light: Color(hex: "#545454"), dark: Color(hex: "#c2c0c0")),
+                    style: StrokeStyle(
+                        lineWidth: 1,
+                        dash: [6, 4]
+                    )
+                )
+            }
+            .frame(width: totalWidth, height: totalHeight)
+        }
+    }
+
+    private func addBorderWithWindows(
+        to path: inout Path,
+        from start: CGPoint,
+        to end: CGPoint,
+        windows: [(Int, Int)],
+        isThick: Bool
+    ) {
+        let isHorizontal = start.y == end.y
+        let length = isHorizontal ? abs(end.x - start.x) : abs(end.y - start.y)
+        let direction = isHorizontal ? (end.x > start.x ? 1 : -1) : (end.y > start.y ? 1 : -1)
+        let stepSize = layoutVM.cellSize
+
+        for step in stride(from: 0, through: Int(length / stepSize), by: 1) {
+            let inWindow = windows.contains { window in
+                step >= window.0 && step <= window.1
+            }
+
+            if (inWindow && !isThick) || (!inWindow && isThick) {
+                let segmentStart = isHorizontal
+                    ? CGPoint(x: start.x + CGFloat(step) * stepSize * CGFloat(direction), y: start.y)
+                    : CGPoint(x: start.x, y: start.y + CGFloat(step) * stepSize * CGFloat(direction))
+                let segmentEnd = isHorizontal
+                    ? CGPoint(x: start.x + CGFloat(step + 1) * stepSize * CGFloat(direction), y: start.y)
+                    : CGPoint(x: start.x, y: start.y + CGFloat(step + 1) * stepSize * CGFloat(direction))
+
+                path.move(to: segmentStart)
+                path.addLine(to: segmentEnd)
             }
         }
     }
 
+
+
+
+
     @ViewBuilder
     private func tableView(table: TableModel, zoomScale: CGFloat, rect: CGRect, isLayoutLocked: Bool) -> some View {
-        TableDragView(
-            table: table,
-            zoomScale: zoomScale,
-            selectedDate: selectedDate,
-            selectedCategory: selectedCategory ?? .lunch,
-            currentTime: currentTime,
-            layoutVM: layoutVM,
-            showingNoBookingAlert: $showingNoBookingAlert,
-            onTapEmpty: { handleEmptyTableTap(for: table) },
-            onEditReservation: { reservation in selectedReservation = reservation },
-            isLayoutLocked: isLayoutLocked
-        )
-        .environmentObject(store)
-        .matchedGeometryEffect(id: table.id, in: animationNamespace)
+        if layoutVM.draggingTable?.id != table.id {
+            TableDragView(
+                table: table,
+                zoomScale: zoomScale,
+                selectedDate: selectedDate,
+                selectedCategory: selectedCategory ?? .lunch,
+                currentTime: currentTime,
+                layoutVM: layoutVM,
+                showingNoBookingAlert: $showingNoBookingAlert,
+                onTapEmpty: { handleEmptyTableTap(for: table) },
+                onEditReservation: { reservation in selectedReservation = reservation },
+                isLayoutLocked: isLayoutLocked
+            )
+            .environmentObject(store)
+            .matchedGeometryEffect(id: table.id, in: animationNamespace)
+        }
     }
+
+
 
 
     private var datePicker: some View {
@@ -355,21 +452,6 @@ struct LayoutView: View {
         .foregroundColor(selectedCategory == .noBookingZone ? .gray : .blue)
     }
     
-    private var resetZoomButton: some View {
-        Button(action: {
-            withAnimation {
-                // Reset the zoom scale and center the grid
-                NotificationCenter.default.post(name: .resetZoom, object: nil)
-            }
-        }) {
-            Image(systemName: "arrow.up.left.and.down.right.magnifyingglass")
-                .resizable()
-                .frame(width: 44, height: 44)
-                .padding()
-                .foregroundColor(.orange)
-        }
-        .padding(16)
-    }
 
     private func handleEmptyTableTap(for table: TableModel) {
         tableForNewReservation = table
