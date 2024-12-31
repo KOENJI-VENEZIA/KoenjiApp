@@ -358,57 +358,47 @@ class ReservationStore: ObservableObject {
         swappedTableB.row = swappedRowB
         swappedTableB.column = swappedColB
         
-        print("swapTables: Swapped coordinates - \(swappedTableA.name): (\(swappedTableA.row), \(swappedTableA.column)), \(swappedTableB.name): (\(swappedTableB.row), \(swappedTableB.column))")
-        
-        // **1. Safely Retrieve Indexes Before Animation**
-        // Use guard statements to ensure both tables exist in the `tables` array.
-        guard let indexA = tables.firstIndex(where: { $0.id == tableA.id }) else {
-            print("swapTables: Table \(tableA.name) not found in tables array.")
+        // Safely retrieve indexes
+        guard let indexA = tables.firstIndex(where: { $0.id == tableA.id }),
+              let indexB = tables.firstIndex(where: { $0.id == tableB.id }) else {
+            print("swapTables: One of the tables not found in the tables array.")
             return .invalid
         }
         
-        guard let indexB = tables.firstIndex(where: { $0.id == tableB.id }) else {
-            print("swapTables: Table \(tableB.name) not found in tables array.")
-            return .invalid
-        }
-        
-        // **2. Update Table Positions**
+        // Update positions and validate
         tables[indexA] = swappedTableA
         tables[indexB] = swappedTableB
 
-        
-        // **3. Validate the New Positions**
         if canPlaceTable(swappedTableA) && canPlaceTable(swappedTableB) {
-            // Mark new positions in the grid.
+            // Mark new positions in the grid
             markTable(swappedTableA, occupied: true)
             markTable(swappedTableB, occupied: true)
-            print("swapTables: Marked swapped positions in grid.")
-        
-            // **4. Trigger Flash Animation for the Swapped Table Only**
+            
+            // Trigger the flash animations for both tables
             triggerFlashAnimation(for: swappedTableA.id)
             triggerFlashAnimation(for: swappedTableB.id)
-        
-            // Save the updated layout.
+            
+            // Use `withAnimation` to animate the swap
+            withAnimation(.easeInOut(duration: 0.5)) {
+                objectWillChange.send()
+            }
+            
+            // Save the updated layout
             saveToDisk()
             print("swapTables: Swap successful between \(swappedTableA.name) and \(swappedTableB.name).")
             return .swap(swappedTableID: swappedTableB.id)
         } else {
-            // **5. Handle Invalid Swap: Revert Changes**
-            print("swapTables: Swap invalid. Reverting tables to original positions.")
-            
-            // Revert tableA's position without animation.
-
+            // Revert changes if the swap is invalid
             tables[indexA] = tableA
             tables[indexB] = tableB
-
             
-            // Re-mark original positions in the grid.
             markTable(tableA, occupied: true)
             markTable(tableB, occupied: true)
-            print("swapTables: Re-marked original positions in grid.")
+            print("swapTables: Swap invalid. Reverted changes.")
             return .invalid
         }
     }
+
 
     
     // MARK: - Intersection / Overlap
@@ -862,11 +852,11 @@ extension ReservationStore {
 extension ReservationStore {
     func triggerFlashAnimation(for tableID: Int) {
         DispatchQueue.main.async {
-            withAnimation(.easeIn(duration: 0.3)) { // Adjusted duration
+            withAnimation(.easeInOut(duration: 0.5)) { // Adjusted duration
                 self.tableAnimationState[tableID] = true
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { // Match the duration
-                withAnimation(.easeIn(duration: 0.3)) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { // Match the duration
+                withAnimation(.easeInOut(duration: 0.5)) {
                     self.tableAnimationState[tableID] = false
                 }
             }
