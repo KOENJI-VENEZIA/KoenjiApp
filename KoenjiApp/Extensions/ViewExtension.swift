@@ -47,22 +47,70 @@ extension Color {
 /// A ViewModifier that applies a dynamic background color based on the system's color scheme.
 struct ColorSchemeBackgroundModifier: ViewModifier {
     @Environment(\.colorScheme) var colorScheme
+    
+    /// The background color determined by the current color scheme.
+    private var backgroundColor: Color {
+        // Replace the hex codes with your desired colors for light and dark modes
+        colorScheme == .light ? Color(hex: "#BFC3E3") : Color(hex: "#2F334C")
+    }
+    
+    func body(content: Content) -> some View {
+        content
+            .background(backgroundColor) // Apply the dynamic background color
+    }
+}
+
+// MARK: - ViewModifier to Override Locale to Italian
+
+/// A ViewModifier that overrides the system locale to Italian.
+struct ItalianLocaleModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .environment(\.locale, Locale(identifier: "it_IT")) // Set locale to Italian
+    }
+}
+
+// MARK: - View Extensions for Easy Modifier Application
+
+extension View {
+    /// Applies a dynamic background color based on the system's color scheme.
+    /// - Returns: A view with the dynamic background color applied.
+    func dynamicBackground() -> some View {
+        self.modifier(ColorSchemeBackgroundModifier())
+    }
+    
+    /// Applies a dynamic background color based on the system's color scheme with custom light and dark colors.
+    /// - Parameters:
+    ///   - light: The color to use in light mode.
+    ///   - dark: The color to use in dark mode.
+    /// - Returns: A view with the dynamic background color applied.
+    func dynamicBackground(light: Color, dark: Color) -> some View {
+        self.modifier(ColorSchemeBackgroundModifierCustom(lightColor: light, darkColor: dark))
+    }
+    
+    /// Overrides the system locale to Italian for system-generated text.
+    /// - Returns: A view with the Italian locale applied.
+    func italianLocale() -> some View {
+        self.modifier(ItalianLocaleModifier())
+    }
+    
+    /// Applies both dynamic background and Italian locale modifiers.
+    /// - Returns: A view with both modifiers applied.
+    func applyCustomStyles() -> some View {
+        self
+            .dynamicBackground()
+            .italianLocale()
+    }
+}
+
+/// A ViewModifier that applies a dynamic background color based on the system's color scheme with custom colors.
+struct ColorSchemeBackgroundModifierCustom: ViewModifier {
+    @Environment(\.colorScheme) var colorScheme
     var lightColor: Color
     var darkColor: Color
     
     func body(content: Content) -> some View {
         content
             .background(colorScheme == .light ? lightColor : darkColor)
-    }
-}
-
-extension View {
-    /// Applies a dynamic background color based on the system's color scheme.
-    /// - Parameters:
-    ///   - light: The color to use in light mode.
-    ///   - dark: The color to use in dark mode.
-    /// - Returns: A view with the dynamic background color applied.
-    func dynamicBackground(light: Color, dark: Color) -> some View {
-        self.modifier(ColorSchemeBackgroundModifier(lightColor: light, darkColor: dark))
     }
 }

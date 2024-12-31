@@ -11,8 +11,7 @@ struct MyReservationApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(store)
+            ContentViewWrapper()
                 .onAppear {
                     print("App appearing. Loading data...")
                     // Data loading already handled by ReservationStore initializer

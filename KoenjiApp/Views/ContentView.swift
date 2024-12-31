@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject var store = ReservationStore() // Create the store instance
+    @Environment(\.locale) var locale // Access the current locale set by .italianLocale()
 
     // Controls the SwiftUI NavigationSplitView's sidebar
     @State private var columnVisibility: NavigationSplitViewVisibility = .all

@@ -19,16 +19,16 @@ struct CalendarView: View {
     var body: some View {
         VStack {
             // Mode Picker
-            Picker("Mode", selection: $mode) {
-                Text("Month").tag(CalendarDisplayMode.month)
-                Text("Week").tag(CalendarDisplayMode.week)
-                Text("Day").tag(CalendarDisplayMode.day)
+            Picker("Modalità", selection: $mode) {
+                Text("Mese").tag(CalendarDisplayMode.month)
+                Text("Settimana").tag(CalendarDisplayMode.week)
+                Text("Giorno").tag(CalendarDisplayMode.day)
             }
             .pickerStyle(.segmented)
             .padding()
             
             // Date Picker for user to navigate to a date
-            DatePicker("Select Date", selection: $selectedDate, displayedComponents: .date)
+            DatePicker("Seleziona Data:", selection: $selectedDate, displayedComponents: .date)
                 .padding()
             
             Divider()
@@ -44,7 +44,7 @@ struct CalendarView: View {
             
             Spacer()
         }
-        .navigationTitle("Calendar View")
+        .navigationTitle("Calendario Prenotazioni")
         .dynamicBackground(light: Color(hex: "#BFC3E3"), dark: Color(hex: "#4A4E6D"))// Hide the List's default background
 
     }
@@ -61,7 +61,7 @@ struct CalendarView: View {
         return List(dailyReservations) { reservation in
             VStack(alignment: .leading) {
                 Text("\(reservation.startTime) - \(reservation.name) (\(reservation.numberOfPersons))")
-                Text("Table(s): \(reservation.tables.map(\.name).joined(separator: ", "))")
+                Text("Tavoli: \(reservation.tables.map(\.name).joined(separator: ", "))")
             }
         }
     }
@@ -70,7 +70,7 @@ struct CalendarView: View {
         // Display 7 days from selectedDate’s week
         let calendar = Calendar.current
         guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: selectedDate) else {
-            return AnyView(Text("No data"))
+            return AnyView(Text("Nessun dato"))
         }
         let startOfWeek = weekInterval.start
         var days: [Date] = []
@@ -90,7 +90,7 @@ struct CalendarView: View {
                         HStack {
                             Text(reservation.name)
                             Spacer()
-                            Text("\(reservation.numberOfPersons) ppl")
+                            Text("\(reservation.numberOfPersons) pers.")
                         }
                     }
                 }
@@ -102,7 +102,7 @@ struct CalendarView: View {
         // We'll keep this simple: just show # of reservations per day for the selected month
         let calendar = Calendar.current
         guard let monthInterval = calendar.dateInterval(of: .month, for: selectedDate) else {
-            return AnyView(Text("No data"))
+            return AnyView(Text("Nessun dato"))
         }
         
         var days: [Date] = []
@@ -119,7 +119,7 @@ struct CalendarView: View {
                 HStack {
                     Text(dayString)
                     Spacer()
-                    Text("\(count) reservations")
+                    Text("\(count) prenotazioni")
                 }
             }
         )

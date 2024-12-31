@@ -10,6 +10,8 @@ import SwiftUI
 struct AddReservationView: View {
     @EnvironmentObject var store: ReservationStore
     @Environment(\.dismiss) var dismiss
+    @Environment(\.locale) var locale // Access the current locale
+
     
     let forcedTable: TableModel?
     // Replace or add whatever states you need for your form
@@ -52,7 +54,7 @@ struct AddReservationView: View {
                     DatePicker("Seleziona data", selection: $selectedDate, displayedComponents: .date)
                         .datePickerStyle(.graphical)
                     
-                    Text(formattedDate())
+                    Text(store.formattedDate(date: selectedDate, locale: locale))
                         .font(.headline)
                         .padding(.vertical, 4)
                     
@@ -97,6 +99,7 @@ struct AddReservationView: View {
                 }
             }
         }
+        .italianLocale()
         .onAppear {
             adjustTimesForCategory()
         }
@@ -141,9 +144,4 @@ struct AddReservationView: View {
         }
     }
     
-    func formattedDate() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE, dd/MM/yyyy"
-        return formatter.string(from: selectedDate)
-    }
 }

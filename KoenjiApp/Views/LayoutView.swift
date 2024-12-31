@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
+    @Environment(\.locale) var locale // Access the current locale
 
     @Namespace private var animationNamespace
 
@@ -68,6 +69,7 @@ struct LayoutView: View {
 
             Spacer()
         }
+        .italianLocale()
         .sheet(item: $selectedReservation) { reservation in
             EditReservationView(reservation: reservation)
                 .environmentObject(store)
@@ -147,7 +149,7 @@ struct LayoutView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
-        .navigationTitle("Layout Tavoli: \(store.formattedDate(date: selectedDate))")
+        .navigationTitle("Layout Tavoli: \(store.formattedDate(date: selectedDate, locale: locale))")
 
     }
 

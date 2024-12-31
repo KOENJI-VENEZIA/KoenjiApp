@@ -856,8 +856,9 @@ extension ReservationStore {
         return documentDirectory.appendingPathComponent(reservationsFileName)
     }
     
-    func formattedDate(date: Date) -> String {
+    func formattedDate(date: Date, locale: Locale) -> String {
         let formatter = DateFormatter()
+        formatter.locale = locale
         formatter.dateFormat = "EEEE, dd/MM/yyyy"
         return formatter.string(from: date)
     }

@@ -3,6 +3,8 @@ import SwiftUI
 struct EditReservationView: View {
     @EnvironmentObject var store: ReservationStore
     @Environment(\.dismiss) var dismiss
+    @Environment(\.locale) var locale // Access the current locale
+
     
     @State var reservation: Reservation
     @State private var selectedDate: Date = Date() // Default to reservation's current date
@@ -28,7 +30,7 @@ struct EditReservationView: View {
                             reservation.dateString = formatDate(newDate)
                         }
                     
-                    Text(formattedDate())
+                    Text(store.formattedDate(date: selectedDate, locale: locale))
                         .font(.headline)
                         .padding(.vertical, 4)
                     
@@ -72,6 +74,7 @@ struct EditReservationView: View {
                 loadInitialDate()
             }
         }
+        .italianLocale()
     }
     
     private func saveChanges() {
