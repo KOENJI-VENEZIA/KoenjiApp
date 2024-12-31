@@ -855,6 +855,12 @@ extension ReservationStore {
         let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         return documentDirectory.appendingPathComponent(reservationsFileName)
     }
+    
+    func formattedDate(date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, dd/MM/yyyy"
+        return formatter.string(from: date)
+    }
 }
 
 extension ReservationStore {
