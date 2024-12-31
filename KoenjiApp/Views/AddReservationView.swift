@@ -141,7 +141,7 @@ struct AddReservationView: View {
         }
     }
     
-    private func formattedDate() -> String {
+    func formattedDate() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE, dd/MM/yyyy"
         return formatter.string(from: selectedDate)
