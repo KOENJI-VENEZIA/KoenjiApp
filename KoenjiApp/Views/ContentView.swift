@@ -1,9 +1,10 @@
+
+
 import SwiftUI
 
 struct ContentView: View {
     @StateObject var store = ReservationStore() // Create the store instance
 
-    
     // Controls the SwiftUI NavigationSplitView's sidebar
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
@@ -12,7 +13,8 @@ struct ContentView: View {
             // The Sidebar
             SidebarView()
         } detail: {
-            Text("Seleziona un opzione dal menu laterale.")
+            // The Detail View
+            Text("Seleziona un'opzione dal menu laterale.")
         }
         .environmentObject(store) // Add the store to the environment here
         .toolbar {
@@ -32,11 +34,11 @@ struct ContentView: View {
         .onAppear {
             print("ContentView appeared. Data already loaded by ReservationStore.")
         }
-
         // Whenever we change columnVisibility, update store.isSidebarVisible
         .onChange(of: columnVisibility) { newVisibility in
             // .all means sidebar is visible, anything else means hidden
             store.isSidebarVisible = (newVisibility == .all)
         }
     }
+
 }
