@@ -45,6 +45,8 @@ struct CalendarView: View {
             Spacer()
         }
         .navigationTitle("Calendar View")
+        .dynamicBackground(light: Color(hex: "#BFC3E3"), dark: Color(hex: "#4A4E6D"))// Hide the List's default background
+
     }
     
     private var dayView: some View {
