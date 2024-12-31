@@ -7,26 +7,29 @@
 
 import SwiftUI
 
-
-
 struct SidebarView: View {
     @StateObject var store = ReservationStore() // Create the store instance
 
     var body: some View {
-        List {
-            NavigationLink(destination: ReservationListView().environmentObject(store)) {
-                Label("Database", systemImage: "list.bullet")
+        ZStack {
+            List {
+                NavigationLink(destination: ReservationListView()) {
+                    Label("Database", systemImage: "list.bullet")
+                }
+                NavigationLink(destination: CalendarView()) {
+                    Label("Calendario", systemImage: "calendar")
+                }
+                NavigationLink(destination: LayoutView(store: store).environmentObject(store)) {
+                    Label("Layout Tavoli", systemImage: "rectangle.grid.3x2")
+                }
             }
-            NavigationLink(destination: CalendarView().environmentObject(store)) {
-                Label("Calendario", systemImage: "calendar")
-            }
-            NavigationLink(destination: LayoutView(store: store).environmentObject(store)) {
-                Label("Layout Tavoli", systemImage: "rectangle.grid.3x2")
-            }
-
-
+            .listStyle(.sidebar)
+            .navigationTitle("Prenotazioni")
+            .padding(.vertical)
+            .scrollContentBackground(.hidden)
+            .dynamicBackground(light: Color(hex: "#BFC3E3"), dark: Color(hex: "#4A4E6D"))// Hide the List's default background
         }
-        .listStyle(.sidebar)
-        .navigationTitle("Prenotazioni")
     }
+    
+
 }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
+
     @Namespace private var animationNamespace
 
     // Use the LayoutViewModel for manual dragging logic + pop-up alerts
@@ -38,7 +39,11 @@ struct LayoutView: View {
 
     var body: some View {
         VStack {
+            Spacer()
+            Spacer()
             topControls
+                .padding(.horizontal)
+                .dynamicBackground(light: Color(hex: "#BFC3E3"), dark: Color(hex: "#4A4E6D"))// Hide the List's default background
             Spacer()
 
             ZStack(alignment: .bottomTrailing) {
@@ -142,6 +147,8 @@ struct LayoutView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
+        .navigationTitle("Layout Tavoli: \(store.formattedDate(date: selectedDate))")
+
     }
 
     // MARK: - Subviews
@@ -229,7 +236,7 @@ struct LayoutView: View {
         VStack(alignment: .leading) {
             Text("Seleziona Giorno")
                 .font(.caption)
-                .foregroundColor(.gray)
+                .padding(.top)
             DatePicker("", selection: $selectedDate, displayedComponents: .date)
                 .labelsHidden()
                 .frame(height: 44)
@@ -240,7 +247,7 @@ struct LayoutView: View {
         VStack(alignment: .leading) {
             Text("Categoria")
                 .font(.caption)
-                .foregroundColor(.gray)
+                .padding(.top)
             Picker("Categoria", selection: $selectedCategory) {
                 Text("Pranzo").tag(Reservation.ReservationCategory?.some(.lunch))
                 Text("Cena").tag(Reservation.ReservationCategory?.some(.dinner))
@@ -254,7 +261,7 @@ struct LayoutView: View {
         VStack(alignment: .leading) {
             Text("Orario")
                 .font(.caption)
-                .foregroundColor(.gray)
+                .padding(.top)
             DatePicker(
                 "",
                 selection: Binding(

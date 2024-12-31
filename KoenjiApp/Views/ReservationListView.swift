@@ -1,10 +1,3 @@
-//
-//  ReservationListView.swift
-//  KoenjiApp
-//
-//  Created by Matteo Nassini on 28/12/24.
-//
-
 import SwiftUI
 
 struct ReservationListView: View {
@@ -41,9 +34,11 @@ struct ReservationListView: View {
     }
     
     var body: some View {
-        VStack {
-            // Filter controls
+        VStack(spacing: 0) {
+            // Header and Filters Section
             VStack(alignment: .leading) {
+
+
                 // Guest number filter
                 HStack {
                     if filterPeople == nil {
@@ -52,7 +47,7 @@ struct ReservationListView: View {
                                 filterPeople = 1
                             }
                         }
-                        .padding(.top, 3)
+                        .padding(.horizontal)
                         .padding(.leading, 8.5)
                         .frame(height: 40)
                     }
@@ -77,7 +72,7 @@ struct ReservationListView: View {
                         .foregroundStyle(.red)
                     }
                 }
-
+                .padding(.bottom, 8)
                 
                 // Date interval filter
                 VStack(alignment: .leading) {
@@ -88,7 +83,7 @@ struct ReservationListView: View {
                                 filterEndDate = Date()
                             }
                         }
-                        .padding(.top, 3)
+                        .padding(.horizontal)
                         .padding(.leading, 8.5)
                         .frame(height: 40)
                     }
@@ -136,74 +131,76 @@ struct ReservationListView: View {
                     }
                 }
             }
-            .padding(.leading)
-            .padding(.trailing)
-            .animation(.easeInOut, value: filterPeople)
-            .animation(.easeInOut, value: filterStartDate)
+            .dynamicBackground(light: Color(hex: "#BFC3E3"), dark: Color(hex: "#4A4E6D"))// Hide the List's default background
             
-            // Reservation list
-            List(selection: $selection) {
-                ForEach(filteredReservations) { reservation in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("\(reservation.name) - \(reservation.numberOfPersons) pers.")
-                                .font(.headline)
-                            Text("Telefono: \(reservation.phone)")
-                                .font(.subheadline)
-                            Text("Tavolo: \(reservation.tables.map(\.name).joined(separator: ", "))")
-                                .font(.subheadline)
-                            Text("Data: \(reservation.dateString)")
-                                .font(.subheadline)
-                                .foregroundStyle(.blue)
-                        }
-                        Spacer()
+            // Reservation List Section
+            ZStack {
+                Color(.darkGray) // Background for the list section
+                    .edgesIgnoringSafeArea(.all)
+                
+                List(selection: $selection) {
+                    ForEach(filteredReservations) { reservation in
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text("\(reservation.name) - \(reservation.numberOfPersons) pers.")
+                                    .font(.headline)
+                                Text("Telefono: \(reservation.phone)")
+                                    .font(.subheadline)
+                                Text("Tavolo: \(reservation.tables.map(\.name).joined(separator: ", "))")
+                                    .font(.subheadline)
+                                Text("Data: \(reservation.dateString)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.blue)
+                            }
+                            Spacer()
 
-                        // Info Button for Notes Popup
-                        Button {
-                            if let notes = reservation.notes, !notes.isEmpty {
-                                notesToShow = notes
-                            } else {
-                                notesToShow = "(no further notes)"
+                            // Info Button for Notes Popup
+                            Button {
+                                if let notes = reservation.notes, !notes.isEmpty {
+                                    notesToShow = notes
+                                } else {
+                                    notesToShow = "(no further notes)"
+                                }
+                                showingNotesAlert = true
+                            } label: {
+                                Image(systemName: "info.circle")
                             }
-                            showingNotesAlert = true
-                        } label: {
-                            Image(systemName: "info.circle")
+                            .buttonStyle(PlainButtonStyle())
                         }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                    .padding()
-                    .background(
-                        selectedReservationID == reservation.id
-                            ? Color.gray.opacity(0.3)
-                            : Color.clear
-                    )
-                    .cornerRadius(8)
-                    .contentShape(Rectangle()) // Ensures the row is tappable outside the button
-                    .onTapGesture {
-                        guard selectedReservationID == nil else { return }
-                        selectedReservationID = reservation.id
-                        withAnimation {
-                            currentReservation = reservation
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            selectedReservationID = nil
-                        }
-                    }
-                    .contextMenu {
-                        Button("Edit") {
-                            currentReservation = reservation
-                        }
-                        Button("Delete", role: .destructive) {
-                            if let idx = store.reservations.firstIndex(where: { $0.id == reservation.id }) {
-                                store.deleteReservations(at: IndexSet(integer: idx))
+                        .padding()
+                        .background(
+                            selectedReservationID == reservation.id
+                                ? Color.gray.opacity(0.3)
+                                : Color.clear
+                        )
+                        .cornerRadius(8)
+                        .contentShape(Rectangle()) // Ensures the row is tappable outside the button
+                        .onTapGesture {
+                            guard selectedReservationID == nil else { return }
+                            selectedReservationID = reservation.id
+                            withAnimation {
+                                currentReservation = reservation
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                selectedReservationID = nil
                             }
                         }
+                        .contextMenu {
+                            Button("Edit") {
+                                currentReservation = reservation
+                            }
+                            Button("Delete", role: .destructive) {
+                                if let idx = store.reservations.firstIndex(where: { $0.id == reservation.id }) {
+                                    store.deleteReservations(at: IndexSet(integer: idx))
+                                }
+                            }
+                        }
                     }
+                    .onDelete(perform: delete)
                 }
-                .onDelete(perform: delete)
             }
-            .navigationTitle("Tutte le prenotazioni")
         }
+        .navigationTitle("Tutte le prenotazioni")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
@@ -230,8 +227,8 @@ struct ReservationListView: View {
         } message: {
             Text(notesToShow)
         }
+        
     }
-    
     private func delete(at offsets: IndexSet) {
         store.deleteReservations(at: offsets)
     }
