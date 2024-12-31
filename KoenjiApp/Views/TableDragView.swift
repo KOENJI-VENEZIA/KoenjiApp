@@ -48,13 +48,17 @@ struct TableDragView: View {
             // Base Rectangle with conditional color change if dragging
             Rectangle()
                 .fill(
-                    isDragging ?
-                        Color.yellow.opacity(0.3) : // Color when dragging
-                        (activeReservation != nil ? Color.green.opacity(0.3) : Color.blue.opacity(0.15))
+                    isDragging
+                        ? Color.yellow.opacity(0.3) // Color when dragging
+                        : (activeReservation != nil
+                            ? Color.green.opacity(0.3) // Color for active reservation
+                            : (isLayoutLocked ? Color.orange.opacity(0.3) : Color.blue.opacity(0.15))) // Orange if locked, blue if unlocked
                 )
                 .overlay(
                     Rectangle().stroke(
-                        isDragging ? Color.yellow : (isHighlighted ? Color.orange : Color.blue),
+                        isDragging
+                            ? Color.yellow
+                        : (isHighlighted ? Color(hex: "#9DA3D0") : (isLayoutLocked ? Color.orange : Color.blue)),
                         lineWidth: 2
                     )
                 )
@@ -62,14 +66,12 @@ struct TableDragView: View {
                 .matchedGeometryEffect(id: table.id, in: animationNamespace) // Apply matchedGeometryEffect
 
             // Flash Overlay only for swapped tables (isHighlighted && not dragging)
-            if isHighlighted && !isDragging {
-                Rectangle()
-                    .fill(Color.orange.opacity(0.4))
-                    .frame(width: tableWidth, height: tableHeight)
-                    .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.6), value: isHighlighted) // Match duration
-                    .allowsHitTesting(false) // Ensure overlay doesn't block interactions
-            }
+            Rectangle()
+                .fill(isHighlighted && !isDragging ? Color(hex: "#9DA3D0").opacity(0.4) : Color.clear)
+                .animation(.easeInOut(duration: 0.5), value: isHighlighted)
+                .frame(width: tableWidth, height: tableHeight)
+                .matchedGeometryEffect(id: table.id, in: animationNamespace)
+                .allowsHitTesting(false)
 
             // Reservation Information
             if let reservation = activeReservation {
