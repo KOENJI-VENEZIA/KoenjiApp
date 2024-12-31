@@ -1,8 +1,11 @@
+
+
 import SwiftUI
 
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
     @Environment(\.locale) var locale // Access the current locale
+
 
     @Namespace private var animationNamespace
 
@@ -21,54 +24,90 @@ struct LayoutView: View {
     // MARK: - Time
     @State private var systemTime: Date = Date()
     @State private var currentTime: Date = Date()
-    @State private var isManuallyOverridden = false
+    @State private var isManuallyOverridden: Bool = false
     @State private var overrideTimer: Timer? = nil
-    @State private var showingTimePickerSheet = false
+    @State private var showingTimePickerSheet: Bool = false
 
     // For tapping a reservation to edit
     @State private var selectedReservation: Reservation? = nil
 
     // For "Add Reservation" on a table
-    @State private var showingAddReservationSheet = false
+    @State private var showingAddReservationSheet: Bool = false
     @State private var tableForNewReservation: TableModel? = nil
 
     // MARK: - Cell Size (for each grid cell)
     private let cellSize: CGFloat = 45
 
-    @State private var showingNoBookingAlert = false
+    // MARK: - Zoom and Pan State
+    // No longer needed as UIScrollView manages zooming and panning
+
+    @State private var showingNoBookingAlert: Bool = false
     @State private var isLayoutLocked: Bool = true
+    @State private var showTopControls: Bool = true
+
+    // New State Variables for ZoomableScrollView
+    @State private var parentSize: CGSize = .zero
+    @State private var zoomScale: CGFloat = 1.0
+
 
     var body: some View {
         VStack {
-            Spacer()
-            Spacer()
-            topControls
-                .padding(.horizontal)
-                .dynamicBackground(light: Color(hex: "#BFC3E3"), dark: Color(hex: "#4A4E6D"))// Hide the List's default background
+            // Conditionally display topControls with animation
+            if showTopControls {
+                topControls
+                    .padding(.horizontal)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             Spacer()
 
+            
             ZStack(alignment: .bottomTrailing) {
-                ZStack {
-                    gridBackground
+                GeometryReader { geometry in
+                    ZoomableScrollView (zoomScale: $zoomScale) {
+                        ZStack {
+                            gridBackground
 
-                    ForEach(layoutVM.tables) { table in
-                        let rect = layoutVM.calculateTableRect(for: table)
-                        tableView(table: table, rect: rect, isLayoutLocked: isLayoutLocked)
+                            ForEach(layoutVM.tables) { table in
+                                let rect = layoutVM.calculateTableRect(for: table)
+                                tableView(table: table, zoomScale: zoomScale, rect: rect, isLayoutLocked: isLayoutLocked)
+                            }
+                        }
+                        .frame(
+                            width: CGFloat(store.totalColumns) * layoutVM.cellSize,
+                            height: CGFloat(store.totalRows) * layoutVM.cellSize
+                        )
+                    }
+                    .onAppear {
+                        // Center the grid initially
+                        let baseGridWidth = CGFloat(store.totalColumns) * layoutVM.cellSize
+                        let baseGridHeight = CGFloat(store.totalRows) * layoutVM.cellSize
+
+                        // Calculate the initial offset to center the grid
+                        let initialOffset = CGSize(
+                            width: (geometry.size.width - baseGridWidth) / 2,
+                            height: (geometry.size.height - baseGridHeight) / 2
+                        )
+
+                        // Apply the initial offset using UIScrollView's contentInset
+                        // However, since we're using UIScrollView's built-in zooming,
+                        // initial centering is handled in the `ZoomableScrollView`'s coordinator
+                        // So, no additional offset is needed here
                     }
                 }
-                .frame(
-                    width: CGFloat(store.totalColumns) * layoutVM.cellSize,
-                    height: CGFloat(store.totalRows) * layoutVM.cellSize
-                )
+                .clipped() // Ensures content doesn’t overflow the parent view
 
                 HStack {
                     unlockButton
                     resetButton
+                    resetZoomButton // Newly added reset zoom button
                 }
             }
+            .dynamicBackground(light: Color.gray, dark: Color.black)
 
             Spacer()
         }
+        .dynamicBackground(light: Color(hex: "#BFC3E3"), dark: Color(hex: "#4A4E6D"))
         .italianLocale()
         .sheet(item: $selectedReservation) { reservation in
             EditReservationView(reservation: reservation)
@@ -122,8 +161,6 @@ struct LayoutView: View {
                 layoutVM.tables = store.tables
             }
         }
-
-
         .onChange(of: currentTime) { newTime in
             store.handleTimeUpdate(newTime)
 
@@ -136,8 +173,6 @@ struct LayoutView: View {
             store.loadLayout(for: selectedDate, category: store.selectedCategory ?? .lunch, reset: false)
             layoutVM.tables = store.tables
         }
-
-
         .onChange(of: store.tables) { updatedTables in
             guard layoutVM.tables != updatedTables else { return }
             layoutVM.tables = updatedTables
@@ -149,8 +184,20 @@ struct LayoutView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    withAnimation {
+                        showTopControls.toggle()
+                    }
+                }) {
+                    Image(systemName: showTopControls ? "chevron.up" : "chevron.down")
+                        .imageScale(.large)
+                }
+                .accessibilityLabel(showTopControls ? "Hide Controls" : "Show Controls")
+            }
+        }
         .navigationTitle("Layout Tavoli: \(store.formattedDate(date: selectedDate, locale: locale))")
-
     }
 
     // MARK: - Subviews
@@ -175,9 +222,9 @@ struct LayoutView: View {
             let cellSize = layoutVM.cellSize
 
             VStack(spacing: 0) {
-                ForEach(0..<rows, id: \ .self) { _ in
+                ForEach(0..<rows, id: \.self) { _ in
                     HStack(spacing: 0) {
-                        ForEach(0..<cols, id: \ .self) { _ in
+                        ForEach(0..<cols, id: \.self) { _ in
                             Rectangle()
                                 .stroke(Color.gray.opacity(0.2), lineWidth: 1)
                                 .frame(width: cellSize, height: cellSize)
@@ -189,9 +236,10 @@ struct LayoutView: View {
     }
 
     @ViewBuilder
-    private func tableView(table: TableModel, rect: CGRect, isLayoutLocked: Bool) -> some View {
+    private func tableView(table: TableModel, zoomScale: CGFloat, rect: CGRect, isLayoutLocked: Bool) -> some View {
         TableDragView(
             table: table,
+            zoomScale: zoomScale,
             selectedDate: selectedDate,
             selectedCategory: selectedCategory ?? .lunch,
             currentTime: currentTime,
@@ -203,7 +251,6 @@ struct LayoutView: View {
         )
         .environmentObject(store)
         .matchedGeometryEffect(id: table.id, in: animationNamespace)
-
     }
 
     private var unlockButton: some View {
@@ -287,8 +334,10 @@ struct LayoutView: View {
                 .opacity(0)
                 .frame(height: 0)
             Button("Torna all'ora corrente") {
-                currentTime = systemTime
-                isManuallyOverridden = false
+                withAnimation {
+                    currentTime = systemTime
+                    isManuallyOverridden = false
+                }
             }
             .font(.caption)
             .opacity(isManuallyOverridden ? 1 : 0)
@@ -309,6 +358,22 @@ struct LayoutView: View {
         .disabled(selectedCategory == .noBookingZone)
         .foregroundColor(selectedCategory == .noBookingZone ? .gray : .blue)
     }
+    
+    private var resetZoomButton: some View {
+        Button(action: {
+            withAnimation {
+                // Reset the zoom scale and center the grid
+                NotificationCenter.default.post(name: .resetZoom, object: nil)
+            }
+        }) {
+            Image(systemName: "arrow.up.left.and.down.right.magnifyingglass")
+                .resizable()
+                .frame(width: 44, height: 44)
+                .padding()
+                .foregroundColor(.orange)
+        }
+        .padding(16)
+    }
 
     private func handleEmptyTableTap(for table: TableModel) {
         tableForNewReservation = table
@@ -325,9 +390,7 @@ struct LayoutView: View {
             break
         }
     }
-
-
-
+    
     func updateCategory(for time: Date) {
         let hour = Calendar.current.component(.hour, from: time)
         if hour >= 12 && hour <= 15 {
@@ -339,5 +402,9 @@ struct LayoutView: View {
         }
         print("Category updated to \(selectedCategory?.rawValue ?? "none") based on time.")
     }
+}
 
+// Extension to handle reset zoom notification
+extension Notification.Name {
+    static let resetZoom = Notification.Name("resetZoom")
 }

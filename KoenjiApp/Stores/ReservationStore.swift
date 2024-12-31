@@ -373,11 +373,9 @@ class ReservationStore: ObservableObject {
         }
         
         // **2. Update Table Positions**
+        tables[indexA] = swappedTableA
+        tables[indexB] = swappedTableB
 
-        withAnimation(.easeInOut(duration: 0.6)) {
-            tables[indexA] = swappedTableA
-            tables[indexB] = swappedTableB
-        }
         
         // **3. Validate the New Positions**
         if canPlaceTable(swappedTableA) && canPlaceTable(swappedTableB) {
@@ -400,12 +398,9 @@ class ReservationStore: ObservableObject {
             
             // Revert tableA's position without animation.
 
-            
-            // Revert tableB's position with animation.
-            withAnimation(.easeInOut(duration: 0.6)) {
-                tables[indexA] = tableA
-                tables[indexB] = tableB
-            }
+            tables[indexA] = tableA
+            tables[indexB] = tableB
+
             
             // Re-mark original positions in the grid.
             markTable(tableA, occupied: true)
@@ -867,11 +862,11 @@ extension ReservationStore {
 extension ReservationStore {
     func triggerFlashAnimation(for tableID: Int) {
         DispatchQueue.main.async {
-            withAnimation(.easeInOut(duration: 0.3)) { // Adjusted duration
+            withAnimation(.easeIn(duration: 0.3)) { // Adjusted duration
                 self.tableAnimationState[tableID] = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { // Match the duration
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(.easeIn(duration: 0.3)) {
                     self.tableAnimationState[tableID] = false
                 }
             }

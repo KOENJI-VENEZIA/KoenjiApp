@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TableDragView: View {
     let table: TableModel
+    let zoomScale: CGFloat // Pass the zoom scale to adjust drag behavior
 
     let selectedDate: Date
     let selectedCategory: Reservation.ReservationCategory
@@ -108,9 +109,12 @@ struct TableDragView: View {
         .offset(dragOffset)
         .gesture(
             DragGesture()
-                .updating($dragOffset) { (value, state, _) in
+                .updating($dragOffset) { value, state, _ in
                     guard !isLayoutLocked else { return }
-                    state = value.translation
+                    state = CGSize(
+                        width: value.translation.width / zoomScale,
+                        height: value.translation.height / zoomScale
+                    )
                 }
                 .onChanged { _ in
                     // Set the currently dragged table ID when drag starts
