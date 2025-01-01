@@ -2,8 +2,6 @@ import SwiftUI
 
 struct TableDragView: View {
     let table: TableModel
-    let zoomScale: CGFloat // Pass the zoom scale to adjust drag behavior
-
     let selectedDate: Date
     let selectedCategory: Reservation.ReservationCategory
     let currentTime: Date
@@ -114,8 +112,8 @@ struct TableDragView: View {
                 .updating($dragOffset) { value, state, _ in
                     guard !isLayoutLocked else { return }
                     state = CGSize(
-                        width: value.translation.width / zoomScale,
-                        height: value.translation.height / zoomScale
+                        width: value.translation.width,
+                        height: value.translation.height
                     )
                 }
                 .onChanged { _ in

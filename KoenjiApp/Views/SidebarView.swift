@@ -26,7 +26,6 @@ struct SidebarView: View {
             .listStyle(.sidebar)
             .navigationTitle("Prenotazioni")
             .padding(.vertical)
-            .scrollContentBackground(.hidden)
             .dynamicBackground(light: Color(hex: "#BFC3E3"), dark: Color(hex: "#4A4E6D"))// Hide the List's default background
         }
     }

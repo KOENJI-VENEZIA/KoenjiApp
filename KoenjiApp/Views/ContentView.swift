@@ -1,5 +1,3 @@
-
-
 import SwiftUI
 
 struct ContentView: View {
@@ -16,8 +14,8 @@ struct ContentView: View {
         } detail: {
             // The Detail View
             Text("Seleziona un'opzione dal menu laterale.")
+                .foregroundColor(.secondary)
         }
-        .navigationBarWithTranslucentBackground() // Apply the custom navigation bar modifier
         .environmentObject(store) // Add the store to the environment here
         .toolbar {
             // Add a button to toggle the sidebar in SwiftUI
@@ -41,6 +39,7 @@ struct ContentView: View {
             // .all means sidebar is visible, anything else means hidden
             store.isSidebarVisible = (newVisibility == .all)
         }
+        .toolbarBackground(Material.ultraThin, for: .navigationBar) // Add this line for iOS 16+
+        .toolbarBackground(.visible, for: .navigationBar) // Ensure the background is visible
     }
-
 }
