@@ -1,6 +1,40 @@
 import SwiftUI
-
+import UIKit
 // MARK: - Color Extension for Hexadecimal Initialization
+
+
+
+struct VisualEffectBlur: UIViewRepresentable {
+    var blurStyle: UIBlurEffect.Style
+
+    func makeUIView(context: Context) -> UIVisualEffectView {
+        UIVisualEffectView(effect: UIBlurEffect(style: blurStyle))
+    }
+
+    func updateUIView(_ uiView: UIVisualEffectView, context: Context) {
+        uiView.effect = UIBlurEffect(style: blurStyle)
+    }
+}
+
+struct TranslucentBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background(
+                VisualEffectBlur(blurStyle: .systemMaterial) // Apply the blur effect
+                    .clipShape(RoundedRectangle(cornerRadius: 10)) // Optional rounded corners
+            )
+            .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 5) // Optional shadow
+    }
+}
+
+extension View {
+    func translucent() -> some View {
+        self.modifier(TranslucentBackground())
+    }
+}
+
+
+
 
 extension Color {
     /// Initializes a Color from a hexadecimal string.

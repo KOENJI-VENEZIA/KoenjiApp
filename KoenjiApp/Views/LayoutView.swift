@@ -52,60 +52,64 @@ struct LayoutView: View {
 
 
     var body: some View {
-        VStack {
-            // Conditionally display topControls with animation
-            if showTopControls {
-                topControls
-                    .padding(.horizontal)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
+        ZStack(alignment: .top) {
+            // Table view background and content
+            GeometryReader { geometry in
+                let totalWidth = CGFloat(store.totalColumns) * layoutVM.cellSize
+                let totalHeight = CGFloat(store.totalRows) * layoutVM.cellSize
 
-            Spacer()
+                ZoomableScrollView(zoomScale: $zoomScale, contentSize: CGSize(width: totalWidth, height: totalHeight)) {
+                    ZStack {
+                        gridBackground // Updated grid background colors
 
-            
-            ZStack(alignment: .bottomTrailing) {
-                GeometryReader { geometry in
-                    let totalWidth = CGFloat(store.totalColumns) * layoutVM.cellSize
-                    let totalHeight = CGFloat(store.totalRows) * layoutVM.cellSize
-                    ZoomableScrollView(zoomScale: $zoomScale, contentSize: CGSize(width: totalWidth, height: totalHeight)) {
-                        ZStack {
-                            gridBackground
-
-                            ForEach(layoutVM.tables, id: \.id) { table in
-                                let rect = layoutVM.calculateTableRect(for: table)
-                                tableView(table: table, zoomScale: zoomScale, rect: rect, isLayoutLocked: isLayoutLocked)
-                            }
+                        ForEach(layoutVM.tables, id: \ .id) { table in
+                            let rect = layoutVM.calculateTableRect(for: table)
+                            tableView(table: table, zoomScale: zoomScale, rect: rect, isLayoutLocked: isLayoutLocked)
                         }
-                        .frame(
-                            width: totalWidth,
-                            height: totalHeight
-                        )
                     }
-                    .onAppear {
-                        // Center the grid initially
-                        let baseGridWidth = CGFloat(store.totalColumns) * layoutVM.cellSize
-                        let baseGridHeight = CGFloat(store.totalRows) * layoutVM.cellSize
+                    .frame(width: totalWidth, height: totalHeight)
+                }
+                .gesture(MagnificationGesture()
+                            .onChanged { value in
+                                let delta = value - 1.0
+                                zoomScale += delta * 0.1
+                                zoomScale = min(max(zoomScale, 1.0), 4.0)
+                            })
+                .onAppear {
+                    // Center the grid initially
+                    let baseGridWidth = CGFloat(store.totalColumns) * layoutVM.cellSize
+                    let baseGridHeight = CGFloat(store.totalRows) * layoutVM.cellSize
 
-                        // Calculate the initial offset to center the grid
-                        let initialOffset = CGSize(
-                            width: (geometry.size.width - baseGridWidth) / 2,
-                            height: (geometry.size.height - baseGridHeight) / 2
+                    let initialOffset = CGSize(
+                        width: (geometry.size.width - baseGridWidth) / 2,
+                        height: (geometry.size.height - baseGridHeight) / 2
+                    )
+
+                    // Centering logic is already managed in ZoomableScrollView
+                }
+            }
+            .clipped()
+
+            // Top section with translucency
+            VStack(spacing: 0) {
+                ZStack(alignment: .bottom) {
+                    VisualEffectBlur(blurStyle: .systemMaterial) // Apply the blur effect
+                        .background(
+                            Color(hex: "#BFC3E3").opacity(0.4) // Stronger tint for the translucent section
                         )
+                        .edgesIgnoringSafeArea(.top)
+                        .frame(height: showTopControls ? 150 : 50) // Adjust height dynamically
 
-                        // Apply the initial offset using UIScrollView's contentInset
-                        // However, since we're using UIScrollView's built-in zooming,
-                        // initial centering is handled in the `ZoomableScrollView`'s coordinator
-                        // So, no additional offset is needed here
+                    if showTopControls {
+                        topControls
+                            .padding(.horizontal)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .animation(.easeInOut, value: showTopControls)
                     }
                 }
-                .clipped() // Ensures content doesn’t overflow the parent view
-
             }
-            .dynamicBackground(light: Color.white, dark: Color.black)
-
-            Spacer()
         }
-        .dynamicBackground(light: Color(hex: "#BFC3E3"), dark: Color(hex: "#4A4E6D"))
+        .dynamicBackground(light: .white, dark: .black)
         .italianLocale()
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -133,6 +137,18 @@ struct LayoutView: View {
                     Image(systemName: "arrow.up.left.and.down.right.magnifyingglass")
                 }
                 .accessibilityLabel("Reset Zoom")
+            }
+
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    withAnimation {
+                        showTopControls.toggle()
+                    }
+                }) {
+                    Image(systemName: showTopControls ? "chevron.up" : "chevron.down")
+                        .imageScale(.large)
+                }
+                .accessibilityLabel(showTopControls ? "Hide Controls" : "Show Controls")
             }
         }
         .sheet(item: $selectedReservation) { reservation in
@@ -210,21 +226,9 @@ struct LayoutView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    withAnimation {
-                        showTopControls.toggle()
-                    }
-                }) {
-                    Image(systemName: showTopControls ? "chevron.up" : "chevron.down")
-                        .imageScale(.large)
-                }
-                .accessibilityLabel(showTopControls ? "Hide Controls" : "Show Controls")
-            }
-        }
         .navigationTitle("Layout Tavoli: \(store.formattedDate(date: selectedDate, locale: locale))")
     }
+
 
     // MARK: - Subviews
 
