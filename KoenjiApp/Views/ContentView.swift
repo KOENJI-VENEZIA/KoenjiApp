@@ -17,6 +17,7 @@ struct ContentView: View {
             // The Detail View
             Text("Seleziona un'opzione dal menu laterale.")
         }
+        .navigationBarWithTranslucentBackground() // Apply the custom navigation bar modifier
         .environmentObject(store) // Add the store to the environment here
         .toolbar {
             // Add a button to toggle the sidebar in SwiftUI

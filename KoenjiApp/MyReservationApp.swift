@@ -1,3 +1,4 @@
+import UIKit
 import SwiftUI
 
 @main
@@ -5,18 +6,18 @@ struct MyReservationApp: App {
     @StateObject private var store = ReservationStore()
     @Environment(\.scenePhase) private var scenePhase
 
+
     init() {
-        print("App initialized.")
+        let _ = NavigationBarModifier()
+
     }
 
     var body: some Scene {
         WindowGroup {
             ContentViewWrapper()
-                .onAppear {
-                    print("App appearing. Loading data...")
-                    // Data loading already handled by ReservationStore initializer
-                }
+                .environmentObject(store)
         }
+        
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
                 print("App became active. Reloading data...")
@@ -24,6 +25,10 @@ struct MyReservationApp: App {
                 store.loadReservationsFromDisk() // Load reservations
             }
         }
-
+        
     }
+    
+
+
 }
+
