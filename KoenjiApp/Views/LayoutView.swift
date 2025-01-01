@@ -229,17 +229,42 @@ struct LayoutView: View {
     // MARK: - Subviews
 
     private var topControls: some View {
-        HStack {
-            datePicker
-            categoryPicker
-            Spacer()
-            timePicker
-            currentTimeButton
-            Spacer()
-            addReservationButton
+        let screenWidth = UIScreen.main.bounds.width
+        let isCompact = screenWidth < 600 // Determine compact layout based on screen width
+
+        return HStack {
+            if isCompact {
+                // Compact layout
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        datePicker
+                        categoryPicker
+                    }
+                    HStack(spacing: 8) {
+                        timePicker
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        addReservationButton
+                            .frame(maxWidth: 100, alignment: .trailing)
+                    }
+                }
+            } else {
+                // Wide layout
+                datePicker
+                categoryPicker
+                Spacer()
+                timePicker
+                Spacer()
+                addReservationButton
+            }
         }
         .padding()
+        .frame(height: isCompact ? 200 : 150) // Set height for compact and wide layouts
+        .clipped() // Ensure content stays within the specified height
     }
+
+
+
+
 
     private var gridBackground: some View {
         GeometryReader { geometry in
@@ -378,7 +403,6 @@ struct LayoutView: View {
         VStack(alignment: .leading) {
             Text("Seleziona Giorno")
                 .font(.caption)
-                .padding(.top)
             DatePicker("", selection: $selectedDate, displayedComponents: .date)
                 .labelsHidden()
                 .frame(height: 44)
@@ -389,7 +413,6 @@ struct LayoutView: View {
         VStack(alignment: .leading) {
             Text("Categoria")
                 .font(.caption)
-                .padding(.top)
             Picker("Categoria", selection: $selectedCategory) {
                 Text("Pranzo").tag(Reservation.ReservationCategory?.some(.lunch))
                 Text("Cena").tag(Reservation.ReservationCategory?.some(.dinner))
@@ -400,44 +423,41 @@ struct LayoutView: View {
     }
 
     private var timePicker: some View {
-        VStack(alignment: .leading) {
+        VStack (alignment: .leading){
             Text("Orario")
                 .font(.caption)
-                .padding(.top)
-            DatePicker(
-                "",
-                selection: Binding(
-                    get: { currentTime },
-                    set: { newTime in
-                        currentTime = newTime
-                        isManuallyOverridden = true
+            HStack(alignment: .center, spacing: 8) {
+                // Original DatePicker
+                DatePicker(
+                    "Scegli orario",
+                    selection: Binding(
+                        get: { currentTime },
+                        set: { newTime in
+                            currentTime = newTime
+                            isManuallyOverridden = true
+                        }
+                    ),
+                    displayedComponents: .hourAndMinute
+                )
+                .labelsHidden()
+                
+                // Current time button aligned to the right
+                Button("Torna all'ora corrente") {
+                    withAnimation {
+                        currentTime = systemTime
+                        isManuallyOverridden = false
                     }
-                ),
-                displayedComponents: .hourAndMinute
-            )
-            .labelsHidden()
-            .frame(height: 44)
+                }
+                .font(.caption)
+                .opacity(isManuallyOverridden ? 1 : 0)
+                .animation(.easeInOut, value: isManuallyOverridden)
+            }
         }
+
     }
 
-    private var currentTimeButton: some View {
-        VStack(alignment: .leading) {
-            Text(" ")
-                .font(.caption)
-                .opacity(0)
-                .frame(height: 0)
-            Button("Torna all'ora corrente") {
-                withAnimation {
-                    currentTime = systemTime
-                    isManuallyOverridden = false
-                }
-            }
-            .font(.caption)
-            .opacity(isManuallyOverridden ? 1 : 0)
-            .animation(.easeInOut, value: isManuallyOverridden)
-            .frame(height: 44)
-        }
-    }
+
+
 
     private var addReservationButton: some View {
         Button {
@@ -446,7 +466,6 @@ struct LayoutView: View {
         } label: {
             Image(systemName: "plus")
                 .font(.title2)
-                .padding()
         }
         .disabled(selectedCategory == .noBookingZone)
         .foregroundColor(selectedCategory == .noBookingZone ? .gray : .blue)
