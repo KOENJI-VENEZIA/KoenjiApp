@@ -54,25 +54,31 @@ struct LayoutView: View {
         let totalWidth = CGFloat(store.totalColumns) * cellSize
         let totalHeight = CGFloat(store.totalRows) * cellSize
 
-        // Main ZoomableScrollView with content
-        ZoomableScrollView(contentSize: CGSize(width: totalWidth, height: totalHeight)) {
-            ZStack {
-                gridBackground
-                    .frame(width: totalWidth, height: totalHeight) // Ensure gridBackground matches content size
-                
-                ForEach(layoutVM.tables, id: \.id) { table in
-                    let rect = layoutVM.calculateTableRect(for: table)
-                    tableView(table: table, rect: rect, isLayoutLocked: isLayoutLocked)
+        GeometryReader { parentGeometry in
+            let viewportWidth = parentGeometry.size.width
+            let viewportHeight = parentGeometry.size.height
+
+            // Calculate offsets to center the grid within the viewport
+            let offsetX = max(0, (viewportWidth - totalWidth) / 2)
+            let offsetY = max(0, (viewportHeight - totalHeight) / 2)
+
+            ZoomableScrollView(contentSize: CGSize(width: totalWidth, height: totalHeight), isSidebarVisible: $store.isSidebarVisible) {
+                ZStack {
+                    // Center the grid background
+                    gridBackground
+
+                    // Draw the tables, centered with the grid
+                    ForEach(layoutVM.tables, id: \.id) { table in
+                        let rect = layoutVM.calculateTableRect(for: table)
+                        tableView(table: table, rect: rect, isLayoutLocked: isLayoutLocked)
+                    }
                 }
+                .frame(width: totalWidth, height: totalHeight)
             }
-            .frame(width: totalWidth, height: totalHeight)
+            .onAppear {
+                print("Viewport: \(viewportWidth)x\(viewportHeight), Offsets: \(offsetX), \(offsetY)")
+            }
         }
-        .gesture(MagnificationGesture()
-            .onChanged { value in
-                let delta = value - 1.0
-                zoomScale += delta * 0.1
-                zoomScale = min(max(zoomScale, 1.0), 4.0)
-            })
         .ignoresSafeArea(.all, edges: .top) // Extend beneath the navigation bar
         .safeAreaInset(edge: .top) { // Insert topControls just below the navigation bar
             if showTopControls {
@@ -150,6 +156,11 @@ struct LayoutView: View {
             )
         }
         .onAppear {
+            DispatchQueue.main.async {
+                print("LayoutView dimensions: \(UIScreen.main.bounds.size)")
+            }
+        }
+        .onAppear {
             layoutVM.tables = store.tables // Initial sync
             if store.tables.isEmpty {
                 store.loadLayout(for: selectedDate, category: selectedCategory ?? .lunch, reset: false)
@@ -198,6 +209,10 @@ struct LayoutView: View {
         .onChange(of: store.tables) { updatedTables in
             guard layoutVM.tables != updatedTables else { return }
             layoutVM.tables = updatedTables
+        }
+        .onChange(of: store.isSidebarVisible) { isVisible in
+            // Force the ZoomableScrollView to recalculate its contentInset
+            NotificationCenter.default.post(name: .resetZoom, object: nil)
         }
         .alert(isPresented: $showingNoBookingAlert) {
             Alert(
@@ -253,55 +268,41 @@ struct LayoutView: View {
             let totalWidth = CGFloat(cols) * cellSize
             let totalHeight = CGFloat(rows) * cellSize
 
+            // Calculate offsets to center the grid in the viewport
+
+
             ZStack {
+                
                 // Outer Border with Windows
                 Path { path in
-                    // Top Border
                     addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: 0), to: CGPoint(x: totalWidth - 1, y: 0), windows: [(2, 5), (14, 17)], isThick: true)
-                    // Right Border
                     addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth, y: 0), to: CGPoint(x: totalWidth, y: totalHeight - 1), windows: [(4, 7)], isThick: true)
-                    // Left Border
                     addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: totalHeight - 1), to: CGPoint(x: 0, y: 0), windows: [], isThick: true)
-
-                    // Bottom Border
                     addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth - 1, y: totalHeight), to: CGPoint(x: 0, y: totalHeight), windows: [(3, 7)], isThick: true)
                 }
                 .stroke(
                     dynamicColor(light: .gray, dark: .gray),
-                    style: StrokeStyle(
-                        lineWidth: 4
-                    )
+                    style: StrokeStyle(lineWidth: 4)
                 )
 
                 Path { path in
-                    // Top Border
                     addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: 0), to: CGPoint(x: totalWidth, y: 0), windows: [(2, 5), (14, 17)], isThick: false)
-                    // Right Border
                     addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth, y: 0), to: CGPoint(x: totalWidth, y: totalHeight), windows: [(4, 7)], isThick: false)
-                    // Left Border
                     addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: totalHeight - 1), to: CGPoint(x: 0, y: 0), windows: [], isThick: false)
-
-                    // Bottom Border
                     addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth - 1, y: totalHeight), to: CGPoint(x: 0, y: totalHeight), windows: [(3, 7)], isThick: false)
                 }
                 .stroke(
                     dynamicColor(light: .gray, dark: .gray),
-                    style: StrokeStyle(
-                        lineWidth: 2,
-                        dash: [6, 4]
-                    )
+                    style: StrokeStyle(lineWidth: 2, dash: [6, 4])
                 )
 
                 // Inner Grid Lines
                 Path { path in
-                    // Horizontal Inner Grid Lines
                     for row in 1..<rows {
                         let y = CGFloat(row) * cellSize
                         path.move(to: CGPoint(x: 0, y: y))
                         path.addLine(to: CGPoint(x: totalWidth, y: y))
                     }
-
-                    // Vertical Inner Grid Lines
                     for col in 1..<cols {
                         let x = CGFloat(col) * cellSize
                         path.move(to: CGPoint(x: x, y: 0))
@@ -310,15 +311,13 @@ struct LayoutView: View {
                 }
                 .stroke(
                     dynamicColor(light: Color(hex: "#545454"), dark: Color(hex: "#c2c0c0")),
-                    style: StrokeStyle(
-                        lineWidth: 1,
-                        dash: [6, 4]
-                    )
+                    style: StrokeStyle(lineWidth: 1, dash: [6, 4])
                 )
             }
-            .frame(width: totalWidth, height: totalHeight)
+            .frame(width: totalWidth, height: totalHeight)// Center the grid in the viewport
         }
     }
+
 
     private func addBorderWithWindows(
         to path: inout Path,
