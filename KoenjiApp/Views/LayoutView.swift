@@ -58,11 +58,15 @@ struct LayoutView: View {
             let viewportWidth = parentGeometry.size.width
             let viewportHeight = parentGeometry.size.height
 
-            // Calculate offsets to center the grid within the viewport
-            let offsetX = max(0, (viewportWidth - totalWidth) / 2)
-            let offsetY = max(0, (viewportHeight - totalHeight) / 2)
+            // Calculate grid dimensions
+            let gridWidth = CGFloat(store.totalColumns) * cellSize
+            let gridHeight = CGFloat(store.totalRows) * cellSize
 
-            ZoomableScrollView(contentSize: CGSize(width: totalWidth, height: totalHeight), isSidebarVisible: $store.isSidebarVisible) {
+            // Adjust offsets dynamically
+            let x = isCompact ? viewportWidth : viewportWidth / 2
+            let y = isCompact ? viewportHeight : viewportHeight / 2 - 100
+
+            ZoomableScrollView(contentSize: CGSize(width: gridWidth, height: gridHeight), isSidebarVisible: $store.isSidebarVisible) {
                 ZStack {
                     // Center the grid background
                     gridBackground
@@ -73,10 +77,13 @@ struct LayoutView: View {
                         tableView(table: table, rect: rect, isLayoutLocked: isLayoutLocked)
                     }
                 }
-                .frame(width: totalWidth, height: totalHeight)
+                .frame(width: gridWidth, height: gridHeight)
+
             }
             .onAppear {
-                print("Viewport: \(viewportWidth)x\(viewportHeight), Offsets: \(offsetX), \(offsetY)")
+                print("Viewport: \(viewportWidth)x\(viewportHeight)")
+                print("gridWidth: \(gridWidth), gridHeight: \(gridHeight)")
+                print("x: \(x), y: \(y)")
             }
         }
         .ignoresSafeArea(.all, edges: .top) // Extend beneath the navigation bar
@@ -117,6 +124,7 @@ struct LayoutView: View {
                 
                 Button(action: {
                     withAnimation {
+                        print("Reset Zoom button tapped")
                         NotificationCenter.default.post(name: .resetZoom, object: nil)
                     }
                 }) {

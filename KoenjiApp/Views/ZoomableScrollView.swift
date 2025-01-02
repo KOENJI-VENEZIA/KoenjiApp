@@ -6,7 +6,8 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     let content: Content
     var contentSize: CGSize
     let onZoomScaleChanged: ((CGFloat) -> Void)?
-    
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass // Detect compact vs regular size class
+
     init(
         contentSize: CGSize,
         isSidebarVisible: Binding<Bool>,
@@ -25,100 +26,162 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     
     func makeUIView(context: Context) -> UIScrollView {
         let scrollView = UIScrollView()
+        context.coordinator.scrollView = scrollView // Save reference
+        print("UIScrollView created and reference saved")
+
         scrollView.delegate = context.coordinator
-        scrollView.minimumZoomScale = 0.5
+
+        // Set zoom configuration
+        scrollView.minimumZoomScale = 0.25
         scrollView.maximumZoomScale = 4.0
+        scrollView.zoomScale = 1.0
         scrollView.bounces = true
         scrollView.alwaysBounceHorizontal = true
         scrollView.alwaysBounceVertical = true
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.showsVerticalScrollIndicator = false
         scrollView.contentInsetAdjustmentBehavior = .never
-        
+
+        // Create content view
+        let contentView = UIView(frame: CGRect(origin: .zero, size: contentSize))
+        contentView.backgroundColor = .clear
+
+        // Add SwiftUI view to hosting controller
         let hostedView = context.coordinator.hostingController.view!
-        hostedView.translatesAutoresizingMaskIntoConstraints = false
-        hostedView.backgroundColor = .clear
+        hostedView.translatesAutoresizingMaskIntoConstraints = true
+        hostedView.frame = contentView.bounds
+        contentView.addSubview(hostedView)
+
+        // Add content view to scroll view
+        scrollView.addSubview(contentView)
+
+        // Set scroll view content size
+        scrollView.contentSize = contentSize
+
+        // Calculate dynamic insets
+        let viewportSize = UIScreen.main.bounds.size
+        let topInsetRatio: CGFloat = 0.8  // Increased slightly from 0.234
+        let leftInsetRatio: CGFloat = 0.5
+        // Increased slightly from 0.253
+
+        let topInset = (viewportSize.height - contentSize.height) * topInsetRatio
+        let leftInset = (viewportSize.width - contentSize.width) * leftInsetRatio
+
+        // Apply the insets
+        scrollView.contentInset = UIEdgeInsets(
+            top: max(0, topInset),
+            left: max(0, leftInset),
+            bottom: 0,
+            right: max(0, leftInset)
+        )
         
-        scrollView.addSubview(hostedView)
-        
-        NSLayoutConstraint.activate([
-            hostedView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
-            hostedView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
-            hostedView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-            hostedView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
-            hostedView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
-            hostedView.heightAnchor.constraint(equalTo: scrollView.frameLayoutGuide.heightAnchor)
-        ])
-        
-        // Removed the custom pinch gesture recognizer
-        
-        NotificationCenter.default.addObserver(context.coordinator, selector: #selector(context.coordinator.resetZoom), name: .resetZoom, object: nil)
-        
-        scrollView.setZoomScale(1.0, animated: false)
-        // Removed setting contentOffset to .zero here
-        // scrollView.contentOffset = .zero
-        
+        context.coordinator.saveInitialState(scrollView: scrollView)
+
+
+        // Debugging Logs
+        print("""
+        Initial Configuration:
+        Viewport: \(viewportSize)
+        Content Size: \(contentSize)
+        Insets: \(scrollView.contentInset)
+        Offsets: \(scrollView.contentOffset)
+        """)
+
         return scrollView
     }
     
     func updateUIView(_ uiView: UIScrollView, context: Context) {
         context.coordinator.hostingController.rootView = content
-        // Optionally update contentSize if necessary
     }
     
     class Coordinator: NSObject, UIScrollViewDelegate {
+        var scrollView: UIScrollView?
         var parent: ZoomableScrollView
         let hostingController: UIHostingController<Content>
+
+        // Store the initial state
+        private var initialZoomScale: CGFloat = 1.0
+        private var initialContentInset: UIEdgeInsets = .zero
+        private var initialContentOffset: CGPoint = .zero
         
         init(_ parent: ZoomableScrollView) {
             self.parent = parent
             self.hostingController = UIHostingController(rootView: parent.content)
             self.hostingController.view.backgroundColor = .clear
+            super.init() // Call superclass initializer before using `self`
+
+            NotificationCenter.default.addObserver(self, selector: #selector(resetZoom), name: .resetZoom, object: nil)
+        }
+        
+        deinit {
+            // Remove observer
+            NotificationCenter.default.removeObserver(self, name: .resetZoom, object: nil)
+        }
+
+        func saveInitialState(scrollView: UIScrollView) {
+            initialZoomScale = scrollView.zoomScale
+            initialContentInset = scrollView.contentInset
+
+            // Calculate initial offset relative to insets
+            initialContentOffset = CGPoint(
+                x: scrollView.contentOffset.x + scrollView.contentInset.left,
+                y: scrollView.contentOffset.y + scrollView.contentInset.top
+            )
+            
+            print("""
+            Initial state saved:
+            Zoom Scale: \(initialZoomScale)
+            Content Inset: \(initialContentInset)
+            Content Offset: \(initialContentOffset)
+            """)
         }
         
         @objc func resetZoom() {
-            guard let scrollView = hostingController.view.superview as? UIScrollView else { return }
-            scrollView.setZoomScale(1.0, animated: true)
-            scrollView.contentOffset = .zero
+            print("Reset Zoom button tapped")
+            
+            guard let scrollView = scrollView else {
+                print("UIScrollView reference is nil")
+                return
+            }
+
+            // Reset zoom scale
+            scrollView.setZoomScale(initialZoomScale, animated: true)
+
+            // Reset content inset
+            scrollView.contentInset = initialContentInset
+
+            // Reset content offset to align with the initial content inset
+            let adjustedOffset = CGPoint(
+                x: -initialContentInset.left,
+                y: -initialContentInset.top
+            )
+            scrollView.setContentOffset(adjustedOffset, animated: true)
+
+            // Log the reset state for debugging
+            print("""
+            Reset to initial state:
+            Zoom Scale: \(initialZoomScale)
+            Content Inset: \(initialContentInset)
+            Adjusted Content Offset: \(adjustedOffset)
+            """)
         }
-        
+
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
             return hostingController.view
         }
-        
+
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
-            DispatchQueue.main.async {
-                self.parent.onZoomScaleChanged?(scrollView.zoomScale)
-            }
-            
-            // Center the content when zooming out
-            let contentWidth = scrollView.contentSize.width
-            let contentHeight = scrollView.contentSize.height
-            let scrollViewWidth = scrollView.bounds.size.width
-            let scrollViewHeight = scrollView.bounds.size.height
-            
-            let horizontalInset = contentWidth < scrollViewWidth ? (scrollViewWidth - contentWidth) / 2 : 0
-            let verticalInset = contentHeight < scrollViewHeight ? (scrollViewHeight - contentHeight) / 2 : 0
-            scrollView.contentInset = UIEdgeInsets(top: verticalInset, left: horizontalInset, bottom: verticalInset, right: horizontalInset)
-        }
-        
-        // Removed scrollViewDidScroll to prevent interference with panning
-        /*
-        func scrollViewDidScroll(_ scrollView: UIScrollView) {
-            let scaledWidth = parent.contentSize.width * scrollView.zoomScale
-            let scaledHeight = parent.contentSize.height * scrollView.zoomScale
-            let viewportWidth = scrollView.bounds.width
-            let viewportHeight = scrollView.bounds.height
+            let offsetX = max((scrollView.bounds.width - scrollView.contentSize.width) * 0.5, 0)
+            let offsetY = max((scrollView.bounds.height - scrollView.contentSize.height) * 0.5, 0)
 
-            let horizontalInset = max(0, (viewportWidth - scaledWidth) / 2)
-            let verticalInset = max(0, (viewportHeight - scaledHeight) / 2)
+            scrollView.contentInset = UIEdgeInsets(top: offsetY, left: offsetX, bottom: offsetY, right: offsetX)
 
-            scrollView.contentInset = UIEdgeInsets(top: verticalInset, left: horizontalInset, bottom: verticalInset, right: horizontalInset)
-        }
-        */
-        
-        deinit {
-            NotificationCenter.default.removeObserver(self, name: .resetZoom, object: nil)
+            print("""
+            Zoom Scale: \(scrollView.zoomScale),
+            Insets: \(scrollView.contentInset),
+            Content Size: \(scrollView.contentSize),
+            Content Offset: \(scrollView.contentOffset)
+            """)
         }
     }
 }
