@@ -175,18 +175,13 @@ struct TableDragView: View {
                         
                             let moveResult = store.moveTable(table, toRow: newRow, toCol: newCol)
                             switch moveResult {
-                            case .swap(let swappedID):
-                                print("Table \(table.name) successfully swapped with table ID \(swappedID).")
-                                store.saveLayout(for: selectedDate, category: selectedCategory)
-                                store.saveToDisk()
-                                
                             case .move:
                                 print("Table \(table.name) successfully moved.")
-                                store.saveLayout(for: selectedDate, category: selectedCategory)
-                                store.saveToDisk()
+                                store.layoutManager.saveLayout(for: selectedDate, category: selectedCategory)
+                                store.layoutManager.saveToDisk()
                                 
                             case .invalid:
-                                print("Failed to move or swap table \(table.name).")
+                                print("Failed to move \(table.name).")
                                 layoutVM.showInvalidMoveFeedback()
                             }
                             

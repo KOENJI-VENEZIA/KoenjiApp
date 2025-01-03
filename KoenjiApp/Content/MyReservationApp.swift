@@ -21,7 +21,7 @@ struct MyReservationApp: App {
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
                 print("App became active. Reloading data...")
-                store.loadFromDisk()             // Load layouts
+                store.layoutManager.loadFromDisk()             // Load layouts
                 store.loadReservationsFromDisk() // Load reservations
             }
         }

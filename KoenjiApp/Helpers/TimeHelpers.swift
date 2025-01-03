@@ -104,11 +104,28 @@ struct TimeHelpers {
         return nil
     }
     
-}
+    /// Checks if two time ranges overlap.
+    static func timeRangesOverlap(start1: Date?, end1: Date?, start2: Date, end2: Date) -> Bool {
+        guard let start1 = start1, let end1 = end1 else { return false }
+        return (start1 < end2 && end1 > start2)
+    }
 
-extension Date {
+    /// Converts a time string in "HH:mm" format into a `Date` object on a specific date.
+    static func date(from timeString: String, on date: Date) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        formatter.timeZone = TimeZone.current
 
+        guard let time = formatter.date(from: timeString) else { return nil }
+
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.hour, .minute], from: time)
+        return calendar.date(bySettingHour: components.hour ?? 0,
+                             minute: components.minute ?? 0,
+                             second: 0,
+                             of: date)
+    }
     
-
 }
+
 

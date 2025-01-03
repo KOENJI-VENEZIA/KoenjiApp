@@ -138,7 +138,7 @@ struct LayoutView: View {
                 .accessibilityLabel(isLayoutLocked ? "Unlock Layout" : "Lock Layout")
                 
                 Button(action: {
-                    store.resetLayout(for: selectedDate, category: selectedCategory ?? .lunch)
+                    store.layoutManager.resetLayout(for: selectedDate, category: selectedCategory ?? .lunch)
                     layoutVM.tables = store.tables
                     isLayoutLocked = true
                     isZoomLocked = false 
@@ -195,7 +195,7 @@ struct LayoutView: View {
         .onAppear {
             layoutVM.tables = store.tables // Initial sync
             if store.tables.isEmpty {
-                store.loadLayout(for: selectedDate, category: selectedCategory ?? .lunch, reset: false)
+                store.layoutManager.loadLayout(for: selectedDate, category: selectedCategory ?? .lunch, reset: false)
             }
             systemTime = Date()
             currentTime = systemTime
@@ -211,7 +211,7 @@ struct LayoutView: View {
         }
         .onChange(of: selectedDate) { newDate in
             if isLayoutLocked {
-                store.loadLayout(for: newDate, category: selectedCategory ?? .lunch, reset: false)
+                store.layoutManager.loadLayout(for: newDate, category: selectedCategory ?? .lunch, reset: false)
                 layoutVM.tables = store.tables
             }
         }
@@ -222,7 +222,7 @@ struct LayoutView: View {
             adjustTime(for: newCategory)
             
             if isLayoutLocked {
-                store.loadLayout(for: selectedDate, category: newCategory, reset: false)
+                store.layoutManager.loadLayout(for: selectedDate, category: newCategory, reset: false)
                 layoutVM.tables = store.tables
             }
         }
@@ -235,7 +235,7 @@ struct LayoutView: View {
             }
             
             // Load the layout for the new category
-            store.loadLayout(for: selectedDate, category: store.selectedCategory ?? .lunch, reset: false)
+            store.layoutManager.loadLayout(for: selectedDate, category: store.selectedCategory ?? .lunch, reset: false)
             layoutVM.tables = store.tables
         }
         .onChange(of: store.tables) { updatedTables in

@@ -83,21 +83,21 @@ class LayoutViewModel: ObservableObject {
     private func saveCurrentLayout() {
         let date = Date() // Replace with the selected date
         let category: Reservation.ReservationCategory = .lunch // Replace with the selected category
-        store.saveLayout(for: date, category: category)
-        store.saveToDisk()
+        store.layoutManager.saveLayout(for: date, category: category)
+        store.layoutManager.saveToDisk()
         print("handleDropEnded: Layout saved for \(category.rawValue) on \(date).")
     }
 
     func resetLayout(for date: Date, category: Reservation.ReservationCategory, in store: ReservationStore) {
         // Reset tables to the default layout
-        self.tables = store.loadDefaultLayout(for: date, category: category)
+        self.tables = store.layoutManager.loadDefaultLayout(for: date, category: category)
 
         // Clear any invalid or cached grid state
-        store.loadTables() // Ensure the grid is reset properly
+        store.layoutManager.loadTables() // Ensure the grid is reset properly
 
         // Save the reset layout to the store and persist it to disk
-        store.saveLayout(for: date, category: category)
-        store.saveToDisk()
+        store.layoutManager.saveLayout(for: date, category: category)
+        store.layoutManager.saveToDisk()
 
         // Debugging logs
         print("resetLayout: Layout reset for \(category.rawValue) on \(date).")
@@ -123,6 +123,7 @@ class LayoutViewModel: ObservableObject {
             print("Debug: Out of bounds for (\(newRow), \(newCol)).")
             return false
         }
+        
 
         // Check overlap for the full rectangle
         let hypotheticalTable = TableModel(

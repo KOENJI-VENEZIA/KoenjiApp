@@ -6,6 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXCopyFilesBuildPhase section */
+		A030D8682D27798300EA08E2 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		A0775E242D1CAA1F00068B00 /* KoenjiApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KoenjiApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -33,6 +46,7 @@
 			isa = PBXGroup;
 			children = (
 				A0775E262D1CAA1F00068B00 /* KoenjiApp */,
+				A0FAF8AB2D27803A00CD653D /* Frameworks */,
 				A0775E252D1CAA1F00068B00 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -45,6 +59,13 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		A0FAF8AB2D27803A00CD653D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -55,6 +76,7 @@
 				A0775E202D1CAA1F00068B00 /* Sources */,
 				A0775E212D1CAA1F00068B00 /* Frameworks */,
 				A0775E222D1CAA1F00068B00 /* Resources */,
+				A030D8682D27798300EA08E2 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -65,6 +87,9 @@
 			);
 			name = KoenjiApp;
 			packageProductDependencies = (
+				A0EE065B2D27793B003CB759 /* SwiftUIIntrospect */,
+				A0EE065D2D27793B003CB759 /* SwiftUIIntrospect-Dynamic */,
+				A0EE065F2D27793B003CB759 /* SwiftUIIntrospect-Static */,
 			);
 			productName = KoenjiApp;
 			productReference = A0775E242D1CAA1F00068B00 /* KoenjiApp.app */;
@@ -94,6 +119,8 @@
 			);
 			mainGroup = A0775E1B2D1CAA1F00068B00;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A0775E252D1CAA1F00068B00 /* Products */;
 			projectDirPath = "";
@@ -256,6 +283,8 @@
 				DEVELOPMENT_TEAM = BVRFYCSRU7;
 				DONT_GENERATE_INFOPLIST_FILE = NO;
 				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
+				"FRAMEWORK_SEARCH_PATHS[arch=*]" = "$(BUILD_DIR)/PackageFrameworks";
 				GENERATE_INFOPLIST_FILE = YES;
 				GENERATE_PKGINFO_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -289,6 +318,7 @@
 				DEVELOPMENT_TEAM = BVRFYCSRU7;
 				DONT_GENERATE_INFOPLIST_FILE = NO;
 				ENABLE_PREVIEWS = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
 				GENERATE_INFOPLIST_FILE = YES;
 				GENERATE_PKGINFO_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -332,6 +362,21 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A0EE065B2D27793B003CB759 /* SwiftUIIntrospect */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SwiftUIIntrospect;
+		};
+		A0EE065D2D27793B003CB759 /* SwiftUIIntrospect-Dynamic */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "SwiftUIIntrospect-Dynamic";
+		};
+		A0EE065F2D27793B003CB759 /* SwiftUIIntrospect-Static */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "SwiftUIIntrospect-Static";
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A0775E1C2D1CAA1F00068B00 /* Project object */;
 }

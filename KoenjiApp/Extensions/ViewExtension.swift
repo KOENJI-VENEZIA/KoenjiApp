@@ -148,3 +148,23 @@ struct ColorSchemeBackgroundModifierCustom: ViewModifier {
             .background(colorScheme == .light ? lightColor : darkColor)
     }
 }
+
+extension Color {
+    static var grid_background: Color {
+            Color("grid_background")
+        }
+    }
+
+extension Color {
+    static var stroke_color_inner: Color {
+            Color("stroke_color_inner")
+        }
+    }
+
+extension Color {
+    static var stroke_color_outer: Color {
+            Color("stroke_color_outer")
+        }
+    }
+
+
