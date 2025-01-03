@@ -127,65 +127,30 @@ extension Reservation {
 }
 
 extension Reservation {
-    /// Checks if this reservation is active at `queryTime` (between startTime and endTime).
-    /// Also checks if the date matches and category matches the provided 'currentCategory' (if needed).
-    func isActive(queryDate: Date, queryTime: Date) -> Bool {
-        print("Debug: Checking if reservation \(id) is active")
-
-        let calendar = Calendar.current
-
-        // Extract and compare only the date components (year, month, day)
-        guard let reservationDate = self.date else {
-            print("Debug: Invalid reservation date format for \(dateString)")
+    /// Checks if the reservation is active at the given date and time.
+    func isActive(on date: Date, at time: Date) -> Bool {
+        guard let reservationDate = self.date,
+              reservationDate.isSameDay(as: date),
+              let start = self.startDate,
+              let end = self.endDate else {
             return false
         }
 
-        let queryDateComponents = calendar.dateComponents([.year, .month, .day], from: queryDate)
-        let reservationDateComponents = calendar.dateComponents([.year, .month, .day], from: reservationDate)
+        return time.isWithinTimeRange(start: start, end: end)
+    }
+}
 
-        if queryDateComponents != reservationDateComponents {
-            print("Debug: Date mismatch. Reservation date: \(reservationDateComponents), Query date: \(queryDateComponents)")
-            return false
-        }
+extension Reservation {
+    /// Combines `dateString` and `startTime` to generate a `Date` object for the reservation's start.
+    var startDate: Date? {
+        guard let date = self.date else { return nil }
+        return self.startTime.toDate(on: date)
+    }
 
-        // Parse reservation start and end times
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        formatter.timeZone = TimeZone.current
-
-        guard
-            let startTime = formatter.date(from: self.startTime),
-            let endTime = formatter.date(from: self.endTime)
-        else {
-            print("Debug: Invalid start or end time. Start time: \(self.startTime), End time: \(self.endTime)")
-            return false
-        }
-
-        // Use a fixed base date for all time comparisons
-        let baseDate = calendar.date(from: DateComponents(year: 2001, month: 1, day: 1))! // Fixed base date
-
-        guard
-            let normalizedStartTime = calendar.date(bySettingHour: calendar.component(.hour, from: startTime),
-                                                    minute: calendar.component(.minute, from: startTime),
-                                                    second: 0,
-                                                    of: baseDate),
-            let normalizedEndTime = calendar.date(bySettingHour: calendar.component(.hour, from: endTime),
-                                                  minute: calendar.component(.minute, from: endTime),
-                                                  second: 0,
-                                                  of: baseDate),
-            let normalizedQueryTime = calendar.date(bySettingHour: calendar.component(.hour, from: queryTime),
-                                                    minute: calendar.component(.minute, from: queryTime),
-                                                    second: 0,
-                                                    of: baseDate)
-        else {
-            print("Debug: Failed to normalize time components.")
-            return false
-        }
-
-        // Compare times
-        let isActive = normalizedQueryTime >= normalizedStartTime && normalizedQueryTime <= normalizedEndTime
-        print("Debug: Time comparison. Start time: \(normalizedStartTime), End time: \(normalizedEndTime), Query time: \(normalizedQueryTime), Is active: \(isActive)")
-        return isActive
+    /// Combines `dateString` and `endTime` to generate a `Date` object for the reservation's end.
+    var endDate: Date? {
+        guard let date = self.date else { return nil }
+        return self.endTime.toDate(on: date)
     }
 }
 
