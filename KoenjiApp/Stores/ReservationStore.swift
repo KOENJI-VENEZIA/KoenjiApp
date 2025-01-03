@@ -198,30 +198,38 @@ extension ReservationStore {
         
         return reservations.filter { $0.dateString == targetDateString }
     }
-    
-    func activeReservation(for table: TableModel, date: Date, time: Date) -> Reservation? {
-        let calendar = Calendar.current
-        let queryDateComponents = calendar.dateComponents([.year, .month, .day], from: date)
-        
-        for reservation in reservations {
-            guard let reservationDate = TimeHelpers.date(from: reservation.dateString, on: date),
-                  calendar.isDate(reservationDate, equalTo: date, toGranularity: .day),
-                  reservation.isActive(queryDate: reservationDate, queryTime: time) else {
-                continue
-            }
-            
-            if reservation.tables.contains(where: { $0.id == table.id }) {
-                print("Debug: Active reservation found: \(reservation.id)")
-                return reservation
-            }
-        }
-        return nil
-    }
+
     
     func handleTimeUpdate(_ newTime: Date) {
         currentTime = newTime
         updateCategory(for: newTime)
         print("Time updated to \(newTime), category set to \(selectedCategory?.rawValue ?? "none")")
+    }
+}
+
+extension ReservationStore {
+    /// Checks for an active reservation for the given table and time.
+    func activeReservation(for table: TableModel, date: Date, time: Date) -> Reservation? {
+        let calendar = Calendar.current
+
+        for reservation in reservations {
+            guard let reservationDate = TimeHelpers.fullDate(from: reservation.dateString) else { continue }
+            
+            // Ensure reservation date matches the selected date
+            guard calendar.isDate(reservationDate, equalTo: date, toGranularity: .day) else { continue }
+            
+            // Parse the reservation's start and end times
+            guard let reservationStart = TimeHelpers.date(from: reservation.startTime, on: reservationDate),
+                  let reservationEnd = TimeHelpers.date(from: reservation.endTime, on: reservationDate) else { continue }
+            
+            // Check if the selected time falls within the reservation's time range
+            if time >= reservationStart && time <= reservationEnd {
+                if reservation.tables.contains(where: { $0.id == table.id }) {
+                    return reservation
+                }
+            }
+        }
+        return nil
     }
 }
 
@@ -281,28 +289,40 @@ extension ReservationStore {
     ) {
         guard let resIndex = reservations.firstIndex(where: { $0.id == reservationID }) else { return }
         
-        let reservationDate = TimeHelpers.date(from: dateString, on: Date())!
+        let reservationDate = TimeHelpers.fullDate(from: dateString)!
         var assignedCapacity = 0
         var assignedTables: [TableModel] = []
         
+        // Check if the forced table can be used
         if !isTableOccupied(forcedTable, date: reservationDate, startTimeString: startTimeString, endTimeString: endTimeString) {
             assignedTables.append(forcedTable)
             assignedCapacity += forcedTable.maxCapacity
         }
         
-        let neededCapacity = numberOfPersons - assignedCapacity
+        // Get the list of available tables, excluding already assigned ones
         let availableTables = tables.filter {
             !isTableOccupied($0, date: reservationDate, startTimeString: startTimeString, endTimeString: endTimeString)
-        }
+            && !assignedTables.contains($0)
+        }.sorted { $0.id < $1.id } // Sort by ID or position for deterministic results
         
+        // Assign tables until the capacity is sufficient
         for table in availableTables {
             if assignedCapacity >= numberOfPersons { break }
             assignedTables.append(table)
             assignedCapacity += table.maxCapacity
         }
         
+        // Verify that the assigned tables meet the required capacity
+        if assignedCapacity < numberOfPersons {
+            print("Error: Unable to assign enough tables to meet the required capacity!")
+            return
+        }
+        
+        // Update the reservation with the assigned tables
         reservations[resIndex].tables = assignedTables
         assignedTables.forEach { markTable($0, occupied: true) }
+        
+        print("Assigned tables: \(assignedTables.map { $0.name }) for reservation \(reservationID)")
     }
 }
 

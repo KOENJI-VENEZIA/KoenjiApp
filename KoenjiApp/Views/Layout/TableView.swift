@@ -8,7 +8,7 @@ struct TableDragView: View {
     
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var store: ReservationStore
-    @ObservedObject var layoutVM: LayoutViewModel
+    @ObservedObject var layoutUI: LayoutUIManager
 
 
     @Binding var showingNoBookingAlert: Bool
@@ -23,7 +23,7 @@ struct TableDragView: View {
 
     var body: some View {
         // Calculate cell size from LayoutViewModel
-        let cellSize = layoutVM.cellSize
+        let cellSize = layoutUI.cellSize
 
         // Calculate table's current position based on row and column
         let tableWidth = CGFloat(table.width) * cellSize
@@ -130,12 +130,12 @@ struct TableDragView: View {
                 }
                 .onChanged { value in
                     if case .second(true, _) = value {
-                        layoutVM.isDragging = true
+                        layoutUI.isDragging = true
                     }
                 }
                 .onEnded { value in
                     if case .second(true, let drag?) = value {
-                        layoutVM.isDragging = false
+                        layoutUI.isDragging = false
                         guard !isLayoutLocked else {
                             store.currentlyDraggedTableID = nil
                             return
@@ -167,7 +167,7 @@ struct TableDragView: View {
                          
                         if !gridData.isBlockage(proposedFrame) {
                                    print("Proposed position is invalid (blocked).")
-                                   layoutVM.showInvalidMoveFeedback() // Provide feedback
+                                   layoutUI.showInvalidMoveFeedback() // Provide feedback
                                    store.currentlyDraggedTableID = nil // Reset dragging state
                                    return
                                }
@@ -182,13 +182,13 @@ struct TableDragView: View {
                                 
                             case .invalid:
                                 print("Failed to move \(table.name).")
-                                layoutVM.showInvalidMoveFeedback()
+                                layoutUI.showInvalidMoveFeedback()
                             }
                             
                             store.currentlyDraggedTableID = nil
                         } else {
                             print("Proposed position is blocked.")
-                            layoutVM.showInvalidMoveFeedback()
+                            layoutUI.showInvalidMoveFeedback()
                             store.currentlyDraggedTableID = nil
                         
                     }
