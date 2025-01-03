@@ -1,10 +1,3 @@
-//
-//  TableGridExtension.swift
-//  KoenjiApp
-//
-//  Created by [Your Name] on [Date].
-//
-
 import Foundation
 import SwiftUI
 
@@ -114,14 +107,21 @@ extension ReservationStore {
         }
 
         return reservations.contains { reservation in
-            guard let reservationDate = reservation.date else { return false }
-            if reservationDate != date { return false }
-            if !reservation.tables.contains(where: { $0.id == table.id }) { return false }
-
-            let reservationStart = TimeHelpers.date(from: reservation.startTime, on: date)
-            let reservationEnd = TimeHelpers.date(from: reservation.endTime, on: date)
-
-            return TimeHelpers.timeRangesOverlap(start1: reservationStart, end1: reservationEnd, start2: startTime, end2: endTime)
+            guard
+                let reservationStart = TimeHelpers.date(from: reservation.startTime, on: reservation.date ?? date),
+                let reservationEnd = TimeHelpers.date(from: reservation.endTime, on: reservation.date ?? date)
+            else {
+                return false
+            }
+            
+            return reservation.date == date &&
+                   reservation.tables.contains(where: { $0.id == table.id }) &&
+                   TimeHelpers.timeRangesOverlap(
+                       start1: reservationStart,
+                       end1: reservationEnd,
+                       start2: startTime,
+                       end2: endTime
+                   )
         }
     }
 }

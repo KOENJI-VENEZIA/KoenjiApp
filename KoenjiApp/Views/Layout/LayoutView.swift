@@ -9,15 +9,15 @@ struct LayoutView: View {
     @Namespace private var animationNamespace
 
     // Use the LayoutViewModel for manual dragging logic + pop-up alerts
-    @StateObject private var layoutVM: LayoutViewModel
+    @StateObject private var layoutUI: LayoutUIManager
 
     init(store: ReservationStore) {
-        let viewModel = LayoutViewModel(store: store)
+        let viewModel = LayoutUIManager(store: store)
         let gridWidth = CGFloat(store.totalColumns) * 40 // Use your cell size
         let gridHeight = CGFloat(store.totalRows) * 40
         let gridBounds = CGRect(x: 0, y: 0, width: gridWidth, height: gridHeight)
         
-        _layoutVM = StateObject(wrappedValue: viewModel)
+        _layoutUI = StateObject(wrappedValue: viewModel)
         _gridData = StateObject(wrappedValue: GridData(store: store, gridBounds: gridBounds))
     }
 
@@ -47,6 +47,7 @@ struct LayoutView: View {
     @State private var isLayoutLocked: Bool = true
     @State private var isZoomLocked: Bool = false
     @State private var showTopControls: Bool = true
+    @State private var selectedTableID: Int?
 
 
     @GestureState private var isDragging = false
@@ -71,8 +72,8 @@ struct LayoutView: View {
             Color(hex: "#C8CBEA").edgesIgnoringSafeArea([.all])
 
             ZoomableScrollView(scale: $scale) {
-                 ZStack {
-                     Color(hex: "#C8CBEA").edgesIgnoringSafeArea([.all])
+                Color(hex: "#C8CBEA").edgesIgnoringSafeArea([.all])
+
                      ZStack {
                          Color(hex: "#C8CBEA").edgesIgnoringSafeArea([.all])
 
@@ -86,20 +87,27 @@ struct LayoutView: View {
                              .frame(width: gridWidth, height: gridHeight)
                              .background(Color.grid_background)
 
-
-                         
-                         ForEach(layoutVM.tables, id: \.id) { table in
-                             let rect = layoutVM.calculateTableRect(for: table)
-                             tableView(table: table, rect: rect, isLayoutLocked: isLayoutLocked)
+                         ForEach(layoutUI.tables, id: \.id) { table in
+                             let rect = layoutUI.calculateTableRect(for: table)
+                             TableView(
+                                table: table,
+                                selectedDate: selectedDate,
+                                selectedCategory: selectedCategory ?? .lunch,
+                                currentTime: currentTime, // Use selected time
+                                layoutUI: layoutUI,
+                                showingNoBookingAlert: $showingNoBookingAlert,
+                                onTapEmpty: { handleEmptyTableTap(for: table) },
+                                onEditReservation: { reservation in selectedReservation = reservation },
+                                isLayoutLocked: isLayoutLocked,
+                                animationNamespace: animationNamespace
+                             )
+                             .environmentObject(store)
+                             .environmentObject(gridData)
 
                          }
-                         .frame(width: gridWidth, height: gridHeight)
-                         
                      }
+                     .frame(width: gridWidth, height: gridHeight)
                      .compositingGroup()
-                }
-
-
             }
             .onAppear {
                 print("Viewport: \(viewportWidth)x\(viewportHeight)")
@@ -139,7 +147,7 @@ struct LayoutView: View {
                 
                 Button(action: {
                     store.layoutManager.resetLayout(for: selectedDate, category: selectedCategory ?? .lunch)
-                    layoutVM.tables = store.tables
+                    layoutUI.tables = store.tables
                     isLayoutLocked = true
                     isZoomLocked = false 
                 }) {
@@ -180,10 +188,10 @@ struct LayoutView: View {
             )
             .environmentObject(store)
         }
-        .alert(isPresented: $layoutVM.showAlert) {
+        .alert(isPresented: $layoutUI.showAlert) {
             Alert(
                 title: Text("Posizionamento non valido"),
-                message: Text(layoutVM.alertMessage),
+                message: Text(layoutUI.alertMessage),
                 dismissButton: .default(Text("OK"))
             )
         }
@@ -193,7 +201,7 @@ struct LayoutView: View {
             }
         }
         .onAppear {
-            layoutVM.tables = store.tables // Initial sync
+            layoutUI.tables = store.tables // Initial sync
             if store.tables.isEmpty {
                 store.layoutManager.loadLayout(for: selectedDate, category: selectedCategory ?? .lunch, reset: false)
             }
@@ -201,46 +209,50 @@ struct LayoutView: View {
             currentTime = systemTime
         }
         .onChange(of: store.reservations) { _ in
-            guard layoutVM.draggingTable == nil else {
+            guard layoutUI.draggingTable == nil else {
                 print("onChange: Skipped syncing during drag operation")
                 return
             }
-            guard layoutVM.tables != store.tables else { return } // Sync only if tables differ
-            layoutVM.tables = store.tables
-            print("onChange: Synced layoutVM.tables with store.tables")
+            guard layoutUI.tables != store.tables else { return } // Sync only if tables differ
+            layoutUI.tables = store.tables
+            print("onChange: Synced layoutUI.tables with store.tables")
         }
         .onChange(of: selectedDate) { newDate in
             if isLayoutLocked {
                 store.layoutManager.loadLayout(for: newDate, category: selectedCategory ?? .lunch, reset: false)
-                layoutVM.tables = store.tables
+                layoutUI.tables = store.tables
             }
+            checkActiveReservations()
         }
         .onChange(of: selectedCategory) { newCategory in
             guard let newCategory = newCategory else { return }
             
-            // Update the time picker to default times for the selected category
             adjustTime(for: newCategory)
             
             if isLayoutLocked {
                 store.layoutManager.loadLayout(for: selectedDate, category: newCategory, reset: false)
-                layoutVM.tables = store.tables
+                layoutUI.tables = store.tables
             }
+            checkActiveReservations()
         }
         .onChange(of: currentTime) { newTime in
-            store.handleTimeUpdate(newTime)
+            let calendar = Calendar.current
+            let currentTime = selectedDate.combined(withTimeFrom: newTime) ?? newTime
             
-            // Update the selected category to match the new time
+            store.handleTimeUpdate(currentTime)
+            
             if let newCategory = store.selectedCategory {
                 selectedCategory = newCategory // Synchronize the category picker
             }
             
-            // Load the layout for the new category
             store.layoutManager.loadLayout(for: selectedDate, category: store.selectedCategory ?? .lunch, reset: false)
-            layoutVM.tables = store.tables
+            layoutUI.tables = store.tables
+            
+            checkActiveReservations()
         }
         .onChange(of: store.tables) { updatedTables in
-            guard layoutVM.tables != updatedTables else { return }
-            layoutVM.tables = updatedTables
+            guard layoutUI.tables != updatedTables else { return }
+            layoutUI.tables = updatedTables
         }
         .onChange(of: store.isSidebarVisible) { isVisible in
             // Force the ZoomableScrollView to recalculate its contentInset
@@ -290,33 +302,7 @@ struct LayoutView: View {
         .padding()
         .clipped() // Ensure content stays within the specified height
     }
-    
-
-
-
-    
-    @ViewBuilder
-    private func tableView(table: TableModel, rect: CGRect, isLayoutLocked: Bool) -> some View {
-        if layoutVM.draggingTable?.id != table.id {
-            TableDragView(
-                table: table,
-                selectedDate: selectedDate,
-                selectedCategory: selectedCategory ?? .lunch,
-                currentTime: currentTime,
-                layoutVM: layoutVM,
-                showingNoBookingAlert: $showingNoBookingAlert,
-                onTapEmpty: { handleEmptyTableTap(for: table) },
-                onEditReservation: { reservation in selectedReservation = reservation },
-                isLayoutLocked: isLayoutLocked
-            )
-            .environmentObject(store)
-            .environmentObject(gridData)
-            .matchedGeometryEffect(id: table.id, in: animationNamespace)
-        }
-    }
-
-
-
+ 
     private var datePicker: some View {
         VStack(alignment: .leading) {
             Text("Seleziona Giorno")
@@ -404,18 +390,21 @@ struct LayoutView: View {
         }
     }
     
-    func updateCategory(for time: Date) {
-        let hour = Calendar.current.component(.hour, from: time)
-        if hour >= 12 && hour <= 15 {
-            selectedCategory = .lunch
-        } else if hour >= 18 && hour <= 21 {
-            selectedCategory = .dinner
-        } else {
-            selectedCategory = .noBookingZone
-        }
-        print("Category updated to \(selectedCategory?.rawValue ?? "none") based on time.")
-    }
-    
+    private func checkActiveReservations() {
+        let calendar = Calendar.current
+        let combinedDate = selectedDate.combined(withTimeFrom: currentTime) ?? currentTime
 
+        for table in layoutUI.tables {
+            if let activeReservation = store.activeReservation(
+                for: table,
+                date: combinedDate,
+                time: currentTime
+            ) {
+                print("Active reservation found for table \(table.id): \(activeReservation)")
+            } else {
+                print("No active reservation for table \(table.id)")
+            }
+        }
+    }
 }
 
