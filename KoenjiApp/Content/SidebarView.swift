@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SidebarView: View {
-    @StateObject var store = ReservationStore() // Create the store instance
+    @EnvironmentObject var store: ReservationStore
 
     var body: some View {
         ZStack {
@@ -26,7 +26,6 @@ struct SidebarView: View {
             .listStyle(.sidebar)
             .navigationTitle("Prenotazioni")
             .padding(.vertical)
-            .dynamicBackground(light: Color(hex: "#BFC3E3"), dark: Color(hex: "#4A4E6D"))// Hide the List's default background
         }
     }
     

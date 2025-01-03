@@ -9,8 +9,8 @@
 import SwiftUI
 
 struct ContentViewWrapper: View {
-    @StateObject var store = ReservationStore()
-    
+    @EnvironmentObject var store: ReservationStore
+
     var body: some View {
         ContentView()
             .applyCustomStyles() // Applies dynamic backgrounds and Italian locale

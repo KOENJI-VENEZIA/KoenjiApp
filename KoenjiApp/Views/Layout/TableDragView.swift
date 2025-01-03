@@ -5,9 +5,11 @@ struct TableDragView: View {
     let selectedDate: Date
     let selectedCategory: Reservation.ReservationCategory
     let currentTime: Date
-
+    
+    @EnvironmentObject var gridData: GridData
     @EnvironmentObject var store: ReservationStore
     @ObservedObject var layoutVM: LayoutViewModel
+
 
     @Binding var showingNoBookingAlert: Bool
 
@@ -44,16 +46,17 @@ struct TableDragView: View {
 
         ZStack {
             // Base Rectangle with conditional color change if dragging
-            Rectangle()
+            RoundedRectangle(cornerRadius: 4.0)
                 .fill(
                     isDragging
                         ? Color.yellow.opacity(0.3) // Color when dragging
                         : (activeReservation != nil
                             ? Color.green.opacity(0.3) // Color for active reservation
-                            : (isLayoutLocked ? Color.orange.opacity(0.3) : Color.blue.opacity(0.15))) // Orange if locked, blue if unlocked
+                           : (isLayoutLocked ? Color.orange.opacity(0.3) : Color.clear)) // Orange if locked, blue if unlocked
                 )
+                .background(.ultraThinMaterial)
                 .overlay(
-                    Rectangle().stroke(
+                    RoundedRectangle(cornerRadius: 4.0).stroke(
                         isDragging
                             ? Color.yellow
                         : (isHighlighted ? Color(hex: "#9DA3D0") : (isLayoutLocked ? Color.orange : Color.blue)),
@@ -64,7 +67,7 @@ struct TableDragView: View {
                 .matchedGeometryEffect(id: table.id, in: animationNamespace) // Apply matchedGeometryEffect
 
             // Flash Overlay only for swapped tables (isHighlighted && not dragging)
-            Rectangle()
+            RoundedRectangle(cornerRadius: 4.0)
                 .fill(isHighlighted && !isDragging ? Color(hex: "#9DA3D0").opacity(0.4) : Color.clear)
                 .animation(.easeInOut(duration: 0.5), value: isHighlighted)
                 .frame(width: tableWidth, height: tableHeight)
@@ -77,7 +80,9 @@ struct TableDragView: View {
                     Text(reservation.name)
                         .bold()
                         .font(.caption)
-                    Text("\(reservation.numberOfPersons) pers")
+                    Text("\(reservation.numberOfPersons) pers.")
+                        .font(.footnote)
+                    Text("\(reservation.phone)")
                         .font(.footnote)
                     if let remaining = TimeHelpers.remainingTimeString(endTime: reservation.endTime, currentTime: currentTime) {
                         Text("Rimasto: \(remaining)")
@@ -90,10 +95,10 @@ struct TableDragView: View {
                             .font(.footnote)
                     }
                 }
-                .padding(4)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.white.opacity(0.7))
                 .cornerRadius(4)
-                .frame(width: tableWidth - 8, height: tableHeight - 8)
+                .frame(width: tableWidth, height: tableHeight)
             } else {
                 Text(table.name)
                     .bold()
@@ -107,61 +112,91 @@ struct TableDragView: View {
         }
         .position(x: xPos, y: yPos)
         .offset(dragOffset)
-        .gesture(
-            DragGesture()
-                .updating($dragOffset) { value, state, _ in
+        .highPriorityGesture(
+            LongPressGesture(minimumDuration: 0.3) // Adjust duration for "deep" press
+                .onEnded { _ in
                     guard !isLayoutLocked else { return }
-                    state = CGSize(
-                        width: value.translation.width,
-                        height: value.translation.height
-                    )
+                    store.currentlyDraggedTableID = table.id // Enable dragging after a "deep" press
                 }
-                .onChanged { _ in
-                    // Set the currently dragged table ID when drag starts
-                    if !isDragging {
-                        store.currentlyDraggedTableID = table.id
+                .sequenced(before: DragGesture(minimumDistance: 20))
+                .updating($dragOffset) { value, state, _ in
+                    if case .second(true, let drag?) = value {
+                        guard !isLayoutLocked else { return }
+                        state = CGSize(
+                            width: drag.translation.width,
+                            height: drag.translation.height
+                        )
+                    }
+                }
+                .onChanged { value in
+                    if case .second(true, _) = value {
+                        layoutVM.isDragging = true
                     }
                 }
                 .onEnded { value in
-                    layoutVM.isDragging = false
-                    guard !isLayoutLocked else {
-                        // Reset currentlyDraggedTableID if layout is locked
-                        store.currentlyDraggedTableID = nil
-                        return
-                    }
+                    if case .second(true, let drag?) = value {
+                        layoutVM.isDragging = false
+                        guard !isLayoutLocked else {
+                            store.currentlyDraggedTableID = nil
+                            return
+                        }
 
-                    let dx = value.translation.width
-                    let dy = value.translation.height
-                    let deltaCols = Int(round(dx / cellSize))
-                    let deltaRows = Int(round(dy / cellSize))
-
-                    print("Drag ended. dx: \(dx), dy: \(dy), deltaCols: \(deltaCols), deltaRows: \(deltaRows)")
-
-                    let newRow = table.row + deltaRows
-                    let newCol = table.column + deltaCols
-
-                    // Invoke moveTable and check the result
-                    let moveResult = store.moveTable(table, toRow: newRow, toCol: newCol)
-
-                    switch moveResult {
-                    case .swap(let swappedID):
-                        print("Table \(table.name) successfully swapped with table ID \(swappedID).")
-                        // Flash animation is handled within swapTables
-                        store.saveLayout(for: selectedDate, category: selectedCategory)
-                        store.saveToDisk()
+                        let dx = drag.translation.width
+                        let dy = drag.translation.height
+                        let deltaCols = Int(round(dx / cellSize))
+                        let deltaRows = Int(round(dy / cellSize))
                         
-                    case .move:
-                        print("Table \(table.name) successfully moved.")
-                        store.saveLayout(for: selectedDate, category: selectedCategory)
-                        store.saveToDisk()
-                        
-                    case .invalid:
-                        print("Failed to move or swap table \(table.name).")
-                        layoutVM.showInvalidMoveFeedback()
-                    }
+                        let proposedPosition = CGPoint(
+                                                    x: xPos + drag.translation.width,
+                                                    y: yPos + drag.translation.height
+                                                )
 
-                    // Reset the currently dragged table ID
-                    store.currentlyDraggedTableID = nil
+                                                // Calculate the new frame of the table
+                        let proposedFrame = CGRect(
+                            x: proposedPosition.x - tableWidth / 2,
+                            y: proposedPosition.y - tableHeight / 2,
+                            width: tableWidth,
+                            height: tableHeight
+                        )
+
+                        print("Drag ended. dx: \(dx), dy: \(dy), deltaCols: \(deltaCols), deltaRows: \(deltaRows)")
+
+                        let newRow = table.row + deltaRows
+                        let newCol = table.column + deltaCols
+
+                         
+                        if !gridData.isBlockage(proposedFrame) {
+                                   print("Proposed position is invalid (blocked).")
+                                   layoutVM.showInvalidMoveFeedback() // Provide feedback
+                                   store.currentlyDraggedTableID = nil // Reset dragging state
+                                   return
+                               }
+                        
+                        
+                            let moveResult = store.moveTable(table, toRow: newRow, toCol: newCol)
+                            switch moveResult {
+                            case .swap(let swappedID):
+                                print("Table \(table.name) successfully swapped with table ID \(swappedID).")
+                                store.saveLayout(for: selectedDate, category: selectedCategory)
+                                store.saveToDisk()
+                                
+                            case .move:
+                                print("Table \(table.name) successfully moved.")
+                                store.saveLayout(for: selectedDate, category: selectedCategory)
+                                store.saveToDisk()
+                                
+                            case .invalid:
+                                print("Failed to move or swap table \(table.name).")
+                                layoutVM.showInvalidMoveFeedback()
+                            }
+                            
+                            store.currentlyDraggedTableID = nil
+                        } else {
+                            print("Proposed position is blocked.")
+                            layoutVM.showInvalidMoveFeedback()
+                            store.currentlyDraggedTableID = nil
+                        
+                    }
                 }
         )
         .onChange(of: isHighlighted) { newValue in

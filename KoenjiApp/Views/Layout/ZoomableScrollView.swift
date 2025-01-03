@@ -10,40 +10,6 @@ import SwiftUI
 
 let maxAllowedScale = 4.0
 
-struct TestZoomableScrollView: View {
-
-    @State private var scale: CGFloat = 1.0
-    
-    var doubleTapGesture: some Gesture {
-        TapGesture(count: 2).onEnded {
-            if scale < maxAllowedScale / 2 {
-                scale = maxAllowedScale
-            } else {
-                scale = 1.0
-            }
-        }
-    }
-    
-    var body: some View {
-            VStack(alignment: .center) {
-                Spacer()
-                ZoomableScrollView(scale: $scale) {
-                    Image("foto_producto")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 200, height: 200)
-                }
-                .frame(width: 300, height: 300)
-                .border(.black)
-                .gesture(doubleTapGesture)
-                Spacer()
-                Text("Change the scale")
-                Slider(value: $scale, in: 0.5...maxAllowedScale + 0.5)
-                .padding(.horizontal)
-                Spacer()
-            }
-    }
-}
 
 struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     
@@ -106,6 +72,4 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     }
 }
 
-#Preview {
-    TestZoomableScrollView()
-}
+

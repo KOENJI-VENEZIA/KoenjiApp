@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct LayoutView: View {
+    @StateObject private var gridData: GridData
     @EnvironmentObject var store: ReservationStore
     @Environment(\.locale) var locale // Access the current locale
     @Environment(\.horizontalSizeClass) var horizontalSizeClass // Detect compact vs regular size class
@@ -11,9 +12,13 @@ struct LayoutView: View {
     @StateObject private var layoutVM: LayoutViewModel
 
     init(store: ReservationStore) {
-        // Initialize the LayoutViewModel
         let viewModel = LayoutViewModel(store: store)
+        let gridWidth = CGFloat(store.totalColumns) * 40 // Use your cell size
+        let gridHeight = CGFloat(store.totalRows) * 40
+        let gridBounds = CGRect(x: 0, y: 0, width: gridWidth, height: gridHeight)
+        
         _layoutVM = StateObject(wrappedValue: viewModel)
+        _gridData = StateObject(wrappedValue: GridData(store: store, gridBounds: gridBounds))
     }
 
     // MARK: - Filters
@@ -40,51 +45,68 @@ struct LayoutView: View {
     // MARK: - Zoom and Pan State
     @State private var showingNoBookingAlert: Bool = false
     @State private var isLayoutLocked: Bool = true
+    @State private var isZoomLocked: Bool = false
     @State private var showTopControls: Bool = true
 
-    // New State Variables for ZoomableScrollView
-    @State private var parentSize: CGSize = .zero
-    @State private var zoomScale: CGFloat = 1.0
+
+    @GestureState private var isDragging = false
+    
+    @State private var scale: CGFloat = 1.0
+    @State private var offset: CGSize = .zero
+    @GestureState private var dragTranslation: CGSize = .zero
+    @GestureState private var magnificationScale: CGFloat = 1.0
 
     var body: some View {
-        // Determine if the layout is compact
         let isCompact = horizontalSizeClass == .compact
 
-        // Calculate totalWidth and totalHeight based on store's data
-        let totalWidth = CGFloat(store.totalColumns) * cellSize
-        let totalHeight = CGFloat(store.totalRows) * cellSize
-
+        
         GeometryReader { parentGeometry in
             let viewportWidth = parentGeometry.size.width
             let viewportHeight = parentGeometry.size.height
 
-            // Calculate grid dimensions
             let gridWidth = CGFloat(store.totalColumns) * cellSize
             let gridHeight = CGFloat(store.totalRows) * cellSize
+            
 
-            // Adjust offsets dynamically
-            let x = isCompact ? viewportWidth : viewportWidth / 2
-            let y = isCompact ? viewportHeight : viewportHeight / 2 - 100
+            Color(hex: "#C8CBEA").edgesIgnoringSafeArea([.all])
 
-            ZoomableScrollView(contentSize: CGSize(width: gridWidth, height: gridHeight), isSidebarVisible: $store.isSidebarVisible) {
-                ZStack {
-                    // Center the grid background
-                    gridBackground
+            ZoomableScrollView(scale: $scale) {
+                 ZStack {
+                     Color(hex: "#C8CBEA").edgesIgnoringSafeArea([.all])
+                     ZStack {
+                         Color(hex: "#C8CBEA").edgesIgnoringSafeArea([.all])
 
-                    // Draw the tables, centered with the grid
-                    ForEach(layoutVM.tables, id: \.id) { table in
-                        let rect = layoutVM.calculateTableRect(for: table)
-                        tableView(table: table, rect: rect, isLayoutLocked: isLayoutLocked)
-                    }
+                         Rectangle()
+                             .frame(width: gridWidth, height: gridHeight)
+                             .background(Color.grid_background)
+                         Rectangle()
+                             .stroke(style: StrokeStyle(lineWidth: 2, dash: [5]))
+                             .frame(width: gridWidth, height: gridHeight)
+                         gridData.gridBackground
+                             .frame(width: gridWidth, height: gridHeight)
+                             .background(Color.grid_background)
+
+
+                         
+                         ForEach(layoutVM.tables, id: \.id) { table in
+                             let rect = layoutVM.calculateTableRect(for: table)
+                             tableView(table: table, rect: rect, isLayoutLocked: isLayoutLocked)
+
+                         }
+                         .frame(width: gridWidth, height: gridHeight)
+                         
+                     }
+                     .compositingGroup()
                 }
-                .frame(width: gridWidth, height: gridHeight)
+
 
             }
             .onAppear {
                 print("Viewport: \(viewportWidth)x\(viewportHeight)")
-                print("gridWidth: \(gridWidth), gridHeight: \(gridHeight)")
-                print("x: \(x), y: \(y)")
+                print("Grid: \(gridWidth)x\(gridHeight)")
+                print("Offset: \(offset)")
             }
+            .clipped()
         }
         .ignoresSafeArea(.all, edges: .top) // Extend beneath the navigation bar
         .safeAreaInset(edge: .top) { // Insert topControls just below the navigation bar
@@ -108,6 +130,8 @@ struct LayoutView: View {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button(action: {
                     isLayoutLocked.toggle()
+                    isZoomLocked.toggle() // Toggle zoom lock state
+
                 }) {
                     Image(systemName: isLayoutLocked ? "lock.fill" : "lock.open.fill")
                 }
@@ -117,6 +141,7 @@ struct LayoutView: View {
                     store.resetLayout(for: selectedDate, category: selectedCategory ?? .lunch)
                     layoutVM.tables = store.tables
                     isLayoutLocked = true
+                    isZoomLocked = false 
                 }) {
                     Image(systemName: "arrow.counterclockwise.circle")
                 }
@@ -125,7 +150,6 @@ struct LayoutView: View {
                 Button(action: {
                     withAnimation {
                         print("Reset Zoom button tapped")
-                        NotificationCenter.default.post(name: .resetZoom, object: nil)
                     }
                 }) {
                     Image(systemName: "arrow.up.left.and.down.right.magnifyingglass")
@@ -220,7 +244,6 @@ struct LayoutView: View {
         }
         .onChange(of: store.isSidebarVisible) { isVisible in
             // Force the ZoomableScrollView to recalculate its contentInset
-            NotificationCenter.default.post(name: .resetZoom, object: nil)
         }
         .alert(isPresented: $showingNoBookingAlert) {
             Alert(
@@ -267,99 +290,11 @@ struct LayoutView: View {
         .padding()
         .clipped() // Ensure content stays within the specified height
     }
-
-    private var gridBackground: some View {
-        GeometryReader { geometry in
-            let rows = store.totalRows
-            let cols = store.totalColumns
-            let cellSize = layoutVM.cellSize
-            let totalWidth = CGFloat(cols) * cellSize
-            let totalHeight = CGFloat(rows) * cellSize
-
-            // Calculate offsets to center the grid in the viewport
-
-
-            ZStack {
-                
-                // Outer Border with Windows
-                Path { path in
-                    addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: 0), to: CGPoint(x: totalWidth - 1, y: 0), windows: [(2, 5), (14, 17)], isThick: true)
-                    addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth, y: 0), to: CGPoint(x: totalWidth, y: totalHeight - 1), windows: [(4, 7)], isThick: true)
-                    addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: totalHeight - 1), to: CGPoint(x: 0, y: 0), windows: [], isThick: true)
-                    addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth - 1, y: totalHeight), to: CGPoint(x: 0, y: totalHeight), windows: [(3, 7)], isThick: true)
-                }
-                .stroke(
-                    dynamicColor(light: .gray, dark: .gray),
-                    style: StrokeStyle(lineWidth: 4)
-                )
-
-                Path { path in
-                    addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: 0), to: CGPoint(x: totalWidth, y: 0), windows: [(2, 5), (14, 17)], isThick: false)
-                    addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth, y: 0), to: CGPoint(x: totalWidth, y: totalHeight), windows: [(4, 7)], isThick: false)
-                    addBorderWithWindows(to: &path, from: CGPoint(x: 0, y: totalHeight - 1), to: CGPoint(x: 0, y: 0), windows: [], isThick: false)
-                    addBorderWithWindows(to: &path, from: CGPoint(x: totalWidth - 1, y: totalHeight), to: CGPoint(x: 0, y: totalHeight), windows: [(3, 7)], isThick: false)
-                }
-                .stroke(
-                    dynamicColor(light: .gray, dark: .gray),
-                    style: StrokeStyle(lineWidth: 2, dash: [6, 4])
-                )
-
-                // Inner Grid Lines
-                Path { path in
-                    for row in 1..<rows {
-                        let y = CGFloat(row) * cellSize
-                        path.move(to: CGPoint(x: 0, y: y))
-                        path.addLine(to: CGPoint(x: totalWidth, y: y))
-                    }
-                    for col in 1..<cols {
-                        let x = CGFloat(col) * cellSize
-                        path.move(to: CGPoint(x: x, y: 0))
-                        path.addLine(to: CGPoint(x: x, y: totalHeight))
-                    }
-                }
-                .stroke(
-                    dynamicColor(light: Color(hex: "#545454"), dark: Color(hex: "#c2c0c0")),
-                    style: StrokeStyle(lineWidth: 1, dash: [6, 4])
-                )
-            }
-            .frame(width: totalWidth, height: totalHeight)// Center the grid in the viewport
-        }
-    }
-
-
-    private func addBorderWithWindows(
-        to path: inout Path,
-        from start: CGPoint,
-        to end: CGPoint,
-        windows: [(Int, Int)],
-        isThick: Bool
-    ) {
-        let isHorizontal = start.y == end.y
-        let length = isHorizontal ? abs(end.x - start.x) : abs(end.y - start.y)
-        let direction = isHorizontal ? (end.x > start.x ? 1 : -1) : (end.y > start.y ? 1 : -1)
-        let stepSize = layoutVM.cellSize
-
-        for step in stride(from: 0, through: Int(length / stepSize), by: 1) {
-            let inWindow = windows.contains { window in
-                step >= window.0 && step <= window.1
-            }
-
-            if (inWindow && !isThick) || (!inWindow && isThick) {
-                let segmentStart = isHorizontal
-                    ? CGPoint(x: start.x + CGFloat(step) * stepSize * CGFloat(direction), y: start.y)
-                    : CGPoint(x: start.x, y: start.y + CGFloat(step) * stepSize * CGFloat(direction))
-                let segmentEnd = isHorizontal
-                    ? CGPoint(x: start.x + CGFloat(step + 1) * stepSize * CGFloat(direction), y: start.y)
-                    : CGPoint(x: start.x, y: start.y + CGFloat(step + 1) * stepSize * CGFloat(direction))
-
-                path.move(to: segmentStart)
-                path.addLine(to: segmentEnd)
-            }
-        }
-    }
+    
 
 
 
+    
     @ViewBuilder
     private func tableView(table: TableModel, rect: CGRect, isLayoutLocked: Bool) -> some View {
         if layoutVM.draggingTable?.id != table.id {
@@ -375,6 +310,7 @@ struct LayoutView: View {
                 isLayoutLocked: isLayoutLocked
             )
             .environmentObject(store)
+            .environmentObject(gridData)
             .matchedGeometryEffect(id: table.id, in: animationNamespace)
         }
     }
@@ -479,6 +415,7 @@ struct LayoutView: View {
         }
         print("Category updated to \(selectedCategory?.rawValue ?? "none") based on time.")
     }
-}
+    
 
+}
 
