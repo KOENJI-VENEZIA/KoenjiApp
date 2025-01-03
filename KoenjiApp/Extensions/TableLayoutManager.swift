@@ -42,6 +42,11 @@ class TableLayoutManager {
     }
     
     func resetLayout(for date: Date, category: Reservation.ReservationCategory) {
+        reservationStore.tables = loadDefaultLayout(for: date, category: category)
+
+        // Reset grid state
+        loadTables()
+        
         loadLayout(for: date, category: category, reset: true)
         saveLayout(for: date, category: category)
         print("Layout reset for \(date) - \(category.rawValue)")
@@ -56,6 +61,12 @@ class TableLayoutManager {
         } else {
             print("Failed to encode cached layouts.")
         }
+    }
+    
+    func saveCurrentLayout(for date: Date, category: Reservation.ReservationCategory) {
+        saveLayout(for: date, category: category)
+        saveToDisk()
+        print("saveCurrentLayout: Layout saved for \(category.rawValue) on \(date).")
     }
     
     func loadFromDisk() {
