@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// Represents a physical table in the restaurant.
-struct TableModel: Identifiable, Hashable, Codable {
+struct TableModel: Identifiable, Hashable, Codable, Equatable {
     let id: Int
     let name: String
     let maxCapacity: Int
@@ -19,6 +19,8 @@ struct TableModel: Identifiable, Hashable, Codable {
     /// Dimensions
     var width: Int { 3 }
     var height: Int { 3 }
+    
+    
 }
 
 
