@@ -87,9 +87,6 @@
 			);
 			name = KoenjiApp;
 			packageProductDependencies = (
-				A0EE065B2D27793B003CB759 /* SwiftUIIntrospect */,
-				A0EE065D2D27793B003CB759 /* SwiftUIIntrospect-Dynamic */,
-				A0EE065F2D27793B003CB759 /* SwiftUIIntrospect-Static */,
 			);
 			productName = KoenjiApp;
 			productReference = A0775E242D1CAA1F00068B00 /* KoenjiApp.app */;
@@ -362,21 +359,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		A0EE065B2D27793B003CB759 /* SwiftUIIntrospect */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = SwiftUIIntrospect;
-		};
-		A0EE065D2D27793B003CB759 /* SwiftUIIntrospect-Dynamic */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = "SwiftUIIntrospect-Dynamic";
-		};
-		A0EE065F2D27793B003CB759 /* SwiftUIIntrospect-Static */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = "SwiftUIIntrospect-Static";
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A0775E1C2D1CAA1F00068B00 /* Project object */;
 }
