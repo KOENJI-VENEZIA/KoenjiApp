@@ -341,10 +341,6 @@ class GridData: ObservableObject {
 
         func path(in rect: CGRect) -> Path {
             var path = Path()
-
-            let totalWidth = CGFloat(cols) * cellSize
-            let totalHeight = CGFloat(rows) * cellSize
-            
             
             // Calculate exclusion regions from indentations and holes
             

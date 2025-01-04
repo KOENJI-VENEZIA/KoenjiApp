@@ -89,7 +89,6 @@ struct LayoutView: View {
                              .background(Color.grid_background)
 
                          ForEach(layoutUI.tables, id: \.id) { table in
-                             let rect = layoutUI.calculateTableRect(for: table)
                              TableView(
                                 table: table,
                                 selectedDate: selectedDate,
@@ -236,7 +235,6 @@ struct LayoutView: View {
             checkActiveReservations()
         }
         .onChange(of: currentTime) { newTime in
-            let calendar = Calendar.current
             let currentTime = selectedDate.combined(withTimeFrom: newTime) ?? newTime
             
             store.handleTimeUpdate(currentTime)
@@ -391,7 +389,6 @@ struct LayoutView: View {
     }
     
     private func checkActiveReservations() {
-        let calendar = Calendar.current
         let combinedDate = selectedDate.combined(withTimeFrom: currentTime) ?? currentTime
 
         for table in layoutUI.tables {
