@@ -17,6 +17,10 @@ struct Reservation: Identifiable, Hashable, Codable {
     var category: ReservationCategory
     var startTime: String   // "HH:MM"
     var endTime: String     // computed but editable by user
+    var acceptance: Acceptance
+    var status: ReservationStatus
+    var reservationType: ReservationType
+    var group: Bool
     var notes: String?
     var tables: [TableModel]
     let creationDate: Date
@@ -42,6 +46,10 @@ struct Reservation: Identifiable, Hashable, Codable {
             case category
             case startTime
             case endTime
+            case acceptance
+            case status
+            case reservationType
+            case group
             case notes
             case tables
             case creationDate
@@ -56,6 +64,23 @@ struct Reservation: Identifiable, Hashable, Codable {
         case noBookingZone
     }
 
+    enum Acceptance: String, CaseIterable {
+        case confirmed
+        case toConfirm
+    }
+    
+    enum ReservationStatus: String, CaseIterable {
+        case noShow
+        case showedUp
+        case canceled
+        case pending
+    }
+    
+    enum ReservationType: String, CaseIterable {
+        case walkIn
+        case inAdvance
+    }
+    
     init(
         id: UUID = UUID(),
         name: String,
@@ -65,6 +90,10 @@ struct Reservation: Identifiable, Hashable, Codable {
         category: ReservationCategory,
         startTime: String,
         endTime: String = "",
+        acceptance: Acceptance,
+        status: ReservationStatus,
+        reservationType: ReservationType,
+        group: Bool = false,
         notes: String? = nil,
         tables: [TableModel] = [],
         creationDate: Date = Date(),
@@ -78,6 +107,10 @@ struct Reservation: Identifiable, Hashable, Codable {
         self.category = category
         self.startTime = startTime
         self.endTime = endTime
+        self.acceptance = acceptance
+        self.status = status
+        self.reservationType = reservationType
+        self.group = group
         self.notes = notes
         self.tables = tables
         self.creationDate = creationDate
@@ -99,6 +132,10 @@ extension Reservation {
         category = try container.decode(ReservationCategory.self, forKey: .category)
         startTime = try container.decode(String.self, forKey: .startTime)
         endTime = try container.decode(String.self, forKey: .endTime)
+        acceptance = try container.decode(Acceptance.self, forKey: .acceptance)
+        status = try container.decode(ReservationStatus.self, forKey: .status)
+        reservationType = try container.decode(ReservationType.self, forKey: .reservationType)
+        group = try container.decode(Bool.self, forKey: .group)
         notes = try container.decodeIfPresent(String.self, forKey: .notes)
         tables = try container.decode([TableModel].self, forKey: .tables)
         creationDate = try container.decode(Date.self, forKey: .creationDate)
@@ -119,6 +156,10 @@ extension Reservation {
         try container.encode(category, forKey: .category)
         try container.encode(startTime, forKey: .startTime)
         try container.encode(endTime, forKey: .endTime)
+        try container.encode(acceptance, forKey: .acceptance)
+        try container.encode(status, forKey: .status)
+        try container.encode(reservationType, forKey: .reservationType)
+        try container.encode(group, forKey: .group)
         try container.encodeIfPresent(notes, forKey: .notes)
         try container.encode(tables, forKey: .tables)
         try container.encode(creationDate, forKey: .creationDate)
@@ -155,3 +196,7 @@ extension Reservation {
 }
 
 extension Reservation.ReservationCategory: Codable {}
+extension Reservation.Acceptance: Codable {}
+extension Reservation.ReservationStatus: Codable {}
+extension Reservation.ReservationType: Codable {}
+

@@ -96,32 +96,4 @@ extension ReservationStore {
         )
     }
 
-    // MARK: - Utilities
-
-    func isTableOccupied(_ table: TableModel, date: Date, startTimeString: String, endTimeString: String) -> Bool {
-        guard
-            let startTime = TimeHelpers.date(from: startTimeString, on: date),
-            let endTime = TimeHelpers.date(from: endTimeString, on: date)
-        else {
-            return false
-        }
-
-        return reservations.contains { reservation in
-            guard
-                let reservationStart = TimeHelpers.date(from: reservation.startTime, on: reservation.date ?? date),
-                let reservationEnd = TimeHelpers.date(from: reservation.endTime, on: reservation.date ?? date)
-            else {
-                return false
-            }
-            
-            return reservation.date == date &&
-                   reservation.tables.contains(where: { $0.id == table.id }) &&
-                   TimeHelpers.timeRangesOverlap(
-                       start1: reservationStart,
-                       end1: reservationEnd,
-                       start2: startTime,
-                       end2: endTime
-                   )
-        }
-    }
 }

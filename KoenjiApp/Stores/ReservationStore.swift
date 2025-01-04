@@ -2,6 +2,8 @@
 //  ReservationStore.swift
 //  KoenjiApp
 //
+//  An updated version of ReservationStore without forcedTable logic.
+//
 
 import Foundation
 import SwiftUI
@@ -29,6 +31,9 @@ class ReservationStore: ObservableObject {
     let totalRows: Int = 15
     let totalColumns: Int = 18
     
+    /// Defines the order of tables for assignment (used in auto-assign).
+    private let tableAssignmentOrder: [String] = ["T1", "T2", "T3", "T4", "T6", "T7", "T5"]
+    
     // Published Variables
     @Published var reservations: [Reservation] = []
     @Published var tables: [TableModel] = [] {
@@ -49,95 +54,77 @@ class ReservationStore: ObservableObject {
     // MARK: - Initializers
     
     init() {
-        layoutManager.loadFromDisk()        // Load cached layouts
-        loadReservationsFromDisk()         // Load reservation data
+        layoutManager.loadFromDisk()         // Load cached layouts if any
+        loadReservationsFromDisk()          // Load reservation data
         
         if reservations.isEmpty {
             print("No saved reservations found. Loading mock data.")
-            mockData()                      // Load mock data if no reservations are found
+            mockData()                       // Load mock data if no reservations are found
         }
         
-        layoutManager.markTablesInGrid()    // Initialize the grid with table positions
+        layoutManager.markTablesInGrid()     // Initialize the grid with table positions
     }
 }
 
+// MARK: - CRUD Operations
 extension ReservationStore {
-    // MARK: - CRUD Operations
-    /// Handles adding, updating, and deleting reservations.
-    
-    func addReservation(
-        name: String,
-        phone: String,
-        numberOfPersons: Int,
-        date: String,
-        category: Reservation.ReservationCategory,
-        startTime: String,
-        endTime: String,
-        notes: String? = nil,
-        forcedTable: TableModel? = nil
-    ) {
-        let newReservation = Reservation(
-            id: UUID(),
-            name: name,
-            phone: phone,
-            numberOfPersons: numberOfPersons,
-            dateString: date,
-            category: category,
-            startTime: startTime,
-            endTime: endTime,
-            notes: notes,
-            tables: [],
-            creationDate: Date()
-        )
+    /// Adds a new reservation.
+    /// Assumes the reservation's `tables` have already been assigned
+    /// (manually or automatically). If not, it will be unassigned.
+    /// This method simply appends it and marks its tables as occupied.
+    func addReservation(_ reservation: Reservation) {
+        // Append the new reservation
+        reservations.append(reservation)
         
-        reservations.append(newReservation)
+        // Mark any assigned tables as occupied
+        reservation.tables.forEach { markTable($0, occupied: true) }
         
-        guard let addedReservation = reservations.last else {
-            print("Debug: Failed to add reservation.")
-            return
-        }
-        
-        let startingTable = forcedTable ?? tables.first(where: {
-            !isTableOccupied($0, date: addedReservation.date ?? Date(), startTimeString: startTime, endTimeString: endTime)
-        }) ?? tables.first!
-        
-        print("Debug: Assigning tables for reservation \(addedReservation.id). Starting from table: \(startingTable.name)")
-        
-        assignTables(
-            for: addedReservation.id,
-            startingFrom: startingTable,
-            numberOfPersons: numberOfPersons,
-            dateString: date,
-            startTimeString: startTime,
-            endTimeString: endTime
-        )
-        
+        // Save
         saveReservationsToDisk()
+        
+        print("Debug: Added new reservation \(reservation.id) with \(reservation.tables.count) tables.")
     }
     
-    func updateReservation(_ reservation: Reservation) {
-        if let index = reservations.firstIndex(where: { $0.id == reservation.id }) {
-            let oldTables = reservations[index].tables
-            oldTables.forEach { unmarkTable($0) }
+    /// Updates an existing reservation with new details (e.g. new tables).
+    /// Unmarks old tables, updates the store, then re-marks new tables as occupied.
+    func updateReservation(_ updatedReservation: Reservation) {
+        if let index = reservations.firstIndex(where: { $0.id == updatedReservation.id }) {
+            let oldReservation = reservations[index]
             
-            reservations[index] = reservation
-            reservation.tables.forEach { markTable($0, occupied: true) }
+            // Unmark old tables
+            oldReservation.tables.forEach { unmarkTable($0) }
+            
+            // Overwrite the reservation in place
+            reservations[index] = updatedReservation
+            
+            // Mark new tables as occupied
+            updatedReservation.tables.forEach { markTable($0, occupied: true) }
+            
+            // Save
             saveReservationsToDisk()
+            
+            print("Debug: Updated reservation \(updatedReservation.id) with \(updatedReservation.tables.count) tables.")
         }
     }
     
+    /// Deletes reservations at specified offsets and unmarks their tables.
     func deleteReservations(at offsets: IndexSet) {
         offsets.forEach { index in
             let reservation = reservations[index]
+            // Unmark tables associated with the reservation
             reservation.tables.forEach { unmarkTable($0) }
         }
+        // Remove reservations from the list
         reservations.remove(atOffsets: offsets)
+        
+        // Save
         saveReservationsToDisk()
     }
 }
 
+// MARK: - Mock Data
 extension ReservationStore {
-    // MARK: - Mock Data
+    /// Loads two sample reservations for demonstration purposes.
     private func mockData() {
         let mockReservation1 = Reservation(
             name: "Alice",
@@ -147,9 +134,14 @@ extension ReservationStore {
             category: .lunch,
             startTime: "12:00",
             endTime: "13:45",
+            acceptance: .confirmed,
+            status: .pending,
+            reservationType: .inAdvance,
+            group: false,
             notes: "Birthday",
             isMock: true
         )
+        
         let mockReservation2 = Reservation(
             name: "Bob",
             phone: "+33 98765432101",
@@ -158,25 +150,48 @@ extension ReservationStore {
             category: .dinner,
             startTime: "19:30",
             endTime: "21:45",
+            acceptance: .confirmed,
+            status: .pending,
+            reservationType: .inAdvance,
+            group: false,
             notes: "Allergic to peanuts",
             isMock: true
         )
         
+        // Just append them (unassigned) for testing
         reservations.append(contentsOf: [mockReservation1, mockReservation2])
         
-        if let table1 = tables.first, let table2 = tables.dropFirst().first {
-            assignTables(for: mockReservation1.id, startingFrom: table1, numberOfPersons: mockReservation1.numberOfPersons, dateString: mockReservation1.dateString, startTimeString: mockReservation1.startTime, endTimeString: mockReservation1.endTime)
-            assignTables(for: mockReservation2.id, startingFrom: table2, numberOfPersons: mockReservation2.numberOfPersons, dateString: mockReservation2.dateString, startTimeString: mockReservation2.startTime, endTimeString: mockReservation2.endTime)
+        // If you want to auto-assign them:
+        if let assigned1 = assignTablesAutomatically(for: mockReservation1) {
+            let idx = reservations.firstIndex(where: { $0.id == mockReservation1.id })
+            if let i = idx {
+                var temp = reservations[i]
+                temp.tables = assigned1
+                reservations[i] = temp
+                assigned1.forEach { markTable($0, occupied: true) }
+            }
         }
+        
+        if let assigned2 = assignTablesAutomatically(for: mockReservation2) {
+            let idx = reservations.firstIndex(where: { $0.id == mockReservation2.id })
+            if let i = idx {
+                var temp = reservations[i]
+                temp.tables = assigned2
+                reservations[i] = temp
+                assigned2.forEach { markTable($0, occupied: true) }
+            }
+        }
+        
+        // Save after mocking
+        saveReservationsToDisk()
     }
 }
 
+// MARK: - Queries
 extension ReservationStore {
-    // MARK: - Queries
-    
+    /// Updates the category (lunch, dinner, or noBookingZone) based on time
     func updateCategory(for time: Date) {
         let hour = Calendar.current.component(.hour, from: time)
-        
         switch hour {
         case 12...15:
             selectedCategory = .lunch
@@ -189,6 +204,7 @@ extension ReservationStore {
         print("Category updated to \(selectedCategory?.rawValue ?? "none") based on time.")
     }
     
+    /// Returns all reservations for a given date.
     func reservations(on date: Date) -> [Reservation] {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd/MM/yyyy"
@@ -199,7 +215,7 @@ extension ReservationStore {
         return reservations.filter { $0.dateString == targetDateString }
     }
 
-    
+    /// Called when time changes (e.g. user picks a new time).
     func handleTimeUpdate(_ newTime: Date) {
         currentTime = newTime
         updateCategory(for: newTime)
@@ -207,8 +223,9 @@ extension ReservationStore {
     }
 }
 
+// MARK: - Active Reservation Query
 extension ReservationStore {
-    /// Checks for an active reservation for the given table and time.
+    /// Checks for an active reservation for the given table/time.
     func activeReservation(for table: TableModel, date: Date, time: Date) -> Reservation? {
         let calendar = Calendar.current
 
@@ -233,9 +250,9 @@ extension ReservationStore {
     }
 }
 
+// MARK: - Persistence
 extension ReservationStore {
-    // MARK: - Reservation Persistence
-    
+    /// Saves all non-mock reservations to disk in JSON format.
     func saveReservationsToDisk() {
         let filteredReservations = reservations.filter { !$0.isMock }
         let fileURL = getReservationsFileURL()
@@ -251,6 +268,7 @@ extension ReservationStore {
         }
     }
     
+    /// Loads reservations from disk, if the file exists.
     func loadReservationsFromDisk() {
         let fileURL = getReservationsFileURL()
         
@@ -276,68 +294,245 @@ extension ReservationStore {
     }
 }
 
+// MARK: - Table Assignment
 extension ReservationStore {
-    // MARK: - Reservation Layout
-    
-    func assignTables(
-        for reservationID: UUID,
-        startingFrom forcedTable: TableModel,
-        numberOfPersons: Int,
-        dateString: String,
-        startTimeString: String,
-        endTimeString: String
-    ) {
-        guard let resIndex = reservations.firstIndex(where: { $0.id == reservationID }) else { return }
+    /// Assigns tables manually starting from a forced table (`selectedTable`).
+    /// 1) Attempts to seat the entire reservation in a contiguous block
+    ///    (beginning at `selectedTable` in your `tableAssignmentOrder`).
+    /// 2) If that fails, falls back to the "grab any free tables" approach.
+    func assignTablesManually(
+        for reservation: Reservation,
+        startingFrom selectedTable: TableModel
+    ) -> [TableModel]? {
+        guard let reservationDate = TimeHelpers.fullDate(from: reservation.dateString) else { return nil }
         
-        let reservationDate = TimeHelpers.fullDate(from: dateString)!
+        // First ensure the forced table itself is not occupied.
+        if isTableOccupied(
+            selectedTable,
+            date: reservationDate,
+            startTimeString: reservation.startTime,
+            endTimeString: reservation.endTime,
+            excluding: reservation.id
+        ) {
+            // Forced table is occupied => fail immediately
+            return nil
+        }
+        
+        // STEP 1: Try contiguous block (including forcedTable)
+        if let contiguousBlock = findContiguousBlockStartingAtTable(
+            forcedTable: selectedTable,
+            reservation: reservation,
+            reservationDate: reservationDate
+        ) {
+            // If we found a contiguous block that meets capacity, return it.
+            return contiguousBlock
+        }
+        
+        // STEP 2: Fallback to old approach: forced table + "grab any free tables"
+        return fallbackManualAssignment(for: reservation, forcedTable: selectedTable, reservationDate: reservationDate)
+    }
+    /// Assigns tables automatically by iterating over them in a predefined order
+    /// until capacity is met or no suitable tables remain.
+    func assignTablesAutomatically(
+        for reservation: Reservation
+    ) -> [TableModel]? {
+        guard let reservationDate = TimeHelpers.fullDate(from: reservation.dateString) else { return nil }
         var assignedCapacity = 0
         var assignedTables: [TableModel] = []
         
-        // Check if the forced table can be used
-        if !isTableOccupied(forcedTable, date: reservationDate, startTimeString: startTimeString, endTimeString: endTimeString) {
-            assignedTables.append(forcedTable)
-            assignedCapacity += forcedTable.maxCapacity
+        // Sort tables based on the defined order
+        let orderedTables = tables.sorted { first, second in
+            guard let firstIndex = tableAssignmentOrder.firstIndex(of: first.name),
+                  let secondIndex = tableAssignmentOrder.firstIndex(of: second.name) else {
+                return first.id < second.id
+            }
+            return firstIndex < secondIndex
         }
         
-        // Get the list of available tables, excluding already assigned ones
-        let availableTables = tables.filter {
-            !isTableOccupied($0, date: reservationDate, startTimeString: startTimeString, endTimeString: endTimeString)
-            && !assignedTables.contains($0)
-        }.sorted { $0.id < $1.id } // Sort by ID or position for deterministic results
-        
-        // Assign tables until the capacity is sufficient
-        for table in availableTables {
-            if assignedCapacity >= numberOfPersons { break }
-            assignedTables.append(table)
-            assignedCapacity += table.maxCapacity
+        // Assign tables if they are not occupied
+        for table in orderedTables {
+            if assignedCapacity >= reservation.numberOfPersons { break }
+            if !isTableOccupied(
+                table,
+                date: reservationDate,
+                startTimeString: reservation.startTime,
+                endTimeString: reservation.endTime,
+                excluding: reservation.id
+            ) {
+                assignedTables.append(table)
+                assignedCapacity += table.maxCapacity
+            }
         }
         
-        // Verify that the assigned tables meet the required capacity
-        if assignedCapacity < numberOfPersons {
-            print("Error: Unable to assign enough tables to meet the required capacity!")
-            return
+        if assignedCapacity < reservation.numberOfPersons {
+            print("Error: Unable to assign enough tables for reservation \(reservation.id)!")
+            return nil
         }
         
-        // Update the reservation with the assigned tables
-        reservations[resIndex].tables = assignedTables
-        assignedTables.forEach { markTable($0, occupied: true) }
+        print("Auto-assigned for \(reservation.id): \(assignedTables.map { $0.name })")
+        return assignedTables
+    }
+    
+    /// Attempts to find a contiguous block of tables (in sorted order) to seat
+    /// the entire reservation. If that fails, falls back to auto-assignment.
+    func assignTablesPreferContiguous(
+        for reservation: Reservation
+    ) -> [TableModel]? {
+        guard let reservationDate = TimeHelpers.fullDate(from: reservation.dateString) else { return nil }
         
-        print("Assigned tables: \(assignedTables.map { $0.name }) for reservation \(reservationID)")
+        // Sort tables in your predefined order
+        let orderedTables = tables.sorted { first, second in
+            guard let firstIndex = tableAssignmentOrder.firstIndex(of: first.name),
+                  let secondIndex = tableAssignmentOrder.firstIndex(of: second.name) else {
+                return first.id < second.id // fallback
+            }
+            return firstIndex < secondIndex
+        }
+        
+        // 1) Try to find a single contiguous block that meets capacity
+        if let contiguousBlock = findContiguousBlock(
+            reservation: reservation,
+            orderedTables: orderedTables,
+            reservationDate: reservationDate
+        ) {
+            print("Contiguous assignment for \(reservation.id): \(contiguousBlock.map { $0.name })")
+            return contiguousBlock
+        }
+        
+        // 2) If no contiguous block was found, fallback to auto-assign
+        let fallback = assignTablesAutomatically(for: reservation)
+        if fallback != nil {
+            print("Falling back to non-contiguous auto-assign for \(reservation.id).")
+        }
+        return fallback
+    }
+    
+    /// Sliding-window approach to find one consecutive slice of unoccupied tables
+    /// whose total capacity >= reservation.numberOfPersons.
+    private func findContiguousBlock(
+        reservation: Reservation,
+        orderedTables: [TableModel],
+        reservationDate: Date
+    ) -> [TableModel]? {
+        let neededCapacity = reservation.numberOfPersons
+        let n = orderedTables.count
+        
+        var startIndex = 0
+        while startIndex < n {
+            var assignedCapacity = 0
+            var block: [TableModel] = []
+            var currentIndex = startIndex
+            
+            while currentIndex < n && assignedCapacity < neededCapacity {
+                let table = orderedTables[currentIndex]
+                
+                // If this table is unoccupied in the reservation's time slot,
+                // add it to the block
+                if !isTableOccupied(
+                    table,
+                    date: reservationDate,
+                    startTimeString: reservation.startTime,
+                    endTimeString: reservation.endTime,
+                    excluding: reservation.id
+                ) {
+                    block.append(table)
+                    assignedCapacity += table.maxCapacity
+                    currentIndex += 1
+                } else {
+                    // If we hit an occupied table, break this block
+                    break
+                }
+            }
+            
+            if assignedCapacity >= neededCapacity {
+                // Found a contiguous run that meets capacity
+                return block
+            }
+            
+            // Move to next starting point
+            startIndex += 1
+        }
+        
+        // None of the windows worked
+        return nil
+    }
+
+    /// Decides if manual or auto/contiguous assignment based on `selectedTableID`.
+    /// Returns the tables assigned or `nil` if assignment fails.
+    func assignTables(
+        for reservation: Reservation,
+        selectedTableID: Int?
+    ) -> [TableModel]? {
+        if let tableID = selectedTableID {
+            // MANUAL CASE
+            // user forcibly picked a specific table => do "manual with contiguous first" approach
+            guard let selectedTable = tables.first(where: { $0.id == tableID }) else {
+                return nil // table not found
+            }
+            return assignTablesManually(for: reservation, startingFrom: selectedTable)
+        } else {
+            // AUTO CASE
+            // user selected "Auto" => prefer contiguous block if you want, or just do auto
+            return assignTablesPreferContiguous(for: reservation)
+            // or if you only want the old auto, do:
+            // return assignTablesAutomatically(for: reservation)
+        }
     }
 }
 
+// MARK: - Occupancy Check
 extension ReservationStore {
-    // MARK: - Helper Functions
-    
+    /// Checks if a table is occupied, optionally excluding a specific reservation ID.
+    func isTableOccupied(
+        _ table: TableModel,
+        date: Date,
+        startTimeString: String,
+        endTimeString: String,
+        excluding reservationID: UUID? = nil
+    ) -> Bool {
+        guard
+            let startTime = TimeHelpers.date(from: startTimeString, on: date),
+            let endTime = TimeHelpers.date(from: endTimeString, on: date)
+        else {
+            return false
+        }
+        
+        return reservations.contains { reservation in
+            // Exclude a specific reservation if needed
+            if let excludeID = reservationID, reservation.id == excludeID {
+                return false
+            }
+            // Convert reservation times
+            guard
+                let reservationDate = reservation.date,
+                let reservationStart = TimeHelpers.date(from: reservation.startTime, on: reservationDate),
+                let reservationEnd = TimeHelpers.date(from: reservation.endTime, on: reservationDate)
+            else {
+                return false
+            }
+            
+            // Overlapping date/time & same table => occupied
+            return reservation.date == date
+                && reservation.tables.contains(where: { $0.id == table.id })
+                && TimeHelpers.timeRangesOverlap(
+                    start1: reservationStart,
+                    end1: reservationEnd,
+                    start2: startTime,
+                    end2: endTime
+                )
+        }
+    }
+}
+
+// MARK: - Misc Helpers
+extension ReservationStore {
     func formattedDate(date: Date, locale: Locale) -> String {
         let formatter = DateFormatter()
         formatter.locale = locale
         formatter.dateFormat = "EEEE, dd/MM/yyyy"
         return formatter.string(from: date)
     }
-}
-
-extension ReservationStore {
+    
     func triggerFlashAnimation(for tableID: Int) {
         DispatchQueue.main.async {
             withAnimation(.easeInOut(duration: 0.5)) {
@@ -349,5 +544,141 @@ extension ReservationStore {
                 }
             }
         }
+    }
+}
+
+extension ReservationStore {
+    func availableTables(for reservation: Reservation) -> [TableModel] {
+        guard let reservationDate = TimeHelpers.fullDate(from: reservation.dateString) else {
+            return []
+        }
+        
+        // Filter out tables that are occupied in this time range.
+        return tables.filter { table in
+            !isTableOccupied(
+                table,
+                date: reservationDate,
+                startTimeString: reservation.startTime,
+                endTimeString: reservation.endTime,
+                excluding: reservation.id
+            )
+        }
+    }
+}
+
+
+extension ReservationStore {
+    /// Attempts to find a contiguous block of tables (starting exactly at `forcedTable`)
+    /// that meets the reservation's capacity.
+    /// If successful, returns that block of tables; otherwise returns nil.
+    private func findContiguousBlockStartingAtTable(
+        forcedTable: TableModel,
+        reservation: Reservation,
+        reservationDate: Date
+    ) -> [TableModel]? {
+        let neededCapacity = reservation.numberOfPersons
+        var assignedCapacity = forcedTable.maxCapacity
+        
+        // If forcedTable alone already can't be used, we skip (we've already checked occupancy).
+        if assignedCapacity >= neededCapacity {
+            // The forced table alone covers the capacity (unlikely, but let's handle it).
+            return [forcedTable]
+        }
+        
+        // Sort the tables in your predefined order
+        let orderedTables = tables.sorted { a, b in
+            guard let iA = tableAssignmentOrder.firstIndex(of: a.name),
+                  let iB = tableAssignmentOrder.firstIndex(of: b.name) else {
+                return a.id < b.id
+            }
+            return iA < iB
+        }
+        
+        // Find the position of forcedTable in that order
+        guard let startIndex = orderedTables.firstIndex(where: { $0.id == forcedTable.id }) else {
+            // forced table not in list? Should never happen
+            return nil
+        }
+        
+        // We'll attempt to accumulate tables from [startIndex+1, ...]
+        // continuing contiguously until capacity is met or we hit an occupied table.
+        var block = [forcedTable]
+        
+        var j = startIndex + 1
+        while j < orderedTables.count && assignedCapacity < neededCapacity {
+            let candidate = orderedTables[j]
+            
+            // Check occupancy
+            if !isTableOccupied(
+                candidate,
+                date: reservationDate,
+                startTimeString: reservation.startTime,
+                endTimeString: reservation.endTime,
+                excluding: reservation.id
+            ) {
+                block.append(candidate)
+                assignedCapacity += candidate.maxCapacity
+                j += 1
+            } else {
+                // We hit an occupied table => contiguous run is broken
+                return nil
+            }
+        }
+        
+        // Check final capacity
+        if assignedCapacity >= neededCapacity {
+            return block
+        } else {
+            // Even after continuing, we didn't meet capacity => fail
+            return nil
+        }
+    }
+
+    /// The old fallback approach:
+    /// 1) We forcibly assign the chosen table,
+    /// 2) Then pick other free tables from the sorted list until capacity is met.
+    private func fallbackManualAssignment(
+        for reservation: Reservation,
+        forcedTable: TableModel,
+        reservationDate: Date
+    ) -> [TableModel]? {
+        var assignedCapacity = forcedTable.maxCapacity
+        var assignedTables: [TableModel] = [forcedTable]
+        
+        // Gather all other free tables (excluding the forced one)
+        let availableTables = tables.filter { table in
+            table.id != forcedTable.id
+            && !isTableOccupied(
+                table,
+                date: reservationDate,
+                startTimeString: reservation.startTime,
+                endTimeString: reservation.endTime,
+                excluding: reservation.id
+            )
+        }
+        .sorted { a, b in
+            guard let iA = tableAssignmentOrder.firstIndex(of: a.name),
+                  let iB = tableAssignmentOrder.firstIndex(of: b.name) else {
+                return a.id < b.id
+            }
+            return iA < iB
+        }
+        
+        // Continue assigning until capacity is met or we run out of tables
+        for table in availableTables {
+            if assignedCapacity >= reservation.numberOfPersons {
+                break
+            }
+            assignedTables.append(table)
+            assignedCapacity += table.maxCapacity
+        }
+        
+        if assignedCapacity < reservation.numberOfPersons {
+            print("Error: Not enough tables to meet capacity in fallback approach!")
+            return nil
+        }
+        
+        print("Fallback manual assignment for \(reservation.id): \(assignedTables.map { $0.name })")
+        return assignedTables
     }
 }

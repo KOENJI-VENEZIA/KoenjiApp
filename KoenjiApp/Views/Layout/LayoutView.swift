@@ -34,6 +34,7 @@ struct LayoutView: View {
 
     // For tapping a reservation to edit
     @State private var selectedReservation: Reservation? = nil
+    @State private var showingEditReservation: Bool = false
 
     // For "Add Reservation" on a table
     @State private var showingAddReservationSheet: Bool = false
@@ -97,7 +98,9 @@ struct LayoutView: View {
                                 layoutUI: layoutUI,
                                 showingNoBookingAlert: $showingNoBookingAlert,
                                 onTapEmpty: { handleEmptyTableTap(for: table) },
-                                onEditReservation: { reservation in selectedReservation = reservation },
+                                onEditReservation: { reservation in
+                                    selectedReservation = reservation
+                                    showingEditReservation = true},
                                 isLayoutLocked: isLayoutLocked,
                                 animationNamespace: animationNamespace
                              )
@@ -182,10 +185,7 @@ struct LayoutView: View {
                 .environmentObject(store)
         }
         .sheet(isPresented: $showingAddReservationSheet) {
-            AddReservationView(
-                forcedTable: tableForNewReservation,
-                preselectedDate: selectedDate
-            )
+            AddReservationView()
             .environmentObject(store)
         }
         .alert(isPresented: $layoutUI.showAlert) {
