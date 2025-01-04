@@ -3,17 +3,26 @@ import SwiftUI
 
 @main
 struct MyReservationApp: App {
-    @StateObject private var store = ReservationStore()
+    @StateObject private var store: ReservationStore
     @Environment(\.scenePhase) private var scenePhase
 
 
     init() {
+        // Create TableAssignmentService with initial data
+        let tableAssignmentService = TableAssignmentService()
+
+        // Initialize ReservationStore
+        _store = StateObject(
+            wrappedValue: ReservationStore(tableAssignmentService: tableAssignmentService)
+        )
         let _ = NavigationBarModifier()
 
     }
 
     var body: some Scene {
         WindowGroup {
+
+            
             ContentViewWrapper()
                 .environmentObject(store)
         }

@@ -215,8 +215,9 @@ struct TableView: View {
         let startTimeString = formatter.string(from: currentTime)
         let endTimeString = TimeHelpers.calculateEndTime(startTime: startTimeString, category: selectedCategory)
 
-        let isOccupied = store.isTableOccupied(
+        let isOccupied = store.tableAssignmentService.isTableOccupied(
             table,
+            reservations: store.reservations,
             date: selectedDate,
             startTimeString: startTimeString,
             endTimeString: endTimeString
