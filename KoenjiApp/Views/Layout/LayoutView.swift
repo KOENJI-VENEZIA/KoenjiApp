@@ -1,25 +1,20 @@
 import SwiftUI
 
 struct LayoutView: View {
-    @StateObject private var gridData: GridData
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var reservationService: ReservationService
+    @EnvironmentObject var gridData: GridData
+
     @Environment(\.locale) var locale // Access the current locale
     @Environment(\.horizontalSizeClass) var horizontalSizeClass // Detect compact vs regular size class
+    @Environment(\.colorScheme) var colorScheme
 
     @Namespace private var animationNamespace
 
     // Use the LayoutViewModel for manual dragging logic + pop-up alerts
-    @StateObject private var layoutUI: LayoutUIManager
-
-    init(store: ReservationStore) {
-        let viewModel = LayoutUIManager(store: store)
-        let gridWidth = CGFloat(store.totalColumns) * 40 // Use your cell size
-        let gridHeight = CGFloat(store.totalRows) * 40
-        let gridBounds = CGRect(x: 0, y: 0, width: gridWidth, height: gridHeight)
-        
-        _layoutUI = StateObject(wrappedValue: viewModel)
-        _gridData = StateObject(wrappedValue: GridData(store: store, gridBounds: gridBounds))
-    }
+    // Create them empty or with default init
+    @StateObject private var layoutUI = LayoutUIManager()
+    @State private var isConfigured = false
 
     // MARK: - Filters
     @State private var selectedDate: Date = Date()
@@ -73,10 +68,9 @@ struct LayoutView: View {
             Color(hex: "#C8CBEA").edgesIgnoringSafeArea([.all])
 
             ZoomableScrollView(scale: $scale) {
-                Color(hex: "#C8CBEA").edgesIgnoringSafeArea([.all])
 
                      ZStack {
-                         Color(hex: "#C8CBEA").edgesIgnoringSafeArea([.all])
+                         Color(hex: "#C8CBEA")
 
                          Rectangle()
                              .frame(width: gridWidth, height: gridHeight)
@@ -84,6 +78,7 @@ struct LayoutView: View {
                          Rectangle()
                              .stroke(style: StrokeStyle(lineWidth: 2, dash: [5]))
                              .frame(width: gridWidth, height: gridHeight)
+                             .background(Color.grid_background)
                          gridData.gridBackground
                              .frame(width: gridWidth, height: gridHeight)
                              .background(Color.grid_background)
@@ -104,19 +99,26 @@ struct LayoutView: View {
                                 animationNamespace: animationNamespace
                              )
                              .environmentObject(store)
+                             .environmentObject(reservationService)
                              .environmentObject(gridData)
+                             .animation(.spring(duration: 0.3, bounce: 0.0), value: viewportWidth)
+
 
                          }
                      }
                      .frame(width: gridWidth, height: gridHeight)
                      .compositingGroup()
+                     .background(Color(hex: "#C8CBEA")) // Ensure the ZStack has the correct background
+                     .animation(.spring(duration: 0.3, bounce: 0.0), value: viewportWidth)
+
             }
             .onAppear {
                 print("Viewport: \(viewportWidth)x\(viewportHeight)")
                 print("Grid: \(gridWidth)x\(gridHeight)")
                 print("Offset: \(offset)")
             }
-            .clipped()
+            .background(Color(hex: "#C8CBEA")) // Ensure the ZStack has the correct background
+            .animation(.spring(duration: 0.3, bounce: 0.0), value: viewportWidth)
         }
         .ignoresSafeArea(.all, edges: .top) // Extend beneath the navigation bar
         .safeAreaInset(edge: .top) { // Insert topControls just below the navigation bar
@@ -130,7 +132,7 @@ struct LayoutView: View {
                     .padding(.vertical, 0) // Remove unintended padding
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .animation(.easeInOut, value: showTopControls)
-                    .offset(y: -1) // Fine-tune to remove slight gaps
+                    .offset(y: isCompact ? -10 : -1) // Fine-tune to remove slight gaps
 
             }
         }
@@ -148,23 +150,22 @@ struct LayoutView: View {
                 .accessibilityLabel(isLayoutLocked ? "Unlock Layout" : "Lock Layout")
                 
                 Button(action: {
-                    store.layoutManager.resetLayout(for: selectedDate, category: selectedCategory ?? .lunch)
+                    reservationService.layoutManager.resetLayout(for: selectedDate, category: selectedCategory ?? .lunch)
                     layoutUI.tables = store.tables
                     isLayoutLocked = true
-                    isZoomLocked = false 
+                    isZoomLocked = false
                 }) {
-                    Image(systemName: "arrow.counterclockwise.circle")
+                    ZStack {
+                        Image(systemName: "arrow.counterclockwise.circle")
+                            .foregroundColor(reservationService.layoutManager.isLayoutReset ? (colorScheme == .light ? .gray : Color(hex: "#575757")) : .blue)
+                        
+                        if reservationService.layoutManager.isLayoutReset {
+                            Image(systemName: "slash.circle")
+                                .foregroundColor(Color(hex: "#575757"))
+                        }
+                    }
                 }
                 .accessibilityLabel("Reset Layout")
-                
-                Button(action: {
-                    withAnimation {
-                        print("Reset Zoom button tapped")
-                    }
-                }) {
-                    Image(systemName: "arrow.up.left.and.down.right.magnifyingglass")
-                }
-                .accessibilityLabel("Reset Zoom")
             }
             
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -182,10 +183,12 @@ struct LayoutView: View {
         .sheet(item: $selectedReservation) { reservation in
             EditReservationView(reservation: reservation)
                 .environmentObject(store)
+                .environmentObject(reservationService)
         }
         .sheet(isPresented: $showingAddReservationSheet) {
             AddReservationView()
             .environmentObject(store)
+            .environmentObject(reservationService)
         }
         .alert(isPresented: $layoutUI.showAlert) {
             Alert(
@@ -195,14 +198,21 @@ struct LayoutView: View {
             )
         }
         .onAppear {
-            DispatchQueue.main.async {
-                print("LayoutView dimensions: \(UIScreen.main.bounds.size)")
+            if !isConfigured {
+                let gridWidth = CGFloat(store.totalColumns) * 40
+                let gridHeight = CGFloat(store.totalRows) * 40
+                let gridBounds = CGRect(x: 0, y: 0, width: gridWidth, height: gridHeight)
+
+                layoutUI.configure(store: store, reservationService: reservationService)
+                gridData.configure(store: store, gridBounds: gridBounds)
+
+                print("LayoutView sees store ID:", ObjectIdentifier(store))
+                print("store.reservations after load: \(store.reservations)")
+                isConfigured = true
             }
-        }
-        .onAppear {
             layoutUI.tables = store.tables // Initial sync
             if store.tables.isEmpty {
-                store.layoutManager.loadLayout(for: selectedDate, category: selectedCategory ?? .lunch, reset: false)
+                reservationService.layoutManager.loadLayout(for: selectedDate, category: selectedCategory ?? .lunch, reset: false)
             }
             systemTime = Date()
             currentTime = systemTime
@@ -218,7 +228,7 @@ struct LayoutView: View {
         }
         .onChange(of: selectedDate) { newDate in
             if isLayoutLocked {
-                store.layoutManager.loadLayout(for: newDate, category: selectedCategory ?? .lunch, reset: false)
+                reservationService.layoutManager.loadLayout(for: newDate, category: selectedCategory ?? .lunch, reset: false)
                 layoutUI.tables = store.tables
             }
             checkActiveReservations()
@@ -229,7 +239,7 @@ struct LayoutView: View {
             adjustTime(for: newCategory)
             
             if isLayoutLocked {
-                store.layoutManager.loadLayout(for: selectedDate, category: newCategory, reset: false)
+                reservationService.layoutManager.loadLayout(for: selectedDate, category: newCategory, reset: false)
                 layoutUI.tables = store.tables
             }
             checkActiveReservations()
@@ -243,7 +253,7 @@ struct LayoutView: View {
                 selectedCategory = newCategory // Synchronize the category picker
             }
             
-            store.layoutManager.loadLayout(for: selectedDate, category: store.selectedCategory ?? .lunch, reset: false)
+            reservationService.layoutManager.loadLayout(for: selectedDate, category: store.selectedCategory ?? .lunch, reset: false)
             layoutUI.tables = store.tables
             
             checkActiveReservations()
@@ -251,9 +261,6 @@ struct LayoutView: View {
         .onChange(of: store.tables) { updatedTables in
             guard layoutUI.tables != updatedTables else { return }
             layoutUI.tables = updatedTables
-        }
-        .onChange(of: store.isSidebarVisible) { isVisible in
-            // Force the ZoomableScrollView to recalculate its contentInset
         }
         .alert(isPresented: $showingNoBookingAlert) {
             Alert(
@@ -392,7 +399,7 @@ struct LayoutView: View {
         let combinedDate = selectedDate.combined(withTimeFrom: currentTime) ?? currentTime
 
         for table in layoutUI.tables {
-            if let activeReservation = store.activeReservation(
+            if let activeReservation = reservationService.findActiveReservation(
                 for: table,
                 date: combinedDate,
                 time: currentTime

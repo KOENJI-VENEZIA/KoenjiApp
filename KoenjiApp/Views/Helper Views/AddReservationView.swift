@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AddReservationView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var reservationService: ReservationService
     @Environment(\.dismiss) var dismiss
     @Environment(\.locale) var locale
 
@@ -108,7 +109,7 @@ struct AddReservationView: View {
 
         if let assignedTables = store.assignTables(for: newReservation, selectedTableID: selectedForcedTableID) {
             newReservation.tables = assignedTables
-            store.addReservation(newReservation)
+            reservationService.addReservation(newReservation)
             dismiss()
         } else {
             alertMessage = selectedForcedTableID != nil ? "Could not assign selected table." : "Could not auto-assign tables."

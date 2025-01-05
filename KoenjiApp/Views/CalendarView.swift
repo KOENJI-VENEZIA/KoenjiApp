@@ -13,6 +13,7 @@ enum CalendarDisplayMode {
 
 struct CalendarView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var reservationService: ReservationService
     @State private var mode: CalendarDisplayMode = .month
     @State private var selectedDate = Date()
     
@@ -51,7 +52,7 @@ struct CalendarView: View {
     
     private var dayView: some View {
         // All reservations for selectedDate, in chronological order
-        let dailyReservations = store.reservations(on: selectedDate).sorted { lhs, rhs in
+        let dailyReservations = reservationService.fetchReservations(on: selectedDate).sorted { lhs, rhs in
             // Sort by startTime, then creationDate if same
             if lhs.startTime == rhs.startTime {
                 return lhs.creationDate < rhs.creationDate
@@ -82,7 +83,7 @@ struct CalendarView: View {
         
         return AnyView(
             List(days, id: \.self) { day in
-                let dayReservations = store.reservations(on: day)
+                let dayReservations = reservationService.fetchReservations(on: day)
                 let dayString = DateFormatter.localizedString(from: day, dateStyle: .short, timeStyle: .none)
                 
                 Section(header: Text(dayString)) {
@@ -114,7 +115,7 @@ struct CalendarView: View {
         
         return AnyView(
             List(days, id: \.self) { day in
-                let count = store.reservations(on: day).count
+                let count = reservationService.fetchReservations(on: day).count
                 let dayString = DateFormatter.localizedString(from: day, dateStyle: .short, timeStyle: .none)
                 HStack {
                     Text(dayString)

@@ -220,43 +220,70 @@ class TableAssignmentService {
         excluding reservationID: UUID? = nil
     ) -> Bool {
         
+        print("Function called with:")
+        print("Table: \(table.name) (ID: \(table.id))")
+        print("Date: \(date)")
+        print("Start Time String: \(startTimeString)")
+        print("End Time String: \(endTimeString)")
         
         guard
             let startTime = TimeHelpers.date(from: startTimeString, on: date),
             let endTime = TimeHelpers.date(from: endTimeString, on: date)
         else {
+            print("Failed to parse startTime or endTime.")
             return false
         }
         
-        return reservations.contains { reservation in
+        for reservation in reservations {
             // Exclude a specific reservation if needed
             if let excludeID = reservationID, reservation.id == excludeID {
-                return false
+                print("Excluding reservation ID: \(excludeID)")
+                continue
             }
+            
             // Convert reservation times
             guard
                 let reservationDate = reservation.date,
                 let reservationStart = TimeHelpers.date(from: reservation.startTime, on: reservationDate),
                 let reservationEnd = TimeHelpers.date(from: reservation.endTime, on: reservationDate)
             else {
-                return false
+                print("Failed to parse reservation times for reservation ID: \(reservation.id)")
+                continue
             }
-            print("Checking if table \(table.name) is occupied...")
-            print("Reservation Date: \(date)")
-            print("Start Time: \(startTimeString), End Time: \(endTimeString)")
-            print("Reservation Start Time: \(reservationStart), Reservation End Time: \(reservationEnd)")
-            // Overlapping date/time & same table => occupied
-            return reservation.date == date
-                && reservation.tables.contains(where: { $0.id == table.id })
-                && TimeHelpers.timeRangesOverlap(
-                    start1: reservationStart,
-                    end1: reservationEnd,
-                    start2: startTime,
-                    end2: endTime
-                )
+            
+            print("\nChecking reservation ID: \(reservation.id)")
+            print("Requested Date: \(date)")
+            print("Reservation Date: \(reservationDate)")
+            print("Requested Start Time: \(startTime), End Time: \(endTime)")
+            print("Reservation Start Time: \(reservationStart), End Time: \(reservationEnd)")
+            print("Table IDs in Reservation: \(reservation.tables.map { $0.id })")
+            
+            // Check if dates are the same day
+            let sameDay = reservationDate.isSameDay(as: date)
+            print("Same day: \(sameDay)")
+            
+            // Check if table is included
+            let tableIncluded = reservation.tables.contains(where: { $0.id == table.id })
+            print("Table included in reservation: \(tableIncluded)")
+            
+            // Check time overlap
+            let overlap = TimeHelpers.timeRangesOverlap(
+                start1: reservationStart,
+                end1: reservationEnd,
+                start2: startTime,
+                end2: endTime
+            )
+            print("Time ranges overlap: \(overlap)")
+            
+            if sameDay && tableIncluded && overlap {
+                print("Table \(table.name) is occupied by reservation ID: \(reservation.id)")
+                return true
+            }
         }
+        
+        print("No overlapping reservations found for table \(table.name).")
+        return false
     }
-
     // Add additional helper methods here as needed.
     /// Attempts to find a contiguous block of tables (starting exactly at `forcedTable`)
     /// that meets the reservation's capacity.

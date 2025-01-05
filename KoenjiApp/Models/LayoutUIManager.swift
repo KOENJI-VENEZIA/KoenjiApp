@@ -35,14 +35,20 @@ class LayoutUIManager: ObservableObject {
 
     // MARK: - Dependencies
     /// A reference to the `ReservationStore` for table data and layout operations.
-    let store: ReservationStore
+    private var store: ReservationStore?
+    private var reservationService: ReservationService?
 
     // MARK: - Initialization
-    init(store: ReservationStore) {
-        self.store = store
-        self.tables = store.tables
+    init() {
+        
     }
 
+    func configure(store: ReservationStore, reservationService: ReservationService) {
+        self.store = store
+        self.reservationService = reservationService
+        self.tables = store.tables
+    }
+    
     // MARK: - Dragging Helpers
 
     /// Updates the state for a table currently being dragged.
@@ -68,7 +74,7 @@ class LayoutUIManager: ObservableObject {
             column: newPosition.col
         )
 
-        if store.canPlaceTable(newTable) {
+        if store!.canPlaceTable(newTable) {
             updateTablePosition(from: table, to: newTable)
             print("attemptMove: Successfully moved \(table.name) to (\(newPosition.row), \(newPosition.col))")
         } else {
@@ -79,11 +85,11 @@ class LayoutUIManager: ObservableObject {
 
     /// Updates the grid and data for a table's new position.
     private func updateTablePosition(from oldTable: TableModel, to newTable: TableModel) {
-        store.unmarkTable(oldTable)
-        store.markTable(newTable, occupied: true)
+        store!.unmarkTable(oldTable)
+        store!.markTable(newTable, occupied: true)
 
-        if let index = store.tables.firstIndex(where: { $0.id == oldTable.id }) {
-            store.tables[index] = newTable
+        if let index = store!.tables.firstIndex(where: { $0.id == oldTable.id }) {
+            store!.tables[index] = newTable
         }
     }
 
@@ -91,7 +97,7 @@ class LayoutUIManager: ObservableObject {
     private func saveCurrentLayout() {
         let date = Date() // Replace with the selected date
         let category: Reservation.ReservationCategory = .lunch // Replace with the selected category
-        store.layoutManager.saveCurrentLayout(for: date, category: category)
+        reservationService!.layoutManager.saveCurrentLayout(for: date, category: category)
     }
 
     // MARK: - Feedback

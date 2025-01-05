@@ -9,14 +9,21 @@
 import SwiftUI
 
 class GridData: ObservableObject {
+    
+    private(set) var store: ReservationStore
+    private(set) var gridBounds: CGRect = .zero
+
     @Published var excludedRegions: [CGRect] = []
-    @Published var gridBounds: CGRect
-
-    let store: ReservationStore
-
-    init(store: ReservationStore, gridBounds: CGRect) {
+    
+    init(store: ReservationStore) {
         self.store = store
+    }
+    
+    
+    
+    func configure(store: ReservationStore, gridBounds: CGRect) {
         self.gridBounds = gridBounds
+        // any code needing store
     }
     
     func calculateExclusionRegions(
@@ -112,8 +119,8 @@ class GridData: ObservableObject {
     
     var gridBackground: some View {
         GeometryReader { geometry in
-            let rows = self.store.totalRows
-            let cols = self.store.totalColumns
+            let rows = 15
+            let cols = 18
             let cellSize = 40.0
             let totalWidth = CGFloat(cols) * cellSize
             let totalHeight = CGFloat(rows) * cellSize

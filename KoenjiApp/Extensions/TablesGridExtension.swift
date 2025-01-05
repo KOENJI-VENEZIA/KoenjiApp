@@ -40,7 +40,9 @@ extension ReservationStore {
             return .move
         } else {
             // Invalid move; re-mark the original table's position
-            markTable(table, occupied: true)
+            withAnimation(.spring) {
+                markTable(table, occupied: true)
+            }
             print("moveTable: Cannot place \(table.name) at (\(clampedRow), \(clampedCol)). Move failed.")
             return .invalid
         }

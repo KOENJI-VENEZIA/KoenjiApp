@@ -46,7 +46,6 @@
 			isa = PBXGroup;
 			children = (
 				A0775E262D1CAA1F00068B00 /* KoenjiApp */,
-				A0FAF8AB2D27803A00CD653D /* Frameworks */,
 				A0775E252D1CAA1F00068B00 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -57,13 +56,6 @@
 				A0775E242D1CAA1F00068B00 /* KoenjiApp.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		A0FAF8AB2D27803A00CD653D /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

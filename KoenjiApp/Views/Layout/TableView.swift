@@ -8,6 +8,7 @@ struct TableView: View {
     
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var reservationService: ReservationService
     @ObservedObject var layoutUI: LayoutUIManager
 
     @Binding var showingNoBookingAlert: Bool
@@ -18,6 +19,7 @@ struct TableView: View {
     @GestureState private var dragOffset: CGSize = .zero
     @State private var isDragging: Bool = false // State to track dragging
     @State private var isHeld: Bool = false // State for long press hold
+    @State private var hasMoved: Bool = false
     let isLayoutLocked: Bool
     let animationNamespace: Namespace.ID // Animation namespace from LayoutView
 
@@ -35,7 +37,7 @@ struct TableView: View {
         let isHighlighted = store.tableAnimationState[table.id] ?? false
         
         // Get active reservation
-        let activeReservation = store.activeReservation(
+        let activeReservation = reservationService.findActiveReservation(
             for: table,
             date: selectedDate,
             time: currentTime
@@ -73,50 +75,36 @@ struct TableView: View {
                 tableName(name: table.name, tableWidth: tableWidth, tableHeight: tableHeight)
             }
         }
+        .contextMenu {
+            Button("Delete") {
+                print("Tapped delete")
+            }
+        }
         .position(x: xPos, y: yPos)
         .offset(dragOffset)
         .highPriorityGesture(
-            LongPressGesture(minimumDuration: 0.3)
-                .onChanged { _ in
-                    isHeld = true // Activate hold state
-                }
-                .sequenced(before: DragGesture(minimumDistance: 20))
+            DragGesture(minimumDistance: 0)
                 .updating($dragOffset) { value, state, _ in
-                    switch value {
-                    case .second(true, let dragValue?):
-                        guard !isLayoutLocked else { return }
-                        state = dragValue.translation
-                    default:
-                        break
-                    }
+                    guard !isLayoutLocked else { return }
+                    state = value.translation
                 }
                 .onChanged { value in
-                    switch value {
-                    case .second(true, _):
-                        isDragging = true // Activate dragging state
-                    default:
-                        break
-                    }
+                    guard !isLayoutLocked else { return }
+                    isDragging = true // Activate dragging state
                 }
                 .onEnded { value in
-                    isHeld = false // Reset hold state
-                    switch value {
-                    case .second(true, let dragValue?):
-                        isDragging = false // Reset dragging state
-                        handleDragEnd(
-                            translation: dragValue.translation,
-                            cellSize: cellSize,
-                            tableWidth: tableWidth,
-                            tableHeight: tableHeight,
-                            xPos: xPos,
-                            yPos: yPos
-                        )
-                    default:
-                        isDragging = false // Ensure state is reset
-                    }
+                    isDragging = false // Reset dragging state
+                    handleDragEnd(
+                        translation: value.translation,
+                        cellSize: cellSize,
+                        tableWidth: tableWidth,
+                        tableHeight: tableHeight,
+                        xPos: xPos,
+                        yPos: yPos
+                    )
                 }
-        )
-        .simultaneousGesture(TapGesture().onEnded {
+            )
+        .simultaneousGesture(LongPressGesture(minimumDuration: 0.3).onEnded {_ in
             handleTap()
         })
     }
@@ -161,44 +149,37 @@ struct TableView: View {
 
     // MARK: - Gestures
     private func dragGesture(cellSize: CGFloat, tableWidth: CGFloat, tableHeight: CGFloat, xPos: CGFloat, yPos: CGFloat) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.1)
-            .onChanged { _ in
-                isHeld = true // Activate hold state
-            }
-            .sequenced(before: DragGesture(minimumDistance: 20))
+            DragGesture(minimumDistance: 20)
             .updating($dragOffset) { value, state, _ in
-                switch value {
-                case .second(true, let dragValue?):
-                    guard !isLayoutLocked else { return }
-                    state = dragValue.translation
-                default:
-                    break
-                }
+                guard !isLayoutLocked else { return }
+                state = value.translation
             }
             .onChanged { value in
-                switch value {
-                case .second(true, _):
-                    isDragging = true // Activate dragging state
-                default:
-                    break
+                guard !isLayoutLocked else { return }
+                
+                // Define a threshold distance (e.g., 10 points)
+                let dragThreshold: CGFloat = 10
+                
+                if !hasMoved {
+                    if abs(value.translation.width) > dragThreshold || abs(value.translation.height) > dragThreshold {
+                        hasMoved = true
+                        isDragging = true // Activate dragging state
+                    }
                 }
             }
             .onEnded { value in
-                isHeld = false // Reset hold state
-                switch value {
-                case .second(true, let dragValue?):
-                    isDragging = false // Reset dragging state
+                if hasMoved {
                     handleDragEnd(
-                        translation: dragValue.translation,
+                        translation: value.translation,
                         cellSize: cellSize,
                         tableWidth: tableWidth,
                         tableHeight: tableHeight,
                         xPos: xPos,
                         yPos: yPos
                     )
-                default:
-                    isDragging = false // Ensure state is reset
                 }
+                isDragging = false // Reset dragging state
+                hasMoved = false   // Reset movement tracking
             }
     }
 
@@ -225,7 +206,7 @@ struct TableView: View {
 
         if !isOccupied {
             onTapEmpty()
-        } else if let reservation = store.activeReservation(for: table, date: selectedDate, time: currentTime) {
+        } else if let reservation = reservationService.findActiveReservation(for: table, date: selectedDate, time: currentTime) {
             onEditReservation(reservation)
         }
     }
@@ -258,9 +239,12 @@ struct TableView: View {
 
         switch store.moveTable(table, toRow: newRow, toCol: newCol) {
         case .move:
-            store.layoutManager.saveLayout(for: selectedDate, category: selectedCategory)
+            reservationService.layoutManager.saveLayout(for: selectedDate, category: selectedCategory)
+            reservationService.layoutManager.isLayoutReset = false
         case .invalid:
-            layoutUI.showInvalidMoveFeedback()
+            withAnimation(.spring(duration: 1, bounce: 0.5)) {
+                layoutUI.showInvalidMoveFeedback()
+            }
         }
         store.currentlyDraggedTableID = nil
     }

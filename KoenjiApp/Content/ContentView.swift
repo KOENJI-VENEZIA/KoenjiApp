@@ -2,6 +2,9 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var reservationService: ReservationService
+    @EnvironmentObject var gridData: GridData
+
     @Environment(\.locale) var locale // Access the current locale set by .italianLocale()
 
     // Controls the SwiftUI NavigationSplitView's sidebar
@@ -22,9 +25,11 @@ struct ContentView: View {
                 .foregroundColor(.secondary)
         }
         
-        .environmentObject(store) // Add the store to the environment here
+        .environmentObject(store)
+        .environmentObject(reservationService)
+        .environmentObject(gridData)
         .toolbar {
-            // Add a button to toggle the sidebar in SwiftUI
+
             Button {
                 if columnVisibility == .all {
                     // Hide the sidebar

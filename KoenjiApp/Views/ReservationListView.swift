@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ReservationListView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var reservationService: ReservationService
+
 
     // MARK: - State
     @State private var searchDate = Date()
@@ -14,20 +16,23 @@ struct ReservationListView: View {
     @State private var notesToShow: String = ""
     @State private var currentReservation: Reservation? = nil
     @State private var selectedReservationID: UUID? = nil
+    @State private var showTopControls: Bool = true
+
+    
 
     // MARK: - Body
     var body: some View {
         
             VStack(spacing: 0) {
-                filterSection
-                    .dynamicBackground(
-                        light: Color(hex: "#BFC3E3"),
-                        dark: Color(hex: "#4A4E6D")
-                    )
-
+                if showTopControls {
+                    filterSection
+                    .background(.ultraThinMaterial)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .animation(.easeInOut, value: showTopControls)
+                    
+                }
                 ZStack {
-                    Color(.darkGray)
-                        .edgesIgnoringSafeArea(.all)
+
 
                     List(selection: $selection) {
                         ForEach(getFilteredReservations()) { reservation in
@@ -54,6 +59,17 @@ struct ReservationListView: View {
             .navigationTitle("Tutte le prenotazioni")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        withAnimation {
+                            showTopControls.toggle()
+                        }
+                    }) {
+                        Image(systemName: showTopControls ? "chevron.up" : "chevron.down")
+                            .imageScale(.large)
+                    }
+                    .accessibilityLabel(showTopControls ? "Hide Controls" : "Show Controls")
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showingAddReservation = true
                     } label: {
@@ -68,16 +84,20 @@ struct ReservationListView: View {
             .sheet(isPresented: $showingAddReservation) {
                 AddReservationView()
                     .environmentObject(store)
+                    .environmentObject(reservationService)
             }
             .sheet(item: $currentReservation) { reservation in
                 EditReservationView(reservation: reservation)
                     .environmentObject(store)
+                    .environmentObject(reservationService)
             }
             .alert("Notes", isPresented: $showingNotesAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(notesToShow)
             }
+            .toolbarBackground(Material.ultraThin, for: .navigationBar) // Add this line for iOS 16+
+            .toolbarBackground(.visible, for: .navigationBar) // Ensure the background is visible
         
     }
 
@@ -186,18 +206,18 @@ struct ReservationListView: View {
 
     // MARK: - Filtering Logic
     private func getFilteredReservations() -> [Reservation] {
-        store.reservations.filter { reservation in
+        let all = store.getReservations()
+        print("All reservations count: \(all.count)")
+        let filtered = store.getReservations().filter { reservation in
             var matchesFilter = true
-
+            
             // Filter by date interval if set
             if let start = filterStartDate,
                let end = filterEndDate
             {
-                // OLD: guard let date = reservation.date ...
-                // NEW: maybe we do 'TimeHelpers.fullDate(...)'
-                // or see if the reservation has a date property
-                // For now, let's assume your reservation has .date:
-                guard let reservationDate = TimeHelpers.fullDate(from: reservation.dateString) else { return false }
+                guard let reservationDate = TimeHelpers.fullDate(from: reservation.dateString) else {
+                    return false
+                }
                 matchesFilter = matchesFilter && (reservationDate >= start && reservationDate <= end)
             }
 
@@ -205,14 +225,17 @@ struct ReservationListView: View {
             if let filterP = filterPeople {
                 matchesFilter = matchesFilter && (reservation.numberOfPersons == filterP)
             }
-
+            
             return matchesFilter
         }
+        
+        print("Filtered reservations count: \(filtered.count)")
+        return store.reservations
     }
 
     // MARK: - Delete
     private func delete(at offsets: IndexSet) {
-        store.deleteReservations(at: offsets)
+        reservationService.deleteReservations(at: offsets)
     }
 
     // MARK: - Row Tap Handler
@@ -230,7 +253,7 @@ struct ReservationListView: View {
     // MARK: - Delete Handler from Context Menu
     private func handleDelete(_ reservation: Reservation) {
         if let idx = store.reservations.firstIndex(where: { $0.id == reservation.id }) {
-            store.deleteReservations(at: IndexSet(integer: idx))
+            reservationService.deleteReservations(at: IndexSet(integer: idx))
         }
     }
 }

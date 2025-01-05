@@ -2,6 +2,7 @@ import SwiftUI
 
 struct EditReservationView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var reservationService: ReservationService
     @Environment(\.dismiss) var dismiss
     @Environment(\.locale) var locale
 
@@ -95,7 +96,7 @@ struct EditReservationView: View {
 
         if let assignedTables = store.assignTables(for: reservation, selectedTableID: selectedForcedTableID) {
             reservation.tables = assignedTables
-            store.updateReservation(reservation)
+            reservationService.updateReservation(reservation)
             dismiss()
         } else {
             alertMessage = "Table assignment failed."

@@ -12,17 +12,14 @@ import SwiftUI
 class TableLayoutManager {
     
     // MARK: - Dependencies
-    private let reservationStore: ReservationStore
-
-    // MARK: - Initialization
-    init(reservationStore: ReservationStore) {
-        self.reservationStore = reservationStore
-    }
+    let store = ReservationStore.shared
+    
+    @Published var isLayoutReset : Bool = false
     
     // MARK: - Layout Persistence
     func saveLayout(for date: Date, category: Reservation.ReservationCategory) {
         let key = layoutKey(for: date, category: category)
-        reservationStore.cachedLayouts[key] = reservationStore.tables
+        store.cachedLayouts[key] = store.tables
         saveToDisk()
         print("Layout saved for key: \(key)")
     }
@@ -31,19 +28,19 @@ class TableLayoutManager {
         let key = layoutKey(for: date, category: category)
         
         if reset {
-            reservationStore.tables = reservationStore.baseTables
-        } else if let layout = reservationStore.cachedLayouts[key] {
-            reservationStore.tables = layout
+            store.tables = store.baseTables
+        } else if let layout = store.cachedLayouts[key] {
+            store.tables = layout
         } else {
-            reservationStore.tables = reservationStore.baseTables
+            store.tables = store.baseTables
         }
         
         markTablesInGrid()
     }
     
     func resetLayout(for date: Date, category: Reservation.ReservationCategory) {
-        reservationStore.tables = loadDefaultLayout(for: date, category: category)
-
+        store.tables = loadDefaultLayout(for: date, category: category)
+        isLayoutReset = true
         // Reset grid state
         loadTables()
         
@@ -55,7 +52,7 @@ class TableLayoutManager {
     // MARK: - Disk Storage
     func saveToDisk() {
         let encoder = JSONEncoder()
-        if let data = try? encoder.encode(reservationStore.cachedLayouts) {
+        if let data = try? encoder.encode(store.cachedLayouts) {
             UserDefaults.standard.set(data, forKey: "cachedLayouts")
             print("Layouts saved successfully.")
         } else {
@@ -72,8 +69,8 @@ class TableLayoutManager {
     func loadFromDisk() {
         if let data = UserDefaults.standard.data(forKey: "cachedLayouts"),
            let decoded = try? JSONDecoder().decode([String: [TableModel]].self, from: data) {
-            reservationStore.cachedLayouts = decoded
-            print("Cached layouts loaded successfully: \(reservationStore.cachedLayouts.keys)")
+               store.setCachedLayouts(decoded)
+            print("Cached layouts loaded successfully: \(store.cachedLayouts.keys)")
         } else {
             print("No cached layouts found.")
         }
@@ -88,34 +85,34 @@ class TableLayoutManager {
     }
     
     func markTablesInGrid() {
-        reservationStore.grid = Array(
-            repeating: Array(repeating: nil, count: reservationStore.totalColumns),
-            count: reservationStore.totalRows
+        store.grid = Array(
+            repeating: Array(repeating: nil, count: store.totalColumns),
+            count: store.totalRows
         )
-        for table in reservationStore.tables {
-            reservationStore.markTable(table, occupied: true)
+        for table in store.tables {
+            store.markTable(table, occupied: true)
         }
     }
     
     // MARK: - Initialization and Defaults
     func loadTables(initial: Bool = false) {
-        guard initial || reservationStore.tables.isEmpty else { return } // Prevent unnecessary overwrites
+        guard initial || store.tables.isEmpty else { return } // Prevent unnecessary overwrites
 
-        reservationStore.grid = Array(
-            repeating: Array(repeating: nil, count: reservationStore.totalColumns),
-            count: reservationStore.totalRows
+        store.grid = Array(
+            repeating: Array(repeating: nil, count: store.totalColumns),
+            count: store.totalRows
         )
         
-        reservationStore.tables = reservationStore.baseTables
+        store.tables = store.baseTables
 
-        for table in reservationStore.tables {
-            reservationStore.markTable(table, occupied: true)
+        for table in store.tables {
+            store.markTable(table, occupied: true)
         }
 
-        print("loadTables: Grid initialized with \(reservationStore.grid.count) rows and \(reservationStore.grid[0].count) columns, and tables marked.")
+        print("loadTables: Grid initialized with \(store.grid.count) rows and \(store.grid[0].count) columns, and tables marked.")
     }
     
     func loadDefaultLayout(for date: Date, category: Reservation.ReservationCategory) -> [TableModel] {
-        return reservationStore.baseTables
+        return store.baseTables
     }
 }

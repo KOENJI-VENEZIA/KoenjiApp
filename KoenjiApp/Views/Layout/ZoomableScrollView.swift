@@ -8,25 +8,29 @@
 
 import SwiftUI
 
-let maxAllowedScale = 4.0
-
 
 struct ZoomableScrollView<Content: View>: UIViewRepresentable {
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass // Detect compact vs regular size class
+
     
     private var content: Content
     @Binding private var scale: CGFloat
 
+    
     init(scale: Binding<CGFloat>, @ViewBuilder content: () -> Content) {
         self._scale = scale
         self.content = content()
     }
+    
+    
 
     func makeUIView(context: Context) -> UIScrollView {
         // set up the UIScrollView
+        let isCompact = horizontalSizeClass == .compact
         let scrollView = UIScrollView()
         scrollView.delegate = context.coordinator  // for viewForZooming(in:)
-        scrollView.maximumZoomScale = maxAllowedScale
-        scrollView.minimumZoomScale = 1
+        scrollView.maximumZoomScale = 4.0
+        scrollView.minimumZoomScale = isCompact ? 0.5 : 1.0
         scrollView.showsVerticalScrollIndicator = false
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.bouncesZoom = true
@@ -36,6 +40,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         hostedView.translatesAutoresizingMaskIntoConstraints = true
         hostedView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         hostedView.frame = scrollView.bounds
+        hostedView.backgroundColor = .clear  // Set background to clear
         scrollView.addSubview(hostedView)
 
         return scrollView
