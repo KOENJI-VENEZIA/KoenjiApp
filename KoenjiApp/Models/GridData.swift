@@ -15,6 +15,7 @@ class GridData: ObservableObject {
 
     @Published var excludedRegions: [CGRect] = []
     
+    
     init(store: ReservationStore) {
         self.store = store
     }
@@ -117,8 +118,9 @@ class GridData: ObservableObject {
     }
     
     
-    var gridBackground: some View {
-        GeometryReader { geometry in
+    func gridBackground(selectedCategory: Reservation.ReservationCategory) -> some View {
+        
+        return GeometryReader { geometry in
             let rows = 15
             let cols = 18
             let cellSize = 40.0
@@ -293,7 +295,7 @@ class GridData: ObservableObject {
                     }
                 }
                 .stroke(
-                    Color.stroke_color_outer,
+                    selectedCategory == .lunch ? Color.stroke_color_lunch : Color.stroke_color_outer,
                     style: StrokeStyle(lineWidth: 4, lineJoin: .round)
                 )
                 
@@ -311,7 +313,7 @@ class GridData: ObservableObject {
                         borderFeatures: borderFeatures,
                         excludedRegions: excludedRegions
                 )
-                .fill(Color(hex: "#2D2F43"))
+                .fill(selectedCategory == .lunch ? Color(hex: "#3E3B2E") : Color(hex: "#2D2F43"))
                 // Background color or pattern
 
                 // Inner Grid Lines excluding Indentation Regions
@@ -322,7 +324,7 @@ class GridData: ObservableObject {
                     borderFeatures: borderFeatures
                 )
                 .stroke(
-                    Color.stroke_color_inner,
+                    selectedCategory == .lunch ? Color.stroke_color_lunch : Color.stroke_color_outer,
                     style: StrokeStyle(lineWidth: 1, lineJoin: .round)
                 )
             }
@@ -335,6 +337,20 @@ class GridData: ObservableObject {
                                totalHeight: totalHeight
                            )
             }
+            .onAppear {
+                self.updateGridBounds(CGRect(x: 0, y: 0, width: totalWidth, height: totalHeight))
+            }
+            .onChange(of: geometry.size) { newSize in
+                self.updateGridBounds(CGRect(x: 0, y: 0, width: totalWidth, height: totalHeight))
+            }
+        }
+
+    }
+    
+    func updateGridBounds(_ newBounds: CGRect) {
+        if newBounds != gridBounds {
+            gridBounds = newBounds
+            print("Grid bounds updated to: \(gridBounds)")
         }
     }
     

@@ -1,15 +1,9 @@
-//
-//  TimeSelectionView.swift
-//  KoenjiApp
-//
-//  Created by Matteo Nassini on 28/12/24.
-//
 import SwiftUI
 
 struct TimeSelectionView: View {
     @Binding var selectedTime: String
     var category: Reservation.ReservationCategory
-    
+
     var body: some View {
         Picker("Dalle:", selection: $selectedTime) {
             ForEach(availableTimes, id: \.self) { time in
@@ -17,13 +11,9 @@ struct TimeSelectionView: View {
             }
         }
         .pickerStyle(.menu)
-        
     }
-    
-    private var availableTimes: [String] {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "HH:mm"
 
+    private var availableTimes: [String] {
         var times: [String] = []
 
         switch category {
@@ -39,20 +29,16 @@ struct TimeSelectionView: View {
     }
 
     private func generateTimes(from start: String, to end: String) -> [String] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-
-        guard let startTime = formatter.date(from: start),
-              let endTime = formatter.date(from: end) else { return [] }
+        guard let startTime = DateHelper.parseTime(start),
+              let endTime = DateHelper.parseTime(end) else { return [] }
 
         var times: [String] = []
         var current = startTime
         while current <= endTime {
-            times.append(formatter.string(from: current))
+            times.append(DateHelper.formatTime(current))
             current = Calendar.current.date(byAdding: .minute, value: 15, to: current)!
         }
 
         return times
     }
-
 }

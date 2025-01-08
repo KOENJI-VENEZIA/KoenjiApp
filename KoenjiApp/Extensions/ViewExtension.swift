@@ -150,8 +150,8 @@ struct ColorSchemeBackgroundModifierCustom: ViewModifier {
 }
 
 extension Color {
-    static var grid_background: Color {
-            Color("grid_background")
+    static var grid_background_dinner: Color {
+            Color("grid_background_dinner")
         }
     }
 
@@ -166,5 +166,31 @@ extension Color {
             Color("stroke_color_outer")
         }
     }
+
+extension Color {
+    static var stroke_color_lunch: Color {
+            Color("stroke_color_lunch")
+        }
+    }
+
+extension Color {
+    static var title_color_dinner: Color {
+            Color("title_color_dinner")
+        }
+    }
+
+extension Color {
+    static var title_color_lunch: Color {
+            Color("title_color_lunch")
+        }
+    }
+
+extension Color {
+    static var grid_background_lunch: Color {
+            Color("grid_background_lunch")
+        }
+    }
+
+
 
 

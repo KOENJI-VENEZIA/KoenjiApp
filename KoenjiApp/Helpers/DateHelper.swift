@@ -1,3 +1,11 @@
+//
+//  DateHelper.swift
+//  KoenjiApp
+//
+//  Created by Matteo Nassini on 7/1/25.
+//
+
+
 import Foundation
 
 struct DateHelper {
@@ -9,14 +17,14 @@ struct DateHelper {
         return formatter
     }()
     
-    private static let timeFormatter: DateFormatter = {
+    static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         formatter.timeZone = TimeZone.current
         return formatter
     }()
     
-    private static let fullDateFormatter: DateFormatter = {
+    static let fullDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd/MM/yyyy"
         formatter.timeZone = TimeZone.current
@@ -47,5 +55,20 @@ struct DateHelper {
     
     static func parseFullDate(_ dateString: String) -> Date? {
         return fullDateFormatter.date(from: dateString)
+    }
+    
+    static func combineDateAndTime(date: Date, timeString: String) -> Date? {
+        // Parse the time string into a Date object (only time components)
+        guard let time = parseTime(timeString) else { return nil }
+        
+        // Extract the time components from the parsed time
+        let calendar = Calendar.current
+        let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: time)
+        
+        // Combine the date and time components
+        return calendar.date(bySettingHour: timeComponents.hour ?? 0,
+                             minute: timeComponents.minute ?? 0,
+                             second: timeComponents.second ?? 0,
+                             of: date)
     }
 }

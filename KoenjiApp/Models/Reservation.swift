@@ -29,11 +29,7 @@ struct Reservation: Identifiable, Hashable, Codable {
     /// A convenience accessor for converting `dateString` into a Foundation.Date.
     /// (You will want better date/time conversion in a real app!)
     var date: Date? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd/MM/yyyy"
-        formatter.timeZone = TimeZone.current
-
-        return formatter.date(from: dateString)
+        return DateHelper.parseFullDate(dateString)
     }
 
     
@@ -177,7 +173,7 @@ extension Reservation {
             return false
         }
 
-        return time.isWithinTimeRange(start: start, end: end)
+        return TimeHelpers.timeRangesOverlap(start1: start, end1: end, start2: time, end2: time)
     }
 }
 
@@ -185,13 +181,12 @@ extension Reservation {
     /// Combines `dateString` and `startTime` to generate a `Date` object for the reservation's start.
     var startDate: Date? {
         guard let date = self.date else { return nil }
-        return self.startTime.toDate(on: date)
+        return DateHelper.combineDateAndTime(date: date, timeString: self.startTime)
     }
 
-    /// Combines `dateString` and `endTime` to generate a `Date` object for the reservation's end.
     var endDate: Date? {
         guard let date = self.date else { return nil }
-        return self.endTime.toDate(on: date)
+        return DateHelper.combineDateAndTime(date: date, timeString: self.endTime)
     }
 }
 

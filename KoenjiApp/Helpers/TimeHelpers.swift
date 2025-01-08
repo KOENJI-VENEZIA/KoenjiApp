@@ -9,17 +9,13 @@ import Foundation
 
 struct TimeHelpers {
     static func calculateEndTime(startTime: String, category: Reservation.ReservationCategory) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        formatter.timeZone = TimeZone.current
-
-        guard let start = formatter.date(from: startTime) else {
+        guard let start = DateHelper.parseTime(startTime) else {
             return startTime
         }
 
         // Define category-specific time constraints
-        let lastLunchTime = formatter.date(from: "15:00")!
-        let lastDinnerTime = formatter.date(from: "23:45")!
+        let lastLunchTime = DateHelper.parseTime("15:00")!
+        let lastDinnerTime = DateHelper.parseTime("23:45")!
         let maxEndTime = category == .lunch ? lastLunchTime : lastDinnerTime
 
         // Adjust end time based on start time
@@ -28,17 +24,11 @@ struct TimeHelpers {
         // Ensure the calculated end time does not exceed the maximum allowed time
         end = min(end, maxEndTime)
 
-        return formatter.string(from: end)
+        return DateHelper.formatTime(end)
     }
 
     static func remainingTimeString(endTime: String, currentTime: Date) -> String? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        formatter.timeZone = TimeZone.current
-
-        guard let end = formatter.date(from: endTime) else {
-            return nil
-        }
+        guard let end = DateHelper.parseTime(endTime) else { return nil }
 
         // Merge today's date with the `endTime`'s time-of-day
         let calendar = Calendar.current

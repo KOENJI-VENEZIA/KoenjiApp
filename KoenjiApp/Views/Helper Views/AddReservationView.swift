@@ -37,7 +37,7 @@ struct AddReservationView: View {
                     Picker("Table", selection: $selectedForcedTableID) {
                         Text("Auto Assign").tag(nil as Int?)
                         ForEach(store.tableAssignmentService.availableTables(
-                            for: nil,
+                            for: createTemporaryReservation(),
                             reservations: store.getReservations(),
                             tables: store.getTables()
                         ), id: \.table.id) { entry in
@@ -135,19 +135,15 @@ struct AddReservationView: View {
         switch category {
         case .lunch:
             startTime = "12:00"
-            endTime = "13:45"
         case .dinner:
             startTime = "18:00"
-            endTime = "20:45"
         case .noBookingZone:
             startTime = "09:00"
-            endTime = "10:00"
         }
+        endTime = TimeHelpers.calculateEndTime(startTime: startTime, category: category)
     }
 
     private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd/MM/yyyy"
-        return formatter.string(from: date)
+        return DateHelper.formatFullDate(date)
     }
 }

@@ -21,7 +21,11 @@ struct TableView: View {
     @State private var isHeld: Bool = false // State for long press hold
     @State private var hasMoved: Bool = false
     let isLayoutLocked: Bool
+    @Binding var isLayoutReset: Bool
     let animationNamespace: Namespace.ID // Animation namespace from LayoutView
+    
+    @State private var adjacentCount: Int = 0
+    @State private var activeReservationAdjacentCount: Int = 0
 
     var body: some View {
         // Calculate cell size from LayoutUIManager
@@ -45,28 +49,44 @@ struct TableView: View {
         
         
         ZStack {
-            // Table rectangle with conditional coloring
+            
+            let uniqueKey = UUID().uuidString
+
+            // Determine table style and ID suffix dynamically
+            let (fillColor, idSuffix): (Color, String) = {
+                if isDragging {
+                    return (Color(hex: "#AEAB7D").opacity(0.2), "dragging")
+                } else if activeReservation != nil {
+                    return (Color(hex: "#6A798E"), "reserved")
+                } else if isLayoutLocked {
+                    return (Color(hex: "#A3B7D2"), "locked")
+                } else {
+                    return (Color(hex: "#A3B7D2"), "default")
+                }
+            }()
+
             RoundedRectangle(cornerRadius: 4.0)
-                .fill(isDragging ? Color.yellow.opacity(0.2)
-                      : (activeReservation != nil ? Color.green.opacity(0.3)
-                         : (isLayoutLocked ? Color.orange.opacity(0.3) : Color.clear)))
-                .background(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4.0)
-                        .stroke(isDragging ? Color.yellow.opacity(0.5)
-                                : (isHighlighted ? Color(hex: "#9DA3D0") : (isLayoutLocked ? Color.orange : Color.blue)),
-                                lineWidth: 2)
+                .fill(fillColor)
+                .frame(width: tableWidth * (isDragging ? 1.2 : 1.0), height: tableHeight * (isDragging ? 1.2 : 1.0))
+                .matchedGeometryEffect(
+                    id: "\(table.id)-\(selectedDate)-\(selectedCategory.rawValue)-\(idSuffix)-\(uniqueKey)",
+                    in: animationNamespace
                 )
-                .frame(width: tableWidth * (isDragging ? 1.2 : 1.0), height: tableHeight * (isDragging ? 1.2 : 1.0)) // Scale up if held
-                .matchedGeometryEffect(id: table.id, in: animationNamespace)
-            
-            // Flash overlay for highlighted tables
+
+            // Stroke overlay
             RoundedRectangle(cornerRadius: 4.0)
-                .fill(isHighlighted && !isDragging ? Color(hex: "#9DA3D0").opacity(0.4) : Color.clear)
-                .animation(.easeInOut(duration: 0.5), value: isHighlighted)
-                .frame(width: tableWidth, height: tableHeight)
-                .allowsHitTesting(false)
-            
+                .stroke(
+                    isDragging ? Color.yellow.opacity(0.5) :
+                    (isHighlighted ? Color(hex: "#9DA3D0") :
+                        (isLayoutLocked ? Color(hex: "#CB7C1F") : Color(hex: "#3B4A5E"))),
+                    style: isDragging
+                        ? StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 3]) // Dashed when dragging
+                    : StrokeStyle(lineWidth: (isLayoutLocked ? 3 : 2)) // Solid for other states
+                )
+                .frame(
+                    width: tableWidth,
+                    height: tableHeight
+                )
             
             // Reservation information or table name
             if let reservation = activeReservation {
@@ -114,7 +134,7 @@ struct TableView: View {
         VStack(spacing: 2) {
             Text(reservation.name)
                 .bold()
-                .font(.caption)
+                .font(.headline)
             Text("\(reservation.numberOfPersons) pers.")
                 .font(.footnote)
             Text("\(reservation.phone)")
@@ -131,7 +151,7 @@ struct TableView: View {
             }
         }
         .frame(maxWidth: tableWidth, maxHeight: tableHeight)
-        .background(Color.white.opacity(0.7))
+        .background(Color.clear)
         .cornerRadius(4)
         .frame(width: tableWidth, height: tableHeight)
     }
@@ -190,18 +210,15 @@ struct TableView: View {
             return
         }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-
-        let startTimeString = formatter.string(from: currentTime)
+        let startTimeString = DateHelper.formatTime(currentTime)
         let endTimeString = TimeHelpers.calculateEndTime(startTime: startTimeString, category: selectedCategory)
 
         let isOccupied = store.tableAssignmentService.isTableOccupied(
             table,
             reservations: store.reservations,
             date: selectedDate,
-            startTimeString: startTimeString,
-            endTimeString: endTimeString
+            startTime: startTimeString,
+            endTime: endTimeString
         )
 
         if !isOccupied {
@@ -209,6 +226,10 @@ struct TableView: View {
         } else if let reservation = reservationService.findActiveReservation(for: table, date: selectedDate, time: currentTime) {
             onEditReservation(reservation)
         }
+        
+        
+        print("\(adjacentCount)")
+        print("\(activeReservationAdjacentCount)")
     }
 
     private func handleDragEnd(translation: CGSize, cellSize: CGFloat, tableWidth: CGFloat, tableHeight: CGFloat, xPos: CGFloat, yPos: CGFloat) {
@@ -231,21 +252,94 @@ struct TableView: View {
             height: tableHeight
         )
 
+        print("Proposed Frame: \(proposedFrame)")
+        print("Grid Bounds: \(gridData.gridBounds)")
+        print("Excluded Regions: \(gridData.excludedRegions)")
+        
+        // Check for blockage before moving the table
         if !gridData.isBlockage(proposedFrame) {
-            layoutUI.showInvalidMoveFeedback()
+            print("Blockage detected! Table move rejected.")
             store.currentlyDraggedTableID = nil
             return
         }
 
-        switch store.moveTable(table, toRow: newRow, toCol: newCol) {
-        case .move:
-            reservationService.layoutManager.saveLayout(for: selectedDate, category: selectedCategory)
-            reservationService.layoutManager.isLayoutReset = false
-        case .invalid:
-            withAnimation(.spring(duration: 1, bounce: 0.5)) {
-                layoutUI.showInvalidMoveFeedback()
+        // Delegate the move to LayoutUIManager
+        layoutUI.attemptMove(table: table, to: (row: newRow, col: newCol))
+        
+        // Retrieve the updated table from layoutUI.tables
+        guard let updatedTable = layoutUI.tables.first(where: { $0.id == table.id }) else {
+            print("Error: Updated table not found after move!")
+            return
+        }
+        
+        let tables = layoutUI.tables
+        store.saveTables(tables, for: selectedDate, category: selectedCategory)
+        updateAdjacencyCounts(table: updatedTable, activeTables: tables)
+        print("Table positions after move:")
+        store.reservations.forEach { reservation in
+            print("Reservation \(reservation.id) has tables:")
+            reservation.tables.forEach { _ in print("Table \(table.id) at row \(table.row), column \(table.column)") }
+        }
+        isLayoutReset = false
+        print("Saved tables for \(selectedDate) and \(selectedCategory)!")
+        store.currentlyDraggedTableID = nil
+        print("\(adjacentCount)")
+        print("\(activeReservationAdjacentCount)")
+    }
+
+    private func updateAdjacencyCounts(table: TableModel, activeTables: [TableModel]) {
+        print("Updating adjacency counts for table: \(table.id) [updateAdjacencyCounts() in TableView]")
+        print("Date: \(selectedDate), Time: \(currentTime) [updateAdjacencyCounts() in TableView]")
+
+        guard let combinedDateTime = combine(date: selectedDate, time: currentTime) else {
+            print("Failed to combine date and time.")
+            return
+        }
+
+        // Pass `activeTables` to `isTableAdjacent`
+        let adjacency = store.isTableAdjacent(table, combinedDateTime: combinedDateTime, activeTables: activeTables)
+        adjacentCount = adjacency.adjacentCount
+
+        // Process shared reservation tables using a queue
+        var visitedTables = Set<Int>()
+        var queue = [table]
+
+        while !queue.isEmpty {
+            let currentTable = queue.removeFirst()
+            if visitedTables.contains(currentTable.id) {
+                continue
+            }
+            visitedTables.insert(currentTable.id)
+
+            // Pass `activeTables` to `isAdjacentWithSameReservation`
+            let sharedTables = store.isAdjacentWithSameReservation(for: currentTable, combinedDateTime: combinedDateTime, activeTables: activeTables)
+            for sharedTable in sharedTables where !visitedTables.contains(sharedTable.id) {
+                queue.append(sharedTable)
+            }
+
+            if currentTable.id == table.id {
+                activeReservationAdjacentCount = sharedTables.count
             }
         }
-        store.currentlyDraggedTableID = nil
+
+        print("Updated adjacentCount: \(adjacentCount) [updateAdjacencyCounts() in TableView]")
+        print("Active reservation adjacent count: \(activeReservationAdjacentCount) [updateAdjacencyCounts() in TableView]")
     }
+    
+    func combine(date: Date, time: Date) -> Date? {
+        let calendar = Calendar.current
+        let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+        let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: time)
+
+        var combinedComponents = DateComponents()
+        combinedComponents.year = dateComponents.year
+        combinedComponents.month = dateComponents.month
+        combinedComponents.day = dateComponents.day
+        combinedComponents.hour = timeComponents.hour
+        combinedComponents.minute = timeComponents.minute
+        combinedComponents.second = timeComponents.second
+
+        return calendar.date(from: combinedComponents)
+    }
+    
 }

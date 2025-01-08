@@ -2,7 +2,7 @@
 //  LayoutUIManager.swift
 //  KoenjiApp
 //
-//  Created by [Your Name] on [Date].
+//  Updated to manage separate layouts per LayoutPageView.
 //
 
 import SwiftUI
@@ -37,16 +37,46 @@ class LayoutUIManager: ObservableObject {
     /// A reference to the `ReservationStore` for table data and layout operations.
     private var store: ReservationStore?
     private var reservationService: ReservationService?
+    
+    /// The date and category this LayoutUIManager is associated with.
+    private var date: Date
+    private var category: Reservation.ReservationCategory
+    
+    @Published var isConfigured: Bool = false
+
 
     // MARK: - Initialization
-    init() {
-        
+    init(date: Date, category: Reservation.ReservationCategory) {
+        self.date = date
+        self.category = category
     }
 
+    /// Configures the manager with necessary dependencies.
     func configure(store: ReservationStore, reservationService: ReservationService) {
         self.store = store
         self.reservationService = reservationService
-        self.tables = store.tables
+        loadLayout()
+        isConfigured = true
+        print("LayoutUIManager configured for date: \(store.formattedDate(date: date, locale: Locale.current)) and category: \(category.rawValue)")
+    }
+    
+    // MARK: - Layout Management
+    
+    /// Loads the layout for the associated date and category.
+    func loadLayout(reset: Bool = false) {
+        guard let store = store else { return }
+        if reset {
+            tables = store.baseTables
+            store.saveTables(tables, for: date, category: category)
+        } else {
+            tables = store.loadTables(for: date, category: category)
+        }
+    }
+    
+    /// Saves the current layout to the store.
+    func saveLayout() {
+        guard let store = store else { return }
+        store.saveTables(tables, for: date, category: category)
     }
     
     // MARK: - Dragging Helpers
@@ -58,14 +88,11 @@ class LayoutUIManager: ObservableObject {
     }
 
     /// Finalizes a drag operation, saving the layout state.
-    func finalizeDrag() {
-        draggingTable = nil
-        draggingOffset = .zero
-        saveCurrentLayout()
-    }
+
 
     /// Attempts to move a table to a new position.
     func attemptMove(table: TableModel, to newPosition: (row: Int, col: Int)) {
+        guard let store = store else { return }
         let newTable = TableModel(
             id: table.id,
             name: table.name,
@@ -74,7 +101,7 @@ class LayoutUIManager: ObservableObject {
             column: newPosition.col
         )
 
-        if store!.canPlaceTable(newTable) {
+        if store.canPlaceTable(newTable, for: date, category: category) {
             updateTablePosition(from: table, to: newTable)
             print("attemptMove: Successfully moved \(table.name) to (\(newPosition.row), \(newPosition.col))")
         } else {
@@ -85,19 +112,12 @@ class LayoutUIManager: ObservableObject {
 
     /// Updates the grid and data for a table's new position.
     private func updateTablePosition(from oldTable: TableModel, to newTable: TableModel) {
-        store!.unmarkTable(oldTable)
-        store!.markTable(newTable, occupied: true)
+        store?.unmarkTable(oldTable)
+        store?.markTable(newTable, occupied: true)
 
-        if let index = store!.tables.firstIndex(where: { $0.id == oldTable.id }) {
-            store!.tables[index] = newTable
+        if let index = tables.firstIndex(where: { $0.id == oldTable.id }) {
+            tables[index] = newTable
         }
-    }
-
-    /// Saves the current layout to the store and disk.
-    private func saveCurrentLayout() {
-        let date = Date() // Replace with the selected date
-        let category: Reservation.ReservationCategory = .lunch // Replace with the selected category
-        reservationService!.layoutManager.saveCurrentLayout(for: date, category: category)
     }
 
     // MARK: - Feedback
@@ -133,4 +153,17 @@ class LayoutUIManager: ObservableObject {
         let height = CGFloat(table.height) * cellSize
         return CGRect(x: x, y: y, width: width, height: height)
     }
+}
+
+// Continue from the previous LayoutUIManager.swift
+
+extension LayoutUIManager {
+    /// Loads the layout for the associated date and category.
+    func loadLayout() {
+        guard let store = store else { return }
+        tables = store.loadTables(for: date, category: category)
+    }
+    
+    /// Saves the current layout to the store.
+
 }

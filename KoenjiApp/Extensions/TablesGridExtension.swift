@@ -77,15 +77,22 @@ extension ReservationStore {
     // MARK: - Helpers
 
     func markTable(_ table: TableModel, occupied: Bool) {
+        print("Marking table \(table.id) at \(table.row), \(table.column) with occupied=\(occupied)")
+        
+        print("Tables and grid state after operation:")
+        print(tables)
         for r in table.row..<(table.row + table.height) {
             for c in table.column..<(table.column + table.width) {
-                guard r >= 0, r < grid.count, c >= 0, c < grid[0].count else { continue }
+                guard r >= 0, r < grid.count, c >= 0, c < grid[0].count else {
+                    print("markTable: Skipping out-of-bounds position (\(r), \(c))")
+                    continue }
                 grid[r][c] = occupied ? table.id : nil
             }
         }
     }
 
     func unmarkTable(_ table: TableModel) {
+        
         markTable(table, occupied: false)
     }
 
@@ -97,5 +104,181 @@ extension ReservationStore {
             height: CGFloat(table.height)
         )
     }
+    
+    func markTablesInGrid() {
+        print("Marking tables in grid...")
+        grid = Array(
+            repeating: Array(repeating: nil, count: totalColumns),
+            count: totalRows
+        )
+        print("Tables in array:")
+
+        for table in tables {
+            print("Table \(table.id): \(table.row), \(table.column), \(table.width)x\(table.height)")
+            markTable(table, occupied: true)
+            print("Marked table \(table.id) at row \(table.row), column \(table.column)")
+
+        }
+    }
+    
+    // MARK: - Adjacency
+    
+    enum TableSide: CaseIterable {
+        case top
+        case bottom
+        case left
+        case right
+
+        func offset() -> (rowOffset: Int, colOffset: Int) {
+            switch self {
+            case .top: return (-3, 0)
+            case .bottom: return (3, 0)
+            case .left: return (0, -3)
+            case .right: return (0, 3)
+            }
+        }
+    }
+    
+    func isTableAdjacent(_ table: TableModel, combinedDateTime: Date, activeTables: [TableModel]) -> (adjacentCount: Int, adjacentDetails: [TableSide: TableModel]) {
+        var adjacentCount = 0
+        var adjacentDetails: [TableSide: TableModel] = [:]
+
+        print("Active tables: \(activeTables.map { "Table \($0.id) at (\($0.row), \($0.column))" })")
+        print("Checking neighbors for table \(table.id) at row \(table.row), column \(table.column):")
+
+        for side in TableSide.allCases {
+            let offset = side.offset()
+            let neighborPosition = (row: table.row + offset.rowOffset, col: table.column + offset.colOffset)
+
+            print("Neighbor position: \(neighborPosition.row), \(neighborPosition.col) for side \(side)")
+
+            // Find a neighbor table that overlaps with the calculated neighbor position
+            if let neighborTable = activeTables.first(where: { neighbor in
+                // Check overlap in rows
+                let rowOverlap = neighbor.row <= neighborPosition.row && neighbor.row + neighbor.height > neighborPosition.row
+                // Check overlap in columns
+                let colOverlap = neighbor.column <= neighborPosition.col && neighbor.column + neighbor.width > neighborPosition.col
+                // Ensure the neighbor is not the current table
+                return rowOverlap && colOverlap && neighbor.id != table.id
+            }) {
+                // Correctly track the table that overlaps
+                adjacentCount += 1
+                adjacentDetails[side] = neighborTable
+                print("Found adjacent table \(neighborTable.id) at side \(side).")
+            } else {
+                print("No active table found at neighbor position.")
+            }
+        }
+
+        print("Adjacent tables for table \(table.id): \(adjacentCount), details: \(adjacentDetails.map { ($0.key, $0.value.id) })")
+        return (adjacentCount, adjacentDetails)
+    }
+    
+
+    
+    // MARK: - Reservation-Aware Adjacency
+    func isAdjacentWithSameReservation(for table: TableModel, combinedDateTime: Date, activeTables: [TableModel]) -> [TableModel] {
+        // Get all reservation IDs for the given table
+        let reservationIDs = reservations
+            .filter { $0.tables.contains(where: { $0.id == table.id }) }
+            .map { $0.id }
+
+        // Get adjacent details using active tables
+        let adjacentDetails = isTableAdjacent(table, combinedDateTime: combinedDateTime, activeTables: activeTables).adjacentDetails
+        var sharedReservationTables: [TableModel] = []
+
+        for (_, adjacentTable) in adjacentDetails {
+            // Check if the adjacent table shares a reservation
+            let sharedReservations = reservations.filter { reservation in
+                reservation.tables.contains(where: { $0.id == adjacentTable.id }) && reservationIDs.contains(reservation.id)
+            }
+
+            if !sharedReservations.isEmpty {
+                sharedReservationTables.append(adjacentTable)
+                print("Shared reservation with table \(adjacentTable.id).")
+            }
+        }
+
+        print("Shared reservation tables for table \(table.id): \(sharedReservationTables.map { $0.id })")
+        return sharedReservationTables
+    }
+    
+    // MARK: - Helpers for Adjacency
+    
+    // Lookup a table by grid position
+    func fetchTable(row: Int, column: Int, combinedDateTime: Date, activeTables: [TableModel]) -> TableModel? {
+        guard row >= 0, column >= 0 else {
+            print("fetchTable: Invalid grid position (\(row), \(column))")
+            return nil
+        }
+
+        print("fetchTable: Checking for table at (\(row), \(column))")
+
+        // Check active tables first
+        if let activeTable = activeTables.first(where: { $0.row == row && $0.column == column }) {
+            print("fetchTable: Found active table \(activeTable.id) at (\(row), \(column))")
+            return activeTable
+        }
+
+        // Fallback to tables managed by the store
+        let storeTables = reservations.flatMap { $0.tables }
+        if let table = storeTables.first(where: { $0.row == row && $0.column == column }) {
+            print("fetchTable: Found table \(table.id) in store at (\(row), \(column))")
+            return table
+        }
+
+        print("fetchTable: No table found at (\(row), \(column))")
+        return nil
+    }
+
+
+    
+    // MARK: - Active Reservations caching
+    
+    func refreshActiveReservationCache(for date: Date) {
+        activeReservationCache.removeAll()
+        for reservation in reservations {
+            guard let reservationDate = DateHelper.parseFullDate(reservation.dateString),
+                  Calendar.current.isDate(reservationDate, equalTo: date, toGranularity: .day) else { continue }
+            
+            for table in reservation.tables {
+                guard let start = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime),
+                      let end = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.endTime) else { continue }
+
+                // Populate the cache for all time slices the reservation is active
+                var currentTime = start
+                while currentTime <= end {
+                    let cacheKey = ActiveReservationCacheKey(tableID: table.id, date: reservationDate, time: currentTime)
+                    activeReservationCache[cacheKey] = reservation
+                    currentTime = Calendar.current.date(byAdding: .minute, value: 1, to: currentTime) ?? currentTime
+                }
+            }
+        }
+    }
+    
+    func preloadActiveReservationCache(for date: Date) {
+        activeReservationCache.removeAll()
+        print("Preloading active reservation cache for date: \(date)")
+
+        for reservation in reservations {
+            guard let reservationDate = DateHelper.parseFullDate(reservation.dateString),
+                  Calendar.current.isDate(reservationDate, equalTo: date, toGranularity: .day) else { continue }
+
+            for table in reservation.tables {
+                guard let startTime = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime),
+                      let endTime = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.endTime) else { continue }
+
+                var currentTime = startTime
+                while currentTime <= endTime {
+                    let cacheKey = ActiveReservationCacheKey(tableID: table.id, date: reservationDate, time: currentTime)
+                    activeReservationCache[cacheKey] = reservation
+                    currentTime = Calendar.current.date(byAdding: .minute, value: 1, to: currentTime) ?? currentTime
+                }
+            }
+        }
+
+        print("Active reservation cache preloaded with \(activeReservationCache.count) entries.")
+    }
+    
 
 }

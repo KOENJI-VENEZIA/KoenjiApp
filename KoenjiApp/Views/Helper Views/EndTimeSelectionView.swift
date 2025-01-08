@@ -1,12 +1,5 @@
-//
-//  EndTimeSelectionView.swift
-//  KoenjiApp
-//
-//  Created by Matteo Nassini on 28/12/24.
-//
 import SwiftUI
 
-    
 struct EndTimeSelectionView: View {
     @Binding var selectedTime: String
     var category: Reservation.ReservationCategory
@@ -27,9 +20,6 @@ struct EndTimeSelectionView: View {
     }
 
     private var availableTimes: [String] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-
         switch category {
         case .lunch:
             return generateTimes(from: "12:15", to: "15:00")
@@ -41,20 +31,15 @@ struct EndTimeSelectionView: View {
     }
 
     private func generateTimes(from start: String, to end: String) -> [String] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-
-        guard let startTime = formatter.date(from: start),
-              let endTime = formatter.date(from: end) else { return [] }
+        guard let startTime = DateHelper.parseTime(start),
+              let endTime = DateHelper.parseTime(end) else { return [] }
 
         var times: [String] = []
         var current = startTime
         while current <= endTime {
-            times.append(formatter.string(from: current))
+            times.append(DateHelper.formatTime(current))
             current = Calendar.current.date(byAdding: .minute, value: 15, to: current)!
         }
         return times
     }
 }
-
-
