@@ -110,6 +110,9 @@ struct AddReservationView: View {
         if let assignedTables = store.assignTables(for: newReservation, selectedTableID: selectedForcedTableID) {
             newReservation.tables = assignedTables
             reservationService.addReservation(newReservation)
+            
+            store.updateActiveReservationAdjacencyCounts(for: newReservation)
+
             dismiss()
         } else {
             alertMessage = selectedForcedTableID != nil ? "Could not assign selected table." : "Could not auto-assign tables."

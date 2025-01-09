@@ -97,6 +97,9 @@ struct EditReservationView: View {
         if let assignedTables = store.assignTables(for: reservation, selectedTableID: selectedForcedTableID) {
             reservation.tables = assignedTables
             reservationService.updateReservation(reservation)
+            
+            store.updateActiveReservationAdjacencyCounts(for: reservation)
+
             dismiss()
         } else {
             alertMessage = "Table assignment failed."
