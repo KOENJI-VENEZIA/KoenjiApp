@@ -15,8 +15,7 @@ struct ContentView: View {
         {
             // The Sidebar
             SidebarView()
-                .toolbarBackground(.hidden)
-                .toolbarBackground(.ultraThinMaterial)
+                
         }
         
         detail: {

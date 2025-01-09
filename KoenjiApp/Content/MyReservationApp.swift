@@ -10,6 +10,7 @@ struct MyReservationApp: App {
 
 
     init() {
+        
         // 1) Create a *local* store first
         let localStore = ReservationStore(tableAssignmentService: TableAssignmentService())
 
@@ -23,7 +24,6 @@ struct MyReservationApp: App {
         )
         _reservationService = StateObject(wrappedValue: service)
 
-        let _ = NavigationBarModifier()
     }
 
     var body: some Scene {
