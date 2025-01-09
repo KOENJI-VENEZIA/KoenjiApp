@@ -65,8 +65,8 @@ extension ReservationStore {
         return !(table1MaxX <= table2MinX || table1MinX >= table2MaxX || table1MaxY <= table2MinY || table1MinY >= table2MaxY)
     }
 
-    func canPlaceTable(_ table: TableModel, excluding excludedTableIDs: Set<Int> = []) -> Bool {
-        for otherTable in tables where otherTable.id != table.id && !excludedTableIDs.contains(otherTable.id) {
+    func canPlaceTable(_ table: TableModel) -> Bool {
+        for otherTable in tables where otherTable.id != table.id {
             if tablesIntersect(table, otherTable) {
                 return false
             }
@@ -123,43 +123,31 @@ extension ReservationStore {
     
     // MARK: - Adjacency
     
-    enum TableSide: CaseIterable {
-        case top
-        case bottom
-        case left
-        case right
-
-        func offset() -> (rowOffset: Int, colOffset: Int) {
-            switch self {
-            case .top: return (-3, 0)
-            case .bottom: return (3, 0)
-            case .left: return (0, -3)
-            case .right: return (0, 3)
-            }
-        }
-    }
     
-    func isTableAdjacent(_ table: TableModel, combinedDateTime: Date, activeTables: [TableModel]) -> (adjacentCount: Int, adjacentDetails: [TableSide: TableModel]) {
+    func isTableAdjacent(_ table: TableModel, combinedDateTime: Date, activeTables: [TableModel]) -> (adjacentCount: Int, adjacentDetails: [TableModel.TableSide: TableModel]) {
         var adjacentCount = 0
-        var adjacentDetails: [TableSide: TableModel] = [:]
+        var adjacentDetails: [TableModel.TableSide: TableModel] = [:]
+
 
         print("Active tables: \(activeTables.map { "Table \($0.id) at (\($0.row), \($0.column))" })")
         print("Checking neighbors for table \(table.id) at row \(table.row), column \(table.column):")
 
-        for side in TableSide.allCases {
+        for side in TableModel.TableSide.allCases {
             let offset = side.offset()
             let neighborPosition = (row: table.row + offset.rowOffset, col: table.column + offset.colOffset)
 
             print("Neighbor position: \(neighborPosition.row), \(neighborPosition.col) for side \(side)")
 
-            // Find a neighbor table that overlaps with the calculated neighbor position
             if let neighborTable = activeTables.first(where: { neighbor in
-                // Check overlap in rows
-                let rowOverlap = neighbor.row <= neighborPosition.row && neighbor.row + neighbor.height > neighborPosition.row
-                // Check overlap in columns
-                let colOverlap = neighbor.column <= neighborPosition.col && neighbor.column + neighbor.width > neighborPosition.col
                 // Ensure the neighbor is not the current table
-                return rowOverlap && colOverlap && neighbor.id != table.id
+                guard neighbor.id != table.id else { return false }
+                
+                // Strictly check if the neighbor overlaps at the exact position
+                let exactRowMatch = neighbor.row == neighborPosition.row
+                let exactColMatch = neighbor.column == neighborPosition.col
+
+                // Return true only if there's an exact match or an overlap
+                return (neighbor.height == 3 && neighbor.width == 3 && exactRowMatch && exactColMatch)
             }) {
                 // Correctly track the table that overlaps
                 adjacentCount += 1
@@ -278,6 +266,49 @@ extension ReservationStore {
         }
 
         print("Active reservation cache preloaded with \(activeReservationCache.count) entries.")
+    }
+    
+    func updateActiveReservationAdjacencyCounts(for reservation: Reservation) {
+        guard let reservationDate = DateHelper.parseFullDate(reservation.dateString),
+              let combinedDateTime = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime) else {
+            print("Invalid reservation date or time for updating adjacency counts.")
+            return
+        }
+
+        // Get active tables for the reservation's layout
+        let activeTables = getTables(for: reservationDate, category: reservation.category)
+
+        // Iterate over all tables in the reservation
+        for table in reservation.tables {
+            // Calculate adjacent tables with shared reservations
+            let sharedTables = isAdjacentWithSameReservation(for: table, combinedDateTime: combinedDateTime, activeTables: activeTables)
+
+            // Update `activeReservationAdjacentCount` for this table
+            if let index = tables.firstIndex(where: { $0.id == table.id }) {
+                tables[index].activeReservationAdjacentCount = sharedTables.count
+            }
+
+            // Update in the cached layout
+            let key = keyFor(date: reservationDate, category: reservation.category)
+            if let cachedIndex = cachedLayouts[key]?.firstIndex(where: { $0.id == table.id }) {
+                cachedLayouts[key]?[cachedIndex].activeReservationAdjacentCount = sharedTables.count
+            }
+        }
+
+        // Save changes to disk
+        saveToDisk()
+        print("Updated activeReservationAdjacentCount for tables in reservation \(reservation.id).")
+    }
+    
+    func getTables(for date: Date, category: Reservation.ReservationCategory) -> [TableModel] {
+        let key = keyFor(date: date, category: category)
+        if let tables = cachedLayouts[key] {
+            return tables
+        } else {
+            // If no layout exists for this date and category, fallback to base tables
+            print("No cached tables found for \(key). Returning base tables.")
+            return baseTables
+        }
     }
     
 
