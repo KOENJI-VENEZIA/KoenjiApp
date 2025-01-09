@@ -1,0 +1,6 @@
+project: KoenjiApp.xcodeproj
+retain_public: true
+schemes:
+- KoenjiApp
+targets:
+- KoenjiApp
