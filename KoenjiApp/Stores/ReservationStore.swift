@@ -52,6 +52,18 @@ class ReservationStore: ObservableObject {
         let tableID: Int
         let date: Date
         let time: Date
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(tableID)
+            hasher.combine(date)
+            hasher.combine(time)
+        }
+
+        static func == (lhs: ActiveReservationCacheKey, rhs: ActiveReservationCacheKey) -> Bool {
+            return lhs.tableID == rhs.tableID &&
+                   lhs.date == rhs.date &&
+                   lhs.time == rhs.time
+        }
     }
     
     var activeReservationCache: [ActiveReservationCacheKey: Reservation] = [:]

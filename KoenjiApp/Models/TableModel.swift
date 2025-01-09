@@ -20,6 +20,24 @@ struct TableModel: Identifiable, Hashable, Codable, Equatable {
     var width: Int { 3 }
     var height: Int { 3 }
     
+    var adjacentCount: Int = 0
+    var activeReservationAdjacentCount: Int = 0
+    
+    enum TableSide: CaseIterable {
+        case top
+        case bottom
+        case left
+        case right
+
+        func offset() -> (rowOffset: Int, colOffset: Int) {
+            switch self {
+            case .top: return (-3, 0)
+            case .bottom: return (3, 0)
+            case .left: return (0, -3)
+            case .right: return (0, 3)
+            }
+        }
+    }
     
 }
 
