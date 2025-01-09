@@ -295,7 +295,7 @@ class GridData: ObservableObject {
                     }
                 }
                 .stroke(
-                    selectedCategory == .lunch ? Color.stroke_color_lunch : Color.stroke_color_outer,
+                    selectedCategory == .lunch ? Color.stroke_color_lunch : Color.stroke_color_dinner,
                     style: StrokeStyle(lineWidth: 4, lineJoin: .round)
                 )
                 
@@ -324,7 +324,7 @@ class GridData: ObservableObject {
                     borderFeatures: borderFeatures
                 )
                 .stroke(
-                    selectedCategory == .lunch ? Color.stroke_color_lunch : Color.stroke_color_outer,
+                    selectedCategory == .lunch ? Color.stroke_color_lunch : Color.stroke_color_dinner,
                     style: StrokeStyle(lineWidth: 1, lineJoin: .round)
                 )
             }
