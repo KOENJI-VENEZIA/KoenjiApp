@@ -17,26 +17,37 @@ struct TableView: View {
     let onEditReservation: (Reservation) -> Void
 
     @GestureState private var dragOffset: CGSize = .zero
+    
+    enum DragState {
+        case idle
+        case dragging(offset: CGSize)
+        case started(offset: CGSize)
+    }
+    @State private var dragState: DragState = .idle
+    
+    
+    
     @State private var isDragging: Bool = false // State to track dragging
     @State private var isHeld: Bool = false // State for long press hold
     @State private var hasMoved: Bool = false
     let isLayoutLocked: Bool
     @Binding var isLayoutReset: Bool
     let animationNamespace: Namespace.ID // Animation namespace from LayoutView
+    let onTableUpdated: (TableModel) -> Void
+
+        
+    private var cellSize: CGFloat { return layoutUI.cellSize }
     
-    @State private var adjacentCount: Int = 0
-    @State private var activeReservationAdjacentCount: Int = 0
+    private var tableFrame: CGRect {
+        let cellSize = layoutUI.cellSize
+        let width = CGFloat(table.width) * cellSize
+        let height = CGFloat(table.height) * cellSize
+        let xPos = CGFloat(table.column) * cellSize + width / 2
+        let yPos = CGFloat(table.row) * cellSize + height / 2
+        return CGRect(x: xPos, y: yPos, width: width, height: height)
+    }
 
     var body: some View {
-        // Calculate cell size from LayoutUIManager
-        let cellSize = layoutUI.cellSize
-        
-        // Calculate table's current position
-        let tableWidth = CGFloat(table.width) * cellSize
-        let tableHeight = CGFloat(table.height) * cellSize
-        let xPos = CGFloat(table.column) * cellSize + tableWidth / 2
-        let yPos = CGFloat(table.row) * cellSize + tableHeight / 2
-        
         // Determine if the table is highlighted
         let isHighlighted = store.tableAnimationState[table.id] ?? false
         
@@ -46,6 +57,11 @@ struct TableView: View {
             date: selectedDate,
             time: currentTime
         )
+        
+        let isDragging = {
+            if case .dragging = dragState { return true }
+            return false
+        }()
         
         
         ZStack {
@@ -65,16 +81,16 @@ struct TableView: View {
                 }
             }()
 
-            RoundedRectangle(cornerRadius: 4.0)
+            RoundedRectangle(cornerRadius: 8.0)
                 .fill(fillColor)
-                .frame(width: tableWidth * (isDragging ? 1.2 : 1.0), height: tableHeight * (isDragging ? 1.2 : 1.0))
+                .frame(width: tableFrame.width * (isDragging ? 1.2 : 1.0), height: tableFrame.height * (isDragging ? 1.2 : 1.0))
                 .matchedGeometryEffect(
                     id: "\(table.id)-\(selectedDate)-\(selectedCategory.rawValue)-\(idSuffix)-\(uniqueKey)",
                     in: animationNamespace
                 )
 
             // Stroke overlay
-            RoundedRectangle(cornerRadius: 4.0)
+            RoundedRectangle(cornerRadius: 8.0)
                 .stroke(
                     isDragging ? Color.yellow.opacity(0.5) :
                     (isHighlighted ? Color(hex: "#9DA3D0") :
@@ -84,15 +100,17 @@ struct TableView: View {
                     : StrokeStyle(lineWidth: (isLayoutLocked ? 3 : 2)) // Solid for other states
                 )
                 .frame(
-                    width: tableWidth,
-                    height: tableHeight
+                    width: tableFrame.width,
+                    height: tableFrame.height
                 )
             
             // Reservation information or table name
-            if let reservation = activeReservation {
-                reservationInfo(reservation: reservation, tableWidth: tableWidth, tableHeight: tableHeight)
-            } else {
-                tableName(name: table.name, tableWidth: tableWidth, tableHeight: tableHeight)
+            Group {
+                if let reservation = activeReservation {
+                    reservationInfo(reservation: reservation, tableWidth: tableFrame.width, tableHeight: tableFrame.height)
+                } else {
+                    tableName(name: table.name, tableWidth: tableFrame.width, tableHeight: tableFrame.height)
+                }
             }
         }
         .contextMenu {
@@ -100,7 +118,7 @@ struct TableView: View {
                 print("Tapped delete")
             }
         }
-        .position(x: xPos, y: yPos)
+        .position(x: tableFrame.minX, y: tableFrame.minY)
         .offset(dragOffset)
         .highPriorityGesture(
             DragGesture(minimumDistance: 0)
@@ -110,21 +128,22 @@ struct TableView: View {
                 }
                 .onChanged { value in
                     guard !isLayoutLocked else { return }
-                    isDragging = true // Activate dragging state
+                    dragState = .dragging(offset: value.translation)
                 }
                 .onEnded { value in
-                    isDragging = false // Reset dragging state
+                    dragState = .idle // Reset dragging state
                     handleDragEnd(
                         translation: value.translation,
                         cellSize: cellSize,
-                        tableWidth: tableWidth,
-                        tableHeight: tableHeight,
-                        xPos: xPos,
-                        yPos: yPos
+                        tableWidth: tableFrame.width,
+                        tableHeight: tableFrame.height,
+                        xPos: tableFrame.minX,
+                        yPos: tableFrame.minY
                     )
                 }
             )
-        .simultaneousGesture(LongPressGesture(minimumDuration: 0.3).onEnded {_ in
+        .simultaneousGesture(TapGesture(count: 2).onEnded {_ in
+            dragState = .idle
             handleTap()
         })
     }
@@ -137,39 +156,42 @@ struct TableView: View {
                 .font(.headline)
             Text("\(reservation.numberOfPersons) pers.")
                 .font(.footnote)
+                .opacity(0.8)
+
             Text("\(reservation.phone)")
                 .font(.footnote)
+                .opacity(0.8)
+
             if let remaining = TimeHelpers.remainingTimeString(endTime: reservation.endTime, currentTime: currentTime) {
                 Text("Rimasto: \(remaining)")
-                    .foregroundColor(.red)
+                    .foregroundColor(Color(hex: "#B4231F"))
                     .font(.footnote)
             }
             if let duration = TimeHelpers.availableTimeString(endTime: reservation.endTime, startTime: reservation.startTime) {
                 Text("\(duration)")
-                    .foregroundColor(.red)
+                    .foregroundColor(Color(hex: "#B4231F"))
                     .font(.footnote)
             }
         }
-        .frame(maxWidth: tableWidth, maxHeight: tableHeight)
         .background(Color.clear)
-        .cornerRadius(4)
-        .frame(width: tableWidth, height: tableHeight)
+        .cornerRadius(8)
+        .frame(width: tableFrame.width, height: tableFrame.height)
     }
 
     private func tableName(name: String, tableWidth: CGFloat, tableHeight: CGFloat) -> some View {
         Text(name)
             .bold()
             .foregroundColor(.blue)
-            .font(.caption)
+            .font(.headline)
             .padding(4)
             .background(Color.white.opacity(0.7))
-            .cornerRadius(4)
-            .frame(width: tableWidth - 8, height: tableHeight - 8)
+            .cornerRadius(8)
+            .frame(width: tableFrame.width - 5, height: tableFrame.height - 5)
     }
 
     // MARK: - Gestures
     private func dragGesture(cellSize: CGFloat, tableWidth: CGFloat, tableHeight: CGFloat, xPos: CGFloat, yPos: CGFloat) -> some Gesture {
-            DragGesture(minimumDistance: 20)
+        DragGesture(minimumDistance: 20)
             .updating($dragOffset) { value, state, _ in
                 guard !isLayoutLocked else { return }
                 state = value.translation
@@ -180,26 +202,36 @@ struct TableView: View {
                 // Define a threshold distance (e.g., 10 points)
                 let dragThreshold: CGFloat = 10
                 
-                if !hasMoved {
+                switch dragState {
+                case .idle:
+                    // If the drag distance exceeds the threshold, move to the "started" state
                     if abs(value.translation.width) > dragThreshold || abs(value.translation.height) > dragThreshold {
-                        hasMoved = true
-                        isDragging = true // Activate dragging state
+                        dragState = .started(offset: value.translation)
                     }
+                case .started, .dragging:
+                    // Update the drag state with the current offset
+                    dragState = .dragging(offset: value.translation)
                 }
             }
             .onEnded { value in
-                if hasMoved {
+                switch dragState {
+                case .dragging(let offset):
+                    // Perform the drag end operation only if it was in the dragging state
                     handleDragEnd(
-                        translation: value.translation,
+                        translation: offset,
                         cellSize: cellSize,
-                        tableWidth: tableWidth,
-                        tableHeight: tableHeight,
-                        xPos: xPos,
-                        yPos: yPos
+                        tableWidth: tableFrame.width,
+                        tableHeight: tableFrame.height,
+                        xPos: tableFrame.minX,
+                        yPos: tableFrame.minY
                     )
+                default:
+                    // No action needed for other states
+                    break
                 }
-                isDragging = false // Reset dragging state
-                hasMoved = false   // Reset movement tracking
+                
+                // Reset drag state to idle
+                dragState = .idle
             }
     }
 
@@ -226,10 +258,6 @@ struct TableView: View {
         } else if let reservation = reservationService.findActiveReservation(for: table, date: selectedDate, time: currentTime) {
             onEditReservation(reservation)
         }
-        
-        
-        print("\(adjacentCount)")
-        print("\(activeReservationAdjacentCount)")
     }
 
     private func handleDragEnd(translation: CGSize, cellSize: CGFloat, tableWidth: CGFloat, tableHeight: CGFloat, xPos: CGFloat, yPos: CGFloat) {
@@ -246,10 +274,10 @@ struct TableView: View {
         let newCol = table.column + deltaCols
 
         let proposedFrame = CGRect(
-            x: xPos + translation.width - tableWidth / 2,
-            y: yPos + translation.height - tableHeight / 2,
-            width: tableWidth,
-            height: tableHeight
+            x: xPos + translation.width - tableFrame.width / 2,
+            y: yPos + translation.height - tableFrame.height / 2,
+            width: tableFrame.width,
+            height: tableFrame.height
         )
 
         print("Proposed Frame: \(proposedFrame)")
@@ -262,7 +290,7 @@ struct TableView: View {
             store.currentlyDraggedTableID = nil
             return
         }
-
+        
         // Delegate the move to LayoutUIManager
         layoutUI.attemptMove(table: table, to: (row: newRow, col: newCol))
         
@@ -274,72 +302,10 @@ struct TableView: View {
         
         let tables = layoutUI.tables
         store.saveTables(tables, for: selectedDate, category: selectedCategory)
-        updateAdjacencyCounts(table: updatedTable, activeTables: tables)
-        print("Table positions after move:")
-        store.reservations.forEach { reservation in
-            print("Reservation \(reservation.id) has tables:")
-            reservation.tables.forEach { _ in print("Table \(table.id) at row \(table.row), column \(table.column)") }
-        }
+        onTableUpdated(updatedTable)
         isLayoutReset = false
-        print("Saved tables for \(selectedDate) and \(selectedCategory)!")
         store.currentlyDraggedTableID = nil
-        print("\(adjacentCount)")
-        print("\(activeReservationAdjacentCount)")
-    }
-
-    private func updateAdjacencyCounts(table: TableModel, activeTables: [TableModel]) {
-        print("Updating adjacency counts for table: \(table.id) [updateAdjacencyCounts() in TableView]")
-        print("Date: \(selectedDate), Time: \(currentTime) [updateAdjacencyCounts() in TableView]")
-
-        guard let combinedDateTime = combine(date: selectedDate, time: currentTime) else {
-            print("Failed to combine date and time.")
-            return
-        }
-
-        // Pass `activeTables` to `isTableAdjacent`
-        let adjacency = store.isTableAdjacent(table, combinedDateTime: combinedDateTime, activeTables: activeTables)
-        adjacentCount = adjacency.adjacentCount
-
-        // Process shared reservation tables using a queue
-        var visitedTables = Set<Int>()
-        var queue = [table]
-
-        while !queue.isEmpty {
-            let currentTable = queue.removeFirst()
-            if visitedTables.contains(currentTable.id) {
-                continue
-            }
-            visitedTables.insert(currentTable.id)
-
-            // Pass `activeTables` to `isAdjacentWithSameReservation`
-            let sharedTables = store.isAdjacentWithSameReservation(for: currentTable, combinedDateTime: combinedDateTime, activeTables: activeTables)
-            for sharedTable in sharedTables where !visitedTables.contains(sharedTable.id) {
-                queue.append(sharedTable)
-            }
-
-            if currentTable.id == table.id {
-                activeReservationAdjacentCount = sharedTables.count
-            }
-        }
-
-        print("Updated adjacentCount: \(adjacentCount) [updateAdjacencyCounts() in TableView]")
-        print("Active reservation adjacent count: \(activeReservationAdjacentCount) [updateAdjacencyCounts() in TableView]")
-    }
-    
-    func combine(date: Date, time: Date) -> Date? {
-        let calendar = Calendar.current
-        let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
-        let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: time)
-
-        var combinedComponents = DateComponents()
-        combinedComponents.year = dateComponents.year
-        combinedComponents.month = dateComponents.month
-        combinedComponents.day = dateComponents.day
-        combinedComponents.hour = timeComponents.hour
-        combinedComponents.minute = timeComponents.minute
-        combinedComponents.second = timeComponents.second
-
-        return calendar.date(from: combinedComponents)
+        
     }
     
 }

@@ -51,6 +51,8 @@ struct LayoutView: View {
     @State private var offset: CGSize = .zero
     
     @State private var debounceWorkItem: DispatchWorkItem?
+    var onSidebarColorChange: ((Color) -> Void)?
+
 
     
     var body: some View {
@@ -79,15 +81,15 @@ struct LayoutView: View {
                 .environmentObject(reservationService)
                 .environmentObject(gridData)
                 .tag(index)
-                .navigationTitle("Layout Tavoli: \(DateHelper.formatFullDate(dates[safe: selectedIndex] ?? Date()))")
                 .matchedGeometryEffect(id: "layoutPageView\(index)", in: animationNamespace)
-                        .transition(
-                            .asymmetric(
-                                insertion: .opacity.combined(with: .scale(scale: 0.95, anchor: .center)),
-                                removal: .opacity.combined(with: .scale(scale: 1.05, anchor: .center))
-                            )
-                        )
-                        .animation(.easeInOut(duration: 0.5), value: selectedIndex)            }
+                .transition(
+                    .asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.95, anchor: .center)),
+                        removal: .opacity.combined(with: .scale(scale: 1.05, anchor: .center))
+                    )
+                )
+                .animation(.easeInOut(duration: 0.5), value: selectedIndex)
+                }
         }
         .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
         .indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
@@ -103,7 +105,7 @@ struct LayoutView: View {
                     .offset(y: isCompact ? -10 : -1)
             }
         }
-        .navigationTitle("Layout Tavoli: \(store.formattedDate(date: dates[safe: selectedIndex] ?? Date(), locale: locale))")
+        .navigationTitle("Layout Tavoli")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -184,6 +186,12 @@ struct LayoutView: View {
             dates = generateInitialDates()
 
             print("Initialized with currentTime: \(currentTime), selectedCategory: \(selectedCategory?.rawValue ?? "None")")
+        }
+        .onAppear {
+            // Set initial sidebar color based on selectedCategory
+            if let initialCategory = selectedCategory {
+                onSidebarColorChange?(initialCategory.sidebarColor)
+            }
         }
         .onChange(of: selectedIndex) { newIndex in
             guard let newDate = dates[safe: newIndex] else { return }
@@ -345,6 +353,11 @@ struct LayoutView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 200, height: 44)
+                .onChange(of: selectedCategory) { newCategory in
+                                if let newCategory = newCategory {
+                                    onSidebarColorChange?(newCategory.sidebarColor)
+                                }
+                }
                 .onChange(of: selectedCategory) { newCategory in
                     guard let newCategory = newCategory else { return }
                     
@@ -569,3 +582,12 @@ extension Date {
         }
     }
 
+struct LazyView<Content: View>: View {
+    let build: () -> Content
+    init(_ build: @autoclosure @escaping () -> Content) {
+        self.build = build
+    }
+    var body: Content {
+        build()
+    }
+}
