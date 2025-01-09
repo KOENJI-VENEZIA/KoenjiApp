@@ -155,15 +155,10 @@ extension Color {
         }
     }
 
-extension Color {
-    static var stroke_color_inner: Color {
-            Color("stroke_color_inner")
-        }
-    }
 
 extension Color {
-    static var stroke_color_outer: Color {
-            Color("stroke_color_outer")
+    static var stroke_color_dinner: Color {
+            Color("stroke_color_dinner")
         }
     }
 
