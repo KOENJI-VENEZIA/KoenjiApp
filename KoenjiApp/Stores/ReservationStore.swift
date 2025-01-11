@@ -394,13 +394,15 @@ extension ReservationStore {
                 if let assignedTables = assignedTables {
                     print("Successfully assigned tables manually for reservation \(reservation.id).")
 
-                    // Update or append the reservation in the array
-                    if let index = reservations.firstIndex(where: { $0.id == reservation.id }) {
-                        reservations[index].tables = assignedTables
-                    } else {
-                        var updatedReservation = reservation
-                        updatedReservation.tables = assignedTables
-                        reservations.append(updatedReservation)
+                    // Update or append the reservation in the array on the main thread
+                    DispatchQueue.main.async {
+                        if let index = self.reservations.firstIndex(where: { $0.id == reservation.id }) {
+                            self.reservations[index].tables = assignedTables
+                        } else {
+                            var updatedReservation = reservation
+                            updatedReservation.tables = assignedTables
+                            self.reservations.append(updatedReservation)
+                        }
                     }
 
                     return assignedTables
@@ -431,13 +433,15 @@ extension ReservationStore {
                     assignedTables.forEach { lockTable($0.id) }
                     print("Successfully assigned tables automatically for reservation \(reservation.id).")
 
-                    // Update or append the reservation in the array
-                    if let index = reservations.firstIndex(where: { $0.id == reservation.id }) {
-                        reservations[index].tables = assignedTables
-                    } else {
-                        var updatedReservation = reservation
-                        updatedReservation.tables = assignedTables
-                        reservations.append(updatedReservation)
+                    // Update or append the reservation in the array on the main thread
+                    DispatchQueue.main.async {
+                        if let index = self.reservations.firstIndex(where: { $0.id == reservation.id }) {
+                            self.reservations[index].tables = assignedTables
+                        } else {
+                            var updatedReservation = reservation
+                            updatedReservation.tables = assignedTables
+                            self.reservations.append(updatedReservation)
+                        }
                     }
 
                     return assignedTables

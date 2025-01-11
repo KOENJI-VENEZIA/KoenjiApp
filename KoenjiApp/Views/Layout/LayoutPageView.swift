@@ -200,8 +200,8 @@ struct LayoutPageView: View {
                                         animationNamespace: animationNamespace,
                                         onTableUpdated: { updatedTable in
                                             self.updateAdjacencyCountsForLayout(updatedTable)
-                                            self.recalculateClustersAsync()
-                                            store.saveClusters(layoutUI.clusters, for: selectedDate, category: selectedCategory) // Persist changes
+                                            layoutUI.clusters = self.calculateClusters(for: activeReservations)
+                                            store.saveClusters(layoutUI.clusters, for: selectedDate, category: selectedCategory)
                                         }
                                     )
                                     .environmentObject(store)
@@ -585,7 +585,7 @@ extension LayoutPageView {
             let cacheKey = store.keyFor(date: selectedDate, category: selectedCategory)
             
             // Load cached clusters if available
-            let cachedClusters = await store.loadClusters(for: selectedDate, category: selectedCategory)
+            let cachedClusters = store.loadClusters(for: selectedDate, category: selectedCategory)
             if !cachedClusters.isEmpty {
                 print("Using cached clusters for key: \(cacheKey)")
                 await MainActor.run {
@@ -607,7 +607,7 @@ extension LayoutPageView {
             }
 
             // Save calculated clusters to cache
-            await store.saveClusters(newClusters, for: selectedDate, category: selectedCategory)
+            store.saveClusters(newClusters, for: selectedDate, category: selectedCategory)
         }
     }
 
@@ -626,7 +626,7 @@ extension LayoutPageView {
                 layoutUI.clusters = newClusters
             }
 
-            await store.saveClusters(newClusters, for: selectedDate, category: selectedCategory)
+            store.saveClusters(newClusters, for: selectedDate, category: selectedCategory)
         }
     }
 }

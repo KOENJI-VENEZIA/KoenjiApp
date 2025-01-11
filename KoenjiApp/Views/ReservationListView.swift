@@ -116,8 +116,7 @@ struct ReservationListView: View {
     // MARK: - Generate Debug Data
     private func generateDebugData(force: Bool = false, shouldSave: Bool = true) {
         Task {
-            let testReservations = reservationService.generateReservations(for: 10, reservationsPerDay: 40, force: force)
-            store.setReservations(testReservations)
+            reservationService.generateReservations(for: 5, reservationsPerDay: 30, force: force)
             reservationService.simulateUserActions(actionCount: 1000)
         }
     }

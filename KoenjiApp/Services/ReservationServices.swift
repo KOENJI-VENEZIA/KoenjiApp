@@ -277,61 +277,63 @@ extension ReservationService {
 extension ReservationService {
     // MARK: - Test Data
     
-    func generateReservations(for days: Int, reservationsPerDay: Int, force: Bool = false) -> [Reservation] {
-        var generatedReservations: [Reservation] = []
+    func generateReservations(for days: Int, reservationsPerDay: Int, force: Bool = false) {
         let today = Calendar.current.startOfDay(for: Date())
-        
-        for dayOffset in 0..<days {
-            let reservationDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: today)!
-            
-            for _ in 0..<reservationsPerDay {
-                let randomTableID = Int.random(in: 1...7) // Assuming table IDs range from 1 to 7
-                let startTime = DateHelper.randomTime(for: reservationDate, range: (12, 23)) // Lunch to dinner
-                let endTime = Calendar.current.date(byAdding: .hour, value: 2, to: startTime)!
-                let category: Reservation.ReservationCategory = Bool.random() ? .lunch : .dinner
 
-                var reservation = Reservation(
-                    id: UUID(),
-                    name: ["Alice", "Bob", "Charlie", "Diana"].randomElement()!,
-                    phone: "123-456-\(Int.random(in: 1000...9999))",
-                    numberOfPersons: Int.random(in: 1...6),
-                    dateString: DateHelper.formatFullDate(reservationDate),
-                    category: Bool.random() ? .lunch : .dinner,
-                    startTime: DateHelper.timeFormatter.string(from: startTime),
-                    endTime: DateHelper.timeFormatter.string(from: endTime),
-                    acceptance: .confirmed,
-                    status: .pending,
-                    reservationType: .inAdvance,
-                    group: Bool.random(),
-                    notes: Bool.random() ? "Allergic to peanuts" : nil,
-                    tables: [],
-                    creationDate: Date(),
-                    isMock: true
-                )
-                // Ensure layout is initialized
-                let key = store.keyFor(date: reservationDate, category: category)
-                if store.cachedLayouts[key] == nil {
-                    print("Initializing layout for key: \(key)")
-                    store.cachedLayouts[key] = store.baseTables
-                    store.saveToDisk()
+        // Use a background queue for heavy processing
+        DispatchQueue.global(qos: .userInitiated).async {
+            for dayOffset in 0..<days {
+                let reservationDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: today)!
+                
+                for _ in 0..<reservationsPerDay {
+                    let randomTableID = Int.random(in: 1...7) // Assuming table IDs range from 1 to 7
+                    let startTime = DateHelper.randomTime(for: reservationDate, range: (12, 23)) // Lunch to dinner
+                    let endTime = Calendar.current.date(byAdding: .hour, value: 2, to: startTime)!
+                    let category: Reservation.ReservationCategory = Bool.random() ? .lunch : .dinner
+
+                    var reservation = Reservation(
+                        id: UUID(),
+                        name: ["Alice", "Bob", "Charlie", "Diana"].randomElement()!,
+                        phone: "123-456-\(Int.random(in: 1000...9999))",
+                        numberOfPersons: Int.random(in: 1...6),
+                        dateString: DateHelper.formatFullDate(reservationDate),
+                        category: category,
+                        startTime: DateHelper.timeFormatter.string(from: startTime),
+                        endTime: DateHelper.timeFormatter.string(from: endTime),
+                        acceptance: .confirmed,
+                        status: .pending,
+                        reservationType: .inAdvance,
+                        group: Bool.random(),
+                        notes: Bool.random() ? "Allergic to peanuts" : nil,
+                        tables: [],
+                        creationDate: Date(),
+                        isMock: true
+                    )
+                    
+                    // Ensure layout is initialized
+                    let key = self.store.keyFor(date: reservationDate, category: category)
+                    DispatchQueue.main.async {
+                        if self.store.cachedLayouts[key] == nil {
+                            print("Initializing layout for key: \(key)")
+                            self.store.cachedLayouts[key] = self.store.baseTables
+                            self.store.saveToDisk()
+                        }
+                    }
+
+                    // Assign tables using the store logic
+                    if let assignedTables = self.store.assignTables(for: reservation, selectedTableID: nil) {
+                        reservation.tables = assignedTables
+                        DispatchQueue.main.async {
+                            self.store.finalizeReservation(reservation, tables: assignedTables)
+                            self.store.reservations.append(reservation) // Update reservations on the main thread
+                        }
+                    } else {
+                        print("Failed to assign tables for reservation \(reservation.id).")
+                        continue
+                    }
                 }
-
-                // Assign tables using the store logic
-                
-                
-                if let assignedTables = store.assignTables(for: reservation, selectedTableID: nil) {
-                    reservation.tables = assignedTables
-                    store.finalizeReservation(reservation, tables: assignedTables)
-                } else {
-                    print("Failed to assign tables for reservation \(reservation.id).")
-                    continue // Skip this reservation if no tables could be assigned
-                }
-                
-
-                generatedReservations.append(reservation)
             }
         }
-        return generatedReservations
     }
     
     func simulateUserActions(actionCount: Int = 1000) {
