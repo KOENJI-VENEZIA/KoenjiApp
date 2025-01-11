@@ -150,7 +150,8 @@ class ReservationService: ObservableObject {
                 return false
             }
 
-            return time >= reservationStart && time <= reservationEnd &&
+            let adjustedReservationEnd = reservationEnd.addingTimeInterval(-1) // Exclude the end time completely
+            return time >= reservationStart && time < adjustedReservationEnd &&
                    reservation.tables.contains { $0.id == table.id }
         })
 
@@ -388,5 +389,13 @@ extension ReservationService {
 
             print("All caches flushed successfully.")
         }
+    }
+}
+
+extension Date {
+    /// Returns the start of the next minute for the current date.
+    func startOfNextMinute() -> Date {
+        let nextMinute = Calendar.current.date(byAdding: .minute, value: 1, to: self)!
+        return Calendar.current.date(from: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: nextMinute))!
     }
 }

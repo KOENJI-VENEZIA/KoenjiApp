@@ -243,16 +243,31 @@ struct LayoutView: View {
     
     private func resetLayout() {
         // Ensure the selected date and category are valid
-        if let currentCategory = selectedCategory {
-            let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
-            store.resetTables(for: currentDate, category: currentCategory)
-            store.resetClusters(for: currentDate, category: currentCategory)
-            isLayoutLocked = true
-            isLayoutReset = true
-            store.tables = store.loadTables(for: currentDate, category: currentCategory)
-            clusters = store.loadClusters(for: currentDate, category: currentCategory)
-            checkActiveReservations(for: currentDate, category: currentCategory, from: "resetLayout() in LayoutView")
-            print("Layout reset for date: \(DateHelper.formatFullDate(currentDate)) and category: \(currentCategory.rawValue)")
+        guard let currentCategory = selectedCategory else {
+            print("Invalid category for reset.")
+            return
+        }
+        
+        let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
+        
+        print("Resetting layout for date: \(DateHelper.formatFullDate(currentDate)) and category: \(currentCategory.rawValue)")
+        
+        // Perform layout reset
+        store.resetTables(for: currentDate, category: currentCategory)
+        store.tables = store.loadTables(for: currentDate, category: currentCategory)
+        
+        // Clear clusters
+        store.saveClusters([], for: currentDate, category: currentCategory)
+        
+        // Ensure layout flags are updated after reset completes
+        DispatchQueue.main.async {
+            self.isLayoutLocked = true
+            self.isLayoutReset = true
+            
+            // Check reservations after reset to avoid race conditions
+            self.checkActiveReservations(for: currentDate, category: currentCategory, from: "resetLayout() in LayoutView")
+            
+            print("Layout successfully reset and reservations checked.")
         }
     }
     

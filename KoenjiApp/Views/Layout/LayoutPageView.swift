@@ -55,7 +55,7 @@ struct LayoutPageView: View {
     
     @State private var navigationBarHeight: CGFloat = 0
     
-
+    @State private var resetInProgress: Bool = false
 
     
     
@@ -288,17 +288,17 @@ struct LayoutPageView: View {
                             }
                         }
                     }
-                    .onChange(of: isLayoutReset) { reset in
-                        if reset {
-                            isLoading = true
-                            
-                            resetCurrentLayout()
+                        .onChange(of: isLayoutReset) { reset in
+                            if reset {
+                                isLoading = true
+                                resetCurrentLayout()
 
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                                isLoading = false
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                                    isLoading = false
+                                    isLayoutReset = false // Clear reset state
+                                }
                             }
                         }
-                    }
                     .onChange(of: selectedCategory) { newCategory in
                         // Load tables for the new category and date
                         layoutUI.tables = store.loadTables(for: selectedDate, category: newCategory)
@@ -411,16 +411,26 @@ struct LayoutPageView: View {
         recalculateClusters()
         
     }
-    
     private func resetCurrentLayout() {
-            // Reset tables and update layoutUI.tables
-            let key = store.keyFor(date: selectedDate, category: selectedCategory)
+        print("Resetting layout... [resetCurrentLayout()]")
+        resetInProgress = true
+
+        let key = store.keyFor(date: selectedDate, category: selectedCategory)
+        
         if let baseTables = store.cachedLayouts[key] {
-                layoutUI.tables = baseTables
-                layoutUI.clusters = []
-                store.saveClusters(layoutUI.clusters, for: selectedDate, category: selectedCategory)
-                print("Reset layout for \(key) and updated layoutUI.tables.")
-            }
+            layoutUI.tables = baseTables
+        } else {
+            layoutUI.tables = []
+        }
+        
+        layoutUI.clusters = []
+        store.saveClusters([], for: selectedDate, category: selectedCategory)
+        store.cachedLayouts[key] = nil
+        
+        // Ensure flag is cleared after reset completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            resetInProgress = false
+        }
     }
     
 
@@ -509,13 +519,22 @@ struct LayoutPageView: View {
         var visited = Set<Int>()            // Track visited table IDs
         var toVisit = [table]               // Stack for tables to process
 
+        // Filter active reservations to exclude ones that have already ended
+        let validReservations = activeReservations.filter { reservation in
+            guard let reservationStart = reservation.startDate,
+                  let reservationEnd = reservation.endDate else { return false }
+
+            // Adjust end time to exclude overlap at the exact end time
+            return currentTime >= reservationStart && currentTime < reservationEnd.addingTimeInterval(-1)
+        }
+
         while let current = toVisit.popLast() {
             guard !visited.contains(current.id) else { continue }
             print("Inserting table in visited... [getCluster() in LayoutPageView]")
             visited.insert(current.id)
 
-            // Check all active reservations for the current table
-            for activeReservation in activeReservations {
+            // Check all valid active reservations for the current table
+            for activeReservation in validReservations {
                 // Ensure the reservation is associated with at least two tables
                 guard activeReservation.tables.count >= 2 else { continue }
 
@@ -542,12 +561,12 @@ struct LayoutPageView: View {
             }
         }
 
-        // Create a cluster for each active reservation with valid cluster tables
-        let clusters = activeReservations.compactMap { activeReservation -> CachedCluster? in
+        // Create a cluster for each valid active reservation with valid cluster tables
+        let clusters = validReservations.compactMap { activeReservation -> CachedCluster? in
             let clusterTablesForReservation = clusterTables.filter { table in
                 activeReservation.tables.contains(where: { $0.id == table.id })
             }
-            
+
             // Ensure the cluster is valid
             guard clusterTablesForReservation.count >= 2 else { return nil }
 
@@ -581,6 +600,11 @@ struct LayoutPageView: View {
 extension LayoutPageView {
     /// Asynchronously recalculates clusters for the current layout.
     private func recalculateClustersAsync() {
+        guard !resetInProgress else {
+            print("Recalculation skipped: reset in progress.")
+            return
+        }
+        
         Task {
             print("Recalculating clusters asynchronously... [recalculateClustersAsync()]")
 
