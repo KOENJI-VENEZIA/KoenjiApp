@@ -63,6 +63,11 @@ struct TableView: View {
             return false
         }()
         
+        let isLunch = {
+            if case .lunch = selectedCategory { return true }
+            return false
+        }()
+        
         
         ZStack {
             
@@ -73,7 +78,7 @@ struct TableView: View {
                 if isDragging {
                     return (Color(hex: "#AEAB7D").opacity(0.2), "dragging")
                 } else if activeReservation != nil {
-                    return (Color(hex: "#6A798E"), "reserved")
+                    return (isLunch ? Color.active_table_lunch : Color.active_table_dinner, "reserved")
                 } else if isLayoutLocked {
                     return (Color(hex: "#A3B7D2"), "locked")
                 } else {
@@ -94,7 +99,7 @@ struct TableView: View {
                 .stroke(
                     isDragging ? Color.yellow.opacity(0.5) :
                     (isHighlighted ? Color(hex: "#9DA3D0") :
-                        (isLayoutLocked ? Color(hex: "#CB7C1F") : Color(hex: "#3B4A5E"))),
+                        (isLayoutLocked ? (isLunch ? Color.layout_locked_lunch : Color.layout_locked_dinner) : (isLunch ? Color.layout_unlocked_lunch : Color.layout_unlocked_dinner))),
                     style: isDragging
                         ? StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 3]) // Dashed when dragging
                     : StrokeStyle(lineWidth: (isLayoutLocked ? 3 : 2)) // Solid for other states
@@ -292,7 +297,7 @@ struct TableView: View {
         }
         
         // Delegate the move to LayoutUIManager
-        layoutUI.attemptMove(table: table, to: (row: newRow, col: newCol))
+        layoutUI.attemptMove(table: table, to: (row: newRow, col: newCol), for: selectedDate, activeTables: layoutUI.tables)
         
         // Retrieve the updated table from layoutUI.tables
         guard let updatedTable = layoutUI.tables.first(where: { $0.id == table.id }) else {
@@ -302,6 +307,13 @@ struct TableView: View {
         
         let tables = layoutUI.tables
         store.saveTables(tables, for: selectedDate, category: selectedCategory)
+        if let updatedLayout = store.cachedLayouts[store.keyFor(date: selectedDate, category: selectedCategory)] {
+            print("Updated cache for \(selectedCategory):")
+            for table in updatedLayout {
+                print("Updated table \(table.name) at (\(table.row), \(table.column))")
+            }
+        }
+        
         onTableUpdated(updatedTable)
         isLayoutReset = false
         store.currentlyDraggedTableID = nil

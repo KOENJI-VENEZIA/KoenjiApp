@@ -324,8 +324,8 @@ class GridData: ObservableObject {
                     borderFeatures: borderFeatures
                 )
                 .stroke(
-                    selectedCategory == .lunch ? Color.stroke_color_lunch : Color.stroke_color_dinner,
-                    style: StrokeStyle(lineWidth: 1, lineJoin: .round)
+                    selectedCategory == .lunch ? Color.stroke_color_lunch.opacity(0.5) : Color.stroke_color_dinner.opacity(0.5),
+                    style: StrokeStyle(lineWidth: 1, lineJoin: .round, dash: [2, 5])
                 )
             }
             .frame(width: totalWidth, height: totalHeight)

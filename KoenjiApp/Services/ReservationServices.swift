@@ -21,7 +21,8 @@ class ReservationService: ObservableObject {
 
         // Load data from disk right away (or you can call this from outside)
 
-        self.store.loadFromDisk()   // If you store layouts in files
+        self.store.loadFromDisk()
+        self.store.loadClustersFromDisk()// If you store layouts in files
         self.loadReservationsFromDisk()     // This updates store.reservations
         self.store.markTablesInGrid()
     }
@@ -34,61 +35,60 @@ class ReservationService: ObservableObject {
     /// (manually or automatically). If not, it will be unassigned.
     /// This method simply appends it and marks its tables as occupied.
     func addReservation(_ reservation: Reservation) {
-        DispatchQueue.main.async {
-            // Append the new reservation
-            self.store.reservations.append(reservation)
-            
-            // Mark any assigned tables as occupied
-            reservation.tables.forEach { self.store.markTable($0, occupied: true) }
-            
-            // Save reservations to disk
-            self.saveReservationsToDisk()
-            
-            print("Debug: Added new reservation \(reservation.id) with \(reservation.tables.count) tables.")
-        }
-    }
+           DispatchQueue.main.async {
+               self.store.reservations.append(reservation)
+               reservation.tables.forEach { self.store.markTable($0, occupied: true) }
+               self.invalidateClusterCache(for: reservation)
+               self.saveReservationsToDisk()
+               print("Added reservation \(reservation.id).")
+           }
+       }
     
-    /// Updates an existing reservation with new details (e.g. new tables).
-    /// Unmarks old tables, updates the store, then re-marks new tables as occupied.
-    func updateReservation(_ updatedReservation: Reservation, at index: Int? = nil) {
-        // Determine the index: use the provided index or search by ID
-        let reservationIndex = index ?? store.reservations.firstIndex(where: { $0.id == updatedReservation.id })
-        
-        // Ensure the index exists
-        guard let reservationIndex else {
-            print("Error: Reservation with ID \(updatedReservation.id) not found.")
-            return
-        }
-        
-        let oldReservation = store.reservations[reservationIndex]
-        
-        // Unmark old tables
-        oldReservation.tables.forEach { store.unmarkTable($0) }
-        
-        // Overwrite the reservation in place
-        store.reservations[reservationIndex] = updatedReservation
-        
-        // Mark new tables as occupied
-        updatedReservation.tables.forEach { store.markTable($0, occupied: true) }
-        
-        // Save
-        saveReservationsToDisk()
-        
-        print("Debug: Updated reservation \(updatedReservation.id) with \(updatedReservation.tables.count) tables at index \(reservationIndex).")
-    }
+    /// Updates an existing reservation, refreshes the cache, and reassigns tables if needed.
+       func updateReservation(_ updatedReservation: Reservation, at index: Int? = nil) {
+           DispatchQueue.main.async {
+               let reservationIndex = index ?? self.store.reservations.firstIndex(where: { $0.id == updatedReservation.id })
+
+               guard let reservationIndex else {
+                   print("Error: Reservation with ID \(updatedReservation.id) not found.")
+                   return
+               }
+
+               let oldReservation = self.store.reservations[reservationIndex]
+               oldReservation.tables.forEach { self.store.unmarkTable($0) }
+
+               self.store.reservations[reservationIndex] = updatedReservation
+               updatedReservation.tables.forEach { self.store.markTable($0, occupied: true) }
+               self.invalidateClusterCache(for: updatedReservation)
+               self.saveReservationsToDisk()
+               print("Updated reservation \(updatedReservation.id).")
+           }
+       }
     
-    /// Deletes reservations at specified offsets and unmarks their tables.
+    /// Deletes reservations and invalidates the associated cluster cache.
     func deleteReservations(at offsets: IndexSet) {
-        offsets.forEach { index in
-            let reservation = store.reservations[index]
-            // Unmark tables associated with the reservation
-            reservation.tables.forEach { store.unmarkTable($0) }
+        DispatchQueue.main.async {
+            offsets.forEach { index in
+                let reservation = self.store.reservations[index]
+
+                // Unlock the tables associated with the reservation
+                reservation.tables.forEach { self.store.unmarkTable($0) }
+
+                // Invalidate cluster cache for this reservation
+                self.invalidateClusterCache(for: reservation)
+
+                // (Optional) Perform any additional cancellation logic
+                print("Cancelled reservation \(reservation.id.uuidString).")
+            }
+
+            // Remove the reservations from the array
+            self.store.reservations.remove(atOffsets: offsets)
+
+            // Save the updated reservations to disk
+            self.saveReservationsToDisk()
+
+            print("Deleted reservations at offsets \(offsets).")
         }
-        // Remove reservations from the list
-        store.reservations.remove(atOffsets: offsets)
-        
-        // Save
-        saveReservationsToDisk()
     }
     
     /// Fetches reservations for a specific date.
@@ -104,6 +104,17 @@ class ReservationService: ObservableObject {
         fetchReservations(on: date).filter { $0.category == category }
     }
     
+    // MARK: - Cluster Cache Invalidation
+
+       /// Invalidates the cluster cache for the given reservation.
+       private func invalidateClusterCache(for reservation: Reservation) {
+           guard let reservationDate = DateHelper.parseFullDate(reservation.dateString) else {
+               print("Failed to parse dateString \(reservation.dateString). Cache invalidation skipped.")
+               return
+           }
+           self.store.invalidateClusterCache(for: reservationDate, category: reservation.category)
+       }
+    
     // MARK: - Placeholder Methods for Queries
     
     /// Finds an active reservation for a specific table and time.
@@ -113,34 +124,42 @@ class ReservationService: ObservableObject {
     ///   - time: The time to check for reservations.
     /// - Returns: The active reservation if found, else nil.
     func findActiveReservation(for table: TableModel, date: Date, time: Date) -> Reservation? {
-        // Create the composite key for the cache
         let cacheKey = ReservationStore.ActiveReservationCacheKey(tableID: table.id, date: date, time: time)
 
         // Fast path: Check if the reservation is cached
         if let cachedReservation = store.activeReservationCache[cacheKey] {
+            print("Cache hit for key: \(cacheKey)")
             return cachedReservation
         }
 
-        // Fallback: Iterate through reservations and find matching ones
-        let datesToCheck = [date, Calendar.current.date(byAdding: .day, value: -1, to: date)!]
+        // Fallback: Iterate through active reservations and find matching ones
+        guard let previousDate = Calendar.current.date(byAdding: .day, value: -1, to: date) else {
+            print("Failed to compute previous date.")
+            return nil
+        }
+        let datesToCheck = [date, previousDate]
 
-        let activeReservation = store.reservations.first(where: { reservation in
-            // Parse reservation date
+        let activeReservation = store.activeReservations.first(where: { reservation in
             guard let reservationDate = DateHelper.parseFullDate(reservation.dateString),
-                  datesToCheck.contains(where: { Calendar.current.isDate(reservationDate, equalTo: $0, toGranularity: .day) }) else { return false }
+                  datesToCheck.contains(where: { Calendar.current.isDate(reservationDate, equalTo: $0, toGranularity: .day) }) else {
+                return false
+            }
 
-            // Combine start and end times with reservation date
             guard let reservationStart = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime),
-                  let reservationEnd = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.endTime) else { return false }
+                  let reservationEnd = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.endTime) else {
+                return false
+            }
 
-            // Validate the time range and check table association
             return time >= reservationStart && time <= reservationEnd &&
                    reservation.tables.contains { $0.id == table.id }
         })
 
-        // Cache the result for future lookups
+        // Synchronously cache the result and log
         if let activeReservation = activeReservation {
             store.activeReservationCache[cacheKey] = activeReservation
+            print("Cached reservation for key: \(cacheKey)")
+        } else {
+            print("No active reservation found for table ID: \(table.id) on date: \(DateHelper.formatFullDate(date)) at time: \(DateHelper.timeFormatter.string(from: time))")
         }
 
         return activeReservation
@@ -184,13 +203,16 @@ class ReservationService: ObservableObject {
         }
     }
 
-    func saveReservationsToDisk() {
+    func saveReservationsToDisk(includeMock: Bool = false) {
         let fileURL = getReservationsFileURL()
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601 // Ensure ISO 8601 consistency
         
         do {
-            let filteredReservations = store.reservations.filter { !$0.isMock } // Exclude mocks
+            let filteredReservations = includeMock
+                ? store.reservations // Include mocks if specified
+                : store.reservations.filter { !$0.isMock }
+            
             let data = try encoder.encode(filteredReservations)
             try data.write(to: fileURL, options: .atomic)
             print("Reservations saved successfully.")
@@ -249,5 +271,107 @@ extension ReservationService {
         addReservation(mockReservation2)
         
         saveReservationsToDisk() // Save after mocking
+    }
+}
+
+extension ReservationService {
+    // MARK: - Test Data
+    
+    func generateReservations(for days: Int, reservationsPerDay: Int, force: Bool = false) -> [Reservation] {
+        var generatedReservations: [Reservation] = []
+        let today = Calendar.current.startOfDay(for: Date())
+        
+        for dayOffset in 0..<days {
+            let reservationDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: today)!
+            
+            for _ in 0..<reservationsPerDay {
+                let randomTableID = Int.random(in: 1...7) // Assuming table IDs range from 1 to 7
+                let startTime = DateHelper.randomTime(for: reservationDate, range: (12, 23)) // Lunch to dinner
+                let endTime = Calendar.current.date(byAdding: .hour, value: 2, to: startTime)!
+                let category: Reservation.ReservationCategory = Bool.random() ? .lunch : .dinner
+
+                var reservation = Reservation(
+                    id: UUID(),
+                    name: ["Alice", "Bob", "Charlie", "Diana"].randomElement()!,
+                    phone: "123-456-\(Int.random(in: 1000...9999))",
+                    numberOfPersons: Int.random(in: 1...6),
+                    dateString: DateHelper.formatFullDate(reservationDate),
+                    category: Bool.random() ? .lunch : .dinner,
+                    startTime: DateHelper.timeFormatter.string(from: startTime),
+                    endTime: DateHelper.timeFormatter.string(from: endTime),
+                    acceptance: .confirmed,
+                    status: .pending,
+                    reservationType: .inAdvance,
+                    group: Bool.random(),
+                    notes: Bool.random() ? "Allergic to peanuts" : nil,
+                    tables: [],
+                    creationDate: Date(),
+                    isMock: true
+                )
+                // Ensure layout is initialized
+                let key = store.keyFor(date: reservationDate, category: category)
+                if store.cachedLayouts[key] == nil {
+                    print("Initializing layout for key: \(key)")
+                    store.cachedLayouts[key] = store.baseTables
+                    store.saveToDisk()
+                }
+
+                // Assign tables using the store logic
+                
+                
+                if let assignedTables = store.assignTables(for: reservation, selectedTableID: nil) {
+                    reservation.tables = assignedTables
+                    store.finalizeReservation(reservation, tables: assignedTables)
+                } else {
+                    print("Failed to assign tables for reservation \(reservation.id).")
+                    continue // Skip this reservation if no tables could be assigned
+                }
+                
+
+                generatedReservations.append(reservation)
+            }
+        }
+        return generatedReservations
+    }
+    
+    func simulateUserActions(actionCount: Int = 1000) {
+        Task {
+            do {
+                for _ in 0..<actionCount {
+                    try await Task.sleep(nanoseconds: UInt64(10_000_000)) // Small delay to simulate real-world actions
+                    Task {
+                        let randomTable = self.store.tables.randomElement()!
+                        let newRow = Int.random(in: 0..<self.store.totalRows)
+                        let newColumn = Int.random(in: 0..<self.store.totalColumns)
+                        
+                        let result = self.store.moveTable(randomTable, toRow: newRow, toCol: newColumn)
+                        print("Simulated moving \(randomTable.name) to (\(newRow), \(newColumn)): \(result)")
+                    }
+                }
+            } catch {
+                print("Task.sleep encountered an error: \(error)")
+            }
+        }
+    }
+    
+}
+
+extension ReservationService {
+    /// Clears all caches in the store and resets layouts and clusters.
+    func flushAllCaches() {
+        DispatchQueue.main.async {
+            // Clear cached layouts
+            self.store.cachedLayouts.removeAll()
+            self.store.saveToDisk() // Persist changes
+
+            // Clear cluster cache
+            self.store.clusterCache.removeAll()
+            self.store.saveClustersToDisk() // Persist changes
+
+            // Clear active reservation cache
+            self.store.activeReservationCache.removeAll()
+
+            print("All caches flushed successfully.")
+        }
     }
 }

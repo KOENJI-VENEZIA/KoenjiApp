@@ -155,6 +155,17 @@ extension Color {
         }
     }
 
+extension Color {
+    static var background_lunch: Color {
+            Color("background_lunch")
+        }
+    }
+
+extension Color {
+    static var background_dinner: Color {
+            Color("background_dinner")
+        }
+    }
 
 extension Color {
     static var stroke_color_dinner: Color {
@@ -167,6 +178,43 @@ extension Color {
             Color("stroke_color_lunch")
         }
     }
+
+extension Color {
+    static var active_table_lunch: Color {
+            Color("active_table_lunch")
+    }
+}
+
+extension Color {
+    static var active_table_dinner: Color {
+            Color("active_table_dinner")
+    }
+}
+
+extension Color {
+    static var layout_unlocked_lunch: Color {
+            Color("layout_unlocked_lunch")
+    }
+}
+
+extension Color {
+    static var layout_unlocked_dinner: Color {
+            Color("layout_unlocked_dinner")
+    }
+}
+
+extension Color {
+    static var layout_locked_lunch: Color {
+            Color("layout_locked_lunch")
+    }
+}
+
+extension Color {
+    static var layout_locked_dinner: Color {
+            Color("layout_locked_dinner")
+    }
+}
+
 
 extension Color {
     static var title_color_dinner: Color {

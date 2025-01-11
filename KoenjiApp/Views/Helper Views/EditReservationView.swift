@@ -84,7 +84,7 @@ struct EditReservationView: View {
                     reservations: store.getReservations(),
                     tables: store.getTables()
                 ))
-                print("Selected Forced Table ID: \(selectedForcedTableID)")
+                print("Selected Forced Table ID: \(String(describing: selectedForcedTableID))")
 
             }
         }

@@ -30,18 +30,22 @@ extension ReservationStore {
             print("moveTable: Can place table \(table.name) at (\(clampedRow), \(clampedCol))")
 
             // Perform the move
-            withAnimation(.easeInOut(duration: 0.3)) {
-                if let idx = tables.firstIndex(where: { $0.id == table.id }) {
-                    tables[idx] = newTable
+            DispatchQueue.main.async {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    if let idx = self.tables.firstIndex(where: { $0.id == table.id }) {
+                        self.tables[idx] = newTable
+                    }
                 }
+                self.markTable(newTable, occupied: true)
             }
-            markTable(newTable, occupied: true)
             print("moveTable: Moved \(table.name) to (\(clampedRow), \(clampedCol)) successfully.")
             return .move
         } else {
             // Invalid move; re-mark the original table's position
-            withAnimation(.spring) {
-                markTable(table, occupied: true)
+            DispatchQueue.main.async {
+                withAnimation(.spring) {
+                    self.markTable(table, occupied: true)
+                }
             }
             print("moveTable: Cannot place \(table.name) at (\(clampedRow), \(clampedCol)). Move failed.")
             return .invalid
@@ -61,8 +65,14 @@ extension ReservationStore {
         let table2MinY = table2.row
         let table2MaxY = table2.row + table2.height
 
+        // Log details for debugging
+        print("Table 1: (\(table1MinX), \(table1MaxX)) x (\(table1MinY), \(table1MaxY))")
+        print("Table 2: (\(table2MinX), \(table2MaxX)) x (\(table2MinY), \(table2MaxY))")
+
         // Check for no overlap scenarios
-        return !(table1MaxX <= table2MinX || table1MinX >= table2MaxX || table1MaxY <= table2MinY || table1MinY >= table2MaxY)
+        let intersects = !(table1MaxX <= table2MinX || table1MinX >= table2MaxX || table1MaxY <= table2MinY || table1MinY >= table2MaxY)
+        print("Intersect Result: \(intersects)")
+        return intersects
     }
 
     func canPlaceTable(_ table: TableModel) -> Bool {
@@ -223,26 +233,7 @@ extension ReservationStore {
     
     // MARK: - Active Reservations caching
     
-    func refreshActiveReservationCache(for date: Date) {
-        activeReservationCache.removeAll()
-        for reservation in reservations {
-            guard let reservationDate = DateHelper.parseFullDate(reservation.dateString),
-                  Calendar.current.isDate(reservationDate, equalTo: date, toGranularity: .day) else { continue }
-            
-            for table in reservation.tables {
-                guard let start = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime),
-                      let end = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.endTime) else { continue }
-
-                // Populate the cache for all time slices the reservation is active
-                var currentTime = start
-                while currentTime <= end {
-                    let cacheKey = ActiveReservationCacheKey(tableID: table.id, date: reservationDate, time: currentTime)
-                    activeReservationCache[cacheKey] = reservation
-                    currentTime = Calendar.current.date(byAdding: .minute, value: 1, to: currentTime) ?? currentTime
-                }
-            }
-        }
-    }
+   
     
     func preloadActiveReservationCache(for date: Date) {
         activeReservationCache.removeAll()

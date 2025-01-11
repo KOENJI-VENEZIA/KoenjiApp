@@ -4,7 +4,6 @@ struct ReservationListView: View {
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var reservationService: ReservationService
 
-
     // MARK: - State
     @State private var searchDate = Date()
     @State private var filterPeople: Int? = nil
@@ -18,87 +17,114 @@ struct ReservationListView: View {
     @State private var selectedReservationID: UUID? = nil
     @State private var showTopControls: Bool = true
 
-    
-
     // MARK: - Body
     var body: some View {
-        
-            VStack(spacing: 0) {
-                if showTopControls {
-                    filterSection
+        VStack(spacing: 0) {
+            if showTopControls {
+                filterSection
                     .background(.ultraThinMaterial)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .animation(.easeInOut, value: showTopControls)
-                    
+            }
+            ZStack {
+                List(selection: $selection) {
+                    ForEach(getFilteredReservations()) { reservation in
+                        ReservationRowView(
+                            reservation: reservation,
+                            notesAlertShown: $showingNotesAlert,
+                            notesToShow: $notesToShow,
+                            selectedReservationID: $selectedReservationID,
+                            onTap: {
+                                handleRowTap(reservation)
+                            },
+                            onDelete: {
+                                handleDelete(reservation)
+                            },
+                            onEdit: {
+                                currentReservation = reservation
+                            }
+                        )
+                    }
+                    .onDelete(perform: delete)
                 }
-                ZStack {
-
-
-                    List(selection: $selection) {
-                        ForEach(getFilteredReservations()) { reservation in
-                            ReservationRowView(
-                                reservation: reservation,
-                                notesAlertShown: $showingNotesAlert,
-                                notesToShow: $notesToShow,
-                                selectedReservationID: $selectedReservationID,
-                                onTap: {
-                                    handleRowTap(reservation)
-                                },
-                                onDelete: {
-                                    handleDelete(reservation)
-                                },
-                                onEdit: {
-                                    currentReservation = reservation
-                                }
-                            )
-                        }
-                        .onDelete(perform: delete)
+            }
+        }
+        .navigationTitle("Tutte le prenotazioni")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    withAnimation {
+                        showTopControls.toggle()
+                    }
+                }) {
+                    Image(systemName: showTopControls ? "chevron.up" : "chevron.down")
+                        .imageScale(.large)
+                }
+                .accessibilityLabel(showTopControls ? "Hide Controls" : "Show Controls")
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showingAddReservation = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Generate Debug Data") {
+                    store.setReservations([]) // Clear existing reservations
+                    generateDebugData()
+                }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Force Debug Data") {
+                    generateDebugData(force: true)
+                }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Save Debug Data") {
+                    saveDebugData()
+                }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Flush Caches") {
+                        flushCaches()
                     }
                 }
+            ToolbarItem(placement: .navigationBarLeading) {
+                EditButton()
             }
-            .navigationTitle("Tutte le prenotazioni")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        withAnimation {
-                            showTopControls.toggle()
-                        }
-                    }) {
-                        Image(systemName: showTopControls ? "chevron.up" : "chevron.down")
-                            .imageScale(.large)
-                    }
-                    .accessibilityLabel(showTopControls ? "Hide Controls" : "Show Controls")
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showingAddReservation = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
+        }
+        .sheet(isPresented: $showingAddReservation) {
+            AddReservationView()
+                .environmentObject(store)
+                .environmentObject(reservationService)
+        }
+        .sheet(item: $currentReservation) { reservation in
+            EditReservationView(reservation: reservation)
+                .environmentObject(store)
+                .environmentObject(reservationService)
+        }
+        .alert("Notes", isPresented: $showingNotesAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(notesToShow)
+        }
+        .toolbarBackground(Material.ultraThin, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+    }
 
-                ToolbarItem(placement: .navigationBarLeading) {
-                    EditButton()
-                }
-            }
-            .sheet(isPresented: $showingAddReservation) {
-                AddReservationView()
-                    .environmentObject(store)
-                    .environmentObject(reservationService)
-            }
-            .sheet(item: $currentReservation) { reservation in
-                EditReservationView(reservation: reservation)
-                    .environmentObject(store)
-                    .environmentObject(reservationService)
-            }
-            .alert("Notes", isPresented: $showingNotesAlert) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(notesToShow)
-            }
-            .toolbarBackground(Material.ultraThin, for: .navigationBar) // Add this line for iOS 16+
-            .toolbarBackground(.visible, for: .navigationBar) // Ensure the background is visible
-        
+    // MARK: - Generate Debug Data
+    private func generateDebugData(force: Bool = false, shouldSave: Bool = true) {
+        Task {
+            let testReservations = reservationService.generateReservations(for: 10, reservationsPerDay: 40, force: force)
+            store.setReservations(testReservations)
+            reservationService.simulateUserActions(actionCount: 1000)
+        }
+    }
+    
+    private func saveDebugData() {
+        reservationService.saveReservationsToDisk(includeMock: true)
+        print("Debug data saved to disk.")
     }
 
     // MARK: - Filter Section
@@ -256,6 +282,12 @@ struct ReservationListView: View {
             reservationService.deleteReservations(at: IndexSet(integer: idx))
         }
     }
+    
+    // MARK: - Flush Caches
+    private func flushCaches() {
+        reservationService.flushAllCaches()
+        print("Debug: Cache flush triggered.")
+    }
 }
 
 // MARK: - ReservationRowView
@@ -321,4 +353,7 @@ struct ReservationRowView: View {
             }
         }
     }
+    
+
+    
 }

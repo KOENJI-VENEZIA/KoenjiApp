@@ -23,6 +23,8 @@ struct TableModel: Identifiable, Hashable, Codable, Equatable {
     var adjacentCount: Int = 0
     var activeReservationAdjacentCount: Int = 0
     
+
+    
     enum TableSide: CaseIterable {
         case top
         case bottom
@@ -39,6 +41,36 @@ struct TableModel: Identifiable, Hashable, Codable, Equatable {
         }
     }
     
+    
 }
 
+struct TableCluster: Equatable, Encodable, Decodable {
+    var id: UUID = UUID() // Unique ID for each cluster
+    let reservation: Reservation
+    let tables: [TableModel]
+}
 
+struct CachedCluster: Equatable, Codable, Identifiable {
+    let id: UUID
+    let reservationID: Reservation
+    let tableIDs: [Int]
+    let date: Date
+    let category: Reservation.ReservationCategory
+    var frame: CGRect
+
+    init(
+        id: UUID = UUID(), // Default to auto-generate if not provided
+        reservationID: Reservation,
+        tableIDs: [Int],
+        date: Date,
+        category: Reservation.ReservationCategory,
+        frame: CGRect
+    ) {
+        self.id = id
+        self.reservationID = reservationID
+        self.tableIDs = tableIDs
+        self.date = date
+        self.category = category
+        self.frame = frame
+    }
+}

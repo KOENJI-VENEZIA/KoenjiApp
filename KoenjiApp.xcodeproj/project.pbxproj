@@ -24,7 +24,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		A0775E262D1CAA1F00068B00 /* KoenjiApp */ = {
+		A03E7C192D316538000A38AC /* KoenjiApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = KoenjiApp;
 			sourceTree = "<group>";
@@ -45,7 +45,7 @@
 		A0775E1B2D1CAA1F00068B00 = {
 			isa = PBXGroup;
 			children = (
-				A0775E262D1CAA1F00068B00 /* KoenjiApp */,
+				A03E7C192D316538000A38AC /* KoenjiApp */,
 				A0775E252D1CAA1F00068B00 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -75,7 +75,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				A0775E262D1CAA1F00068B00 /* KoenjiApp */,
+				A03E7C192D316538000A38AC /* KoenjiApp */,
 			);
 			name = KoenjiApp;
 			packageProductDependencies = (

@@ -88,6 +88,48 @@ struct DateHelper {
         return calendar.date(from: combinedComponents)
     }
     
+    static func prepareCombinedDate(date: Date, with time: Date) -> Date {
+        guard let updatedTime = Calendar.current.date(
+            bySettingHour: Calendar.current.component(.hour, from: time),
+            minute: Calendar.current.component(.minute, from: time),
+            second: 0,
+            of: date
+        ) else { return time }
+        return updatedTime
+        }
     
+}
+
+extension DateHelper {
+    static func dateFromKey(key: String) -> (date: Date, category: Reservation.ReservationCategory)? {
+        let components = key.split(separator: "-")
+        guard components.count >= 2,
+              let date = DateHelper.parseDate(String(components[0])),
+              let category = Reservation.ReservationCategory(rawValue: String(components[1])) else {
+            return nil
+        }
+        return (date: date, category: category)
+    }
     
+    /// Generates a random time within the given hour range on a specific date.
+      /// - Parameters:
+      ///   - date: The base date.
+      ///   - range: The range of hours (e.g., (12, 23) for lunch to dinner).
+      /// - Returns: A `Date` with a randomized time within the specified range.
+      static func randomTime(for date: Date, range: (Int, Int)) -> Date {
+          let calendar = Calendar.current
+          let startHour = range.0
+          let endHour = range.1
+
+          // Random hour and minute within the range
+          let randomHour = Int.random(in: startHour...endHour)
+          let randomMinute = Int.random(in: 0...59)
+
+          // Combine random hour and minute with the given date
+          var components = calendar.dateComponents([.year, .month, .day], from: date)
+          components.hour = randomHour
+          components.minute = randomMinute
+
+          return calendar.date(from: components) ?? date
+      }
 }

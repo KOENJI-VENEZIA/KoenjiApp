@@ -195,3 +195,24 @@ extension Reservation.Acceptance: Codable {}
 extension Reservation.ReservationStatus: Codable {}
 extension Reservation.ReservationType: Codable {}
 
+extension Reservation {
+    static var empty: Reservation {
+        return Reservation(
+            name: "",
+            phone: "",
+            numberOfPersons: 0,
+            dateString: "",
+            category: .noBookingZone,
+            startTime: "",
+            endTime: "",
+            acceptance: .toConfirm,
+            status: .pending,
+            reservationType: .walkIn,
+            group: false,
+            notes: nil,
+            tables: [],
+            creationDate: Date(),
+            isMock: true // Mark it as mock or empty data
+        )
+    }
+}

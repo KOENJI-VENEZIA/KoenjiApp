@@ -32,6 +32,12 @@ class LayoutUIManager: ObservableObject {
             objectWillChange.send() // Notify SwiftUI of changes
         }
     }
+    
+    @Published var clusters: [CachedCluster] = [] {
+        didSet {
+            objectWillChange.send() // Notify SwiftUI of changes
+        }
+    }
 
     // MARK: - Dependencies
     /// A reference to the `ReservationStore` for table data and layout operations.
@@ -56,6 +62,7 @@ class LayoutUIManager: ObservableObject {
         self.store = store
         self.reservationService = reservationService
         loadLayout()
+        loadClusters()
         isConfigured = true
         print("LayoutUIManager configured for date: \(store.formattedDate(date: date, locale: Locale.current)) and category: \(category.rawValue)")
     }
@@ -63,15 +70,7 @@ class LayoutUIManager: ObservableObject {
     // MARK: - Layout Management
     
     /// Loads the layout for the associated date and category.
-    func loadLayout(reset: Bool = false) {
-        guard let store = store else { return }
-        if reset {
-            tables = store.baseTables
-            store.saveTables(tables, for: date, category: category)
-        } else {
-            tables = store.loadTables(for: date, category: category)
-        }
-    }
+
     
     /// Saves the current layout to the store.
     func saveLayout() {
@@ -91,7 +90,7 @@ class LayoutUIManager: ObservableObject {
 
 
     /// Attempts to move a table to a new position.
-    func attemptMove(table: TableModel, to newPosition: (row: Int, col: Int)) {
+    func attemptMove(table: TableModel, to newPosition: (row: Int, col: Int), for date: Date, activeTables: [TableModel]) {
         guard let store = store else { return }
         let newTable = TableModel(
             id: table.id,
@@ -101,7 +100,7 @@ class LayoutUIManager: ObservableObject {
             column: newPosition.col
         )
 
-        if store.canPlaceTable(newTable, for: date, category: category) {
+        if store.canPlaceTable(newTable, for: date, category: category, activeTables: activeTables) {
             updateTablePosition(from: table, to: newTable)
             print("attemptMove: Successfully moved \(table.name) to (\(newPosition.row), \(newPosition.col))")
         } else {
@@ -162,6 +161,11 @@ extension LayoutUIManager {
     func loadLayout() {
         guard let store = store else { return }
         tables = store.loadTables(for: date, category: category)
+    }
+    
+    func loadClusters() {
+        guard let store = store else { return }
+        clusters = store.loadClusters(for: date, category: category)
     }
     
     /// Saves the current layout to the store.
