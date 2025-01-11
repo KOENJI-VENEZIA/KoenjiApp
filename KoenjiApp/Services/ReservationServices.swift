@@ -278,27 +278,90 @@ extension ReservationService {
 extension ReservationService {
     // MARK: - Test Data
     
-    func generateReservations(for days: Int, reservationsPerDay: Int, force: Bool = false) {
+    func generateReservations(daysToSimulate: Int, force: Bool = false) {
         let today = Calendar.current.startOfDay(for: Date())
+        
+        // Load resources once
+        let names = loadStringsFromFile(fileName: "names")
+        let phoneNumbers = loadStringsFromFile(fileName: "phone_numbers")
+        let notes = loadStringsFromFile(fileName: "notes")
+
+        guard !names.isEmpty, !phoneNumbers.isEmpty else {
+            print("Required resources are missing. Reservation generation aborted.")
+            return
+        }
+
+        print("Generating reservations for \(daysToSimulate) days with realistic variance (closed on Mondays).")
 
         // Use a background queue for heavy processing
         DispatchQueue.global(qos: .userInitiated).async {
             var totalGenerated = 0 // Track how many reservations are successfully created
 
-            for dayOffset in 0..<days {
+            for dayOffset in 0..<daysToSimulate {
                 let reservationDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: today)!
-                
-                for _ in 0..<reservationsPerDay {
-                    let randomTableID = Int.random(in: 1...7) // Assuming table IDs range from 1 to 7
-                    let startTime = DateHelper.randomTime(for: reservationDate, range: (12, 23)) // Lunch to dinner
-                    let endTime = Calendar.current.date(byAdding: .hour, value: 2, to: startTime)!
-                    let category: Reservation.ReservationCategory = Bool.random() ? .lunch : .dinner
+                let dayOfWeek = Calendar.current.component(.weekday, from: reservationDate)
 
+                // Skip Mondays (weekday 2 in Gregorian calendar)
+                if dayOfWeek == 2 {
+                    print("Skipping Monday: \(reservationDate)")
+                    continue
+                }
+
+                // Determine the daily target number of reservations with variance
+                let maxDailyReservations = Int.random(in: 10...30) // Adjust as needed for busier/slower days
+                var dailyGeneratedReservations = 0
+
+                // Precompute all possible time slots for the day
+                var availableTimeSlots: [(start: Date, end: Date, category: Reservation.ReservationCategory)] = []
+
+                // Lunch slots
+                for hour in 12...13 {
+                    for minute in stride(from: 0, to: 60, by: 10) {
+                        let start = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: reservationDate)!
+                        let end = Calendar.current.date(bySettingHour: 15, minute: 0, second: 0, of: start)!
+                        if start < end {
+                            availableTimeSlots.append((start, end, .lunch))
+                        }
+                    }
+                }
+
+                // Dinner slots
+                for hour in 18...21 {
+                    for minute in stride(from: 0, to: 60, by: 10) {
+                        let start = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: reservationDate)!
+                        let end = Calendar.current.date(bySettingHour: 23, minute: 0, second: 0, of: start)!
+                        if start < end {
+                            availableTimeSlots.append((start, end, .dinner))
+                        }
+                    }
+                }
+
+                // Shuffle available slots for randomness
+                availableTimeSlots.shuffle()
+
+                while dailyGeneratedReservations < maxDailyReservations && !availableTimeSlots.isEmpty {
+                    // Pick a random slot
+                    let slot = availableTimeSlots.removeFirst()
+                    let startTime = slot.start
+                    let endTime = slot.end
+                    let category = slot.category
+
+                    // Generate group size with weighted probabilities
+                    let numberOfPersons = {
+                        let random = Double.random(in: 0...1)
+                        switch random {
+                        case 0..<0.7: return Int.random(in: 2...5) // 70% chance for groups of 2–5
+                        case 0.7..<0.9: return Int.random(in: 6...8) // 20% chance for groups of 6–8
+                        default: return Int.random(in: 9...12) // 10% chance for groups of 9–12
+                        }
+                    }()
+
+                    // Generate reservation
                     var reservation = Reservation(
                         id: UUID(),
-                        name: ["Alice", "Bob", "Charlie", "Diana"].randomElement()!,
-                        phone: "123-456-\(Int.random(in: 1000...9999))",
-                        numberOfPersons: Int.random(in: 1...6),
+                        name: names.randomElement()!, // Use a random name
+                        phone: phoneNumbers.randomElement()!, // Use a random phone number
+                        numberOfPersons: numberOfPersons, // Reference the group size
                         dateString: DateHelper.formatFullDate(reservationDate),
                         category: category,
                         startTime: DateHelper.timeFormatter.string(from: startTime),
@@ -307,12 +370,12 @@ extension ReservationService {
                         status: .pending,
                         reservationType: .inAdvance,
                         group: Bool.random(),
-                        notes: Bool.random() ? "Allergic to peanuts" : nil,
+                        notes: notes.randomElement(), // Use a random note or nil
                         tables: [],
                         creationDate: Date(),
                         isMock: true
                     )
-                    
+
                     // Ensure layout is initialized
                     let key = self.store.keyFor(date: reservationDate, category: category)
                     DispatchQueue.main.sync {
@@ -325,14 +388,16 @@ extension ReservationService {
 
                     // Assign tables using the store logic
                     if let assignedTables = self.store.assignTables(for: reservation, selectedTableID: nil) {
-                        reservation.tables = assignedTables
                         DispatchQueue.main.async {
+                            reservation.tables = assignedTables
                             self.store.finalizeReservation(reservation, tables: assignedTables)
 
-                            // Eliminate duplicates before appending
+                            // Avoid duplicates
                             if !self.store.reservations.contains(where: { $0.id == reservation.id }) {
-                                self.store.reservations.append(reservation) // Append only if it's not a duplicate
-                                totalGenerated += 1 // Increment the counter
+                                self.store.reservations.append(reservation)
+                                totalGenerated += 1
+                                dailyGeneratedReservations += 1
+                                print("Generated reservation #\(totalGenerated): \(reservation)")
                             } else {
                                 print("Duplicate reservation detected for ID \(reservation.id). Skipping.")
                             }
@@ -341,12 +406,33 @@ extension ReservationService {
                         print("Failed to assign tables for reservation \(reservation.id).")
                     }
                 }
+
+                if availableTimeSlots.isEmpty {
+                    print("All time slots are filled for \(reservationDate).")
+                }
             }
 
-            // Final log to track progress
             DispatchQueue.main.async {
                 print("Finished generating reservations. Total generated: \(totalGenerated)")
             }
+        }
+    }
+    
+    func loadStringsFromFile(fileName: String, folder: String? = nil) -> [String] {
+        let resourceName = folder != nil ? "\(folder)/\(fileName)" : fileName
+        guard let fileURL = Bundle.main.url(forResource: resourceName, withExtension: "txt") else {
+            print("Failed to load \(fileName) from folder \(String(describing: folder)).")
+            return []
+        }
+        
+        do {
+            let content = try String(contentsOf: fileURL)
+            let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
+            print("Loaded \(lines.count) lines from \(fileName) (folder: \(String(describing: folder))).")
+            return lines
+        } catch {
+            print("Error reading \(fileName): \(error)")
+            return []
         }
     }
     
