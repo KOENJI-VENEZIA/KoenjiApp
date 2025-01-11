@@ -313,7 +313,8 @@ struct LayoutPageView: View {
 
                     }
                     .onChange(of: currentTime) { newTime in
-                        recalculateClustersAsync()
+                        layoutUI.clusters = self.calculateClusters(for: activeReservations)
+                        store.saveClusters(layoutUI.clusters, for: selectedDate, category: selectedCategory)
 
                     }
 
@@ -417,6 +418,7 @@ struct LayoutPageView: View {
         if let baseTables = store.cachedLayouts[key] {
                 layoutUI.tables = baseTables
                 layoutUI.clusters = []
+                store.saveClusters(layoutUI.clusters, for: selectedDate, category: selectedCategory)
                 print("Reset layout for \(key) and updated layoutUI.tables.")
             }
     }

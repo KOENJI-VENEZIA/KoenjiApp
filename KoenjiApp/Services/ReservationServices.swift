@@ -282,6 +282,8 @@ extension ReservationService {
 
         // Use a background queue for heavy processing
         DispatchQueue.global(qos: .userInitiated).async {
+            var totalGenerated = 0 // Track how many reservations are successfully created
+
             for dayOffset in 0..<days {
                 let reservationDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: today)!
                 
@@ -312,7 +314,7 @@ extension ReservationService {
                     
                     // Ensure layout is initialized
                     let key = self.store.keyFor(date: reservationDate, category: category)
-                    DispatchQueue.main.async {
+                    DispatchQueue.main.sync {
                         if self.store.cachedLayouts[key] == nil {
                             print("Initializing layout for key: \(key)")
                             self.store.cachedLayouts[key] = self.store.baseTables
@@ -325,13 +327,24 @@ extension ReservationService {
                         reservation.tables = assignedTables
                         DispatchQueue.main.async {
                             self.store.finalizeReservation(reservation, tables: assignedTables)
-                            self.store.reservations.append(reservation) // Update reservations on the main thread
+
+                            // Eliminate duplicates before appending
+                            if !self.store.reservations.contains(where: { $0.id == reservation.id }) {
+                                self.store.reservations.append(reservation) // Append only if it's not a duplicate
+                                totalGenerated += 1 // Increment the counter
+                            } else {
+                                print("Duplicate reservation detected for ID \(reservation.id). Skipping.")
+                            }
                         }
                     } else {
                         print("Failed to assign tables for reservation \(reservation.id).")
-                        continue
                     }
                 }
+            }
+
+            // Final log to track progress
+            DispatchQueue.main.async {
+                print("Finished generating reservations. Total generated: \(totalGenerated)")
             }
         }
     }
