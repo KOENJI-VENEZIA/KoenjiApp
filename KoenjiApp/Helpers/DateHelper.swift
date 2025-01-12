@@ -31,6 +31,14 @@ struct DateHelper {
         return formatter
     }()
     
+    static func dayOfWeek(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        return formatter.string(from: date)
+    }
+    
+
+    
     // Date formatting
     static func formatDate(_ date: Date) -> String {
         return dateFormatter.string(from: date)

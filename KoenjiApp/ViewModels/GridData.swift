@@ -340,7 +340,7 @@ class GridData: ObservableObject {
             .onAppear {
                 self.updateGridBounds(CGRect(x: 0, y: 0, width: totalWidth, height: totalHeight))
             }
-            .onChange(of: geometry.size) { newSize in
+            .onChange(of: geometry.size) { 
                 self.updateGridBounds(CGRect(x: 0, y: 0, width: totalWidth, height: totalHeight))
             }
         }

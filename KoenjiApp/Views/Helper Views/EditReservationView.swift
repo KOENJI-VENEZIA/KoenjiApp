@@ -23,8 +23,8 @@ struct EditReservationView: View {
                     Stepper("Guests: \(reservation.numberOfPersons)", value: $reservation.numberOfPersons, in: 2...14)
 
                     DatePicker("Select Date", selection: $selectedDate, displayedComponents: .date)
-                        .onChange(of: selectedDate) {
-                            reservation.dateString = formatDate($0)
+                        .onChange(of: selectedDate) { oldDate, newDate in
+                            reservation.dateString = formatDate(newDate)
                         }
 
                     
@@ -46,11 +46,11 @@ struct EditReservationView: View {
                         Text("Dinner").tag(Reservation.ReservationCategory.dinner)
                         Text("No Booking").tag(Reservation.ReservationCategory.noBookingZone)
                     }
-                    .onChange(of: reservation.category) { _ in adjustTimesForCategory() }
+                    .onChange(of: reservation.category) { adjustTimesForCategory() }
 
                     TimeSelectionView(selectedTime: $reservation.startTime, category: reservation.category)
-                        .onChange(of: reservation.startTime) {
-                            reservation.endTime = TimeHelpers.calculateEndTime(startTime: $0, category: reservation.category)
+                        .onChange(of: reservation.startTime) { oldStartTime, newStartTime in
+                            reservation.endTime = TimeHelpers.calculateEndTime(startTime: newStartTime, category: reservation.category)
                         }
                     EndTimeSelectionView(selectedTime: $reservation.endTime, category: reservation.category)
                 }

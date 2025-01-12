@@ -22,7 +22,7 @@ struct TimePicker: View {
                 displayedComponents: .hourAndMinute
             )
             .labelsHidden()
-            .onChange(of: selectedTime) { _ in
+            .onChange(of: selectedTime) {
                 onTimeChange?()
             }
             .frame(height: 44)

@@ -14,6 +14,7 @@ struct TableView: View {
     @Binding var showingNoBookingAlert: Bool
 
     let onTapEmpty: () -> Void
+    @Binding var showInspector: Bool
     let onEditReservation: (Reservation) -> Void
 
     @GestureState private var dragOffset: CGSize = .zero
@@ -261,6 +262,7 @@ struct TableView: View {
         if !isOccupied {
             onTapEmpty()
         } else if let reservation = reservationService.findActiveReservation(for: table, date: selectedDate, time: currentTime) {
+            showInspector = true
             onEditReservation(reservation)
         }
     }

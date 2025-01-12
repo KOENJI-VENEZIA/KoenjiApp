@@ -14,7 +14,7 @@ struct LayoutView: View {
     @State private var selectedIndex: Int = 15 // Start in the middle of the dates array
     
     // Filters
-    @State private var selectedCategory: Reservation.ReservationCategory? = .lunch
+    @Binding  var selectedCategory: Reservation.ReservationCategory?
     
     // Time
     @State private var systemTime: Date = Date()
@@ -23,9 +23,12 @@ struct LayoutView: View {
     @State private var showingTimePickerSheet: Bool = false
     
     // Reservation editing
-    @State private var selectedReservation: Reservation? = nil
+    @Binding  var selectedReservation: Reservation?
+    @Binding  var currentReservation: Reservation?
+
     @State private var showingEditReservation: Bool = false
-    
+    @Binding  var showInspector: Bool      // Controls Inspector visibility
+
     // Add Reservation
     @State private var showingAddReservationSheet: Bool = false
     @State private var tableForNewReservation: TableModel? = nil
@@ -37,6 +40,7 @@ struct LayoutView: View {
     @State private var showTopControls: Bool = true
     @State private var isLayoutReset: Bool = false
     
+
     // Zoom and pan state
     @State private var scale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
@@ -66,6 +70,7 @@ struct LayoutView: View {
                     isManuallyOverridden: $isManuallyOverridden,
                     showingTimePickerSheet: $showingTimePickerSheet,
                     selectedReservation: $selectedReservation,
+                    showInspector: $showInspector,
                     showingEditReservation: $showingEditReservation,
                     showingAddReservationSheet: $showingAddReservationSheet,
                     tableForNewReservation: $tableForNewReservation,
@@ -76,6 +81,7 @@ struct LayoutView: View {
                     offset: $offset,
                     clusters: clusters
                 )
+                
                 .environmentObject(store)
                 .environmentObject(reservationService)
                 .environmentObject(gridData)
@@ -91,7 +97,6 @@ struct LayoutView: View {
                         : .move(edge: .trailing).combined(with: .opacity).combined(with: .scale(scale: 0.5)) // Slides out to the center of the right edge
                     )
                 )
-                .animation(.easeInOut(duration: 0.7), value: navigationDirection)
 
                 // Left Arrow Button
                 if selectedIndex > 0 {
@@ -127,6 +132,8 @@ struct LayoutView: View {
                     .accessibilityLabel("Next Date")
                 }
             }
+            
+            
             .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
             .ignoresSafeArea(.all, edges: .top)
             .safeAreaInset(edge: .top) {
@@ -184,7 +191,8 @@ struct LayoutView: View {
                     .accessibilityLabel(showTopControls ? "Hide Controls" : "Show Controls")
                 }
             }
-            .sheet(item: $selectedReservation) { reservation in
+            
+            .sheet(item: $currentReservation) { reservation in
                 EditReservationView(reservation: reservation)
                     .environmentObject(store)
                     .environmentObject(reservationService)
@@ -205,13 +213,13 @@ struct LayoutView: View {
                 initializeView()
 
             }
-            .onChange(of: selectedIndex) { newIndex in
+            .onChange(of: selectedIndex) {
                 handleSelectedIndexChange()
             }
-            .onChange(of: selectedCategory) { newCategory in
+            .onChange(of: selectedCategory) { oldCategory, newCategory in
                 handleSelectedCategoryChange(newCategory)
             }
-            .onChange(of: currentTime) { newTime in
+            .onChange(of: currentTime) { oldTime, newTime in
                 
                 
                 
@@ -219,13 +227,18 @@ struct LayoutView: View {
                 
                 
             }
-            .toolbarBackground(Material.ultraThin, for: .navigationBar)
+            .toolbarBackground(selectedCategory == .lunch ? Color(hex: "#B89301") : Color(hex: "#232850"), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
         }
         .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
     }
     
     // MARK: - Navigation Methods
+    func dismissInfoCard() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { // Match animation duration
+            showInspector = false
+        }
+    }
     
     private func navigateToPreviousDate() {
         guard selectedIndex > 0 else { return }
@@ -463,7 +476,7 @@ struct LayoutView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 200, height: 44)
-            .onChange(of: selectedCategory) { newCategory in
+            .onChange(of: selectedCategory) { oldCategory, newCategory in
                 if let newCategory = newCategory {
                     onSidebarColorChange?(newCategory.sidebarColor)
                 }

@@ -91,6 +91,13 @@ class ReservationService: ObservableObject {
         }
     }
     
+    func clearAllData() {
+        store.reservations.removeAll() // Clear in-memory reservations
+        saveReservationsToDisk(includeMock: true) // Overwrite stored data
+        flushAllCaches() // Clear any cached layouts or data
+        print("ReservationService: All data has been cleared.")
+    }
+    
     /// Fetches reservations for a specific date.
     /// - Parameter date: The date for which to fetch reservations.
     /// - Returns: A list of reservations for the given date.
@@ -280,7 +287,7 @@ extension ReservationService {
     
     func generateReservations(daysToSimulate: Int, force: Bool = false) {
         let today = Calendar.current.startOfDay(for: Date())
-        
+
         // Load resources once
         let names = loadStringsFromFile(fileName: "names")
         let phoneNumbers = loadStringsFromFile(fileName: "phone_numbers")
@@ -308,60 +315,56 @@ extension ReservationService {
                 }
 
                 // Determine the daily target number of reservations with variance
-                let maxDailyReservations = Int.random(in: 10...30) // Adjust as needed for busier/slower days
+                let maxDailyReservations = Int.random(in: 10...30)
                 var dailyGeneratedReservations = 0
 
-                // Precompute all possible time slots for the day
-                var availableTimeSlots: [(start: Date, end: Date, category: Reservation.ReservationCategory)] = []
-
-                // Lunch slots
-                for hour in 12...13 {
-                    for minute in stride(from: 0, to: 60, by: 10) {
-                        let start = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: reservationDate)!
-                        let end = Calendar.current.date(bySettingHour: 15, minute: 0, second: 0, of: start)!
-                        if start < end {
-                            availableTimeSlots.append((start, end, .lunch))
-                        }
-                    }
-                }
-
-                // Dinner slots
-                for hour in 18...21 {
-                    for minute in stride(from: 0, to: 60, by: 10) {
-                        let start = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: reservationDate)!
-                        let end = Calendar.current.date(bySettingHour: 23, minute: 0, second: 0, of: start)!
-                        if start < end {
-                            availableTimeSlots.append((start, end, .dinner))
-                        }
-                    }
-                }
-
-                // Shuffle available slots for randomness
-                availableTimeSlots.shuffle()
+                // Available slots for lunch and dinner
+                var availableTimeSlots: [Date] = []
+                availableTimeSlots.append(contentsOf: self.generateTimeSlots(for: reservationDate, range: (12, 15))) // Lunch
+                availableTimeSlots.append(contentsOf: self.generateTimeSlots(for: reservationDate, range: (18, 23))) // Dinner
 
                 while dailyGeneratedReservations < maxDailyReservations && !availableTimeSlots.isEmpty {
-                    // Pick a random slot
-                    let slot = availableTimeSlots.removeFirst()
-                    let startTime = slot.start
-                    let endTime = slot.end
-                    let category = slot.category
+                    // Pick the earliest slot to try to fit reservations sequentially
+                    guard let startTime = availableTimeSlots.first else { break }
+                    availableTimeSlots.removeFirst()
 
                     // Generate group size with weighted probabilities
-                    let numberOfPersons = {
-                        let random = Double.random(in: 0...1)
-                        switch random {
-                        case 0..<0.7: return Int.random(in: 2...5) // 70% chance for groups of 2–5
-                        case 0.7..<0.9: return Int.random(in: 6...8) // 20% chance for groups of 6–8
-                        default: return Int.random(in: 9...12) // 10% chance for groups of 9–12
+                    let numberOfPersons = self.generateWeightedGroupSize()
+
+                    // Calculate reservation duration
+                    let durationMinutes: Int = {
+                        if numberOfPersons <= 2 {
+                            return Int.random(in: 90...105) // Between 1 hour 30 and 1 hour 45
+                        } else if numberOfPersons >= 10 {
+                            return Int.random(in: 120...150) // Between 2 hours and 2 hours 30
+                        } else {
+                            return 105 // Default duration of 1 hour 45
                         }
                     }()
 
+                    // Calculate end time
+                    var endTime = Calendar.current.date(byAdding: .minute, value: durationMinutes, to: startTime)!
+                    let startHour = Calendar.current.component(.hour, from: startTime)
+                    if endTime > Calendar.current.date(bySettingHour: startHour < 15 ? 15 : 23, minute: 0, second: 0, of: startTime)! {
+                        continue // Skip if the end time exceeds lunch or dinner limits
+                    }
+                    
+                    endTime = self.roundToNearestFiveMinutes(endTime)
+
+
+                    // Adjust time slots to account for gaps
+                    if let nextSlot = availableTimeSlots.first, nextSlot < endTime.addingTimeInterval(600) {
+                        availableTimeSlots.removeFirst()
+                    }
+
+                    // Determine category
+                    let category: Reservation.ReservationCategory = startHour < 15 ? .lunch : .dinner
                     // Generate reservation
                     var reservation = Reservation(
                         id: UUID(),
-                        name: names.randomElement()!, // Use a random name
-                        phone: phoneNumbers.randomElement()!, // Use a random phone number
-                        numberOfPersons: numberOfPersons, // Reference the group size
+                        name: names.randomElement()!,
+                        phone: phoneNumbers.randomElement()!,
+                        numberOfPersons: numberOfPersons,
                         dateString: DateHelper.formatFullDate(reservationDate),
                         category: category,
                         startTime: DateHelper.timeFormatter.string(from: startTime),
@@ -370,7 +373,7 @@ extension ReservationService {
                         status: .pending,
                         reservationType: .inAdvance,
                         group: Bool.random(),
-                        notes: notes.randomElement(), // Use a random note or nil
+                        notes: notes.randomElement(),
                         tables: [],
                         creationDate: Date(),
                         isMock: true
@@ -380,7 +383,6 @@ extension ReservationService {
                     let key = self.store.keyFor(date: reservationDate, category: category)
                     DispatchQueue.main.sync {
                         if self.store.cachedLayouts[key] == nil {
-                            print("Initializing layout for key: \(key)")
                             self.store.cachedLayouts[key] = self.store.baseTables
                             self.store.saveToDisk()
                         }
@@ -398,23 +400,47 @@ extension ReservationService {
                                 totalGenerated += 1
                                 dailyGeneratedReservations += 1
                                 print("Generated reservation #\(totalGenerated): \(reservation)")
-                            } else {
-                                print("Duplicate reservation detected for ID \(reservation.id). Skipping.")
                             }
                         }
-                    } else {
-                        print("Failed to assign tables for reservation \(reservation.id).")
                     }
-                }
-
-                if availableTimeSlots.isEmpty {
-                    print("All time slots are filled for \(reservationDate).")
                 }
             }
 
             DispatchQueue.main.async {
                 print("Finished generating reservations. Total generated: \(totalGenerated)")
             }
+        }
+    }
+
+    private func generateTimeSlots(for date: Date, range: (Int, Int)) -> [Date] {
+        var slots: [Date] = []
+        for hour in range.0..<range.1 {
+            for minute in stride(from: 0, to: 60, by: 5) { // Step of 5 minutes
+                if let slot = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: date) {
+                    slots.append(slot)
+                }
+            }
+        }
+        return slots
+    }
+    
+    private func roundToNearestFiveMinutes(_ date: Date) -> Date {
+        let calendar = Calendar.current
+        let minute = calendar.component(.minute, from: date)
+        let remainder = minute % 5
+        let adjustment = remainder < 3 ? -remainder : (5 - remainder)
+        return calendar.date(byAdding: .minute, value: adjustment, to: date)!
+    }
+
+    private func generateWeightedGroupSize() -> Int {
+        let random = Double.random(in: 0...1)
+        switch random {
+        case 0..<0.5: return Int.random(in: 2...3) // 70% chance for groups of 2–5
+        case 0.5..<0.7: return Int.random(in: 4...5)
+        case 0.7..<0.8: return Int.random(in: 6...7) // 20% chance for groups of 6–8
+        case 0.8..<0.95: return Int.random(in: 8...9)
+        case 0.95..<0.99: return Int.random(in: 9...12)
+        default: return Int.random(in: 13...14) //
         }
     }
     

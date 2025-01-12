@@ -32,7 +32,7 @@ struct AddReservationView: View {
                     TextField("Phone", text: $phone).keyboardType(.phonePad)
                     Stepper("Number of Guests: \(numberOfPersons)", value: $numberOfPersons, in: 2...14)
                     DatePicker("Select Date", selection: $selectedDate, displayedComponents: .date)
-                        .onChange(of: selectedDate) { _ in adjustTimesForCategory() }
+                        .onChange(of: selectedDate) { adjustTimesForCategory() }
 
                     Picker("Table", selection: $selectedForcedTableID) {
                         Text("Auto Assign").tag(nil as Int?)
@@ -52,11 +52,11 @@ struct AddReservationView: View {
                         Text("Dinner").tag(Reservation.ReservationCategory.dinner)
                         Text("No Booking").tag(Reservation.ReservationCategory.noBookingZone)
                     }
-                    .onChange(of: category) { _ in adjustTimesForCategory() }
+                    .onChange(of: category) { adjustTimesForCategory() }
 
                     TimeSelectionView(selectedTime: $startTime, category: category)
-                        .onChange(of: startTime) { newStartTime in
-                            endTime = TimeHelpers.calculateEndTime(startTime: newStartTime, category: category)
+                        .onChange(of: startTime) { oldValue, newValue in
+                            endTime = TimeHelpers.calculateEndTime(startTime: newValue, category: category)
                         }
 
                     EndTimeSelectionView(selectedTime: $endTime, category: category)

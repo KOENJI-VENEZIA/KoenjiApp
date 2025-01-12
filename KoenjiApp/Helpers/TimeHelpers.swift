@@ -62,19 +62,15 @@ struct TimeHelpers {
         guard let start = formatter.date(from: startTime) else { return nil }
         guard let end = formatter.date(from: endTime) else { return nil }
 
-        let idealEnd = Calendar.current.date(byAdding: .minute, value: 105, to: start) ?? start
 
-        let idealDelta = start.distance(to: idealEnd)
         let delta = start.distance(to: end)
         let tformatter = DateComponentsFormatter()
 
         tformatter.unitsStyle = .abbreviated
         tformatter.allowedUnits = [.hour, .minute]
 
-        if delta - idealDelta < 0 {
-            return "Attenzione:\ndurata(\(tformatter.string(from: delta)!))!"
-        }
-        return nil
+        return "\(tformatter.string(from: delta)!)"
+    
     }
 
     /// Returns `true` if the provided time ranges overlap.

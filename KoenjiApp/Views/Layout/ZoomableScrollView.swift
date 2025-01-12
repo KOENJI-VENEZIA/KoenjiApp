@@ -61,7 +61,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
                 bottom: verticalInset,
                 right: horizontalInset
             )
-        UIView.animate(withDuration: 0.7, delay: 0, options: [.curveEaseOut], animations: {
+        UIView.animate(withDuration: 0.0, delay: 0, options: [.curveEaseOut], animations: {
                scrollView.contentInset = newInsets
         })
     }

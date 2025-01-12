@@ -12,6 +12,10 @@ struct SidebarView: View {
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var gridData: GridData
     @State private var sidebarColor: Color = Color(hex: "#232850") // Default color
+    @Binding  var selectedReservation: Reservation?
+    @Binding  var currentReservation: Reservation?
+    @Binding  var selectedCategory: Reservation.ReservationCategory? 
+    @Binding  var showInspector: Bool       // Controls Inspector visibility
 
     var body: some View {
         ZStack {
@@ -30,7 +34,12 @@ struct SidebarView: View {
                     .environmentObject(gridData)) {
                     Label("Calendario", systemImage: "calendar")
                 }
-                NavigationLink(destination: LayoutView(onSidebarColorChange: { newColor in
+                NavigationLink(destination: LayoutView(
+                    selectedCategory: $selectedCategory,
+                    selectedReservation: $selectedReservation,
+                    currentReservation: $currentReservation,
+                    showInspector: $showInspector,
+                    onSidebarColorChange: { newColor in
                     sidebarColor = newColor // Update sidebar color
                 })
                     .environmentObject(store)

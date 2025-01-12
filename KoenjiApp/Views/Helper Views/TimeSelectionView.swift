@@ -3,14 +3,47 @@ import SwiftUI
 struct TimeSelectionView: View {
     @Binding var selectedTime: String
     var category: Reservation.ReservationCategory
+    @State private var showingPicker = false
 
     var body: some View {
-        Picker("Dalle:", selection: $selectedTime) {
-            ForEach(availableTimes, id: \.self) { time in
-                Text(time).tag(time)
+        VStack {
+            Button(action: {
+                showingPicker = true
+            }) {
+                HStack {
+                    Text("Dalle:")
+                    Spacer()
+                    Text(selectedTime)
+                        .foregroundColor(.blue)
+                        .bold()
+                }
+                .padding()
+                .background(RoundedRectangle(cornerRadius: 8).stroke(Color.gray))
+            }
+            .popover(isPresented: $showingPicker) {
+                VStack {
+                    Text("Seleziona orario")
+                        .font(.headline)
+                        .padding(.top)
+
+                    Picker("Dalle:", selection: $selectedTime) {
+                        ForEach(availableTimes, id: \.self) { time in
+                            Text(time).tag(time)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(maxHeight: 150)
+                    .clipped()
+
+                    Button("OK") {
+                        showingPicker = false
+                    }
+                    .padding()
+                }
+                .frame(width: 300, height: 400) // Adjust the size of the popover
             }
         }
-        .pickerStyle(.menu)
+        .padding()
     }
 
     private var availableTimes: [String] {
@@ -36,7 +69,7 @@ struct TimeSelectionView: View {
         var current = startTime
         while current <= endTime {
             times.append(DateHelper.formatTime(current))
-            current = Calendar.current.date(byAdding: .minute, value: 15, to: current)!
+            current = Calendar.current.date(byAdding: .minute, value: 5, to: current)! // Step of 5 minutes
         }
 
         return times

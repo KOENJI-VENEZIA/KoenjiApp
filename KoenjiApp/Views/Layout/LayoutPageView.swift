@@ -33,6 +33,7 @@ struct LayoutPageView: View {
     
     // Reservation editing
     @Binding var selectedReservation: Reservation?
+    @Binding var showInspector: Bool
     @Binding var showingEditReservation: Bool
     
     // Add Reservation
@@ -66,6 +67,7 @@ struct LayoutPageView: View {
          isManuallyOverridden: Binding<Bool>,
          showingTimePickerSheet: Binding<Bool>,
          selectedReservation: Binding<Reservation?>,
+         showInspector: Binding<Bool>,
          showingEditReservation: Binding<Bool>,
          showingAddReservationSheet: Binding<Bool>,
          tableForNewReservation: Binding<TableModel?>,
@@ -85,6 +87,7 @@ struct LayoutPageView: View {
         self._isManuallyOverridden = isManuallyOverridden
         self._showingTimePickerSheet = showingTimePickerSheet
         self._selectedReservation = selectedReservation
+        self._showInspector = showInspector
         self._showingEditReservation = showingEditReservation
         self._showingAddReservationSheet = showingAddReservationSheet
         self._tableForNewReservation = tableForNewReservation
@@ -191,9 +194,9 @@ struct LayoutPageView: View {
                                         layoutUI: layoutUI,
                                         showingNoBookingAlert: $showingNoBookingAlert,
                                         onTapEmpty: { handleEmptyTableTap(for: table) },
+                                        showInspector: $showInspector,
                                         onEditReservation: { reservation in
                                             selectedReservation = reservation
-                                            showingEditReservation = true
                                         },
                                         isLayoutLocked: isLayoutLocked,
                                         isLayoutReset: $isLayoutReset,
@@ -288,7 +291,7 @@ struct LayoutPageView: View {
                             }
                         }
                     }
-                        .onChange(of: isLayoutReset) { reset in
+                        .onChange(of: isLayoutReset) { old, reset in
                             if reset {
                                 isLoading = true
                                 resetCurrentLayout()

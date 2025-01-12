@@ -11,22 +11,34 @@ struct ReservationListView: View {
     @State private var filterEndDate: Date? = nil
     @State private var selection = Set<UUID>() // Multi-select
     @State private var showingAddReservation = false
-    @State private var showingNotesAlert = false
+    @State private var showingNotesAlert = false // Controls visibility
+    @State private var isAnimating = false      // Controls animation
     @State private var notesToShow: String = ""
     @State private var currentReservation: Reservation? = nil
     @State private var selectedReservationID: UUID? = nil
     @State private var showTopControls: Bool = true
+    @State private var daysToSimulate: Int = 5
+    @State private var showingDebugConfig: Bool = false
+    @State private var showingResetConfirmation = false
+    @State private var shouldReopenDebugConfig = false
+    @State private var selectedReservation: Reservation?
+    @State private var popoverPosition: CGRect = .zero
+    
+    @State private var showInspector: Bool = false       // Controls Inspector visibility
+
+
 
     // MARK: - Body
     var body: some View {
-        VStack(spacing: 0) {
-            if showTopControls {
-                filterSection
-                    .background(.ultraThinMaterial)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .animation(.easeInOut, value: showTopControls)
-            }
-            ZStack {
+        HStack(spacing: 0) {
+            // Reservation List
+            VStack(spacing: 0) {
+                if showTopControls {
+                    filterSection
+                        .background(.ultraThinMaterial)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(.easeInOut, value: showTopControls)
+                }
                 List(selection: $selection) {
                     ForEach(getFilteredReservations()) { reservation in
                         ReservationRowView(
@@ -35,20 +47,53 @@ struct ReservationListView: View {
                             notesToShow: $notesToShow,
                             selectedReservationID: $selectedReservationID,
                             onTap: {
-                                handleRowTap(reservation)
+                                handleEditTap(reservation)
                             },
                             onDelete: {
                                 handleDelete(reservation)
                             },
                             onEdit: {
                                 currentReservation = reservation
+                            },
+                            onInfoTap: {
+                                selectedReservationID = reservation.id
+                                withAnimation {
+                                    isAnimating = true
+                                    showInspector = true
+                                }
                             }
                         )
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)) // Adjust padding for better row fit
                     }
                     .onDelete(perform: delete)
                 }
+                .allowsHitTesting(!showingNotesAlert) // Disable interaction with rows when the popover is visible
             }
+            .frame(maxWidth: selectedReservation == nil ? .infinity : UIScreen.main.bounds.width * 0.6) // Resize list dynamically
         }
+        .inspector(isPresented: $showInspector) { // Show Inspector if a reservation is selected
+            if let selectedID = selectedReservationID {
+                ReservationInfoCard(
+                    reservationID: selectedID,
+                    onClose: {
+                        showInspector = false
+                        selectedReservationID = nil
+                    },
+                    onEdit: {
+                        // If you want to open Edit Reservation, pass the ID
+                        // or fetch from the store.
+                        if let reservation = store.reservations.first(where: { $0.id == selectedID }) {
+                            handleEditTap(reservation)
+                        }
+                    }
+                )
+                .environmentObject(store) // So inside InfoCard, we can access the updated reservations
+                .padding()
+            }
+                
+            
+        }
+                        
         .navigationTitle("Tutte le prenotazioni")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -70,26 +115,10 @@ struct ReservationListView: View {
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Generate Debug Data") {
-                    store.setReservations([]) // Clear existing reservations
-                    generateDebugData()
+                Button("Debug Config") {
+                    showingDebugConfig = true
                 }
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Force Debug Data") {
-                    generateDebugData(force: true)
-                }
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Save Debug Data") {
-                    saveDebugData()
-                }
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Flush Caches") {
-                        flushCaches()
-                    }
-                }
             ToolbarItem(placement: .navigationBarLeading) {
                 EditButton()
             }
@@ -104,19 +133,174 @@ struct ReservationListView: View {
                 .environmentObject(store)
                 .environmentObject(reservationService)
         }
-        .alert("Notes", isPresented: $showingNotesAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(notesToShow)
+        .sheet(isPresented: $showingDebugConfig) {
+            DebugConfigView(
+                daysToSimulate: $daysToSimulate,
+                onGenerate: {
+                    generateDebugData()
+                },
+                onResetData: {
+                    showingResetConfirmation = true // Show the alert first
+                    shouldReopenDebugConfig = true // Mark for reopening if canceled
+                },
+                onSaveDebugData: {
+                    saveDebugData()
+                },
+                onFlushCaches: {
+                    flushCaches()
+                }
+            )
+        }
+        .onAppear {
+            NotificationCenter.default.addObserver(
+                forName: .buttonPositionChanged,
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let frame = notification.userInfo?["frame"] as? CGRect {
+                    self.popoverPosition = frame
+                }
+            }
+        }
+        .onDisappear {
+            NotificationCenter.default.removeObserver(self, name: .buttonPositionChanged, object: nil)
+        }
+        .alert(isPresented: $showingResetConfirmation) {
+            Alert(
+                title: Text("Reset All Data"),
+                message: Text("Are you sure you want to delete all reservations and reset the app? This action cannot be undone."),
+                primaryButton: .destructive(Text("Reset")) {
+                    resetData()
+                    shouldReopenDebugConfig = false // Ensure the sheet doesn't reopen after reset
+                },
+                secondaryButton: .cancel(Text("Cancel")) {
+                    if shouldReopenDebugConfig {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showingDebugConfig = true
+                        }
+                    }
+                }
+            )
         }
         .toolbarBackground(Material.ultraThin, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
     }
+    
+   
+    
+    func dismissInfoCard() {
+        withAnimation {
+            isAnimating = false
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { // Match animation duration
+            selectedReservation = nil
+        }
+    }
+
+    /// Calculate X position for the popover
+    private func calculatePopoverX(screenWidth: CGFloat) -> CGFloat {
+        let popoverWidth: CGFloat = 300
+        let buttonX = popoverPosition.minX
+        let rightPosition = buttonX + popoverWidth / 2
+        let leftPosition = buttonX - popoverWidth / 2
+
+        // If the right side overflows, adjust to the left
+        if rightPosition > screenWidth {
+            return screenWidth - (popoverWidth / 2) - 16 // Ensure a margin of 16
+        }
+        // If the left side overflows, adjust to the right
+        if leftPosition < 0 {
+            return popoverWidth / 2 + 16 // Ensure a margin of 16
+        }
+        // Default to centered near the button
+        return buttonX
+    }
+
+    /// Calculate Y position for the popover
+    /// Calculate Y position for the popover
+    private func calculatePopoverY(screenHeight: CGFloat) -> CGFloat {
+        let popoverHeight: CGFloat = 200 // Height of the popover
+        let buttonY = popoverPosition.midY // Center of the button
+
+        // Calculate the default position to center the popover over the button
+        var popoverY = buttonY
+
+        // If the top of the popover would overflow, adjust downward
+        if popoverY - (popoverHeight / 2) < 0 {
+            popoverY = popoverHeight / 2 + 16 // Ensure a margin of 16 from the top
+        }
+
+        // If the bottom of the popover would overflow, adjust upward
+        if popoverY + (popoverHeight / 2) > screenHeight {
+            popoverY = screenHeight - (popoverHeight / 2) - 16 // Ensure a margin of 16 from the bottom
+        }
+
+        return popoverY
+    }
+    
+    struct DebugConfigView: View {
+        @Binding var daysToSimulate: Int
+        var onGenerate: () -> Void
+        var onResetData: () -> Void
+        var onSaveDebugData: () -> Void
+        var onFlushCaches: () -> Void
+
+        var body: some View {
+            NavigationView {
+                Form {
+                    Section(header: Text("Simulation Parameters")) {
+                        Stepper("Days to Simulate: \(daysToSimulate)", value: $daysToSimulate, in: 1...365)
+                        Button("Generate Debug Data") {
+                            onGenerate()
+                            dismissView()
+                        }
+                    }
+                    
+                    Section(header: Text("Debug Tools")) {
+                        Button(role: .destructive) {
+                            onResetData()
+                            dismissView()
+                        } label: {
+                            Label("Reset Data", systemImage: "trash")
+                        }
+
+                        Button {
+                            onSaveDebugData()
+                            dismissView()
+                        } label: {
+                            Label("Save Debug Data", systemImage: "square.and.arrow.down")
+                        }
+
+                        Button {
+                            dismissView()
+                            onFlushCaches()
+                        } label: {
+                            Label("Flush Caches", systemImage: "arrow.clockwise")
+                        }
+                    }
+                }
+                .navigationBarTitle("Debug Config", displayMode: .inline)
+                .navigationBarItems(
+                    leading: Button("Cancel") {
+                        dismissView()
+                    }
+                )
+            }
+        }
+
+        private func dismissView() {
+            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+            windowScene.windows.first?.rootViewController?.dismiss(animated: true)
+        }
+    }
+
 
     // MARK: - Generate Debug Data
-    private func generateDebugData(force: Bool = false, shouldSave: Bool = true) {
+    private func generateDebugData(force: Bool = false) {
         Task {
-            reservationService.generateReservations(daysToSimulate: 200)
+            reservationService.generateReservations(
+                daysToSimulate: daysToSimulate
+            )
             reservationService.simulateUserActions(actionCount: 1000)
         }
     }
@@ -124,6 +308,12 @@ struct ReservationListView: View {
     private func saveDebugData() {
         reservationService.saveReservationsToDisk(includeMock: true)
         print("Debug data saved to disk.")
+    }
+    
+    private func resetData() {
+        store.setReservations([]) // Clear all reservations
+        reservationService.clearAllData() // Custom method to reset any cached or stored data
+        print("All data has been reset.")
     }
 
     // MARK: - Filter Section
@@ -264,14 +454,9 @@ struct ReservationListView: View {
     }
 
     // MARK: - Row Tap Handler
-    private func handleRowTap(_ reservation: Reservation) {
-        guard selectedReservationID == nil else { return }
-        selectedReservationID = reservation.id
+    private func handleEditTap(_ reservation: Reservation) {
         withAnimation {
             currentReservation = reservation
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            selectedReservationID = nil
         }
     }
 
@@ -301,39 +486,48 @@ struct ReservationRowView: View {
     var onTap: () -> Void
     var onDelete: () -> Void
     var onEdit: () -> Void
+    var onInfoTap: () -> Void // Added here
+
 
     var body: some View {
         // Make a local variable for table names
-        let tableNames = reservation.tables.map(\.name).joined(separator: ", ")
-
+        let duration = TimeHelpers.availableTimeString(endTime: reservation.endTime, startTime: reservation.startTime)
+        
         HStack {
             VStack(alignment: .leading) {
                 Text("\(reservation.name) - \(reservation.numberOfPersons) pers.")
                     .font(.headline)
-                Text("Telefono: \(reservation.phone)")
-                    .font(.subheadline)
-                Text("Tavolo: \(tableNames)")
-                    .font(.subheadline)
                 Text("Data: \(reservation.dateString)")
                     .font(.subheadline)
-                    .foregroundStyle(.blue)
                 Text("Orario: \(reservation.startTime) - \(reservation.endTime)")
+                    .font(.subheadline)
+                Text("Durata: \(duration ?? "Error")")
                     .font(.subheadline)
                     .foregroundStyle(.blue)
             }
             Spacer()
-
-            Button {
-                if let notes = reservation.notes, !notes.isEmpty {
-                    notesToShow = notes
-                } else {
-                    notesToShow = "(no further notes)"
+            
+            GeometryReader { geo in
+                Button {
+                    // Trigger onInfoTap and post button position
+                    onInfoTap()
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: .buttonPositionChanged,
+                            object: nil,
+                            userInfo: ["frame": geo.frame(in: .global)] // Pass the button's global frame
+                        )
+                    }
+                } label: {
+                    Image(systemName: "info.circle")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 25, height: 25)
+                        .padding(8)
                 }
-                notesAlertShown = true
-            } label: {
-                Image(systemName: "info.circle")
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .frame(width: 40, height: 40) // Add a frame to ensure GeometryReader works as intended
         }
         .padding()
         .background(
@@ -356,6 +550,19 @@ struct ReservationRowView: View {
         }
     }
     
-
     
 }
+
+
+struct ButtonPositionPreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
+}
+
+extension Notification.Name {
+    static let buttonPositionChanged = Notification.Name("buttonPositionChanged")
+}
+
+
