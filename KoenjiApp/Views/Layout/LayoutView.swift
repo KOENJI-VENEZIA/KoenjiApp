@@ -60,6 +60,7 @@ struct LayoutView: View {
             let isCompact = horizontalSizeClass == .compact
             let selectedDate = dates[safe: selectedIndex] ?? Date()
             
+            
             ZStack {
             
                 // Current Layout Page View
@@ -190,8 +191,43 @@ struct LayoutView: View {
                     }
                     .accessibilityLabel(showTopControls ? "Hide Controls" : "Show Controls")
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        withAnimation {
+                            showInspector.toggle()
+                        }
+                    }) {
+                        Image(systemName: "info.circle")
+                    }
+                    .accessibilityLabel("Toggle Inspector")
+                }
             }
-            
+            .inspector(isPresented: $showInspector) {// Show Inspector if a reservation is selected
+                ZStack {
+                    Color(selectedCategory == .lunch ? Color(hex: "#B89301") : Color(hex: "#232850"))
+                        .ignoresSafeArea()
+
+                    
+                    if let reservation = selectedReservation {
+                        ReservationInfoCard(
+                            reservationID: reservation.id,
+                            onClose: {
+                                dismissInfoCard()
+                            },
+                            onEdit: {
+                                currentReservation = reservation
+                            }
+                        )
+                        .background(.clear)
+
+                        
+                    } else {
+                        Text("(Nessuna prenotazione selezionata)")
+                            .multilineTextAlignment(.center)
+                            .padding()
+                    }
+                }
+            }
             .sheet(item: $currentReservation) { reservation in
                 EditReservationView(reservation: reservation)
                     .environmentObject(store)
@@ -227,6 +263,11 @@ struct LayoutView: View {
                 
                 
             }
+            .onChange(of: showInspector) { oldValue, newValue in
+                if !newValue {
+                    selectedReservation = nil
+                }
+            }
             .toolbarBackground(selectedCategory == .lunch ? Color(hex: "#B89301") : Color(hex: "#232850"), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
         }
@@ -237,6 +278,7 @@ struct LayoutView: View {
     func dismissInfoCard() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { // Match animation duration
             showInspector = false
+            selectedReservation = nil
         }
     }
     

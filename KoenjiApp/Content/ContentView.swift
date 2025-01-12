@@ -36,26 +36,7 @@ struct ContentView: View {
         .environmentObject(store)
         .environmentObject(reservationService)
         .environmentObject(gridData)
-        .inspector(isPresented: $showInspector) {// Show Inspector if a reservation is selected
-            ZStack {
-                Color(selectedCategory == .lunch ? Color(hex: "#B89301") : Color(hex: "#232850"))// Blur for a material-like effect
-                    .ignoresSafeArea()
-                if let reservation = selectedReservation {
-                    ReservationInfoCard(
-                        reservationID: reservation.id,
-                        onClose: {
-                            dismissInfoCard()
-                        },
-                        onEdit: {
-                            currentReservation = reservation
-                        }
-                    )
-                    .background(.clear)
-
-                    
-                }
-            }
-        }
+    
         .toolbar {
 
             Button {
