@@ -36,7 +36,6 @@ struct DateHelper {
         formatter.dateFormat = "EEEE"
         return formatter.string(from: date)
     }
-    
 
     
     // Date formatting
@@ -71,16 +70,48 @@ struct DateHelper {
         
         // Extract the time components from the parsed time
         let calendar = Calendar.current
-        let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: time)
+        guard let timeComponents = extractTime(time: time) else { return nil }
         
         // Combine the date and time components
-        return calendar.date(bySettingHour: timeComponents.hour ?? 0,
-                             minute: timeComponents.minute ?? 0,
-                             second: timeComponents.second ?? 0,
-                             of: date)
+        return normalizedInputTime(time: timeComponents, date: date)
     }
     
-    static func combine(date: Date, time: Date) -> Date? {
+    static func extractTime(time: Date) -> DateComponents? {
+        let calendar = Calendar.current
+        return calendar.dateComponents([.hour, .minute], from: time)
+    }
+    
+    static func normalizedInputTime(time: DateComponents, date: Date) -> Date? {
+        let calendar = Calendar.current
+        return calendar.date(
+            bySettingHour: time.hour ?? 0,
+            minute: time.minute ?? 0,
+            second: 0,
+            of: date)
+    }
+    
+    static func normalizedTime(time: Date, date: Date) -> Date? {
+        let calendar = Calendar.current
+
+        return calendar.date(
+            bySettingHour: calendar.component(.hour, from: time),
+            minute: calendar.component(.minute, from: time),
+            second: 0,
+            of: date)
+        
+    }
+    
+    static func combineDateAndTimeStrings(dateString: String, timeString: String) -> Date {
+        guard let date = parseDate(dateString),
+              let combinedDate = combineDateAndTime(date: date, timeString: timeString) else {
+            print("Warning: Failed to combine date (\(dateString)) and time (\(timeString)). Using current date as fallback.")
+            return Date() // Fallback to the current date and time
+        }
+        return combinedDate
+    }
+    
+    
+    static func combine(date: Date, time: Date) -> Date {
         let calendar = Calendar.current
         let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
         let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: time)
@@ -93,30 +124,8 @@ struct DateHelper {
         combinedComponents.minute = timeComponents.minute
         combinedComponents.second = timeComponents.second
 
-        return calendar.date(from: combinedComponents)
-    }
-    
-    static func prepareCombinedDate(date: Date, with time: Date) -> Date {
-        guard let updatedTime = Calendar.current.date(
-            bySettingHour: Calendar.current.component(.hour, from: time),
-            minute: Calendar.current.component(.minute, from: time),
-            second: 0,
-            of: date
-        ) else { return time }
-        return updatedTime
-        }
-    
-}
-
-extension DateHelper {
-    static func dateFromKey(key: String) -> (date: Date, category: Reservation.ReservationCategory)? {
-        let components = key.split(separator: "-")
-        guard components.count >= 2,
-              let date = DateHelper.parseDate(String(components[0])),
-              let category = Reservation.ReservationCategory(rawValue: String(components[1])) else {
-            return nil
-        }
-        return (date: date, category: category)
+        // Return a valid date or fallback to the input `date` if combining fails
+        return calendar.date(from: combinedComponents) ?? date
     }
     
     /// Generates a random time within the given hour range on a specific date.
@@ -141,3 +150,4 @@ extension DateHelper {
           return calendar.date(from: components) ?? date
       }
 }
+

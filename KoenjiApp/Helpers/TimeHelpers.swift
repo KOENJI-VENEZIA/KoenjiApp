@@ -85,7 +85,7 @@ struct TimeHelpers {
 
     private static var dateCache: [String: Date] = [:]
     
-    static func fullDate(from dateString: String) -> Date? {
+    static func parseFullDate(from dateString: String) -> Date? {
         if let cachedDate = dateCache[dateString] {
             return cachedDate
         }

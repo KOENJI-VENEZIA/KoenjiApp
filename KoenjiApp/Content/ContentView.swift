@@ -26,13 +26,12 @@ struct ContentView: View {
             )
                 
         }
-        
         detail: {
             // The Detail View
             Text("Seleziona un'opzione dal menu laterale.")
                 .foregroundColor(.secondary)
+            
         }
-        
         .environmentObject(store)
         .environmentObject(reservationService)
         .environmentObject(gridData)

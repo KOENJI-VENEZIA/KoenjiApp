@@ -235,32 +235,47 @@ extension ReservationStore {
     
    
     
-    func preloadActiveReservationCache(for date: Date) {
-        activeReservationCache.removeAll()
-        print("Preloading active reservation cache for date: \(date)")
-
-        for reservation in reservations {
-            guard let reservationDate = DateHelper.parseFullDate(reservation.dateString),
-                  Calendar.current.isDate(reservationDate, equalTo: date, toGranularity: .day) else { continue }
-
-            for table in reservation.tables {
-                guard let startTime = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime),
-                      let endTime = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.endTime) else { continue }
-
-                var currentTime = startTime
-                while currentTime <= endTime {
-                    let cacheKey = ActiveReservationCacheKey(tableID: table.id, date: reservationDate, time: currentTime)
-                    activeReservationCache[cacheKey] = reservation
-                    currentTime = Calendar.current.date(byAdding: .minute, value: 1, to: currentTime) ?? currentTime
+    func preloadActiveReservationCache(startingFrom startDate: Date, forDays range: Int) {
+        let calendar = Calendar.current
+        let endDate = calendar.date(byAdding: .day, value: range - 1, to: startDate) ?? startDate
+        
+        print("DEBUG: Preloading active reservation cache from \(startDate) to \(endDate)")
+        
+        for preloadDate in stride(from: startDate, through: endDate, by: 86400) { // 86400 seconds in a day
+            if let preloadedUntil = cachePreloadedFrom, preloadDate <= preloadedUntil {
+                print("DEBUG: Date \(preloadDate) is already preloaded. Skipping.")
+                continue
+            }
+            
+            let reservationsByDate = Dictionary(grouping: reservations) { DateHelper.parseDate($0.dateString) }
+            
+            guard let dateReservations = reservationsByDate[preloadDate] else {
+                print("DEBUG: No reservations found for date: \(preloadDate).")
+                continue
+            }
+            
+            for reservation in dateReservations {
+                for table in reservation.tables {
+                    guard let startTime = DateHelper.combineDateAndTime(date: preloadDate, timeString: reservation.startTime),
+                          let endTime = DateHelper.combineDateAndTime(date: preloadDate, timeString: reservation.endTime) else {
+                        print("DEBUG: Failed to combine date and time for reservation \(reservation).")
+                        continue
+                    }
+                    
+                    for currentTime in stride(from: startTime, to: endTime, by: 60) { // Increment by 1 minute
+                        let cacheKey = ActiveReservationCacheKey(tableID: table.id, date: preloadDate, time: currentTime)
+                        activeReservationCache[cacheKey] = reservation
+                    }
                 }
             }
         }
-
-        print("Active reservation cache preloaded with \(activeReservationCache.count) entries.")
+        
+        cachePreloadedFrom = max(cachePreloadedFrom ?? startDate, endDate)
+        print("DEBUG: Active reservation cache preloaded until \(cachePreloadedFrom!).")
     }
     
     func updateActiveReservationAdjacencyCounts(for reservation: Reservation) {
-        guard let reservationDate = DateHelper.parseFullDate(reservation.dateString),
+        guard let reservationDate = DateHelper.parseDate(reservation.dateString),
               let combinedDateTime = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime) else {
             print("Invalid reservation date or time for updating adjacency counts.")
             return

@@ -180,14 +180,35 @@ extension Reservation {
 extension Reservation {
     /// Combines `dateString` and `startTime` to generate a `Date` object for the reservation's start.
     var startDate: Date? {
-        guard let date = self.date else { return nil }
-        return DateHelper.combineDateAndTime(date: date, timeString: self.startTime)
-    }
+        guard let reservationDate = date,
+                let startTimeDate = DateHelper.parseTime(startTime) else {
+              return nil
+          }
 
-    var endDate: Date? {
-        guard let date = self.date else { return nil }
-        return DateHelper.combineDateAndTime(date: date, timeString: self.endTime)
-    }
+          let calendar = Calendar.current
+          let timeComponents = calendar.dateComponents([.hour, .minute], from: startTimeDate)
+
+          return calendar.date(bySettingHour: timeComponents.hour ?? 0,
+                               minute: timeComponents.minute ?? 0,
+                               second: 0,
+                               of: reservationDate)
+      }
+
+      /// Parse and normalize the end date-time of the reservation.
+      var endDate: Date? {
+          guard let reservationDate = date,
+                let endTimeDate = DateHelper.parseTime(endTime) else {
+              return nil
+          }
+
+          let calendar = Calendar.current
+          let timeComponents = calendar.dateComponents([.hour, .minute], from: endTimeDate)
+
+          return calendar.date(bySettingHour: timeComponents.hour ?? 0,
+                               minute: timeComponents.minute ?? 0,
+                               second: 0,
+                               of: reservationDate)
+      }
 }
 
 extension Reservation.ReservationCategory: Codable {}

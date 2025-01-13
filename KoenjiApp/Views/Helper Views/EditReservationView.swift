@@ -24,7 +24,13 @@ struct EditReservationView: View {
 
                     DatePicker("Select Date", selection: $selectedDate, displayedComponents: .date)
                         .onChange(of: selectedDate) { oldDate, newDate in
-                            reservation.dateString = formatDate(newDate)
+                            reservation.dateString = DateHelper.formatFullDate(newDate)
+                        }
+                        .onAppear {
+                            // Initialize selectedDate based on reservation.dateString
+                            if let reservationDate = DateHelper.parseDate(reservation.dateString) {
+                                selectedDate = reservationDate
+                            }
                         }
 
                     
@@ -52,7 +58,11 @@ struct EditReservationView: View {
                         .onChange(of: reservation.startTime) { oldStartTime, newStartTime in
                             reservation.endTime = TimeHelpers.calculateEndTime(startTime: newStartTime, category: reservation.category)
                         }
+                        .frame(maxWidth: .infinity, alignment: .center)
+
                     EndTimeSelectionView(selectedTime: $reservation.endTime, category: reservation.category)
+                        .frame(maxWidth: .infinity, alignment: .center)
+
                 }
 
                 Section("Notes") {
@@ -73,7 +83,6 @@ struct EditReservationView: View {
                 Alert(title: Text("Error"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
             }
             .onAppear {
-                adjustTimesForCategory()
                 loadInitialDate()
                 if let firstTable = reservation.tables.first {
                     selectedForcedTableID = firstTable.id
@@ -141,9 +150,5 @@ struct EditReservationView: View {
         selectedDate = formatter.date(from: reservation.dateString) ?? Date()
     }
 
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd/MM/yyyy"
-        return formatter.string(from: date)
-    }
+   
 }

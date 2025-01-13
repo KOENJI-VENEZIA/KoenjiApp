@@ -47,6 +47,8 @@ struct LayoutView: View {
     
     @State private var clusters: [CachedCluster] = []
 
+    @State private var sidebarColor: Color = Color.sidebar_lunch // Default color
+
     
     // Navigation direction
         
@@ -59,7 +61,8 @@ struct LayoutView: View {
         GeometryReader { geometry in
             let isCompact = horizontalSizeClass == .compact
             let selectedDate = dates[safe: selectedIndex] ?? Date()
-            
+            var adjustedWidth = showInspector ? geometry.size.width - 300 : geometry.size.width // Adjust for sidebar width
+
             
             ZStack {
             
@@ -80,24 +83,17 @@ struct LayoutView: View {
                     isLayoutReset: $isLayoutReset,
                     scale: $scale,
                     offset: $offset,
-                    clusters: clusters
+                    clusters: clusters,
+                    adjustedWidth: adjustedWidth
                 )
+
                 
                 .environmentObject(store)
                 .environmentObject(reservationService)
                 .environmentObject(gridData)
                 .id(selectedIndex) // Force view refresh on index change
                 //.matchedGeometryEffect(id: "layoutPageView\(selectedIndex)", in: animationNamespace) // Removed
-                .transition(
-                    .asymmetric(
-                        insertion: navigationDirection == .forward
-                        ? .move(edge: .trailing).combined(with: .opacity).combined(with: .scale(scale: 1.5)) // Slides in from the center of the right edge
-                            : .move(edge: .leading).combined(with: .opacity).combined(with: .scale(scale: 1.5)), // Slides in from the center of the left edge
-                        removal: navigationDirection == .forward
-                        ? .move(edge: .leading).combined(with: .opacity).combined(with: .scale(scale: 0.5)) // Slides out to the center of the left edge
-                        : .move(edge: .trailing).combined(with: .opacity).combined(with: .scale(scale: 0.5)) // Slides out to the center of the right edge
-                    )
-                )
+                
 
                 // Left Arrow Button
                 if selectedIndex > 0 {
@@ -204,7 +200,9 @@ struct LayoutView: View {
             }
             .inspector(isPresented: $showInspector) {// Show Inspector if a reservation is selected
                 ZStack {
-                    Color(selectedCategory == .lunch ? Color(hex: "#B89301") : Color(hex: "#232850"))
+                    Color (
+                        sidebarColor
+                    )
                         .ignoresSafeArea()
 
                     
@@ -234,7 +232,19 @@ struct LayoutView: View {
                     .environmentObject(reservationService)
             }
             .sheet(isPresented: $showingAddReservationSheet) {
-                AddReservationView()
+                AddReservationView(
+                    category: $selectedCategory,
+                    selectedDate: Binding<Date>(
+                    get: {
+                        // Force-unwrap or handle out-of-range more gracefully
+                        dates[selectedIndex]
+                    },
+                    set: { newVal in
+                        // Update the array in the parent
+                        dates[selectedIndex] = newVal
+                    }
+                    ),
+                    startTime: $currentTime)
                     .environmentObject(store)
                     .environmentObject(reservationService)
             }
@@ -250,10 +260,14 @@ struct LayoutView: View {
 
             }
             .onChange(of: selectedIndex) {
+                adjustedWidth = showInspector ? geometry.size.width - 300 : geometry.size.width
                 handleSelectedIndexChange()
             }
             .onChange(of: selectedCategory) { oldCategory, newCategory in
                 handleSelectedCategoryChange(newCategory)
+                if let category = newCategory {
+                    sidebarColor = category.sidebarColor
+                }
             }
             .onChange(of: currentTime) { oldTime, newTime in
                 
@@ -268,7 +282,6 @@ struct LayoutView: View {
                     selectedReservation = nil
                 }
             }
-            .toolbarBackground(selectedCategory == .lunch ? Color(hex: "#B89301") : Color(hex: "#232850"), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
         }
         .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
@@ -308,20 +321,18 @@ struct LayoutView: View {
         print("Resetting layout for date: \(DateHelper.formatFullDate(currentDate)) and category: \(currentCategory.rawValue)")
         
         // Perform layout reset
+        let combinedDate = DateHelper.combine(date: currentDate, time: currentTime)
         store.resetTables(for: currentDate, category: currentCategory)
-        store.tables = store.loadTables(for: currentDate, category: currentCategory)
+        store.tables = store.loadTables(for: combinedDate, category: currentCategory)
         
         // Clear clusters
-        store.saveClusters([], for: currentDate, category: currentCategory)
+        store.resetClusters(for: combinedDate, category: currentCategory)
+        store.saveClusters([], for: combinedDate, category: currentCategory)
         
         // Ensure layout flags are updated after reset completes
         DispatchQueue.main.async {
             self.isLayoutLocked = true
             self.isLayoutReset = true
-            
-            // Check reservations after reset to avoid race conditions
-            self.checkActiveReservations(for: currentDate, category: currentCategory, from: "resetLayout() in LayoutView")
-            
             print("Layout successfully reset and reservations checked.")
         }
     }
@@ -341,50 +352,17 @@ struct LayoutView: View {
         if let initialCategory = selectedCategory {
             onSidebarColorChange?(initialCategory.sidebarColor)
         }
-        
-        // Load tables for the initial date and category
-        if let initialDate = dates[safe: selectedIndex],
-           let currentCategory = selectedCategory {
-            store.initializeLayoutIfNeeded(for: initialDate, category: currentCategory)
-            checkActiveReservations(for: initialDate, category: currentCategory, from: "initializeView() from LayoutView")
-            print("Loaded tables for \(currentCategory.rawValue) on \(DateHelper.formatFullDate(initialDate))")
-        }
     }
-    
-    private func updateClusters(for date: Date, category: Reservation.ReservationCategory) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let newClusters = store.loadClusters(for: date, category: category)
-            DispatchQueue.main.async {
-                self.clusters = newClusters
-            }
-        }
-    }
+
     
     private func handleSelectedIndexChange() {
         
         // Explicitly set and log current time
         let newDate = dates[safe: selectedIndex] ?? Date()
-        currentTime = DateHelper.prepareCombinedDate(date: newDate, with: currentTime)
-
+        guard let combinedTime = DateHelper.normalizedTime(time: currentTime, date: newDate) else { return }
+        currentTime = combinedTime
         
         print("Selected index changed to \(selectedIndex), date: \(DateHelper.formatFullDate(newDate))")
-
-        
-        // Load tables for the new date
-        if let currentCategory = selectedCategory {
-            print("Loaded tables for \(currentCategory.rawValue) on \(DateHelper.formatFullDate(newDate))")
-            checkActiveReservations(for: newDate, category: currentCategory, from: "handleSelectedIndexChange() from LayoutView")
-            
-            // Check if the layout for the current date and category matches the base tables
-            let key = store.keyFor(date: newDate, category: currentCategory)
-            if let currentTables = store.cachedLayouts[key] {
-                isLayoutReset = (currentTables == store.baseTables)
-                print("Layout is reset: \(isLayoutReset)")
-            } else {
-                isLayoutReset = false
-                print("Layout is not reset.")
-            }
-        }
         
         // Handle progressive date loading
         if selectedIndex >= dates.count - 5 { appendMoreDates() }
@@ -405,9 +383,10 @@ struct LayoutView: View {
         
         // Update reservations and layout for the current selected date
         let newDate = dates[safe: selectedIndex] ?? Date()
-        currentTime = DateHelper.prepareCombinedDate(date: newDate, with: currentTime)
+        guard let combinedTime = DateHelper.normalizedTime(time: currentTime, date: newDate) else { return }
+        currentTime = combinedTime
 
-        checkActiveReservations(for: newDate, category: newCategory, from: "handleSelectedCategoryChange() in LayoutView")
+        // checkActiveReservations(for: newDate, category: newCategory, from: "handleSelectedCategoryChange() in LayoutView")
         print("Loaded tables for \(newCategory.rawValue) on \(DateHelper.formatFullDate(newDate))")
         
         // Update sidebar color
@@ -419,7 +398,8 @@ struct LayoutView: View {
 
         // Combine selectedDate with the new time
         let currentDate = dates[safe: selectedIndex] ?? Date()
-        currentTime = DateHelper.prepareCombinedDate(date: currentDate, with: newTime)
+        guard let combinedTime = DateHelper.normalizedTime(time: newTime, date: currentDate) else { return }
+        currentTime = combinedTime
 
         print("Final currentTime after combination: \(currentTime)")
 
@@ -445,13 +425,6 @@ struct LayoutView: View {
         }
             
             selectedCategory = determinedCategory
-        
-
-        // Check active reservations using the determined category
-        checkActiveReservations(for: currentDate, category: selectedCategory ?? .lunch, from: "handleCurrentTimeChange in LayoutView")
-
-        // Update selectedCategory after checking reservations
-        
     }
     
     // MARK: - Helper Methods
@@ -571,16 +544,6 @@ struct LayoutView: View {
         .foregroundColor(selectedCategory == .noBookingZone ? .gray : .blue)
     }
     
-    private func preloadDataForAdjacentDates(currentIndex: Int) {
-        let preloadRange = max(0, currentIndex - 2)...min(dates.count - 1, currentIndex + 2)
-        for index in preloadRange {
-            let date = dates[index]
-            if let currentCategory = selectedCategory {
-                store.initializeLayoutIfNeeded(for: date, category: currentCategory)
-            }
-        }
-    }
-    
     /// Generates the initial set of dates centered around today.
     private func generateInitialDates() -> [Date] {
         let today = Calendar.current.startOfDay(for: Date())
@@ -676,26 +639,6 @@ struct LayoutView: View {
         }
     }
     
-    func checkActiveReservations(for date: Date, category: Reservation.ReservationCategory, from context: String) {
-        print("checkActiveReservations invoked from \(context) for date: \(DateHelper.formatFullDate(date)) and category: \(category.rawValue)")
-
-        let combinedDate = DateHelper.prepareCombinedDate(date: date, with: currentTime)
-
-
-        guard let tables = store.cachedLayouts[store.keyFor(date: date, category: category)] else {
-            print("No cached layout for key: \(store.keyFor(date: date, category: category)).")
-            return
-        }
-
-        let reservations = tables.compactMap { table in
-            reservationService.findActiveReservation(for: table, date: date, time: combinedDate)
-        }
-
-        DispatchQueue.main.async {
-            self.store.activeReservations = Array(Set(reservations))
-            print("Updated active reservations for \(DateHelper.formatFullDate(date)) with count: \(self.store.activeReservations.count)")
-        }
-    }
     
     private func trimDatesAround(_ index: Int) {
         let bufferSize = 30 // Total number of dates to keep

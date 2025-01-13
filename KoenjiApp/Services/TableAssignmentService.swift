@@ -59,8 +59,11 @@ class TableAssignmentService {
         reservations: [Reservation],
         tables: [TableModel]
     ) -> [TableModel]? {
-        guard let reservationDate = DateHelper.parseFullDate(reservation.dateString) else { return nil }
-
+        guard let reservationDate = DateHelper.parseDate(reservation.dateString) else {
+            print("Failed to parse reservation date string: \(reservation.dateString) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
+            return nil
+        }
+        print("Parsed reservation date: \(reservationDate) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
         // Try to find a single contiguous block
         if let contiguousBlock = findContiguousBlock(
             reservation: reservation,
@@ -68,8 +71,11 @@ class TableAssignmentService {
             orderedTables: sortTables(tables),
             reservationDate: reservationDate
         ) {
+            print("Found contiguous block for reservation ID: \(reservation.id). Assigned tables: \(contiguousBlock.map { $0.name }) [assignTablesPreferContiguous() from TableAssignmentService]")
             return contiguousBlock
         }
+
+        print("No contiguous block found for reservation ID: \(reservation.id). Proceeding to fallback. [assignTablesPreferContiguous() from TableAssignmentService]")
 
         // Fallback to automatic assignment
         return assignTablesInOrder(for: reservation, reservations: reservations, tables: tables, reservationDate: reservationDate)
@@ -111,18 +117,38 @@ class TableAssignmentService {
         excluding reservationID: UUID? = nil
     ) -> Bool {
         guard let start = DateHelper.combineDateAndTime(date: date, timeString: startTime),
-              let end = DateHelper.combineDateAndTime(date: date, timeString: endTime) else { return false }
+              let end = DateHelper.combineDateAndTime(date: date, timeString: endTime) else {
+            print("Failed to combine date and time for startTime: \(startTime), endTime: \(endTime)")
+            return false
+        }
+
+        let buffer: TimeInterval = 0 // 15 minutes
 
         return reservations.contains { reservation in
+            // Exclude current reservation if editing
             if reservation.id == reservationID { return false }
-            guard let reservationDate = DateHelper.parseFullDate(reservation.dateString),
+
+            guard let reservationDate = DateHelper.parseDate(reservation.dateString),
                   let reservationStart = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime),
                   let reservationEnd = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.endTime),
-                  reservation.tables.contains(where: { $0.id == table.id }) else { return false }
-            return reservationDate.isSameDay(as: date) && TimeHelpers.timeRangesOverlap(start1: reservationStart, end1: reservationEnd, start2: start, end2: end)
+                  reservation.tables.contains(where: { $0.id == table.id }) else {
+                print("Failed to parse reservation: \(reservation)")
+                return false
+            }
+
+            // Adjust reservation times for buffer
+            let adjustedReservationStart = reservationStart.addingTimeInterval(-buffer)
+            let adjustedReservationEnd = reservationEnd.addingTimeInterval(buffer)
+
+            return reservationDate.isSameDay(as: date) &&
+                   TimeHelpers.timeRangesOverlap(
+                       start1: adjustedReservationStart,
+                       end1: adjustedReservationEnd,
+                       start2: start,
+                       end2: end
+                   )
         }
     }
-
     private func assignTablesInOrder(
         for reservation: Reservation,
         reservations: [Reservation],
@@ -146,6 +172,7 @@ class TableAssignmentService {
             assignedCapacity += table.maxCapacity
             if assignedCapacity >= neededCapacity { return assignedTables }
         }
+        print("Failed to assign tables in order [assignTablesInOrder() from TableAssignmentService]")
         return nil
     }
 

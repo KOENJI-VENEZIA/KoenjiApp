@@ -57,13 +57,13 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
 
         let newInsets = UIEdgeInsets(
                 top: verticalInset + 50,
-                left: horizontalInset,
+                left: 0,
                 bottom: verticalInset,
-                right: horizontalInset
+                right: 0
             )
-        UIView.animate(withDuration: 0.3, delay: 0, options: [.transitionCrossDissolve], animations: {
-               scrollView.contentInset = newInsets
-        })
+        UIView.animate(withDuration: 0.3) {
+            scrollView.contentInset = newInsets
+        }
     }
 
     

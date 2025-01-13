@@ -19,12 +19,14 @@ class ReservationService: ObservableObject {
         self.store = store
         self.tableAssignmentService = tableAssignmentService
 
-        // Load data from disk right away (or you can call this from outside)
-
         self.store.loadFromDisk()
-        self.store.loadClustersFromDisk()// If you store layouts in files
-        self.loadReservationsFromDisk()     // This updates store.reservations
+        self.store.loadClustersFromDisk()
+        self.loadReservationsFromDisk()
         self.store.markTablesInGrid()
+        
+        let today = Calendar.current.startOfDay(for: Date())
+        self.store.cachePreloadedFrom = today
+        self.store.preloadActiveReservationCache(startingFrom: today, forDays: 7)
     }
     
     // MARK: - Placeholder Methods for CRUD Operations
@@ -93,6 +95,7 @@ class ReservationService: ObservableObject {
     
     func clearAllData() {
         store.reservations.removeAll() // Clear in-memory reservations
+        
         saveReservationsToDisk(includeMock: true) // Overwrite stored data
         flushAllCaches() // Clear any cached layouts or data
         print("ReservationService: All data has been cleared.")
@@ -102,7 +105,7 @@ class ReservationService: ObservableObject {
     /// - Parameter date: The date for which to fetch reservations.
     /// - Returns: A list of reservations for the given date.
     func fetchReservations(on date: Date) -> [Reservation] {
-        let targetDateString = DateHelper.formatFullDate(date) // Use centralized helper
+        let targetDateString = DateHelper.formatDate(date) // Use centralized helper
         return store.reservations.filter { $0.dateString == targetDateString }
     }
     
@@ -131,46 +134,79 @@ class ReservationService: ObservableObject {
     ///   - time: The time to check for reservations.
     /// - Returns: The active reservation if found, else nil.
     func findActiveReservation(for table: TableModel, date: Date, time: Date) -> Reservation? {
-        let cacheKey = ReservationStore.ActiveReservationCacheKey(tableID: table.id, date: date, time: time)
+        print("Called findActiveReservation!")
+        let calendar = Calendar.current
 
-        // Fast path: Check if the reservation is cached
+        // Create cache key
+        let cacheKey = ActiveReservationCacheKey(tableID: table.id, date: calendar.startOfDay(for: date), time: time)
+
+        // Check the cache in the store
         if let cachedReservation = store.activeReservationCache[cacheKey] {
-            print("Cache hit for key: \(cacheKey)")
+            print("DEBUG: Cache hit for \(cacheKey). Returning cached reservation.")
             return cachedReservation
         }
 
-        // Fallback: Iterate through active reservations and find matching ones
-        guard let previousDate = Calendar.current.date(byAdding: .day, value: -1, to: date) else {
-            print("Failed to compute previous date.")
+        print("DEBUG: Cache miss for \(cacheKey). Searching store reservations.")
+
+        // Ensure cache is preloaded for the requested date
+        let requestedDate = calendar.startOfDay(for: date)
+        if let cachePreloadedFrom = store.cachePreloadedFrom, requestedDate > cachePreloadedFrom {
+            print("DEBUG: Cache is missing data for date \(requestedDate). Preloading one more day.")
+            store.preloadActiveReservationCache(startingFrom: cachePreloadedFrom.addingTimeInterval(86400), forDays: 1)
+        }
+
+        // Fetch reservations for the specific date
+        let reservationsForDate = fetchReservations(on: date)
+        print("DEBUG: Fetched \(reservationsForDate.count) reservations for date \(date).")
+
+        // Extract hour and minute from the input time
+        
+        guard let inputTimeComponents = DateHelper.extractTime(time: time)
+            else {
+            print("DEBUG: Failed to extract time components")
             return nil
         }
-        let datesToCheck = [date, previousDate]
+        
+        print("DEBUG: Input time components: \(inputTimeComponents)")
+              
+        for reservation in reservationsForDate {
+            print("\nDEBUG: Checking reservation: \(reservation)")
 
-        let activeReservation = store.activeReservations.first(where: { reservation in
-            guard let reservationDate = DateHelper.parseFullDate(reservation.dateString),
-                  datesToCheck.contains(where: { Calendar.current.isDate(reservationDate, equalTo: $0, toGranularity: .day) }) else {
-                return false
+            // Parse startTime and endTime of the reservation
+            guard let startTime = DateHelper.parseTime(reservation.startTime),
+                  let endTime = DateHelper.parseTime(reservation.endTime),
+                  let normalizedStartTime = DateHelper.normalizedTime(time: startTime, date: requestedDate),
+                  let normalizedEndTime = DateHelper.normalizedTime(time: endTime, date: requestedDate),
+                  let normalizedInputTime = DateHelper.normalizedInputTime(time: inputTimeComponents, date: requestedDate) else {
+                print("DEBUG: Failed to parse and normalize startTime, endTime, or input time.")
+                continue
             }
 
-            guard let reservationStart = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime),
-                  let reservationEnd = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.endTime) else {
-                return false
+            print("DEBUG: Normalized startTime: \(normalizedStartTime), endTime: \(normalizedEndTime)")
+            print("DEBUG: Normalized input time: \(normalizedInputTime)")
+
+            // Check if the input time falls within the reservation's time range
+            if normalizedInputTime >= normalizedStartTime && normalizedInputTime < normalizedEndTime {
+                print("DEBUG: Time matches the reservation's time interval.")
+
+                // Check if the table is assigned to this reservation
+                if reservation.tables.contains(where: { $0.id == table.id }) {
+                    print("DEBUG: Table \(table.id) is assigned to this reservation.")
+                    print("DEBUG: Found matching reservation: \(reservation)")
+
+                    // Cache the result in the store's cache
+                    store.activeReservationCache[cacheKey] = reservation
+                    return reservation
+                } else {
+                    print("DEBUG: Table \(table.id) is NOT assigned to this reservation.")
+                }
+            } else {
+                print("DEBUG: Time \(normalizedInputTime) is not within the range \(normalizedStartTime) to \(normalizedEndTime).")
             }
-
-            let adjustedReservationEnd = reservationEnd.addingTimeInterval(-1) // Exclude the end time completely
-            return time >= reservationStart && time < adjustedReservationEnd &&
-                   reservation.tables.contains { $0.id == table.id }
-        })
-
-        // Synchronously cache the result and log
-        if let activeReservation = activeReservation {
-            store.activeReservationCache[cacheKey] = activeReservation
-            print("Cached reservation for key: \(cacheKey)")
-        } else {
-            print("No active reservation found for table ID: \(table.id) on date: \(DateHelper.formatFullDate(date)) at time: \(DateHelper.timeFormatter.string(from: time))")
         }
 
-        return activeReservation
+        print("DEBUG: No matching reservation found.")
+        return nil
     }
     
     /// Retrieves reservations by category.
@@ -360,14 +396,22 @@ extension ReservationService {
                     // Determine category
                     let category: Reservation.ReservationCategory = startHour < 15 ? .lunch : .dinner
                     // Generate reservation
+                    let dateString = DateHelper.formatDate(reservationDate)
+                    let startTimeString = DateHelper.timeFormatter.string(from: startTime)
+
+                    let combinedDate = DateHelper.combineDateAndTimeStrings(
+                        dateString: dateString,
+                        timeString: startTimeString
+                    )
+
                     var reservation = Reservation(
                         id: UUID(),
                         name: names.randomElement()!,
                         phone: phoneNumbers.randomElement()!,
                         numberOfPersons: numberOfPersons,
-                        dateString: DateHelper.formatFullDate(reservationDate),
+                        dateString: dateString,
                         category: category,
-                        startTime: DateHelper.timeFormatter.string(from: startTime),
+                        startTime: startTimeString,
                         endTime: DateHelper.timeFormatter.string(from: endTime),
                         acceptance: .confirmed,
                         status: .pending,
@@ -379,8 +423,7 @@ extension ReservationService {
                         isMock: true
                     )
 
-                    // Ensure layout is initialized
-                    let key = self.store.keyFor(date: reservationDate, category: category)
+                    let key = self.store.keyFor(date: combinedDate, category: category)
                     DispatchQueue.main.sync {
                         if self.store.cachedLayouts[key] == nil {
                             self.store.cachedLayouts[key] = self.store.baseTables

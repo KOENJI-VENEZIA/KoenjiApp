@@ -11,7 +11,7 @@ struct SidebarView: View {
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var gridData: GridData
-    @State private var sidebarColor: Color = Color(hex: "#232850") // Default color
+    @State private var sidebarColor: Color = Color.sidebar_generic // Default color
     @Binding  var selectedReservation: Reservation?
     @Binding  var currentReservation: Reservation?
     @Binding  var selectedCategory: Reservation.ReservationCategory? 
@@ -21,52 +21,71 @@ struct SidebarView: View {
         ZStack {
             sidebarColor
                 .ignoresSafeArea() // Sidebar background
-            List {
-                NavigationLink(destination: ReservationListView()
-                    .environmentObject(store)
-                    .environmentObject(reservationService)
-                    .environmentObject(gridData)) {
-                    Label("Database", systemImage: "list.bullet")
-                }
-                NavigationLink(destination: CalendarView()
-                    .environmentObject(store)
-                    .environmentObject(reservationService)
-                    .environmentObject(gridData)) {
-                    Label("Calendario", systemImage: "calendar")
-                }
-                NavigationLink(destination: LayoutView(
-                    selectedCategory: $selectedCategory,
-                    selectedReservation: $selectedReservation,
-                    currentReservation: $currentReservation,
-                    showInspector: $showInspector,
-                    onSidebarColorChange: { newColor in
-                    sidebarColor = newColor // Update sidebar color
-                })
-                    .environmentObject(store)
-                    .environmentObject(reservationService)
-                    .environmentObject(gridData)) {
-                    Label("Layout Tavoli", systemImage: "rectangle.grid.3x2")
-                }
-            }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden) // Remove default background of the list
-            .background(sidebarColor) // Match the list background to the sidebar color
-            .navigationTitle("Prenotazioni")
-            .padding(.vertical)
-            .foregroundStyle(Color.white)
+            VStack {
+                   
+                    List {
+                        NavigationLink(destination: ReservationListView()
+                            .onAppear {
+                                sidebarColor = Color.sidebar_generic
+                            }
+                            .environmentObject(store)
+                            .environmentObject(reservationService)
+                            .environmentObject(gridData)) {
+                                Label("Database", systemImage: "list.bullet")
+                            }
+                        NavigationLink(destination: CalendarView()
+                            .onAppear {
+                                sidebarColor = Color.sidebar_generic
+                            }
+                            .environmentObject(store)
+                            .environmentObject(reservationService)
+                            .environmentObject(gridData)) {
+                                Label("Calendario", systemImage: "calendar")
+                            }
+                        NavigationLink(destination: LayoutView(
+                            selectedCategory: $selectedCategory,
+                            selectedReservation: $selectedReservation,
+                            currentReservation: $currentReservation,
+                            showInspector: $showInspector,
+                            onSidebarColorChange: { newColor in
+                                sidebarColor = newColor // Update sidebar color
+                            })
+                            .environmentObject(store)
+                            .environmentObject(reservationService)
+                            .environmentObject(gridData)) {
+                                Label("Layout Tavoli", systemImage: "rectangle.grid.3x2")
+                            }
+                    }
+                    .listStyle(.sidebar)
+                    .scrollContentBackground(.hidden) // Remove default background of the list
+                    .background(sidebarColor) // Match the list background to the sidebar color
+                    .navigationTitle("Prenotazioni")
+                    .padding(.vertical)
+                    .toolbarColorScheme(.dark, for: .navigationBar)
             
+                Spacer()
+                
+                Image("logo_image") // Replace "YourImageName" with the actual image asset name
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 200, height: 200) // Adjust size as needed
+                    .frame(maxWidth: .infinity, alignment: .bottomLeading)
+                    .padding(.horizontal)
+                    .drawingGroup() // Ensures antialiasing and higher-quality rendering
+                
+            }
+            .ignoresSafeArea(.keyboard)
+
         }
     }
-    
-
 }
 
 extension Reservation.ReservationCategory {
     var sidebarColor: Color {
         switch self {
-        case .lunch: return Color(hex: "#B89301")
-        case .dinner: return Color(hex: "#232850")
-        case .noBookingZone: return Color(hex: "#4B4D5D")
+        case .lunch: return Color.sidebar_lunch
+        case .dinner: return Color.sidebar_dinner
+        case .noBookingZone: return Color.sidebar_generic
         }
     }
 }

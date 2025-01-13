@@ -48,7 +48,6 @@ struct EndTimeSelectionView: View {
                     .foregroundColor(.red)
                     .font(.caption)
                     .multilineTextAlignment(.center)
-                    .padding()
             }
         }
         .padding()

@@ -48,6 +48,7 @@ struct LayoutPageView: View {
     // Zoom and pan state
     @Binding var scale: CGFloat
     @Binding var offset: CGSize
+    var adjustedWidth: CGFloat
 
     var clusters: [CachedCluster]
     
@@ -57,8 +58,12 @@ struct LayoutPageView: View {
     @State private var navigationBarHeight: CGFloat = 0
     
     @State private var resetInProgress: Bool = false
-
+    @State private var cachedActiveReservations: [Reservation] = []
+    @State private var lastFetchedDate: Date? = nil
+    @State private var lastFetchedTime: Date? = nil
     
+    @State private var pendingClusterUpdate: DispatchWorkItem?
+
     
     // Initialize LayoutUIManager with date and category
     init(selectedDate: Date,
@@ -76,7 +81,8 @@ struct LayoutPageView: View {
          isLayoutReset: Binding<Bool>,
          scale: Binding<CGFloat>,
          offset: Binding<CGSize>,
-         clusters: [CachedCluster])
+         clusters: [CachedCluster],
+         adjustedWidth: CGFloat)
        
 
     {
@@ -97,6 +103,7 @@ struct LayoutPageView: View {
         self._scale = scale
         self._offset = offset
         self.clusters = clusters
+        self.adjustedWidth = adjustedWidth
 
         
         // Initialize LayoutUIManager with date and category
@@ -118,17 +125,14 @@ struct LayoutPageView: View {
                 return false
             }()
             
-            let activeReservations: [Reservation] = Array(Set(
-                layoutUI.tables.compactMap { table in
-                    reservationService.findActiveReservation(for: table, date: selectedDate, time: currentTime)
-                }
-            ))
+            let activeReservations = fetchActiveReservationsIfNeeded() // Fetch once for the entire loop
+
             
             
             LazyView(
                     ZoomableScrollView(availableSize: CGSize(
-                        width: viewportWidth,
-                        height: viewportHeight
+                        width: adjustedWidth,
+                        height: viewportHeight + navigationBarHeight
                     ), category: .constant(selectedCategory), scale: $scale) {
                         
                         VStack {
@@ -140,143 +144,151 @@ struct LayoutPageView: View {
                                 .padding(.horizontal, 16)
                         }
                         
-                        
-                        ZStack {
-                            // Background color and grid
-                            Color(hex: (selectedCategory == .lunch ? "#D4C58A" : "#C8CBEA"))
-                            Rectangle()
-                                .frame(width: gridWidth, height: gridHeight)
-                                .background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
-                            Rectangle()
-                                .stroke(style: StrokeStyle(lineWidth: 2, dash: [5]))
-                                .frame(width: gridWidth, height: gridHeight)
-                                .background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
-                            gridData.gridBackground(selectedCategory: selectedCategory)
-                                .frame(width: gridWidth, height: gridHeight)
-                                .background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
+                        HStack {
+                            Spacer()
                             
-                            if isLoading {
-                                ForEach(store.baseTables, id: \.id) { table in
-                                    let tableWidth = CGFloat(table.width) * layoutUI.cellSize
-                                    let tableHeight = CGFloat(table.height) * layoutUI.cellSize
-                                    let xPos = CGFloat(table.column) * layoutUI.cellSize + tableWidth / 2
-                                    let yPos = CGFloat(table.row) * layoutUI.cellSize + tableHeight / 2
-                                    
-                                    RoundedRectangle(cornerRadius: 8.0)
-                                        .fill(Color.gray.opacity(0.3)) // Placeholder color
-                                        .frame(width: tableWidth, height: tableHeight)
-                                        .position(x: xPos, y: yPos)
-                                    RoundedRectangle(cornerRadius: 8.0)
-                                        .stroke(Color.gray.opacity(0.7), lineWidth: 3) // Placeholder color
-                                        .frame(width: tableWidth, height: tableHeight)
-                                        .position(x: xPos, y: yPos)
-                                    
-                                }
+                            ZStack {
+                                // Background color and grid
+                                Color(hex: (selectedCategory == .lunch ? "#D4C58A" : "#C8CBEA"))
+                                Rectangle()
+                                    .frame(width: gridWidth, height: gridHeight)
+                                    .background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
+                                Rectangle()
+                                    .stroke(style: StrokeStyle(lineWidth: 2, dash: [5]))
+                                    .frame(width: gridWidth, height: gridHeight)
+                                    .background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
+                                gridData.gridBackground(selectedCategory: selectedCategory)
+                                    .frame(width: gridWidth, height: gridHeight)
+                                    .background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
                                 
-                                Text("Caricamento...")
-                                    .foregroundColor(Color.gray.opacity(0.8))
-                                    .font(.headline)
-                                    .padding(20)
-                                    .background(Color.white.opacity(0.3))
-                                    .cornerRadius(8)
-                                    .frame(width: gridWidth / 2, height: gridHeight / 2)
-                                    .position(x: gridWidth / 2, y: gridHeight / 2 - layoutUI.cellSize)
-                                    .animation(.easeInOut(duration: 0.3), value: 3)
-                                
-                            } else {
-                                // Individual tables
-                                ForEach(layoutUI.tables, id: \.id) { table in
-                                    TableView(
-                                        table: table,
-                                        selectedDate: selectedDate,
-                                        selectedCategory: selectedCategory,
-                                        currentTime: currentTime,
-                                        layoutUI: layoutUI,
-                                        showingNoBookingAlert: $showingNoBookingAlert,
-                                        onTapEmpty: { handleEmptyTableTap(for: table) },
-                                        showInspector: $showInspector,
-                                        onEditReservation: { reservation in
-                                            selectedReservation = reservation
-                                        },
-                                        isLayoutLocked: isLayoutLocked,
-                                        isLayoutReset: $isLayoutReset,
-                                        animationNamespace: animationNamespace,
-                                        onTableUpdated: { updatedTable in
-                                            self.updateAdjacencyCountsForLayout(updatedTable)
-                                            layoutUI.clusters = self.calculateClusters(for: activeReservations)
-                                            store.saveClusters(layoutUI.clusters, for: selectedDate, category: selectedCategory)
-                                        }
-                                    )
-                                    .environmentObject(store)
-                                    .environmentObject(reservationService)
-                                    .environmentObject(gridData)
-                                    .animation(.spring(duration: 0.3, bounce: 0.0), value: viewportWidth)
+                                if isLoading {
+                                    ForEach(store.baseTables, id: \.id) { table in
+                                        let tableWidth = CGFloat(table.width) * layoutUI.cellSize
+                                        let tableHeight = CGFloat(table.height) * layoutUI.cellSize
+                                        let xPos = CGFloat(table.column) * layoutUI.cellSize + tableWidth / 2
+                                        let yPos = CGFloat(table.row) * layoutUI.cellSize + tableHeight / 2
+                                        
+                                        RoundedRectangle(cornerRadius: 8.0)
+                                            .fill(Color.gray.opacity(0.3)) // Placeholder color
+                                            .frame(width: tableWidth, height: tableHeight)
+                                            .position(x: xPos, y: yPos)
+                                        RoundedRectangle(cornerRadius: 8.0)
+                                            .stroke(Color.gray.opacity(0.7), lineWidth: 3) // Placeholder color
+                                            .frame(width: tableWidth, height: tableHeight)
+                                            .position(x: xPos, y: yPos)
+                                        
+                                    }
                                     
+                                    Text("Caricamento...")
+                                        .foregroundColor(Color.gray.opacity(0.8))
+                                        .font(.headline)
+                                        .padding(20)
+                                        .background(Color.white.opacity(0.3))
+                                        .cornerRadius(8)
+                                        .frame(width: gridWidth / 2, height: gridHeight / 2)
+                                        .position(x: gridWidth / 2, y: gridHeight / 2 - layoutUI.cellSize)
+                                        .animation(.spring(duration: 0.3), value: 3)
                                     
-                                    
-                                    
-                                    if layoutUI.clusters.isEmpty && !isLoadingClusters {
-                                    } else if isLoadingClusters {
-                                        ProgressView("Loading Clusters...")
-                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    } else {
-                                        // Reservation clusters overlay
-                                        ForEach(layoutUI.clusters) { cluster in
-                                            let overlayFrame = cluster.frame
-                                            
-                                            ZStack {
-                                                RoundedRectangle(cornerRadius: 8.0)
-                                                    .fill(isLunch ? Color.active_table_lunch : Color.active_table_dinner)
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 8.0)
-                                                            .stroke(isLayoutLocked ? (isLunch ? Color.layout_locked_lunch : Color.layout_locked_dinner) : (isLunch ? Color.layout_unlocked_lunch : Color.layout_unlocked_dinner), lineWidth: isLayoutLocked ? 3 : 2))
-                                                    .frame(width: overlayFrame.width, height: overlayFrame.height)
-                                                    .position(x: overlayFrame.midX, y: overlayFrame.midY)
-                                                    .zIndex(1)
-                                                    .allowsHitTesting(false) // Ignore touch input
-                                                // Reservation label (centered on the cluster)
-                                                if cluster.tableIDs.first != nil {
-                                                    let overlayFrame = cluster.frame
-                                                    VStack(spacing: 4) {
-                                                        Text(cluster.reservationID.name)
-                                                            .bold()
-                                                            .font(.headline)
-                                                            .foregroundColor(.white)
-                                                        Text("\(cluster.reservationID.numberOfPersons) pers.")
-                                                            .font(.footnote)
-                                                            .opacity(0.8)
-                                                        Text(cluster.reservationID.phone)
-                                                            .font(.footnote)
-                                                            .opacity(0.8)
-                                                        if let remaining = TimeHelpers.remainingTimeString(endTime: cluster.reservationID.endTime, currentTime: currentTime) {
-                                                            Text("Rimasto: \(remaining)")
-                                                                .foregroundColor(Color(hex: "#B4231F"))
-                                                                .font(.footnote)
-                                                        }
-                                                        if let duration = TimeHelpers.availableTimeString(endTime: cluster.reservationID.endTime, startTime: cluster.reservationID.startTime) {
-                                                            Text("\(duration)")
-                                                                .foregroundColor(Color(hex: "#B4231F"))
-                                                                .font(.footnote)
-                                                        }
-                                                    }
-                                                    .position(x: overlayFrame.midX, y: overlayFrame.midY)
-                                                    .zIndex(2)
-                                                }
-                                                
+                                } else {
+                                    // Individual tables
+                                    ForEach(layoutUI.tables, id: \.id) { table in
+                                        TableView(
+                                            table: table,
+                                            selectedDate: selectedDate,
+                                            selectedCategory: selectedCategory,
+                                            currentTime: currentTime,
+                                            activeReservations: activeReservations,
+                                            layoutUI: layoutUI,
+                                            showingNoBookingAlert: $showingNoBookingAlert,
+                                            onTapEmpty: { handleEmptyTableTap(for: table) },
+                                            showInspector: $showInspector,
+                                            onEditReservation: { reservation in
+                                                selectedReservation = reservation
+                                            },
+                                            isLayoutLocked: isLayoutLocked,
+                                            isLayoutReset: $isLayoutReset,
+                                            animationNamespace: animationNamespace,
+                                            onTableUpdated: { updatedTable in
+                                                self.updateAdjacencyCountsForLayout(updatedTable)
+                                                layoutUI.clusters = self.calculateClusters(for: activeReservations)
+                                                let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+                                                store.saveClusters(layoutUI.clusters, for: combinedDate, category: selectedCategory)
+                                                layoutUI.saveLayout()
+                                                store.saveTables(layoutUI.tables, for: combinedDate, category: selectedCategory)
                                             }
-                                            .allowsHitTesting(false)
+                                        )
+                                        .environmentObject(store)
+                                        .environmentObject(reservationService)
+                                        .environmentObject(gridData)
+                                        .animation(.spring(duration: 0.3), value: adjustedWidth)
+                                        
+                                        
+                                        
+                                        
+                                        if layoutUI.clusters.isEmpty && !isLoadingClusters {
+                                        } else if isLoadingClusters {
+                                            ProgressView("Loading Clusters...")
+                                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        } else {
+                                            // Reservation clusters overlay
+                                            ForEach(layoutUI.clusters) { cluster in
+                                                let overlayFrame = cluster.frame
+                                                
+                                                ZStack {
+                                                    RoundedRectangle(cornerRadius: 8.0)
+                                                        .fill(isLunch ? Color.active_table_lunch : Color.active_table_dinner)
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 8.0)
+                                                                .stroke(isLayoutLocked ? (isLunch ? Color.layout_locked_lunch : Color.layout_locked_dinner) : (isLunch ? Color.layout_unlocked_lunch : Color.layout_unlocked_dinner), lineWidth: isLayoutLocked ? 3 : 2))
+                                                        .frame(width: overlayFrame.width, height: overlayFrame.height)
+                                                        .position(x: overlayFrame.midX, y: overlayFrame.midY)
+                                                        .zIndex(1)
+                                                        .allowsHitTesting(false) // Ignore touch input
+                                                    // Reservation label (centered on the cluster)
+                                                    if cluster.tableIDs.first != nil {
+                                                        let overlayFrame = cluster.frame
+                                                        VStack(spacing: 4) {
+                                                            Text(cluster.reservationID.name)
+                                                                .bold()
+                                                                .font(.headline)
+                                                                .foregroundColor(.white)
+                                                            Text("\(cluster.reservationID.numberOfPersons) pers.")
+                                                                .font(.footnote)
+                                                                .opacity(0.8)
+                                                            Text(cluster.reservationID.phone)
+                                                                .font(.footnote)
+                                                                .opacity(0.8)
+                                                            if let remaining = TimeHelpers.remainingTimeString(endTime: cluster.reservationID.endTime, currentTime: currentTime) {
+                                                                Text("Rimasto: \(remaining)")
+                                                                    .foregroundColor(Color(hex: "#B4231F"))
+                                                                    .font(.footnote)
+                                                            }
+                                                            if let duration = TimeHelpers.availableTimeString(endTime: cluster.reservationID.endTime, startTime: cluster.reservationID.startTime) {
+                                                                Text("\(duration)")
+                                                                    .foregroundColor(Color(hex: "#B4231F"))
+                                                                    .font(.footnote)
+                                                            }
+                                                        }
+                                                        .position(x: overlayFrame.midX, y: overlayFrame.midY)
+                                                        .zIndex(2)
+                                                    }
+                                                    
+                                                }
+                                                .allowsHitTesting(false)
+                                            }
                                         }
                                     }
                                 }
                             }
+                            .drawingGroup()
+                            .frame(width: gridWidth, height: gridHeight)
+                            .compositingGroup()
+                            .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
+                            
+                        Spacer()
+                            
                         }
-                        .drawingGroup()
-                        .frame(width: gridWidth, height: gridHeight)
-                        .compositingGroup()
-                        .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
-
                     }
-                    .ignoresSafeArea(.all, edges: .top)
                     .frame(width: viewportWidth, height: viewportHeight)
                     
                     .onAppear {
@@ -285,11 +297,16 @@ struct LayoutPageView: View {
                         Task {
                             DispatchQueue.main.async {
                                 loadCurrentLayout()
-                                recalculateClustersAsync()
+                                let activeReservations = fetchActiveReservationsIfNeeded()
+                                debounceClusterUpdate(for: activeReservations)
                                 isLoadingClusters = false
                                 isLoading = false
                             }
                         }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    scale = 1.0 // Reset scale to ensure re-centering
+                                    offset = .zero // Reset offset for correct alignment
+                                }
                     }
                         .onChange(of: isLayoutReset) { old, reset in
                             if reset {
@@ -302,27 +319,43 @@ struct LayoutPageView: View {
                                 }
                             }
                         }
-                    .onChange(of: selectedCategory) { newCategory in
+                    .onChange(of: selectedCategory) { old, newCategory in
                         // Load tables for the new category and date
-                        layoutUI.tables = store.loadTables(for: selectedDate, category: newCategory)
-                        recalculateClustersAsync()
+                        let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+                        layoutUI.tables = store.loadTables(for: combinedDate, category: newCategory)
+                        let activeReservations = fetchActiveReservationsIfNeeded()
+                                debounceClusterUpdate(for: activeReservations)
 
                     }
-                    .onChange(of: selectedDate) { newDate in
-                        layoutUI.tables = store.loadTables(for: newDate, category: selectedCategory)
-                        recalculateClustersAsync()
+                    .onChange(of: selectedDate) { old, newDate in
+                        let combinedDate = DateHelper.combine(date: newDate, time: currentTime)
+
+                        layoutUI.tables = store.loadTables(for: combinedDate, category: selectedCategory)
+                        let activeReservations = fetchActiveReservationsIfNeeded()
+                                debounceClusterUpdate(for: activeReservations)
 
 
 
                     }
-                    .onChange(of: currentTime) { newTime in
-                        layoutUI.clusters = self.calculateClusters(for: activeReservations)
-                        store.saveClusters(layoutUI.clusters, for: selectedDate, category: selectedCategory)
-
-                    }
-
-                    .onReceive(store.$activeReservations) { _ in
-                        recalculateClustersAsync()
+                    .onChange(of: currentTime) { old, newTime in
+                        let combinedDate = DateHelper.combine(date: selectedDate, time: newTime)
+                        
+                        // 1) Get active reservations
+                        let activeReservations = fetchActiveReservationsIfNeeded()
+                        
+                        // 2) If we have a cached cluster for (selectedDate, newTime, selectedCategory) and
+                        //    the table layout hasn't changed, skip recalculation.
+                        let cacheKey = store.keyFor(date: combinedDate, category: selectedCategory)
+                        let cachedClusters = store.loadClusters(for: combinedDate, category: selectedCategory)
+                        
+                        // 3) If we already have clusters for this minute in the store, just use them:
+                        if !cachedClusters.isEmpty {
+                            layoutUI.clusters = cachedClusters
+                            print("Using cached clusters for \(cacheKey), skipping recalculation.")
+                        } else {
+                            print("No cached clusters found for \(cacheKey), recalculating...")
+                            debounceClusterUpdate(for: activeReservations)
+                        }
 
                     }
                     .alert(isPresented: $layoutUI.showAlert) {
@@ -332,8 +365,17 @@ struct LayoutPageView: View {
                             dismissButton: .default(Text("OK"))
                         )
                     }
-                        .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
+                    .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
             )
+            .onAppear {
+                        // Measure navigation bar height
+                        DispatchQueue.main.async {
+                            if navigationBarHeight == 0 {
+                                navigationBarHeight = parentGeometry.safeAreaInsets.top + 44 // Approximate height
+                            }
+                        }
+                    }
+            
         }
         .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)    }
     
@@ -361,10 +403,7 @@ struct LayoutPageView: View {
     
     private func updateAdjacencyCountsForLayout(_ updatedTable: TableModel) {
         
-        guard let combinedDateTime = DateHelper.combine(date: selectedDate, time: currentTime) else {
-            print("Failed to combine date and time.")
-            return
-        }
+        let combinedDateTime = DateHelper.combine(date: selectedDate, time: currentTime) 
         
         // Identify tables with adjacentCount > 0 before the move
         let previousAdjacentTables = layoutUI.tables.filter { $0.adjacentCount > 0 }.map { $0.id }
@@ -397,7 +436,7 @@ struct LayoutPageView: View {
         }
         
         // Update cached layout and save
-        let layoutKey = store.keyFor(date: selectedDate, category: selectedCategory)
+        let layoutKey = store.keyFor(date: combinedDateTime, category: selectedCategory)
         store.cachedLayouts[layoutKey] = layoutUI.tables
         store.saveToDisk()
     }
@@ -405,20 +444,24 @@ struct LayoutPageView: View {
 
     
     private func loadCurrentLayout() {
+        let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+        
+        
         if !layoutUI.isConfigured {
             layoutUI.configure(store: store, reservationService: reservationService)
-            layoutUI.tables = store.loadTables(for: selectedDate, category: selectedCategory)
+            
+            layoutUI.tables = store.loadTables(for: combinedDate, category: selectedCategory)
         }
         
-        layoutUI.clusters = store.loadClusters(for: selectedDate, category: selectedCategory)
-        recalculateClusters()
+        layoutUI.clusters = store.loadClusters(for: combinedDate, category: selectedCategory)
+        
         
     }
     private func resetCurrentLayout() {
         print("Resetting layout... [resetCurrentLayout()]")
         resetInProgress = true
-
-        let key = store.keyFor(date: selectedDate, category: selectedCategory)
+        let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+        let key = store.keyFor(date: combinedDate, category: selectedCategory)
         
         if let baseTables = store.cachedLayouts[key] {
             layoutUI.tables = baseTables
@@ -427,7 +470,7 @@ struct LayoutPageView: View {
         }
         
         layoutUI.clusters = []
-        store.saveClusters([], for: selectedDate, category: selectedCategory)
+        store.saveClusters([], for: combinedDate, category: selectedCategory)
         store.cachedLayouts[key] = nil
         
         // Ensure flag is cleared after reset completes
@@ -436,59 +479,129 @@ struct LayoutPageView: View {
         }
     }
     
+    /// Return all clusters for a single Reservation.
+    private func clusters(for reservation: Reservation) -> [CachedCluster] {
+        print("Called clusters()")
+        // Step 1: Gather all tables that belong to `reservation`.
+        // (table.id is in reservation.tables)
+        let reservationTableIDs = Set(reservation.tables.map { $0.id })
+        let relevantTables = layoutUI.tables.filter { reservationTableIDs.contains($0.id) }
 
-    private func calculateClusters(for activeReservations: [Reservation]) -> [CachedCluster] {
-        print("Calculating clusters.... [calculatingClusters() in LayoutPageView]")
-        var visitedTables = Set<Int>() // Track visited table IDs
-        var clusters: [CachedCluster] = [] // Store resulting clusters
+        // If it's only 1 table, decide if you want to show a cluster or skip.
+        guard relevantTables.count >= 2 else {
+            return []
+        }
 
-        for table in layoutUI.tables {
-            // Skip already visited tables or those without an active reservation
-            
+        // Step 2: Find connected components in `relevantTables`,
+        // where "connected" means physically adjacent under your rules.
+        let connectedComponents = findConnectedComponents(tables: relevantTables)
 
-            print("Fetching clusters.... [calculatingClusters() in LayoutPageView]")
+        // Step 3: Convert each connected component into a `CachedCluster`.
+        // (One reservation can have multiple separate sub-clusters if tables are not physically adjacent to each other.)
+        let clusters = connectedComponents.map { component -> CachedCluster in
+            // Example: The date here uses reservation.date or your selectedDate
+            CachedCluster(
+                id: UUID(),
+                reservationID: reservation,
+                tableIDs: component.map { $0.id },
+                date: reservation.date ?? Date(),
+                category: reservation.category,
+                frame: calculateClusterFrame(component)
+            )
+        }
+        
+        print("Retrieved clusters: \(clusters)")
+        return clusters
+    }
 
-            // Fetch the cluster for this table
-            let cluster = getCluster(for: table, activeReservations: activeReservations)
+    /// BFS (or Union-Find) to find connected subsets among the given tables.
+    private func findConnectedComponents(tables: [TableModel]) -> [[TableModel]] {
+        var visited = Set<Int>()
+        var result = [[TableModel]]()
 
-            // Add clusters to the list
-            clusters.append(contentsOf: cluster)
+        for table in tables {
+            if visited.contains(table.id) {
+                continue
+            }
+            // BFS
+            var queue = [table]
+            var component = [TableModel]()
 
-            // Mark all tables in the cluster as visited
-            cluster.forEach { cachedCluster in
-                visitedTables.formUnion(cachedCluster.tableIDs)
+            while !queue.isEmpty {
+                let current = queue.removeFirst()
+                if visited.contains(current.id) {
+                    continue
+                }
+                visited.insert(current.id)
+                component.append(current)
+
+                let neighbors = tables.filter { neighbor in
+                    neighbor.id != current.id &&
+                    !visited.contains(neighbor.id) &&
+                    areTablesPhysicallyAdjacent(table1: current, table2: neighbor)
+                }
+                queue.append(contentsOf: neighbors)
+            }
+
+            // **Add this line**:
+            if component.count >= 2 {
+                result.append(component)
             }
         }
 
-        return clusters
+        return result
+    }
+
+    private func calculateClusters(for activeReservations: [Reservation]) -> [CachedCluster] {
+        print("Calculating clusters...")
+        var allClusters: [CachedCluster] = []
+
+        // Filter out reservations that ended or haven't started
+        let validReservations = activeReservations.filter { reservation in
+            print("\nDEBUG: Checking reservation: \(reservation)")
+
+            // Parse startTime and endTime of the reservation
+            guard let startTime = DateHelper.parseTime(reservation.startTime),
+                  let endTime = DateHelper.parseTime(reservation.endTime),
+                  let normalizedStartTime = DateHelper.normalizedTime(time: startTime, date: selectedDate),
+                  let normalizedEndTime = DateHelper.normalizedTime(time: endTime, date: selectedDate)
+                else {
+                print("DEBUG: Failed to parse and normalize startTime, endTime, or input time.")
+                return false
+            }
+            
+            return currentTime >= normalizedStartTime && currentTime < normalizedEndTime
+        }
+
+        for reservation in validReservations {
+            // For each reservation, gather the clusters
+            let resClusters = clusters(for: reservation)
+            allClusters.append(contentsOf: resClusters)
+        }
+
+        return allClusters
     }
     
-    private func recalculateClusters() {
+    private func recalculateClusters(for activeReservations: [Reservation]) {
         print("Recalculating clusters... [recalculateClusters() in LayoutPageView]")
         
-        let cacheKey = store.keyFor(date: selectedDate, category: selectedCategory)
+        let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+        let cacheKey = store.keyFor(date: combinedDate, category: selectedCategory)
         
         // Check if clusters are already cached
-        let cachedClusters = store.loadClusters(for: selectedDate, category: selectedCategory)
+        let cachedClusters = store.loadClusters(for: combinedDate, category: selectedCategory)
         if !cachedClusters.isEmpty {
             print("Using cached clusters for key: \(cacheKey)")
             layoutUI.clusters = cachedClusters
             return
         }
-
-        // If not cached, calculate clusters
-        let activeReservations: [Reservation] = Array(Set(
-            layoutUI.tables.compactMap { table in
-                reservationService.findActiveReservation(for: table, date: selectedDate, time: currentTime)
-            }
-        ))
         
         // Calculate and cache clusters
         let newClusters = calculateClusters(for: activeReservations)
         layoutUI.clusters = newClusters
         
         // Save clusters in the LRU cache
-        store.saveClusters(newClusters, for: selectedDate, category: selectedCategory)
+        store.saveClusters(newClusters, for: combinedDate, category: selectedCategory)
     }
 
     private func calculateClusterFrame(_ tables: [TableModel]) -> CGRect {
@@ -515,76 +628,7 @@ struct LayoutPageView: View {
         return CGRect(x: originX, y: originY, width: width, height: height)
     }
     
-    private func getCluster(for table: TableModel, activeReservations: [Reservation]) -> [CachedCluster] {
-        print("Getting cluster... [getCluster() in LayoutPageView]")
-
-        var clusterTables: [TableModel] = [] // Tables in the cluster
-        var visited = Set<Int>()            // Track visited table IDs
-        var toVisit = [table]               // Stack for tables to process
-
-        // Filter active reservations to exclude ones that have already ended
-        let validReservations = activeReservations.filter { reservation in
-            guard let reservationStart = reservation.startDate,
-                  let reservationEnd = reservation.endDate else { return false }
-
-            // Adjust end time to exclude overlap at the exact end time
-            return currentTime >= reservationStart && currentTime < reservationEnd.addingTimeInterval(-1)
-        }
-
-        while let current = toVisit.popLast() {
-            guard !visited.contains(current.id) else { continue }
-            print("Inserting table in visited... [getCluster() in LayoutPageView]")
-            visited.insert(current.id)
-
-            // Check all valid active reservations for the current table
-            for activeReservation in validReservations {
-                // Ensure the reservation is associated with at least two tables
-                guard activeReservation.tables.count >= 2 else { continue }
-
-                // Check if the current table satisfies the conditions
-                if current.adjacentCount > 0 &&
-                   current.activeReservationAdjacentCount > 0 &&
-                   activeReservation.tables.contains(where: { $0.id == current.id }) {
-                    print("Inserting table in cluster... [getCluster() in LayoutPageView]")
-                    clusterTables.append(current)
-                }
-
-                // Find physically adjacent tables that satisfy all conditions
-                let physicallyAdjacentTables = layoutUI.tables.filter { neighbor in
-                    neighbor.id != current.id &&
-                    neighbor.adjacentCount > 0 &&
-                    neighbor.activeReservationAdjacentCount > 0 &&
-                    activeReservation.tables.contains(where: { $0.id == neighbor.id }) &&
-                    !visited.contains(neighbor.id) &&
-                    areTablesPhysicallyAdjacent(table1: current, table2: neighbor)
-                }
-
-                print("Finding next table to visit... [getCluster() in LayoutPageView]")
-                toVisit.append(contentsOf: physicallyAdjacentTables)
-            }
-        }
-
-        // Create a cluster for each valid active reservation with valid cluster tables
-        let clusters = validReservations.compactMap { activeReservation -> CachedCluster? in
-            let clusterTablesForReservation = clusterTables.filter { table in
-                activeReservation.tables.contains(where: { $0.id == table.id })
-            }
-
-            // Ensure the cluster is valid
-            guard clusterTablesForReservation.count >= 2 else { return nil }
-
-            return CachedCluster(
-                id: UUID(),
-                reservationID: activeReservation,
-                tableIDs: clusterTablesForReservation.map { $0.id },
-                date: activeReservation.date ?? Date(),
-                category: activeReservation.category,
-                frame: calculateClusterFrame(clusterTablesForReservation)
-            )
-        }
-
-        return clusters
-    }
+   
     
     private func areTablesPhysicallyAdjacent(table1: TableModel, table2: TableModel) -> Bool {
         let rowDifference = abs(table1.row - table2.row)
@@ -602,7 +646,7 @@ struct LayoutPageView: View {
 // MARK: - Cluster Management
 extension LayoutPageView {
     /// Asynchronously recalculates clusters for the current layout.
-    private func recalculateClustersAsync() {
+    private func recalculateClustersAsync(for activeReservations: [Reservation]) {
         guard !resetInProgress else {
             print("Recalculation skipped: reset in progress.")
             return
@@ -611,10 +655,11 @@ extension LayoutPageView {
         Task {
             print("Recalculating clusters asynchronously... [recalculateClustersAsync()]")
 
-            let cacheKey = store.keyFor(date: selectedDate, category: selectedCategory)
-            
+            let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+            let cacheKey = store.keyFor(date: combinedDate, category: selectedCategory)
+
             // Load cached clusters if available
-            let cachedClusters = store.loadClusters(for: selectedDate, category: selectedCategory)
+            let cachedClusters = store.loadClusters(for: combinedDate, category: selectedCategory)
             if !cachedClusters.isEmpty {
                 print("Using cached clusters for key: \(cacheKey)")
                 await MainActor.run {
@@ -624,38 +669,101 @@ extension LayoutPageView {
             }
 
             // Calculate clusters if not cached
-            let activeReservations: [Reservation] = Array(Set(
-                layoutUI.tables.compactMap { table in
-                    reservationService.findActiveReservation(for: table, date: selectedDate, time: currentTime)
-                }
-            ))
-
             let newClusters = calculateClusters(for: activeReservations)
             await MainActor.run {
                 layoutUI.clusters = newClusters
             }
 
             // Save calculated clusters to cache
-            store.saveClusters(newClusters, for: selectedDate, category: selectedCategory)
+            store.saveClusters(newClusters, for: combinedDate, category: selectedCategory)
         }
+    }
+    
+    private func recalculateClustersIfNeeded(for activeReservations: [Reservation]) {
+        print("Recalculating clusters... [recalculateClustersIfNeeded()]")
+        
+        let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+        let cacheKey = store.keyFor(date: combinedDate, category: selectedCategory)
+        
+        // Check if clusters are already cached
+        let cachedClusters = store.loadClusters(for: combinedDate, category: selectedCategory)
+        print("Using cached clusters for key: \(cacheKey)")
+        layoutUI.clusters = cachedClusters
+
+        
+        // Calculate and cache clusters
+        Task {
+            let newClusters = calculateClusters(for: activeReservations)
+            await MainActor.run {
+                layoutUI.clusters = newClusters
+            }
+            store.saveClusters(newClusters, for: combinedDate, category: selectedCategory)
+        }
+    }
+    
+    private func debounceClusterUpdate(for activeReservations: [Reservation]) {
+        pendingClusterUpdate?.cancel()
+        pendingClusterUpdate = DispatchWorkItem {
+            recalculateClustersIfNeeded(for: activeReservations)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: pendingClusterUpdate!)
     }
 
     /// Forces an update to the cluster cache.
-    private func forceUpdateClusterCache() {
+    private func forceUpdateClusterCache(for activeReservations: [Reservation]) {
         Task {
             print("Force updating cluster cache... [forceUpdateClusterCache()]")
-            let activeReservations: [Reservation] = Array(Set(
-                layoutUI.tables.compactMap { table in
-                    reservationService.findActiveReservation(for: table, date: selectedDate, time: currentTime)
-                }
-            ))
+            
+            let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
 
             let newClusters = calculateClusters(for: activeReservations)
             await MainActor.run {
                 layoutUI.clusters = newClusters
             }
 
-            store.saveClusters(newClusters, for: selectedDate, category: selectedCategory)
+            store.saveClusters(newClusters, for: combinedDate, category: selectedCategory)
         }
+    }
+    
+    private func fetchActiveReservationsIfNeeded() -> [Reservation] {
+        // Check if the fetch is redundant
+        if let lastDate = lastFetchedDate,
+           let lastTime = lastFetchedTime,
+           Calendar.current.isDate(selectedDate, inSameDayAs: lastDate),
+           abs(currentTime.timeIntervalSince(lastTime)) < 60 {
+            return cachedActiveReservations
+        }
+        
+        print("Called fetchActiveReservations!")
+        
+        // Use a set to avoid duplicates
+        var uniqueReservations = Set<Reservation>()
+        
+        let calendar = Calendar.current
+        let preloadDate = calendar.startOfDay(for: selectedDate)
+        
+        for (key, reservation) in store.activeReservationCache {
+            guard key.date == preloadDate,
+                  key.time >= currentTime,
+                  key.time < currentTime.addingTimeInterval(3600)
+            else {
+                continue
+            }
+            
+            uniqueReservations.insert(reservation)
+        }
+        
+        let activeReservations = Array(uniqueReservations)
+        
+        print("DEBUG: Found \(activeReservations.count) unique active reservations.")
+        
+        // Cache them for next call
+        DispatchQueue.main.async {
+            cachedActiveReservations = activeReservations
+            lastFetchedDate = selectedDate
+            lastFetchedTime = currentTime
+        }
+        
+        return activeReservations
     }
 }

@@ -48,25 +48,11 @@ class ReservationStore: ObservableObject {
     var lastSavedKey: String? = nil
     var isUpdatingLayout: Bool = false
 
-    struct ActiveReservationCacheKey: Hashable, Codable {
-        let tableID: Int
-        let date: Date
-        let time: Date
-
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(tableID)
-            hasher.combine(date)
-            hasher.combine(time)
-        }
-
-        static func == (lhs: ActiveReservationCacheKey, rhs: ActiveReservationCacheKey) -> Bool {
-            return lhs.tableID == rhs.tableID &&
-                   lhs.date == rhs.date &&
-                   lhs.time == rhs.time
-        }
-    }
+    
     
     var activeReservationCache: [ActiveReservationCacheKey: Reservation] = [:]
+    var cachePreloadedFrom: Date?
+
     
     struct ClusterCacheEntry {
             var clusters: [CachedCluster]
@@ -101,60 +87,88 @@ class ReservationStore: ObservableObject {
     
     /// Generates a unique key based on date and category.
     func keyFor(date: Date, category: Reservation.ReservationCategory) -> String {
-        let normalizedDate = Calendar.current.startOfDay(for: date) // Normalize date
-        let dateString = DateHelper.formatDate(normalizedDate)
-        print("Generated layout key: \(dateString)-\(category.rawValue) for date: \(date) and category: \(category.rawValue)")
-        return "\(dateString)-\(category.rawValue)"
+        let formattedDateTime = DateHelper.formatDate(date) // Ensure the date includes both date and time
+        return "\(formattedDateTime)-\(category.rawValue)"
     }
     
     /// Loads tables for a specific date and category.
     func loadTables(for date: Date, category: Reservation.ReservationCategory) -> [TableModel] {
-        let key = keyFor(date: date, category: category)
-        if let tables = cachedLayouts[key] {
-            self.tables = tables // Update the state
-            print("Loaded tables for key: \(key)")
-            loadFromDisk()
-            loadClustersFromDisk()
-            preloadActiveReservationCache(for: date)
+        let fullKey = keyFor(date: date, category: category)
+        print("Loading tables for key: \(fullKey)")
+
+        // Check if the exact layout exists
+        if let tables = cachedLayouts[fullKey] {
+            self.tables = tables
+            print("Loaded exact layout for key: \(fullKey)")
             return tables
-        } else {
-            // If no cached layout exists, initialize with base tables
-            cachedLayouts[key] = baseTables
-            self.tables = baseTables
-            preloadActiveReservationCache(for: date)
-            print("Initialized new tables for key: \(key)")
-            return baseTables
         }
-        
-        
+
+        // Fallback: Use the closest prior configuration
+        let fallbackKey = findClosestPriorKey(for: date, category: category)
+        if let fallbackTables = fallbackKey.flatMap({ cachedLayouts[$0] }) {
+            // Copy the fallback layout for this specific timeslot
+            cachedLayouts[fullKey] = fallbackTables
+            self.tables = fallbackTables
+            print("Copied fallback layout from key: \(fallbackKey ?? "none") to key: \(fullKey)")
+            return fallbackTables
+        }
+
+        // Final fallback: Initialize with base tables
+        cachedLayouts[fullKey] = baseTables
+        self.tables = baseTables
+        print("Initialized new layout for key: \(fullKey) with base tables")
+        return baseTables
+    }
+    
+    private func findClosestPriorKey(for date: Date, category: Reservation.ReservationCategory) -> String? {
+        let formattedDate = DateHelper.formatDate(date)
+        let allKeys = cachedLayouts.keys.filter { $0.starts(with: "\(formattedDate)-\(category.rawValue)") }
+
+        let sortedKeys = allKeys.sorted(by: { $0 < $1 }) // Sort keys chronologically
+        return sortedKeys.last { $0 < "\(formattedDate)-\(category.rawValue)" }
     }
     
     func loadClusters(for date: Date, category: Reservation.ReservationCategory) -> [CachedCluster] {
-            let key = keyFor(date: date, category: category)
+        let key = keyFor(date: date, category: category)
+        print("Loading clusters for key: \(key)")
 
-            // Update last accessed timestamp if cached
-            if let entry = clusterCache[key] {
-                clusterCache[key]?.lastAccessed = Date()
-                print("Loaded clusters from cache for key: \(key)")
-                return entry.clusters
-            }
-
-            // Fallback to load clusters from disk
-            print("Cache miss for key: \(key). Loading from disk...")
-            loadClustersFromDisk()
-            if let entry = clusterCache[key] {
-                return entry.clusters
-            }
-
-            return []
+        // Attempt to load from the cache
+        if let entry = clusterCache[key] {
+            clusterCache[key]?.lastAccessed = Date() // Update access timestamp
+            print("Loaded clusters from cache for key: \(key)")
+            return entry.clusters
         }
+
+        // Fallback: Use the closest prior key
+        let fallbackKey = findClosestPriorClusterKey(for: date, category: category)
+        if let fallbackClusters = fallbackKey.flatMap({ clusterCache[$0]?.clusters }) {
+            clusterCache[key] = ClusterCacheEntry(clusters: fallbackClusters, lastAccessed: Date()) // Copy clusters
+            print("Copied clusters from fallback key: \(fallbackKey ?? "none") to key: \(key)")
+            return fallbackClusters
+        }
+
+        // Final fallback: Return empty clusters
+        print("No clusters found for key: \(key). Returning empty list.")
+        return []
+    }
+    
+    private func findClosestPriorClusterKey(for date: Date, category: Reservation.ReservationCategory) -> String? {
+        let formattedDate = DateHelper.formatDate(date)
+        let allKeys = clusterCache.keys.filter { $0.starts(with: "\(formattedDate)-\(category.rawValue)") }
+
+        let sortedKeys = allKeys.sorted(by: { $0 < $1 }) // Chronologically sort keys
+        return sortedKeys.last { $0 < keyFor(date: date, category: category) }
+    }
     
     /// Saves tables for a specific date and category.
     func saveTables(_ tables: [TableModel], for date: Date, category: Reservation.ReservationCategory) {
-        let key = keyFor(date: date, category: category)
-        cachedLayouts[key] = tables
+        let fullKey = keyFor(date: date, category: category)
+        cachedLayouts[fullKey] = tables
+        print("Saved tables for key: \(fullKey)")
+
+        // Propagate changes to future timeslots
+        propagateLayoutChange(from: fullKey, tables: tables)
         saveToDisk()
-        print("Layout saved for key: \(key)")
     }
     
     func saveToDisk() {
@@ -167,17 +181,39 @@ class ReservationStore: ObservableObject {
         }
     }
     
+    private func propagateLayoutChange(from key: String, tables: [TableModel]) {
+        let category = key.split(separator: "-").last!
+        let allKeys = cachedLayouts.keys.filter { $0.hasSuffix("-\(category)") }
+
+        let futureKeys = allKeys.sorted().filter { $0 > key }
+        for futureKey in futureKeys where cachedLayouts[futureKey] == nil {
+            cachedLayouts[futureKey] = tables
+            print("Propagated layout to future key: \(futureKey)")
+        }
+    }
+    
     func resetTables(for date: Date, category: Reservation.ReservationCategory) {
-        let key = keyFor(date: date, category: category)
-        
-        // Reset the layout for the key
-        cachedLayouts[key] = baseTables
-        tables = baseTables // Update the published `tables` property to trigger UI updates
-        
-        // Save the layout to disk
+        let fullKey = keyFor(date: date, category: category)
+
+        // Reset the layout for this specific key
+        cachedLayouts[fullKey] = baseTables
+        tables = baseTables
+        print("Reset tables for key: \(fullKey) to base tables.")
+
+        // Propagate reset to future timeslots
+        propagateLayoutReset(from: fullKey)
         saveToDisk()
-        
-        print("Reset layout for key: \(key) to base tables and saved to disk.")
+    }
+
+    private func propagateLayoutReset(from key: String) {
+        let category = key.split(separator: "-").last!
+        let allKeys = cachedLayouts.keys.filter { $0.hasSuffix("-\(category)") }
+
+        let futureKeys = allKeys.sorted().filter { $0 > key }
+        for futureKey in futureKeys where cachedLayouts[futureKey] == nil {
+            cachedLayouts[futureKey] = baseTables
+            print("Reset future key: \(futureKey) to base tables.")
+        }
     }
     
     
@@ -246,34 +282,59 @@ class ReservationStore: ObservableObject {
     
     func resetClusters(for date: Date, category: Reservation.ReservationCategory) {
         let key = keyFor(date: date, category: category)
-        
-        // Remove clusters from the cache and save changes
         clusterCache[key] = ClusterCacheEntry(clusters: [], lastAccessed: Date())
-        saveClustersToDisk()
         print("Reset clusters for key: \(key)")
+
+        // Propagate reset to future timeslots
+        propagateClusterReset(from: key)
+        saveClustersToDisk()
+    }
+
+    private func propagateClusterReset(from key: String) {
+        let category = key.split(separator: "-").last!
+        let allKeys = clusterCache.keys.filter { $0.hasSuffix("-\(category)") }
+
+        let futureKeys = allKeys.sorted().filter { $0 > key }
+        for futureKey in futureKeys where clusterCache[futureKey] == nil {
+            clusterCache[futureKey] = ClusterCacheEntry(clusters: [], lastAccessed: Date())
+            print("Reset clusters for future key: \(futureKey)")
+        }
     }
     
     
 
     func updateClusters(_ clusters: [CachedCluster], for date: Date, category: Reservation.ReservationCategory) {
         let key = keyFor(date: date, category: category)
-
-        // Update the cache entry with new clusters and refresh the timestamp
         clusterCache[key] = ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
-        enforceLRUCacheLimit() // Ensure cache size remains within the limit
-        saveClustersToDisk() // Save changes to disk for persistence
         print("Updated clusters for key: \(key)")
+
+        // Propagate changes to future timeslots
+        propagateClusterChange(from: key, clusters: clusters)
+        enforceLRUCacheLimit()
+        saveClustersToDisk()
+    }
+
+    private func propagateClusterChange(from key: String, clusters: [CachedCluster]) {
+        let category = key.split(separator: "-").last!
+        let allKeys = clusterCache.keys.filter { $0.hasSuffix("-\(category)") }
+
+        let futureKeys = allKeys.sorted().filter { $0 > key }
+        for futureKey in futureKeys where clusterCache[futureKey] == nil {
+            clusterCache[futureKey] = ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
+            print("Propagated clusters to future key: \(futureKey)")
+        }
     }
     
     func saveClusters(_ clusters: [CachedCluster], for date: Date, category: Reservation.ReservationCategory) {
-            let key = keyFor(date: date, category: category)
+        let key = keyFor(date: date, category: category)
+        clusterCache[key] = ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
+        print("Clusters saved for key: \(key)")
 
-            // Save clusters and update last accessed timestamp
-            clusterCache[key] = ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
-            enforceLRUCacheLimit()
-            saveClustersToDisk()
-            print("Clusters saved for key: \(key)")
-        }
+        // Propagate changes to future timeslots
+        propagateClusterChange(from: key, clusters: clusters)
+        enforceLRUCacheLimit()
+        saveClustersToDisk()
+    }
     
     private func enforceLRUCacheLimit() {
             // Remove least recently used entries if cache size exceeds the limit
@@ -359,12 +420,16 @@ extension ReservationStore {
             selectedTableID: Int?
         ) -> [TableModel]? {
             // Generate the layout key once
-            let layoutKey = keyFor(date: reservation.date!, category: reservation.category)
-            print("Generated layout key: \(layoutKey) for date: \(reservation.date!) and category: \(reservation.category)")
+            let reservationDate = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.startTime)
+           
+            let layoutKey = keyFor(date: reservationDate, category: reservation.category)
+            print("Generated layout key: \(layoutKey) for date: \(reservationDate) and category: \(reservation.category)")
 
+            print("Available cachedLayouts keys: \(cachedLayouts.keys)")
+            
             // Retrieve cached tables
-            guard let tables = cachedLayouts[layoutKey] else {
-                print("Failed to retrieve layout for key: \(layoutKey). No tables available.")
+            guard let tables = cachedLayouts[layoutKey] ?? generateAndCacheLayout(for: layoutKey, date: reservationDate, category: reservation.category) else {
+                print("Failed to retrieve or generate layout for key: \(layoutKey). No tables available.")
                 return nil
             }
 
@@ -451,6 +516,19 @@ extension ReservationStore {
                 }
             }
         }
+        
+        func generateAndCacheLayout(for layoutKey: String, date: Date, category: Reservation.ReservationCategory) -> [TableModel]? {
+            print("Generating layout for key: \(layoutKey)")
+            let layout = loadTables(for: date, category: category) // Your layout generation logic
+            
+            if !layout.isEmpty {
+                cachedLayouts[layoutKey] = layout
+                print("Layout cached for key: \(layoutKey)")
+            } else {
+                print("Failed to generate layout for key: \(layoutKey)")
+            }
+            return layout
+        }
     }
     
     // MARK: - Misc Helpers
@@ -530,16 +608,16 @@ extension ReservationStore {
         return cachedLayouts[key] != nil
     }
 
-    /// Initializes a new layout if it doesn't already exist.
-    func initializeLayoutIfNeeded(for date: Date, category: Reservation.ReservationCategory) {
-        let key = keyFor(date: date, category: category)
-        if cachedLayouts[key] == nil {
-            cachedLayouts[key] = baseTables
-            print("Initialized new layout for \(key)")
-        } else {
-            print("Layout already exists for \(key)")
-        }
-    }
+//    /// Initializes a new layout if it doesn't already exist.
+//    func initializeLayoutIfNeeded(for date: Date, category: Reservation.ReservationCategory) {
+//        let key = keyFor(date: date, category: category)
+//        if cachedLayouts[key] == nil {
+//            cachedLayouts[key] = baseTables
+//            print("Initialized new layout for \(key)")
+//        } else {
+//            print("Layout already exists for \(key)")
+//        }
+//    }
 }
 
 extension ReservationStore {
@@ -555,6 +633,10 @@ extension ReservationStore {
         lockedTableIDs.remove(tableID)
     }
 
+    func unlockAllTables() {
+        lockedTableIDs.removeAll()
+    }
+    
     func isTableLocked(_ tableID: Int) -> Bool {
         lockedTableIDs.contains(tableID)
     }
@@ -587,3 +669,20 @@ extension ReservationStore {
     }
 }
 
+struct ActiveReservationCacheKey: Hashable, Codable {
+    let tableID: Int
+    let date: Date
+    let time: Date
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(tableID)
+        hasher.combine(date)
+        hasher.combine(time)
+    }
+
+    static func == (lhs: ActiveReservationCacheKey, rhs: ActiveReservationCacheKey) -> Bool {
+        return lhs.tableID == rhs.tableID &&
+               lhs.date == rhs.date &&
+               lhs.time == rhs.time
+    }
+}

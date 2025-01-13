@@ -23,8 +23,13 @@ struct ReservationListView: View {
     @State private var shouldReopenDebugConfig = false
     @State private var selectedReservation: Reservation?
     @State private var popoverPosition: CGRect = .zero
+    @State private var currentTime: Date = Date()
+    @State private var selectedDate: Date = Date()
+    @State private var selectedCategory: Reservation.ReservationCategory? = .lunch
     
     @State private var showInspector: Bool = false       // Controls Inspector visibility
+
+    @State private var sidebarDefault: Color = Color.sidebar_dinner // Default color
 
 
 
@@ -46,6 +51,7 @@ struct ReservationListView: View {
                             notesAlertShown: $showingNotesAlert,
                             notesToShow: $notesToShow,
                             selectedReservationID: $selectedReservationID,
+                            currentReservation: $currentReservation,
                             onTap: {
                                 handleEditTap(reservation)
                             },
@@ -67,10 +73,12 @@ struct ReservationListView: View {
                     }
                     .onDelete(perform: delete)
                 }
+                
                 .allowsHitTesting(!showingNotesAlert) // Disable interaction with rows when the popover is visible
             }
             .frame(maxWidth: selectedReservation == nil ? .infinity : UIScreen.main.bounds.width * 0.6) // Resize list dynamically
         }
+        
         .inspector(isPresented: $showInspector) { // Show Inspector if a reservation is selected
             if let selectedID = selectedReservationID {
                 ReservationInfoCard(
@@ -124,7 +132,7 @@ struct ReservationListView: View {
             }
         }
         .sheet(isPresented: $showingAddReservation) {
-            AddReservationView()
+            AddReservationView(category: $selectedCategory, selectedDate: $selectedDate, startTime: $currentTime)
                 .environmentObject(store)
                 .environmentObject(reservationService)
         }
@@ -138,6 +146,7 @@ struct ReservationListView: View {
                 daysToSimulate: $daysToSimulate,
                 onGenerate: {
                     generateDebugData()
+                    saveDebugData()
                 },
                 onResetData: {
                     showingResetConfirmation = true // Show the alert first
@@ -148,6 +157,9 @@ struct ReservationListView: View {
                 },
                 onFlushCaches: {
                     flushCaches()
+                },
+                onParse: {
+                    parseReservations()
                 }
             )
         }
@@ -197,46 +209,7 @@ struct ReservationListView: View {
         }
     }
 
-    /// Calculate X position for the popover
-    private func calculatePopoverX(screenWidth: CGFloat) -> CGFloat {
-        let popoverWidth: CGFloat = 300
-        let buttonX = popoverPosition.minX
-        let rightPosition = buttonX + popoverWidth / 2
-        let leftPosition = buttonX - popoverWidth / 2
 
-        // If the right side overflows, adjust to the left
-        if rightPosition > screenWidth {
-            return screenWidth - (popoverWidth / 2) - 16 // Ensure a margin of 16
-        }
-        // If the left side overflows, adjust to the right
-        if leftPosition < 0 {
-            return popoverWidth / 2 + 16 // Ensure a margin of 16
-        }
-        // Default to centered near the button
-        return buttonX
-    }
-
-    /// Calculate Y position for the popover
-    /// Calculate Y position for the popover
-    private func calculatePopoverY(screenHeight: CGFloat) -> CGFloat {
-        let popoverHeight: CGFloat = 200 // Height of the popover
-        let buttonY = popoverPosition.midY // Center of the button
-
-        // Calculate the default position to center the popover over the button
-        var popoverY = buttonY
-
-        // If the top of the popover would overflow, adjust downward
-        if popoverY - (popoverHeight / 2) < 0 {
-            popoverY = popoverHeight / 2 + 16 // Ensure a margin of 16 from the top
-        }
-
-        // If the bottom of the popover would overflow, adjust upward
-        if popoverY + (popoverHeight / 2) > screenHeight {
-            popoverY = screenHeight - (popoverHeight / 2) - 16 // Ensure a margin of 16 from the bottom
-        }
-
-        return popoverY
-    }
     
     struct DebugConfigView: View {
         @Binding var daysToSimulate: Int
@@ -244,6 +217,7 @@ struct ReservationListView: View {
         var onResetData: () -> Void
         var onSaveDebugData: () -> Void
         var onFlushCaches: () -> Void
+        var onParse: () -> Void
 
         var body: some View {
             NavigationView {
@@ -277,6 +251,12 @@ struct ReservationListView: View {
                         } label: {
                             Label("Flush Caches", systemImage: "arrow.clockwise")
                         }
+                        
+                        Button {
+                            onParse()
+                        } label: {
+                            Label("Parse Reservations", systemImage: "arrow.triangle.2.circlepath")
+                        }
                     }
                 }
                 .navigationBarTitle("Debug Config", displayMode: .inline)
@@ -292,6 +272,8 @@ struct ReservationListView: View {
             guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
             windowScene.windows.first?.rootViewController?.dismiss(animated: true)
         }
+        
+        
     }
 
 
@@ -301,7 +283,7 @@ struct ReservationListView: View {
             reservationService.generateReservations(
                 daysToSimulate: daysToSimulate
             )
-            reservationService.simulateUserActions(actionCount: 1000)
+            // breservationService.simulateUserActions(actionCount: 1000)
         }
     }
     
@@ -313,8 +295,16 @@ struct ReservationListView: View {
     private func resetData() {
         store.setReservations([]) // Clear all reservations
         reservationService.clearAllData() // Custom method to reset any cached or stored data
+        flushCaches()
+        store.unlockAllTables()
         print("All data has been reset.")
     }
+    
+    private func parseReservations() {
+        let reservations = store.reservations
+        print("\(reservations)")
+    }
+    
 
     // MARK: - Filter Section
     private var filterSection: some View {
@@ -430,7 +420,7 @@ struct ReservationListView: View {
             if let start = filterStartDate,
                let end = filterEndDate
             {
-                guard let reservationDate = TimeHelpers.fullDate(from: reservation.dateString) else {
+                guard let reservationDate = TimeHelpers.parseFullDate(from: reservation.dateString) else {
                     return false
                 }
                 matchesFilter = matchesFilter && (reservationDate >= start && reservationDate <= end)
@@ -472,6 +462,8 @@ struct ReservationListView: View {
         reservationService.flushAllCaches()
         print("Debug: Cache flush triggered.")
     }
+    
+
 }
 
 // MARK: - ReservationRowView
@@ -482,7 +474,8 @@ struct ReservationRowView: View {
     @Binding var notesAlertShown: Bool
     @Binding var notesToShow: String
     @Binding var selectedReservationID: UUID?
-
+    @Binding var currentReservation: Reservation?
+    
     var onTap: () -> Void
     var onDelete: () -> Void
     var onEdit: () -> Void
@@ -531,7 +524,7 @@ struct ReservationRowView: View {
         }
         .padding()
         .background(
-            selectedReservationID == reservation.id
+            selectedReservationID == reservation.id || currentReservation == reservation
                 ? Color.gray.opacity(0.3)
                 : Color.clear
         )

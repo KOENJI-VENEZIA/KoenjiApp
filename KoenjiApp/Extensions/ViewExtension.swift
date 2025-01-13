@@ -234,6 +234,24 @@ extension Color {
         }
     }
 
+extension Color {
+    static var sidebar_lunch: Color {
+        Color("sidebar_lunch")
+    }
+}
+
+extension Color {
+    static var sidebar_dinner: Color {
+        Color("sidebar_dinner")
+    }
+}
+
+extension Color {
+    static var sidebar_generic: Color {
+        Color("sidebar_generic")
+    }
+}
+
 
 
 

@@ -5,6 +5,7 @@ struct TableView: View {
     let selectedDate: Date
     let selectedCategory: Reservation.ReservationCategory
     let currentTime: Date
+    let activeReservations: [Reservation]
     
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var store: ReservationStore
@@ -53,11 +54,7 @@ struct TableView: View {
         let isHighlighted = store.tableAnimationState[table.id] ?? false
         
         // Get active reservation
-        let activeReservation = reservationService.findActiveReservation(
-            for: table,
-            date: selectedDate,
-            time: currentTime
-        )
+        let activeReservation = filterActiveReservation(for: table) ?? nil
         
         let isDragging = {
             if case .dragging = dragState { return true }
@@ -261,7 +258,7 @@ struct TableView: View {
 
         if !isOccupied {
             onTapEmpty()
-        } else if let reservation = reservationService.findActiveReservation(for: table, date: selectedDate, time: currentTime) {
+        } else if let reservation = filterActiveReservation(for: table) {
             showInspector = true
             onEditReservation(reservation)
         }
@@ -308,18 +305,64 @@ struct TableView: View {
         }
         
         let tables = layoutUI.tables
-        store.saveTables(tables, for: selectedDate, category: selectedCategory)
-        if let updatedLayout = store.cachedLayouts[store.keyFor(date: selectedDate, category: selectedCategory)] {
+        let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+        store.saveTables(tables, for: combinedDate, category: selectedCategory)
+        if let updatedLayout = store.cachedLayouts[store.keyFor(date: combinedDate, category: selectedCategory)] {
             print("Updated cache for \(selectedCategory):")
             for table in updatedLayout {
                 print("Updated table \(table.name) at (\(table.row), \(table.column))")
             }
         }
         
+        let layoutKey = store.keyFor(date: combinedDate, category: selectedCategory)
+        store.cachedLayouts[layoutKey] = layoutUI.tables
+        store.saveToDisk()
+        
         onTableUpdated(updatedTable)
         isLayoutReset = false
         store.currentlyDraggedTableID = nil
         
+    }
+    
+    private func filterActiveReservation(for table: TableModel) -> Reservation? {
+        let calendar = Calendar.current
+            
+            return activeReservations.first { reservation in
+                // Check if the table is assigned to this reservation
+                reservation.tables.contains(where: { $0.id == table.id }) &&
+                
+                // Check if the reservation date matches the selected date
+                reservation.dateString == DateHelper.formatDate(selectedDate) &&
+                
+                // Check if the current time falls within the reservation's time range
+                {
+                    let timeFormatter = DateFormatter()
+                    timeFormatter.dateFormat = "HH:mm"
+                    timeFormatter.timeZone = TimeZone.current
+
+                    guard let startTime = timeFormatter.date(from: reservation.startTime),
+                          let endTime = timeFormatter.date(from: reservation.endTime),
+                          let normalizedStartTime = calendar.date(
+                              bySettingHour: calendar.component(.hour, from: startTime),
+                              minute: calendar.component(.minute, from: startTime),
+                              second: 0,
+                              of: calendar.startOfDay(for: selectedDate)),
+                          let normalizedEndTime = calendar.date(
+                              bySettingHour: calendar.component(.hour, from: endTime),
+                              minute: calendar.component(.minute, from: endTime),
+                              second: 0,
+                              of: calendar.startOfDay(for: selectedDate)),
+                          let normalizedCurrentTime = calendar.date(
+                              bySettingHour: calendar.component(.hour, from: currentTime),
+                              minute: calendar.component(.minute, from: currentTime),
+                              second: 0,
+                              of: calendar.startOfDay(for: selectedDate)) else {
+                        return false
+                    }
+
+                    return normalizedCurrentTime >= normalizedStartTime && normalizedCurrentTime < normalizedEndTime
+                }()
+            }
     }
     
 }
