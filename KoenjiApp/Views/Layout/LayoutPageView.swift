@@ -65,6 +65,11 @@ struct LayoutPageView: View {
 
     
     @State private var pendingClusterUpdate: DispatchWorkItem?
+    
+    private var backgroundColor: Color {
+            return selectedCategory.backgroundColor
+    }
+
 
     
     // Initialize LayoutUIManager with date and category
@@ -155,7 +160,7 @@ struct LayoutPageView: View {
                                 //\.background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
                                 gridData.gridBackground(selectedCategory: selectedCategory)
                                     //.frame(width: gridWidth, height: gridHeight)
-                                    .background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
+                                    .background(backgroundColor)
                                 
                                 if isLoading {
                                     ForEach(store.baseTables, id: \.id) { table in
@@ -769,5 +774,15 @@ extension LayoutPageView {
         }
         
         return activeReservations
+    }
+}
+
+extension Reservation.ReservationCategory {
+    var backgroundColor: Color {
+        switch self {
+        case .lunch: return Color.grid_background_lunch
+        case .dinner: return Color.grid_background_dinner
+        case .noBookingZone: return Color.sidebar_generic
+        }
     }
 }

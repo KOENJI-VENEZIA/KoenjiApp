@@ -248,6 +248,7 @@ struct LayoutView: View {
                     systemTime: $systemTime,
                     systemDate: $systemDate,
                     isManuallyOverridden: $isManuallyOverridden,
+                    sidebarColor: $sidebarColor,
                     updateDatesAroundSelectedDate: { newDate in
                                 updateDatesAroundSelectedDate(newDate) // Call the external method
                             },
@@ -444,6 +445,7 @@ struct LayoutView: View {
         @Binding var systemTime: Date
         @Binding var systemDate: Date
         @Binding var isManuallyOverridden: Bool
+        @Binding var sidebarColor: Color
         
         let updateDatesAroundSelectedDate: (Date) -> Void // Closure for the method
 
@@ -452,32 +454,38 @@ struct LayoutView: View {
         var onSidebarColorChange: ((Color) -> Void)?
 
         var body: some View {
-            VStack(spacing: 16) {
-                Text("Controls")
-                    .font(.title2)
-                    .bold()
-                    .padding(.top)
-
-                datePicker
-                categoryPicker
-                timePicker
-
-                Spacer()
-
-                Button("Apply") {
-                    // Add custom apply logic here if needed
-                }
-                .buttonStyle(.borderedProminent)
-                .padding(.bottom)
-            }
-            .padding(.horizontal)
-            .background(
-                Color(.systemBackground)
-                    .opacity(0.9) // Adjust transparency here
+            ZStack {
+                sidebarColor
                     .ignoresSafeArea()
-            )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+                
+                VStack(spacing: 16) {
+                    Spacer()
+                    
+                    Text("Controls")
+                        .font(.title2)
+                        .bold()
+                        .padding(.top)
+                        .padding(.horizontal)
+                    
+                    Divider()
+                    
+                    datePicker
+                    
+                    Divider()
+                    
+                    categoryPicker
+                    
+                    Divider()
+                    
+                    timePicker
+                        .padding(.bottom)
+                    
+                    Spacer()
+                }
+                
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
             
         }
 
@@ -567,9 +575,6 @@ struct LayoutView: View {
                         }
                     }
                     .font(.caption)
-                    .cornerRadius(8.0)
-                    .background(.thinMaterial)
-                    .padding()
                     .opacity(DateHelper.compareTimes(firstTime: currentTime, secondTime: systemTime, interval: 60) ? 0 : 1)
                     .animation(.easeInOut, value: currentTime)
                 }

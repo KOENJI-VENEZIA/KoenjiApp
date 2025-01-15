@@ -118,7 +118,9 @@ struct TableView: View {
         }
         .contextMenu {
             Button("Delete") {
-                print("Tapped delete")
+                if let reservation = activeReservation {
+                    handleDelete(reservation)
+                }
             }
         }
         .position(x: tableFrame.minX, y: tableFrame.minY)
@@ -152,6 +154,12 @@ struct TableView: View {
     }
 
     // MARK: - Subviews
+    private func handleDelete(_ reservation: Reservation) {
+        if let idx = store.reservations.firstIndex(where: { $0.id == reservation.id }) {
+            reservationService.deleteReservations(at: IndexSet(integer: idx))
+        }
+    }
+    
     private func reservationInfo(reservation: Reservation, tableWidth: CGFloat, tableHeight: CGFloat) -> some View {
         VStack(spacing: 2) {
             Text(reservation.name)
@@ -240,10 +248,7 @@ struct TableView: View {
 
     // MARK: - Actions
     private func handleTap() {
-        guard selectedCategory != .noBookingZone else {
-            showingNoBookingAlert = true
-            return
-        }
+        
 
         let startTimeString = DateHelper.formatTime(currentTime)
         let endTimeString = TimeHelpers.calculateEndTime(startTime: startTimeString, category: selectedCategory)
