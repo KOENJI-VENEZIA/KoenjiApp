@@ -69,7 +69,6 @@ struct DateHelper {
         guard let time = parseTime(timeString) else { return nil }
         
         // Extract the time components from the parsed time
-        let calendar = Calendar.current
         guard let timeComponents = extractTime(time: time) else { return nil }
         
         // Combine the date and time components
@@ -79,6 +78,25 @@ struct DateHelper {
     static func extractTime(time: Date) -> DateComponents? {
         let calendar = Calendar.current
         return calendar.dateComponents([.hour, .minute], from: time)
+    }
+    
+    static func compareTimes(firstTime: Date, secondTime: Date, interval: TimeInterval) -> Bool {
+        let calendar = Calendar.current
+
+        guard let firstTimeComponents = extractTime(time: firstTime),
+              let secondTimeComponents = extractTime(time: secondTime) else { return false }
+        
+        if let firstTimeDate = calendar.date(from: firstTimeComponents),
+           let secondTimeDate = calendar.date(from: secondTimeComponents) {
+        let timeDifference = abs(firstTimeDate.timeIntervalSince(secondTimeDate))
+            if timeDifference < interval {
+                return true
+            } else {
+                return false
+            }
+        } else {
+            return false
+        }
     }
     
     static func normalizedInputTime(time: DateComponents, date: Date) -> Date? {
@@ -102,8 +120,8 @@ struct DateHelper {
     }
     
     static func combineDateAndTimeStrings(dateString: String, timeString: String) -> Date {
-        guard let date = parseDate(dateString),
-              let combinedDate = combineDateAndTime(date: date, timeString: timeString) else {
+        guard let date = parseDate(dateString) else { return Date() }
+        guard let combinedDate = combineDateAndTime(date: date, timeString: timeString) else {
             print("Warning: Failed to combine date (\(dateString)) and time (\(timeString)). Using current date as fallback.")
             return Date() // Fallback to the current date and time
         }

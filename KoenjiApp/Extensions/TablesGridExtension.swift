@@ -235,15 +235,22 @@ extension ReservationStore {
     
    
     
-    func preloadActiveReservationCache(startingFrom startDate: Date, forDays range: Int) {
+    func preloadActiveReservationCache(around date: Date, forDaysBefore beforeDays: Int, afterDays: Int) {
         let calendar = Calendar.current
-        let endDate = calendar.date(byAdding: .day, value: range - 1, to: startDate) ?? startDate
-        
+
+        // Calculate start and end dates based on the provided date
+        let startDate = calendar.date(byAdding: .day, value: -beforeDays, to: date) ?? date
+        let endDate = calendar.date(byAdding: .day, value: afterDays, to: date) ?? date
+
         print("DEBUG: Preloading active reservation cache from \(startDate) to \(endDate)")
-        
+
+        // Iterate through the date range
         for preloadDate in stride(from: startDate, through: endDate, by: 86400) { // 86400 seconds in a day
-            if let preloadedUntil = cachePreloadedFrom, preloadDate <= preloadedUntil {
-                print("DEBUG: Date \(preloadDate) is already preloaded. Skipping.")
+            
+            // Check if any keys for the date already exist in the cache
+            let existingKeys = activeReservationCache.keys.contains { $0.date == preloadDate }
+            guard !existingKeys else {
+                print("DEBUG: Cache already contains keys for date: \(preloadDate). Skipping.")
                 continue
             }
             
@@ -269,7 +276,7 @@ extension ReservationStore {
                 }
             }
         }
-        
+
         cachePreloadedFrom = max(cachePreloadedFrom ?? startDate, endDate)
         print("DEBUG: Active reservation cache preloaded until \(cachePreloadedFrom!).")
     }

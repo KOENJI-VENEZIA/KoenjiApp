@@ -44,27 +44,9 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     func updateUIView(_ uiView: UIScrollView, context: Context) {
         // update the hosting controller's SwiftUI content
         context.coordinator.hostingController.rootView = self.content
-        uiView.zoomScale = scale
         assert(context.coordinator.hostingController.view.superview == uiView)
-        uiView.backgroundColor = (category == .lunch) ? UIColor.backgroundLunch : UIColor.backgroundDinner
-        centerScrollView(uiView, context.coordinator.hostingController.view!)
-
     }
-    
-    private func centerScrollView(_ scrollView: UIScrollView, _ hostedView: UIView) {
-            let horizontalInset = max((availableSize.width - hostedView.frame.width * scale) / 2, 0)
-            let verticalInset = max((availableSize.height - hostedView.frame.height * scale) / 2, 0)
 
-        let newInsets = UIEdgeInsets(
-                top: verticalInset + 50,
-                left: 0,
-                bottom: verticalInset,
-                right: 0
-            )
-        UIView.animate(withDuration: 0.3) {
-            scrollView.contentInset = newInsets
-        }
-    }
 
     
     class Coordinator: NSObject, UIScrollViewDelegate {

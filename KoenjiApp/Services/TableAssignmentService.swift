@@ -14,7 +14,7 @@ class TableAssignmentService {
         reservations: [Reservation],
         startingFrom selectedTable: TableModel
     ) -> [TableModel]? {
-        guard let reservationDate = DateHelper.parseFullDate(reservation.dateString) else { return nil }
+        guard let reservationDate = DateHelper.parseDate(reservation.dateString) else { return nil }
 
         // Check if the forced table is available
         if isTableOccupied(
@@ -49,7 +49,7 @@ class TableAssignmentService {
         reservations: [Reservation],
         tables: [TableModel]
     ) -> [TableModel]? {
-        guard let reservationDate = DateHelper.parseFullDate(reservation.dateString) else { return nil }
+        guard let reservationDate = DateHelper.parseDate(reservation.dateString) else { return nil }
         return assignTablesInOrder(for: reservation, reservations: reservations, tables: tables, reservationDate: reservationDate)
     }
 

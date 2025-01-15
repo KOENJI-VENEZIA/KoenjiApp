@@ -22,11 +22,10 @@ class ReservationService: ObservableObject {
         self.store.loadFromDisk()
         self.store.loadClustersFromDisk()
         self.loadReservationsFromDisk()
-        self.store.markTablesInGrid()
         
         let today = Calendar.current.startOfDay(for: Date())
         self.store.cachePreloadedFrom = today
-        self.store.preloadActiveReservationCache(startingFrom: today, forDays: 7)
+        self.store.preloadActiveReservationCache(around: today, forDaysBefore: 5, afterDays: 5)
     }
     
     // MARK: - Placeholder Methods for CRUD Operations
@@ -73,23 +72,44 @@ class ReservationService: ObservableObject {
             offsets.forEach { index in
                 let reservation = self.store.reservations[index]
 
-                // Unlock the tables associated with the reservation
+                // 1) Remove from activeReservationCache
+                self.removeReservationFromActiveCache(reservation)
+
+                // 2) Unlock the tables, invalidate cluster cache, etc.
                 reservation.tables.forEach { self.store.unmarkTable($0) }
-
-                // Invalidate cluster cache for this reservation
                 self.invalidateClusterCache(for: reservation)
-
-                // (Optional) Perform any additional cancellation logic
-                print("Cancelled reservation \(reservation.id.uuidString).")
             }
 
-            // Remove the reservations from the array
+            // 3) Remove from the reservations array
             self.store.reservations.remove(atOffsets: offsets)
 
-            // Save the updated reservations to disk
+            // 4) Save changes to disk
             self.saveReservationsToDisk()
+        }
+    }
+    
+    
+    private func removeReservationFromActiveCache(_ reservation: Reservation) {
+        let start = DateHelper.combineDateAndTimeStrings(
+            dateString: reservation.dateString,
+            timeString: reservation.startTime
+        )
+        let end   = DateHelper.combineDateAndTimeStrings(
+            dateString: reservation.dateString,
+            timeString: reservation.endTime
+        )
 
-            print("Deleted reservations at offsets \(offsets).")
+        var current = start
+        while current < end {
+            for table in reservation.tables {
+                let cacheKey = ActiveReservationCacheKey(
+                    tableID: table.id,
+                    date: Calendar.current.startOfDay(for: current),
+                    time: current
+                )
+                store.activeReservationCache.removeValue(forKey: cacheKey)
+            }
+            current.addTimeInterval(60) // next minute
         }
     }
     
@@ -118,7 +138,7 @@ class ReservationService: ObservableObject {
 
        /// Invalidates the cluster cache for the given reservation.
        private func invalidateClusterCache(for reservation: Reservation) {
-           guard let reservationDate = DateHelper.parseFullDate(reservation.dateString) else {
+           guard let reservationDate = DateHelper.parseDate(reservation.dateString) else {
                print("Failed to parse dateString \(reservation.dateString). Cache invalidation skipped.")
                return
            }
@@ -152,7 +172,7 @@ class ReservationService: ObservableObject {
         let requestedDate = calendar.startOfDay(for: date)
         if let cachePreloadedFrom = store.cachePreloadedFrom, requestedDate > cachePreloadedFrom {
             print("DEBUG: Cache is missing data for date \(requestedDate). Preloading one more day.")
-            store.preloadActiveReservationCache(startingFrom: cachePreloadedFrom.addingTimeInterval(86400), forDays: 1)
+            store.preloadActiveReservationCache(around: cachePreloadedFrom.addingTimeInterval(86400), forDaysBefore: 2, afterDays: 2)
         }
 
         // Fetch reservations for the specific date
@@ -321,13 +341,40 @@ extension ReservationService {
 extension ReservationService {
     // MARK: - Test Data
     
-    func generateReservations(daysToSimulate: Int, force: Bool = false) {
-        let today = Calendar.current.startOfDay(for: Date())
+    func generateReservations(
+        daysToSimulate: Int,
+        force: Bool = false,
+        startFromLastSaved: Bool = true
+    ) async {
+        // 1. Determine start date
+        var startDate = Calendar.current.startOfDay(for: Date())
 
-        // Load resources once
-        let names = loadStringsFromFile(fileName: "names")
-        let phoneNumbers = loadStringsFromFile(fileName: "phone_numbers")
-        let notes = loadStringsFromFile(fileName: "notes")
+        if startFromLastSaved {
+            if let maxReservation = self.store.reservations.max(by: { lhs, rhs in
+                let lhsDate = DateHelper.combineDateAndTimeStrings(
+                    dateString: lhs.dateString,
+                    timeString: lhs.startTime
+                )
+                let rhsDate = DateHelper.combineDateAndTimeStrings(
+                    dateString: rhs.dateString,
+                    timeString: rhs.startTime
+                )
+                return lhsDate < rhsDate
+            }) {
+                let lastReservationDate = DateHelper.combineDateAndTimeStrings(
+                    dateString: maxReservation.dateString,
+                    timeString: maxReservation.startTime
+                )
+                if let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: lastReservationDate) {
+                    startDate = nextDay
+                }
+            }
+        }
+
+        // 2. Load resources once
+        let names = loadStringsFromFile(fileName: "names").shuffled()
+        let phoneNumbers = loadStringsFromFile(fileName: "phone_numbers").shuffled()
+        let notes = loadStringsFromFile(fileName: "notes").shuffled()
 
         guard !names.isEmpty, !phoneNumbers.isEmpty else {
             print("Required resources are missing. Reservation generation aborted.")
@@ -336,122 +383,122 @@ extension ReservationService {
 
         print("Generating reservations for \(daysToSimulate) days with realistic variance (closed on Mondays).")
 
-        // Use a background queue for heavy processing
-        DispatchQueue.global(qos: .userInitiated).async {
-            var totalGenerated = 0 // Track how many reservations are successfully created
-
+        // 3. Perform parallel reservation generation
+        await withTaskGroup(of: Void.self) { group in
             for dayOffset in 0..<daysToSimulate {
-                let reservationDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: today)!
-                let dayOfWeek = Calendar.current.component(.weekday, from: reservationDate)
-
-                // Skip Mondays (weekday 2 in Gregorian calendar)
-                if dayOfWeek == 2 {
-                    print("Skipping Monday: \(reservationDate)")
-                    continue
+                group.addTask {
+                    await self.generateReservationsForDay(
+                        dayOffset: dayOffset,
+                        startDate: startDate,
+                        names: names,
+                        phoneNumbers: phoneNumbers,
+                        notes: notes
+                    )
                 }
+            }
+        }
 
-                // Determine the daily target number of reservations with variance
-                let maxDailyReservations = Int.random(in: 10...30)
-                var dailyGeneratedReservations = 0
+        // 4. Save data to disk after all tasks complete
+        DispatchQueue.main.async {
+            self.store.saveToDisk()
+            print("Finished generating reservations.")
+        }
+    }
 
-                // Available slots for lunch and dinner
-                var availableTimeSlots: [Date] = []
-                availableTimeSlots.append(contentsOf: self.generateTimeSlots(for: reservationDate, range: (12, 15))) // Lunch
-                availableTimeSlots.append(contentsOf: self.generateTimeSlots(for: reservationDate, range: (18, 23))) // Dinner
+    private func generateReservationsForDay(
+        dayOffset: Int,
+        startDate: Date,
+        names: [String],
+        phoneNumbers: [String],
+        notes: [String]
+    ) async {
+        let reservationDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: startDate)!
+        let dayOfWeek = Calendar.current.component(.weekday, from: reservationDate)
 
-                while dailyGeneratedReservations < maxDailyReservations && !availableTimeSlots.isEmpty {
-                    // Pick the earliest slot to try to fit reservations sequentially
-                    guard let startTime = availableTimeSlots.first else { break }
-                    availableTimeSlots.removeFirst()
+        // Skip Mondays
+        if dayOfWeek == 2 {
+            print("Skipping Monday: \(reservationDate)")
+            return
+        }
 
-                    // Generate group size with weighted probabilities
-                    let numberOfPersons = self.generateWeightedGroupSize()
+        let maxDailyReservations = Int.random(in: 10...30)
+        var totalGeneratedReservations = 0
 
-                    // Calculate reservation duration
-                    let durationMinutes: Int = {
-                        if numberOfPersons <= 2 {
-                            return Int.random(in: 90...105) // Between 1 hour 30 and 1 hour 45
-                        } else if numberOfPersons >= 10 {
-                            return Int.random(in: 120...150) // Between 2 hours and 2 hours 30
-                        } else {
-                            return 105 // Default duration of 1 hour 45
-                        }
-                    }()
+        // Available time slots (Lunch and Dinner)
+        var availableTimeSlots = Set(self.generateTimeSlots(for: reservationDate, range: (12, 15)))
+        availableTimeSlots.formUnion(self.generateTimeSlots(for: reservationDate, range: (18, 23)))
 
-                    // Calculate end time
-                    var endTime = Calendar.current.date(byAdding: .minute, value: durationMinutes, to: startTime)!
-                    let startHour = Calendar.current.component(.hour, from: startTime)
-                    if endTime > Calendar.current.date(bySettingHour: startHour < 15 ? 15 : 23, minute: 0, second: 0, of: startTime)! {
-                        continue // Skip if the end time exceeds lunch or dinner limits
-                    }
-                    
-                    endTime = self.roundToNearestFiveMinutes(endTime)
+        while totalGeneratedReservations < maxDailyReservations && !availableTimeSlots.isEmpty {
+            guard let startTime = availableTimeSlots.min() else { break }
+            availableTimeSlots.remove(startTime)
+
+            let numberOfPersons = self.generateWeightedGroupSize()
+            let durationMinutes: Int = {
+                if numberOfPersons <= 2 { return Int.random(in: 90...105) }
+                if numberOfPersons >= 10 { return Int.random(in: 120...150) }
+                return 105
+            }()
+
+            let endTime = self.roundToNearestFiveMinutes(
+                Calendar.current.date(byAdding: .minute, value: durationMinutes, to: startTime)!
+            )
+
+            if let nextSlot = availableTimeSlots.min(), nextSlot < endTime.addingTimeInterval(600) {
+                availableTimeSlots.remove(nextSlot)
+            }
+
+            let category: Reservation.ReservationCategory = Calendar.current.component(.hour, from: startTime) < 15 ? .lunch : .dinner
+            let dateString = DateHelper.formatDate(reservationDate)
+            let startTimeString = DateHelper.timeFormatter.string(from: startTime)
+
+            let reservation = Reservation(
+                id: UUID(),
+                name: names.randomElement()!,
+                phone: phoneNumbers.randomElement()!,
+                numberOfPersons: numberOfPersons,
+                dateString: dateString,
+                category: category,
+                startTime: startTimeString,
+                endTime: DateHelper.timeFormatter.string(from: endTime),
+                acceptance: .confirmed,
+                status: .pending,
+                reservationType: .inAdvance,
+                group: Bool.random(),
+                notes: notes.randomElement(),
+                tables: [],
+                creationDate: Date(),
+                isMock: true
+            )
+
+            
+            // Offload table assignment and reservation updates to the background thread
 
 
-                    // Adjust time slots to account for gaps
-                    if let nextSlot = availableTimeSlots.first, nextSlot < endTime.addingTimeInterval(600) {
-                        availableTimeSlots.removeFirst()
-                    }
-
-                    // Determine category
-                    let category: Reservation.ReservationCategory = startHour < 15 ? .lunch : .dinner
-                    // Generate reservation
-                    let dateString = DateHelper.formatDate(reservationDate)
-                    let startTimeString = DateHelper.timeFormatter.string(from: startTime)
-
-                    let combinedDate = DateHelper.combineDateAndTimeStrings(
-                        dateString: dateString,
-                        timeString: startTimeString
-                    )
-
-                    var reservation = Reservation(
-                        id: UUID(),
-                        name: names.randomElement()!,
-                        phone: phoneNumbers.randomElement()!,
-                        numberOfPersons: numberOfPersons,
-                        dateString: dateString,
-                        category: category,
-                        startTime: startTimeString,
-                        endTime: DateHelper.timeFormatter.string(from: endTime),
-                        acceptance: .confirmed,
-                        status: .pending,
-                        reservationType: .inAdvance,
-                        group: Bool.random(),
-                        notes: notes.randomElement(),
-                        tables: [],
-                        creationDate: Date(),
-                        isMock: true
-                    )
-
-                    let key = self.store.keyFor(date: combinedDate, category: category)
-                    DispatchQueue.main.sync {
-                        if self.store.cachedLayouts[key] == nil {
-                            self.store.cachedLayouts[key] = self.store.baseTables
-                            self.store.saveToDisk()
-                        }
-                    }
-
-                    // Assign tables using the store logic
+                await MainActor.run {
                     if let assignedTables = self.store.assignTables(for: reservation, selectedTableID: nil) {
-                        DispatchQueue.main.async {
-                            reservation.tables = assignedTables
-                            self.store.finalizeReservation(reservation, tables: assignedTables)
-
-                            // Avoid duplicates
-                            if !self.store.reservations.contains(where: { $0.id == reservation.id }) {
-                                self.store.reservations.append(reservation)
-                                totalGenerated += 1
-                                dailyGeneratedReservations += 1
-                                print("Generated reservation #\(totalGenerated): \(reservation)")
-                            }
-                        }
+                        var updatedReservation = reservation
+                        updatedReservation.tables = assignedTables
+                        
+                    let key = self.store.keyFor(date: reservationDate, category: category)
+                    
+                    if self.store.cachedLayouts[key] == nil {
+                        self.store.cachedLayouts[key] = self.store.baseTables
                     }
-                }
-            }
+                        
+                        assignedTables.forEach { self.store.unlockTable($0.id) }
+                        self.store.finalizeReservation(updatedReservation, tables: assignedTables)
 
-            DispatchQueue.main.async {
-                print("Finished generating reservations. Total generated: \(totalGenerated)")
+                        if !self.store.reservations.contains(where: { $0.id == updatedReservation.id }) {
+                            self.store.reservations.append(updatedReservation)
+                            print("Generated reservation: \(updatedReservation)")
+                        }
+                }
+                    
+                
             }
+            
+            totalGeneratedReservations += 1
+
         }
     }
 

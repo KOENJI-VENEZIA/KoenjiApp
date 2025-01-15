@@ -98,8 +98,11 @@ class ReservationStore: ObservableObject {
 
         // Check if the exact layout exists
         if let tables = cachedLayouts[fullKey] {
-            self.tables = tables
-            print("Loaded exact layout for key: \(fullKey)")
+            // Assign to self.tables *on the main thread*
+            DispatchQueue.main.async {
+                self.tables = tables
+                print("Loaded exact layout for key: \(fullKey)")
+            }
             return tables
         }
 
@@ -108,15 +111,22 @@ class ReservationStore: ObservableObject {
         if let fallbackTables = fallbackKey.flatMap({ cachedLayouts[$0] }) {
             // Copy the fallback layout for this specific timeslot
             cachedLayouts[fullKey] = fallbackTables
-            self.tables = fallbackTables
-            print("Copied fallback layout from key: \(fallbackKey ?? "none") to key: \(fullKey)")
+            
+            DispatchQueue.main.async {
+                self.tables = fallbackTables
+                print("Copied fallback layout from key: \(fallbackKey ?? "none") to key: \(fullKey)")
+            }
             return fallbackTables
         }
 
         // Final fallback: Initialize with base tables
-        cachedLayouts[fullKey] = baseTables
-        self.tables = baseTables
-        print("Initialized new layout for key: \(fullKey) with base tables")
+
+        
+        DispatchQueue.main.async {
+            self.cachedLayouts[fullKey] = self.baseTables
+            self.tables = self.baseTables
+            print("Initialized new layout for key: \(fullKey) with base tables")
+        }
         return baseTables
     }
     
@@ -644,14 +654,33 @@ extension ReservationStore {
     func finalizeReservation(_ reservation: Reservation, tables: [TableModel]) {
         // Mark tables as reserved in persistent storage, if needed
         // Unlock tables after finalization
-        tables.forEach { unlockTable($0.id) } // Use table.id here, which is an Int
         if let index = reservations.firstIndex(where: { $0.id == reservation.id }) {
             reservations[index] = reservation // Update the reservation
         } else {
             // If the reservation is new, append it
             reservations.append(reservation)
         }
+        
+        populateActiveCache(for: reservation)
 
+    }
+    
+    func populateActiveCache(for reservation: Reservation) {
+        let start = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.startTime)
+        let end   = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.endTime)
+
+        var current = start
+        while current < end {
+            for table in reservation.tables {
+                let cacheKey = ActiveReservationCacheKey(
+                    tableID: table.id,
+                    date: Calendar.current.startOfDay(for: current),
+                    time: current
+                )
+                activeReservationCache[cacheKey] = reservation
+            }
+            current.addTimeInterval(60) // next minute
+        }
     }
   
 }

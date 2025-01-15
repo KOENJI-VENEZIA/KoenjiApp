@@ -18,9 +18,13 @@ struct LayoutView: View {
     
     // Time
     @State private var systemTime: Date = Date()
+    @State private var systemDate: Date = Date()
+    var timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     @State private var currentTime: Date = Date()
     @State private var isManuallyOverridden: Bool = false
     @State private var showingTimePickerSheet: Bool = false
+    @State private var isInitialized: Bool = false
+
     
     // Reservation editing
     @Binding  var selectedReservation: Reservation?
@@ -39,7 +43,8 @@ struct LayoutView: View {
     @State private var isZoomLocked: Bool = false
     @State private var showTopControls: Bool = true
     @State private var isLayoutReset: Bool = false
-    
+    @State private var showingBottomSheet = false
+
 
     // Zoom and pan state
     @State private var scale: CGFloat = 1.0
@@ -131,21 +136,8 @@ struct LayoutView: View {
             }
             
             
-            .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
-            .ignoresSafeArea(.all, edges: .top)
-            .safeAreaInset(edge: .top) {
-                if showTopControls {
-                    topControls
-                        .background(Material.ultraThin)
-                        .frame(height: isCompact ? 175 : 100)
-                        .padding(.vertical, 0)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                        .animation(.easeInOut, value: showTopControls)
-                        .offset(y: isCompact ? -10 : -1)
-                }
-            }
+            //.ignoresSafeArea(.all, edges: .top)
             .navigationTitle("Layout Tavoli")
-            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     // Lock/Unlock Layout Button
@@ -175,17 +167,16 @@ struct LayoutView: View {
                     }
                     .accessibilityLabel("Reset Layout")
                 }
-                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         withAnimation {
-                            showTopControls.toggle()
+                            showingBottomSheet = true
                         }
                     }) {
-                        Image(systemName: showTopControls ? "chevron.up" : "chevron.down")
+                        Image(systemName: "slider.horizontal.3")
                             .imageScale(.large)
                     }
-                    .accessibilityLabel(showTopControls ? "Hide Controls" : "Show Controls")
+                    .accessibilityLabel("Show Controls")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
@@ -248,6 +239,21 @@ struct LayoutView: View {
                     .environmentObject(store)
                     .environmentObject(reservationService)
             }
+            .sheet(isPresented: $showingBottomSheet) {
+                BottomSheetControls(
+                    dates: $dates,
+                    selectedIndex: $selectedIndex,
+                    selectedCategory: $selectedCategory,
+                    currentTime: $currentTime,
+                    systemTime: $systemTime,
+                    systemDate: $systemDate,
+                    isManuallyOverridden: $isManuallyOverridden,
+                    updateDatesAroundSelectedDate: { newDate in
+                                updateDatesAroundSelectedDate(newDate) // Call the external method
+                            },
+                    onSidebarColorChange: onSidebarColorChange
+                )
+            }
             .alert(isPresented: $showingNoBookingAlert) {
                 Alert(
                     title: Text("Attenzione!"),
@@ -282,9 +288,10 @@ struct LayoutView: View {
                     selectedReservation = nil
                 }
             }
+            .toolbarBackground(Material.ultraThin, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
         }
-        .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
+       // .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
     }
     
     // MARK: - Navigation Methods
@@ -340,7 +347,7 @@ struct LayoutView: View {
     private func initializeView() {
         // Initialize default date/time configuration
         if !isManuallyOverridden {
-            currentTime = defaultTimeForCategory(selectedCategory ?? .lunch)
+            currentTime = systemTime
         }
         
         // Generate date array
@@ -352,6 +359,9 @@ struct LayoutView: View {
         if let initialCategory = selectedCategory {
             onSidebarColorChange?(initialCategory.sidebarColor)
         }
+        
+        handleCurrentTimeChange(currentTime)
+        
     }
 
     
@@ -361,7 +371,7 @@ struct LayoutView: View {
         let newDate = dates[safe: selectedIndex] ?? Date()
         guard let combinedTime = DateHelper.normalizedTime(time: currentTime, date: newDate) else { return }
         currentTime = combinedTime
-        
+                
         print("Selected index changed to \(selectedIndex), date: \(DateHelper.formatFullDate(newDate))")
         
         // Handle progressive date loading
@@ -376,10 +386,8 @@ struct LayoutView: View {
         print("Category changed to \(newCategory.rawValue)")
         
         // Only adjust time if it's not manually overridden
-        
         currentTime = defaultTimeForCategory(newCategory)
         print("Adjusted time for category to: \(currentTime)")
-        
         
         // Update reservations and layout for the current selected date
         let newDate = dates[safe: selectedIndex] ?? Date()
@@ -428,106 +436,146 @@ struct LayoutView: View {
     }
     
     // MARK: - Helper Methods
-    
-    private var topControls: some View {
-        HStack {
-            if horizontalSizeClass == .compact {
-                // Compact layout
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        datePicker
-                        categoryPicker
-                    }
-                    HStack(spacing: 8) {
-                        timePicker
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        addReservationButton
-                            .frame(maxWidth: 100, alignment: .trailing)
-                    }
+    struct BottomSheetControls: View {
+        @Binding var dates: [Date]
+        @Binding var selectedIndex: Int
+        @Binding var selectedCategory: Reservation.ReservationCategory?
+        @Binding var currentTime: Date
+        @Binding var systemTime: Date
+        @Binding var systemDate: Date
+        @Binding var isManuallyOverridden: Bool
+        
+        let updateDatesAroundSelectedDate: (Date) -> Void // Closure for the method
+
+
+        var timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+        var onSidebarColorChange: ((Color) -> Void)?
+
+        var body: some View {
+            VStack(spacing: 16) {
+                Text("Controls")
+                    .font(.title2)
+                    .bold()
+                    .padding(.top)
+
+                datePicker
+                categoryPicker
+                timePicker
+
+                Spacer()
+
+                Button("Apply") {
+                    // Add custom apply logic here if needed
                 }
-            } else {
-                // Wide layout
-                HStack {
-                    datePicker
-                    categoryPicker
-                    Spacer()
-                    timePicker
-                    Spacer()
-                    addReservationButton
-                }
+                .buttonStyle(.borderedProminent)
+                .padding(.bottom)
             }
-        }
-        .padding()
-        .clipped()
-    }
-     
-    private var datePicker: some View {
-        VStack(alignment: .leading) {
-            Text("Seleziona Giorno")
-                .font(.caption)
-            DatePicker(
-                "",
-                selection: Binding(
-                    get: { dates[safe: selectedIndex] ?? Date() },
-                    set: { newDate in
-                        
-                        updateDatesAroundSelectedDate(newDate)
-                    }
-                ),
-                displayedComponents: .date
+            .padding(.horizontal)
+            .background(
+                Color(.systemBackground)
+                    .opacity(0.9) // Adjust transparency here
+                    .ignoresSafeArea()
             )
-            .labelsHidden()
-            .frame(height: 44)
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            
         }
-    }
 
-    private var categoryPicker: some View {
-        VStack(alignment: .leading) {
-            Text("Categoria")
-                .font(.caption)
-            Picker("Categoria", selection: $selectedCategory) {
-                Text("Pranzo").tag(Reservation.ReservationCategory?.some(.lunch))
-                Text("Cena").tag(Reservation.ReservationCategory?.some(.dinner))
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 200, height: 44)
-            .onChange(of: selectedCategory) { oldCategory, newCategory in
-                if let newCategory = newCategory {
-                    onSidebarColorChange?(newCategory.sidebarColor)
+        // MARK: - Date Picker
+        private var datePicker: some View {
+            VStack(alignment: .leading) {
+                Text("Seleziona Giorno")
+                    .font(.caption)
+                HStack(alignment: .center, spacing: 8) {
+                    DatePicker(
+                        "",
+                        selection: Binding(
+                            get: { dates[safe: selectedIndex] ?? Date() },
+                            set: { newDate in
+                                
+                                updateDatesAroundSelectedDate(newDate)
+                            }
+                        ),
+                        displayedComponents: .date
+                    )
+                    .labelsHidden()
+                    .frame(height: 44)
+                    
+                    // Reset to Default or System Time
+                    Button("Torna a oggi") {
+                        withAnimation {
+                            let today = Calendar.current.startOfDay(for: systemTime) // Get today's date with no time component
+                            print("Today: \(today)")
+                            guard let currentTimeOnly = DateHelper.extractTime(time: currentTime) else { return } // Extract time components
+                            currentTime = DateHelper.normalizedInputTime(time: currentTimeOnly, date: today) ?? Date()
+                            updateDatesAroundSelectedDate(currentTime)
+                            print("New currentTime: \(currentTime)")
+                            isManuallyOverridden = false
+                        }
+                    }
+                    .font(.caption)
+                    .opacity(Calendar.current.isDate(currentTime, inSameDayAs: systemTime) ? 0 : 1)
+                    .animation(.easeInOut, value: currentTime)
                 }
             }
         }
-    }
 
-    private var timePicker: some View {
-        VStack(alignment: .leading) {
-            Text("Orario")
-                .font(.caption)
-            HStack(alignment: .center, spacing: 8) {
-                // Time Picker
-                DatePicker(
-                    "Scegli orario",
-                    selection: Binding(
-                        get: { currentTime },
-                        set: { newTime in
-                            currentTime = newTime
-                            isManuallyOverridden = true // Mark as manually overridden
-                        }
-                    ),
-                    displayedComponents: .hourAndMinute
-                )
-                .labelsHidden()
-                
-                // Reset to Default or System Time
-                Button("Torna all'ora corrente") {
-                    withAnimation {
-                        currentTime = systemTime // Reset to system time
-                        isManuallyOverridden = false
+        // MARK: - Category Picker
+        private var categoryPicker: some View {
+            VStack(alignment: .leading) {
+                Text("Categoria")
+                    .font(.caption)
+                Picker("Categoria", selection: $selectedCategory) {
+                    Text("Pranzo").tag(Reservation.ReservationCategory?.some(.lunch))
+                    Text("Cena").tag(Reservation.ReservationCategory?.some(.dinner))
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 200, height: 44)
+                .onChange(of: selectedCategory) { oldCategory, newCategory in
+                    if let newCategory = newCategory {
+                        onSidebarColorChange?(newCategory.sidebarColor)
                     }
                 }
-                .font(.caption)
-                .opacity(isManuallyOverridden ? 1 : 0)
-                .animation(.easeInOut, value: isManuallyOverridden)
+            }
+        }
+
+        // MARK: - Time Picker
+        private var timePicker: some View {
+            VStack(alignment: .leading) {
+                Text("Orario")
+                    .font(.caption)
+                HStack(alignment: .center, spacing: 8) {
+                    // Time Picker
+                    DatePicker(
+                        "Scegli orario",
+                        selection: Binding(
+                            get: { currentTime },
+                            set: { newTime in
+                                currentTime = DateHelper.combine(date: systemDate, time: newTime)
+                                isManuallyOverridden = true // Mark as manually overridden
+                            }
+                        ),
+                        displayedComponents: .hourAndMinute
+                    )
+                    .labelsHidden()
+                    
+                    // Reset to Default or System Time
+                    Button("Torna all'ora corrente") {
+                        withAnimation {
+                            currentTime = systemTime // Reset to system time
+                            isManuallyOverridden = false
+                        }
+                    }
+                    .font(.caption)
+                    .cornerRadius(8.0)
+                    .background(.thinMaterial)
+                    .padding()
+                    .opacity(DateHelper.compareTimes(firstTime: currentTime, secondTime: systemTime, interval: 60) ? 0 : 1)
+                    .animation(.easeInOut, value: currentTime)
+                }
+            }
+            .onReceive(timer) { currentDate in
+                systemTime = currentDate
             }
         }
     }
@@ -657,14 +705,14 @@ struct LayoutView: View {
         case .lunch:
             components.hour = 12
             components.minute = 0
+            return Calendar.current.date(from: components) ?? systemTime
         case .dinner:
             components.hour = 18
             components.minute = 0
+            return Calendar.current.date(from: components) ?? systemTime
         case .noBookingZone:
-            components.hour = 16
-            components.minute = 0
+            return systemTime
         }
-        return Calendar.current.date(from: components) ?? systemTime
     }
 }
 

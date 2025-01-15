@@ -61,6 +61,8 @@ struct LayoutPageView: View {
     @State private var cachedActiveReservations: [Reservation] = []
     @State private var lastFetchedDate: Date? = nil
     @State private var lastFetchedTime: Date? = nil
+    @State private var lastFetchedCount: Int = 0
+
     
     @State private var pendingClusterUpdate: DispatchWorkItem?
 
@@ -126,39 +128,33 @@ struct LayoutPageView: View {
             }()
             
             let activeReservations = fetchActiveReservationsIfNeeded() // Fetch once for the entire loop
-
+            
             
             
             LazyView(
-                    ZoomableScrollView(availableSize: CGSize(
-                        width: adjustedWidth,
-                        height: viewportHeight + navigationBarHeight
-                    ), category: .constant(selectedCategory), scale: $scale) {
-                        
+                ZoomableScrollView(availableSize: CGSize(
+                    width: adjustedWidth,
+                    height: viewportHeight - 100
+                ), category: .constant(selectedCategory), scale: $scale) {
                         VStack {
                             Text("\(dayOfWeek(for: selectedDate)), \(DateHelper.fullDateFormatter.string(from: selectedDate)) (\(selectedCategory.rawValue)) - \(DateHelper.timeFormatter.string(from: currentTime))")
                                 .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(selectedCategory == .lunch ? Color.title_color_lunch : Color.title_color_dinner)
+                            //.foregroundColor(selectedCategory == .lunch ? Color.title_color_lunch : Color.title_color_dinner)
                                 .padding(.top, 16)
-                                .background(Color.clear) // Slightly opaque background for better visibility
                                 .padding(.horizontal, 16)
                         }
-                        
-                        HStack {
-                            Spacer()
-                            
                             ZStack {
                                 // Background color and grid
-                                Color(hex: (selectedCategory == .lunch ? "#D4C58A" : "#C8CBEA"))
+                                //Color(hex: (selectedCategory == .lunch ? "#D4C58A" : "#C8CBEA"))
                                 Rectangle()
-                                    .frame(width: gridWidth, height: gridHeight)
-                                    .background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
+                                    //.frame(width: gridWidth, height: gridHeight)
+                                //.background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
                                 Rectangle()
                                     .stroke(style: StrokeStyle(lineWidth: 2, dash: [5]))
-                                    .frame(width: gridWidth, height: gridHeight)
-                                    .background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
+                                    //.frame(width: gridWidth, height: gridHeight)
+                                //\.background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
                                 gridData.gridBackground(selectedCategory: selectedCategory)
-                                    .frame(width: gridWidth, height: gridHeight)
+                                    //.frame(width: gridWidth, height: gridHeight)
                                     .background(selectedCategory == .lunch ? Color.grid_background_lunch : Color.grid_background_dinner)
                                 
                                 if isLoading {
@@ -283,14 +279,11 @@ struct LayoutPageView: View {
                             .drawingGroup()
                             .frame(width: gridWidth, height: gridHeight)
                             .compositingGroup()
-                            .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
-                            
-                        Spacer()
-                            
-                        }
-                    }
+                            // .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
+
+                }
                     .frame(width: viewportWidth, height: viewportHeight)
-                    
+                
                     .onAppear {
                         isLoadingClusters = true
                         isLoading = true
@@ -304,38 +297,38 @@ struct LayoutPageView: View {
                             }
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                    scale = 1.0 // Reset scale to ensure re-centering
-                                    offset = .zero // Reset offset for correct alignment
-                                }
+                            scale = 1.0 // Reset scale to ensure re-centering
+                            offset = .zero // Reset offset for correct alignment
+                        }
                     }
-                        .onChange(of: isLayoutReset) { old, reset in
-                            if reset {
-                                isLoading = true
-                                resetCurrentLayout()
-
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                                    isLoading = false
-                                    isLayoutReset = false // Clear reset state
-                                }
+                    .onChange(of: isLayoutReset) { old, reset in
+                        if reset {
+                            isLoading = true
+                            resetCurrentLayout()
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                                isLoading = false
+                                isLayoutReset = false // Clear reset state
                             }
                         }
+                    }
                     .onChange(of: selectedCategory) { old, newCategory in
                         // Load tables for the new category and date
                         let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
                         layoutUI.tables = store.loadTables(for: combinedDate, category: newCategory)
                         let activeReservations = fetchActiveReservationsIfNeeded()
-                                debounceClusterUpdate(for: activeReservations)
-
+                        debounceClusterUpdate(for: activeReservations)
+                        
                     }
                     .onChange(of: selectedDate) { old, newDate in
                         let combinedDate = DateHelper.combine(date: newDate, time: currentTime)
-
+                        
                         layoutUI.tables = store.loadTables(for: combinedDate, category: selectedCategory)
                         let activeReservations = fetchActiveReservationsIfNeeded()
-                                debounceClusterUpdate(for: activeReservations)
-
-
-
+                        debounceClusterUpdate(for: activeReservations)
+                        
+                        
+                        
                     }
                     .onChange(of: currentTime) { old, newTime in
                         let combinedDate = DateHelper.combine(date: selectedDate, time: newTime)
@@ -356,7 +349,19 @@ struct LayoutPageView: View {
                             print("No cached clusters found for \(cacheKey), recalculating...")
                             debounceClusterUpdate(for: activeReservations)
                         }
-
+                        
+                    }
+                    .onChange(of: store.reservations) { oldValue, newValue in
+                        print("reservations changed from \(oldValue.count) to \(newValue.count)")
+                        // Force the active-reservations fetch (since store.reservations changed)
+                        let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+                        layoutUI.tables = store.loadTables(for: combinedDate, category: selectedCategory)
+                        
+                        let activeReservations = fetchActiveReservationsIfNeeded()
+                        
+                        // Recalculate clusters or force-update them:
+                        // e.g. either a 'debounceClusterUpdate(for:)' or 'forceUpdateClusterCache(for:)'
+                        debounceClusterUpdate(for: activeReservations)
                     }
                     .alert(isPresented: $layoutUI.showAlert) {
                         Alert(
@@ -365,19 +370,13 @@ struct LayoutPageView: View {
                             dismissButton: .default(Text("OK"))
                         )
                     }
-                    .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
+                //.background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
             )
-            .onAppear {
-                        // Measure navigation bar height
-                        DispatchQueue.main.async {
-                            if navigationBarHeight == 0 {
-                                navigationBarHeight = parentGeometry.safeAreaInsets.top + 44 // Approximate height
-                            }
-                        }
-                    }
+            
             
         }
-        .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)    }
+        //.frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+    }
     
     // Handle tapping an empty table to add a reservation
     private func handleEmptyTableTap(for table: TableModel) {
@@ -727,11 +726,13 @@ extension LayoutPageView {
     
     private func fetchActiveReservationsIfNeeded() -> [Reservation] {
         // Check if the fetch is redundant
-        if let lastDate = lastFetchedDate,
-           let lastTime = lastFetchedTime,
-           Calendar.current.isDate(selectedDate, inSameDayAs: lastDate),
-           abs(currentTime.timeIntervalSince(lastTime)) < 60 {
-            return cachedActiveReservations
+        if lastFetchedCount == store.reservations.count {
+            if let lastDate = lastFetchedDate,
+               let lastTime = lastFetchedTime,
+               Calendar.current.isDate(selectedDate, inSameDayAs: lastDate),
+               abs(currentTime.timeIntervalSince(lastTime)) < 60 {
+                    return cachedActiveReservations
+            }
         }
         
         print("Called fetchActiveReservations!")
@@ -743,7 +744,9 @@ extension LayoutPageView {
         let preloadDate = calendar.startOfDay(for: selectedDate)
         
         for (key, reservation) in store.activeReservationCache {
+            
             guard key.date == preloadDate,
+                  
                   key.time >= currentTime,
                   key.time < currentTime.addingTimeInterval(3600)
             else {
@@ -760,6 +763,7 @@ extension LayoutPageView {
         // Cache them for next call
         DispatchQueue.main.async {
             cachedActiveReservations = activeReservations
+            lastFetchedCount = store.reservations.count
             lastFetchedDate = selectedDate
             lastFetchedTime = currentTime
         }

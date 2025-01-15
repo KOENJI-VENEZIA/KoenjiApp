@@ -15,8 +15,8 @@ struct AddReservationView: View {
     @State private var group: Bool = false
     @State private var notes: String = ""
     
-    @State private var endTimeString: String = ""
-    @State private var startTimeString: String = ""
+    @State private var endTimeString: String = "13:45"
+    @State private var startTimeString: String = "12:00"
     
     @State private var selectedForcedTableID: Int? = nil
     @State private var showAlert: Bool = false
@@ -29,6 +29,8 @@ struct AddReservationView: View {
     @Binding var selectedDate: Date
     @Binding var startTime: Date
     
+    @State private var availableTables: [(table: TableModel, isCurrentlyAssigned: Bool)] = []
+
 
     // MARK: - Body
     var body: some View {
@@ -49,11 +51,7 @@ struct AddReservationView: View {
 
                     Picker("Table", selection: $selectedForcedTableID) {
                         Text("Auto Assign").tag(nil as Int?)
-                        ForEach(store.tableAssignmentService.availableTables(
-                            for: createTemporaryReservation(),
-                            reservations: store.getReservations(),
-                            tables: store.getTables()
-                        ), id: \.table.id) { entry in
+                        ForEach(availableTables, id: \.table.id) { entry in
                             Text(entry.isCurrentlyAssigned
                                  ? "\(entry.table.name) (currently assigned)"
                                  : entry.table.name
@@ -118,19 +116,28 @@ struct AddReservationView: View {
                 )
             }
             .onAppear {
+                print("Passed value: \(DateHelper.formatTime(startTime))")
+                print("Start time before: \(startTimeString)")
+                print("End time before: \(endTimeString)")
                 // Initialize time strings if empty
-                if startTimeString.isEmpty {
-                    startTimeString = DateHelper.formatTime(startTime)
-                    category = categoryForTimeInterval(time: startTime)
-                }
-                if endTimeString.isEmpty {
-                    endTimeString = TimeHelpers.calculateEndTime(
+
+               
+                startTimeString = DateHelper.formatTime(startTime)
+                endTimeString = TimeHelpers.calculateEndTime(
                         startTime: startTimeString,
-                        category: category ?? .lunch
-                    )
-                }
+                        category: category ?? .lunch)
+            
                 
                 category = categoryForTimeInterval(time: startTime)
+                availableTables = store.tableAssignmentService.availableTables(
+                                   for: createTemporaryReservation(),
+                                   reservations: store.getReservations(),
+                                   tables: store.getTables()
+                               )
+                
+                print("Start time after: \(startTimeString)")
+                print("End time after: \(endTimeString)")
+                
             }
         }
     }
@@ -143,7 +150,7 @@ struct AddReservationView: View {
             name: name,
             phone: phone,
             numberOfPersons: numberOfPersons,
-            dateString: DateHelper.formatFullDate(selectedDate),
+            dateString: DateHelper.formatDate(selectedDate),
             category: category ?? .lunch,
             startTime: startTimeString,
             endTime: endTimeString,
@@ -194,14 +201,20 @@ struct AddReservationView: View {
             return
         }
 
-        let newReservation = createTemporaryReservation()
-
+        var newReservation = createTemporaryReservation()
         if let assignedTables = store.assignTables(for: newReservation, selectedTableID: selectedForcedTableID) {
             DispatchQueue.main.async {
                 // do actual saving logic here
-                isSaving = false
-                dismiss()
+                newReservation.tables = assignedTables
+                store.finalizeReservation(newReservation, tables: assignedTables)
+                reservationService.saveReservationsToDisk(includeMock: true)
+
+
+
             }
+            
+            isSaving = false
+            dismiss()
         } else {
             alertMessage = selectedForcedTableID != nil
                 ? "Could not assign selected table."

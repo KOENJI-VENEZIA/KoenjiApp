@@ -11,6 +11,7 @@ struct EditReservationView: View {
     @State private var selectedForcedTableID: Int? = nil
     @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
+    @State private var currentTime: Date = Date()
     
 
     var body: some View {
@@ -24,7 +25,7 @@ struct EditReservationView: View {
 
                     DatePicker("Select Date", selection: $selectedDate, displayedComponents: .date)
                         .onChange(of: selectedDate) { oldDate, newDate in
-                            reservation.dateString = DateHelper.formatFullDate(newDate)
+                            reservation.dateString = DateHelper.formatDate(newDate)
                         }
                         .onAppear {
                             // Initialize selectedDate based on reservation.dateString
@@ -106,7 +107,8 @@ struct EditReservationView: View {
         if let assignedTables = store.assignTables(for: reservation, selectedTableID: selectedForcedTableID) {
             reservation.tables = assignedTables
             reservationService.updateReservation(reservation)
-            
+            store.finalizeReservation(reservation, tables: assignedTables)
+
             store.updateActiveReservationAdjacencyCounts(for: reservation)
 
             dismiss()
@@ -139,8 +141,11 @@ struct EditReservationView: View {
             reservation.startTime = "18:00"
             reservation.endTime = "20:45"
         case .noBookingZone:
-            reservation.startTime = "09:00"
-            reservation.endTime = "10:00"
+            reservation.startTime = DateHelper.formatTime(currentTime)
+            reservation.endTime = TimeHelpers.calculateEndTime(
+                startTime: DateHelper.formatTime(currentTime),
+                category: reservation.category
+            )
         }
     }
 

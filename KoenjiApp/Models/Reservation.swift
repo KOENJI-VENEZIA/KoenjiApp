@@ -29,7 +29,7 @@ struct Reservation: Identifiable, Hashable, Codable {
     /// A convenience accessor for converting `dateString` into a Foundation.Date.
     /// (You will want better date/time conversion in a real app!)
     var date: Date? {
-        return DateHelper.parseFullDate(dateString)
+        return DateHelper.parseDate(dateString)
     }
 
     

@@ -11,7 +11,7 @@ struct ContentView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var selectedReservation: Reservation? = nil
     @State private var currentReservation: Reservation? = nil
-    @State private var selectedCategory: Reservation.ReservationCategory? = .lunch
+    @State private var selectedCategory: Reservation.ReservationCategory? 
     @State private var showInspector: Bool = false       // Controls Inspector visibility
 
     var body: some View {

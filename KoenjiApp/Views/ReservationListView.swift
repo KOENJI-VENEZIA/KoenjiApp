@@ -16,7 +16,8 @@ struct ReservationListView: View {
     @State private var notesToShow: String = ""
     @State private var currentReservation: Reservation? = nil
     @State private var selectedReservationID: UUID? = nil
-    @State private var showTopControls: Bool = true
+    @State private var showTopControls: Bool = false
+    @State private var isFiltered: Bool = false
     @State private var daysToSimulate: Int = 5
     @State private var showingDebugConfig: Bool = false
     @State private var showingResetConfirmation = false
@@ -28,22 +29,27 @@ struct ReservationListView: View {
     @State private var selectedCategory: Reservation.ReservationCategory? = .lunch
     
     @State private var showInspector: Bool = false       // Controls Inspector visibility
+    @State private var showingFilters = false
 
     @State private var sidebarDefault: Color = Color.sidebar_dinner // Default color
 
+    @State private var sortOption: SortOption? = .removeSorting // Default to nil (not sorted)
+    private var isSorted: Bool {
+        sortOption != .removeSorting
+    }
 
+    enum SortOption: String, CaseIterable {
+        case alphabetically = "Alphabetically"
+        case chronologically = "Chronologically"
+        case byNumberOfPeople = "By Number of People"
+        case removeSorting = "No Sorting"
+    }
 
     // MARK: - Body
     var body: some View {
         HStack(spacing: 0) {
             // Reservation List
             VStack(spacing: 0) {
-                if showTopControls {
-                    filterSection
-                        .background(.ultraThinMaterial)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                        .animation(.easeInOut, value: showTopControls)
-                }
                 List(selection: $selection) {
                     ForEach(getFilteredReservations()) { reservation in
                         ReservationRowView(
@@ -73,7 +79,15 @@ struct ReservationListView: View {
                     }
                     .onDelete(perform: delete)
                 }
-                
+                .safeAreaInset(edge: .top) {
+                    Color.clear.frame(height: 16) // Adds scrolling padding at the top
+                }
+                .gesture (
+                    TapGesture(count: 1)
+                        .onEnded {
+                            selectedReservationID = nil
+                        }
+                )
                 .allowsHitTesting(!showingNotesAlert) // Disable interaction with rows when the popover is visible
             }
             .frame(maxWidth: selectedReservation == nil ? .infinity : UIScreen.main.bounds.width * 0.6) // Resize list dynamically
@@ -81,22 +95,26 @@ struct ReservationListView: View {
         
         .inspector(isPresented: $showInspector) { // Show Inspector if a reservation is selected
             if let selectedID = selectedReservationID {
-                ReservationInfoCard(
-                    reservationID: selectedID,
-                    onClose: {
-                        showInspector = false
-                        selectedReservationID = nil
-                    },
-                    onEdit: {
-                        // If you want to open Edit Reservation, pass the ID
-                        // or fetch from the store.
-                        if let reservation = store.reservations.first(where: { $0.id == selectedID }) {
-                            handleEditTap(reservation)
+                
+                ZStack {
+
+                    ReservationInfoCard(
+                        reservationID: selectedID,
+                        onClose: {
+                            showInspector = false
+                            selectedReservationID = nil
+                        },
+                        onEdit: {
+                            // If you want to open Edit Reservation, pass the ID
+                            // or fetch from the store.
+                            if let reservation = store.reservations.first(where: { $0.id == selectedID }) {
+                                handleEditTap(reservation)
+                            }
                         }
-                    }
-                )
-                .environmentObject(store) // So inside InfoCard, we can access the updated reservations
-                .padding()
+                    )
+                    .environmentObject(store) // So inside InfoCard, we can access the updated reservations
+                    .padding()
+                }
             }
                 
             
@@ -105,15 +123,134 @@ struct ReservationListView: View {
         .navigationTitle("Tutte le prenotazioni")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    withAnimation {
-                        showTopControls.toggle()
-                    }
-                }) {
-                    Image(systemName: showTopControls ? "chevron.up" : "chevron.down")
+                Menu {
+                    
+                    Text("Sort by...") // Add a title here
+                           .font(.headline) // Optional: Make the title stand out
+                           .padding(.bottom, 4) // Optional: Add spacing below the title
+                    
+                    Picker("Sort By", selection: $sortOption) {
+                        ForEach(SortOption.allCases, id: \.self) { option in
+                            Text(option.rawValue).tag(option)
+                            }
+                        }
+                    .pickerStyle(.inline) // Optional: Use inline style for better layout
+
+                } label: {
+                    Image(systemName: isSorted ? "arrow.up.arrow.down.circle.fill" : "arrow.up.arrow.down.circle")
                         .imageScale(.large)
                 }
-                .accessibilityLabel(showTopControls ? "Hide Controls" : "Show Controls")
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+
+                Button(action: {
+                    showingFilters = true
+                }) {
+                    Image(systemName: isFiltered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                        .imageScale(.large)
+                }
+                .sheet(isPresented: $showingFilters) {
+                    VStack(spacing: 16) {
+                        Text("Filters")
+                            .font(.title2)
+                            .bold()
+                            .padding(.top)
+
+                        // Guest Number Filter
+                        if let unwrappedFilterPeople = filterPeople {
+                            Stepper(value: Binding(
+                                get: { unwrappedFilterPeople },
+                                set: { newValue in
+                                    filterPeople = newValue
+                                }
+                            ), in: 1...14, step: 1) {
+                                let label = (unwrappedFilterPeople < 14)
+                                ? "Numero Ospiti: da \(unwrappedFilterPeople) in su"
+                                : "Numero Ospiti: \(unwrappedFilterPeople)"
+                                Text(label)
+                                    .font(.headline)
+                            }
+
+                            Button("Rimuovi Filtro Numero Ospiti") {
+                                withAnimation {
+                                    filterPeople = nil
+                                    if filterStartDate == nil && filterEndDate == nil {
+                                        isFiltered = false
+                                    }
+                                }
+                            }
+                            .foregroundStyle(.red)
+                        } else {
+                            Button("Filtra per Numero Ospiti...") {
+                                withAnimation {
+                                    filterPeople = 1
+                                    isFiltered = true
+                                }
+                            }
+                            .font(.headline)
+                        }
+
+                        Divider()
+                            .padding(.vertical)
+
+                        // Date Interval Filter
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text("Da data:")
+                                    .font(.headline)
+                                DatePicker("",
+                                           selection: Binding(
+                                               get: { filterStartDate ?? Date() },
+                                               set: { newValue in filterStartDate = newValue }
+                                           ),
+                                           displayedComponents: .date
+                                )
+                                .labelsHidden()
+                                .datePickerStyle(.compact)
+                            }
+
+                            VStack(alignment: .leading) {
+                                Text("A data:")
+                                    .font(.headline)
+                                DatePicker("",
+                                           selection: Binding(
+                                               get: { filterEndDate ?? Date() },
+                                               set: { newValue in filterEndDate = newValue }
+                                           ),
+                                           displayedComponents: .date
+                                )
+                                .labelsHidden()
+                                .datePickerStyle(.compact)
+                            }
+                        }
+
+                        if filterStartDate != nil && filterEndDate != nil {
+                            Button("Rimuovi Filtro Data") {
+                                withAnimation {
+                                    filterStartDate = nil
+                                    filterEndDate = nil
+                                    if filterPeople == nil {
+                                        isFiltered = false
+                                    }
+                                }
+                            }
+                            .foregroundStyle(.red)
+                        }
+
+
+                        Button("Apply") {
+                            showingFilters = false
+                            isFiltered = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.bottom)
+                        
+                        
+                    }
+                    .padding(.horizontal)
+                    .presentationDetents([.medium, .large]) // Medium and large detents for flexibility
+                    .presentationDragIndicator(.visible)
+                }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
@@ -280,7 +417,7 @@ struct ReservationListView: View {
     // MARK: - Generate Debug Data
     private func generateDebugData(force: Bool = false) {
         Task {
-            reservationService.generateReservations(
+            await reservationService.generateReservations(
                 daysToSimulate: daysToSimulate
             )
             // breservationService.simulateUserActions(actionCount: 1000)
@@ -288,6 +425,7 @@ struct ReservationListView: View {
     }
     
     private func saveDebugData() {
+        
         reservationService.saveReservationsToDisk(includeMock: true)
         print("Debug data saved to disk.")
     }
@@ -304,138 +442,56 @@ struct ReservationListView: View {
         let reservations = store.reservations
         print("\(reservations)")
     }
-    
 
-    // MARK: - Filter Section
-    private var filterSection: some View {
-        VStack(alignment: .leading) {
-            // Guest number filter
-            HStack {
-                if filterPeople == nil {
-                    Button("Filtra per Numero Ospiti...") {
-                        withAnimation {
-                            filterPeople = 1
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.leading, 8.5)
-                    .frame(height: 40)
-                }
-
-                Spacer()
-
-                if let unwrappedFilterPeople = filterPeople {
-                    Stepper(value: Binding(
-                        get: { unwrappedFilterPeople },
-                        set: { newValue in
-                            filterPeople = newValue
-                        }
-                    ), in: 1...14, step: 1) {
-                        let label = (unwrappedFilterPeople < 14)
-                            ? "Filtra per Numero Ospiti: da \(unwrappedFilterPeople) in su"
-                            : "Filtra per Numero Ospiti: \(unwrappedFilterPeople)"
-                        Text(label)
-                            .frame(height: 40)
-                    }
-
-                    Button("Rimuovi Filtro") {
-                        withAnimation {
-                            filterPeople = nil
-                        }
-                    }
-                    .foregroundStyle(.red)
-                }
-            }
-            .padding(.bottom, 8)
-
-            // Date interval filter
-            VStack(alignment: .leading) {
-                if filterStartDate == nil || filterEndDate == nil {
-                    Button("Filtra per Intervallo di Date...") {
-                        withAnimation {
-                            filterStartDate = Date()
-                            filterEndDate = Date()
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.leading, 8.5)
-                    .frame(height: 40)
-                }
-
-                if let startDate = filterStartDate, let endDate = filterEndDate {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("Da data:")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                            DatePicker("",
-                                       selection: Binding(
-                                           get: { startDate },
-                                           set: { newValue in filterStartDate = newValue }
-                                       ),
-                                       displayedComponents: .date
-                            )
-                            .labelsHidden()
-                            .datePickerStyle(.compact)
-                        }
-
-                        VStack(alignment: .leading) {
-                            Text("A data:")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                            DatePicker("",
-                                       selection: Binding(
-                                           get: { endDate },
-                                           set: { newValue in filterEndDate = newValue }
-                                       ),
-                                       displayedComponents: .date
-                            )
-                            .labelsHidden()
-                            .datePickerStyle(.compact)
-                        }
-
-                        Spacer()
-
-                        Button("Rimuovi Filtro") {
-                            withAnimation {
-                                filterStartDate = nil
-                                filterEndDate = nil
-                            }
-                        }
-                        .foregroundStyle(.red)
-                    }
-                }
-            }
-        }
-    }
 
     // MARK: - Filtering Logic
     private func getFilteredReservations() -> [Reservation] {
-        let all = store.getReservations()
-        print("All reservations count: \(all.count)")
-        let filtered = store.getReservations().filter { reservation in
-            var matchesFilter = true
-            
-            // Filter by date interval if set
-            if let start = filterStartDate,
-               let end = filterEndDate
-            {
-                guard let reservationDate = TimeHelpers.parseFullDate(from: reservation.dateString) else {
-                    return false
-                }
-                matchesFilter = matchesFilter && (reservationDate >= start && reservationDate <= end)
-            }
+         let filtered = store.getReservations().filter { reservation in
+             var matchesFilter = true
 
-            // Filter by guest number if set
-            if let filterP = filterPeople {
-                matchesFilter = matchesFilter && (reservation.numberOfPersons == filterP)
-            }
-            
-            return matchesFilter
+             if let start = filterStartDate, let end = filterEndDate {
+                 guard let reservationDate = DateHelper.parseDate(reservation.dateString) else {
+                     return false
+                 }
+                 matchesFilter = matchesFilter && (reservationDate >= start && reservationDate <= end)
+             }
+
+             if let filterP = filterPeople {
+                 matchesFilter = matchesFilter && (reservation.numberOfPersons == filterP)
+             }
+
+             return matchesFilter
+         }
+
+         return sortReservations(filtered)
+     }
+
+    private func sortReservations(_ reservations: [Reservation]) -> [Reservation] {
+        guard let sortOption = sortOption else {
+            // Return unsorted reservations if sortOption is nil
+            return reservations
         }
-        
-        print("Filtered reservations count: \(filtered.count)")
-        return store.reservations
+
+        switch sortOption {
+        case .alphabetically:
+            return reservations.sorted { $0.name < $1.name }
+        case .chronologically:
+            return reservations.sorted {
+                DateHelper.combineDateAndTimeStrings(
+                    dateString: $0.dateString,
+                    timeString: $0.startTime
+                ) <
+                    DateHelper.combineDateAndTimeStrings(
+                        dateString: $1.dateString,
+                        timeString: $1.startTime
+                    )
+            }
+        case .byNumberOfPeople:
+            return reservations.sorted { $0.numberOfPersons < $1.numberOfPersons }
+            
+        case .removeSorting:
+            return reservations
+        }
     }
 
     // MARK: - Delete
@@ -530,7 +586,7 @@ struct ReservationRowView: View {
         )
         .cornerRadius(8)
         .contentShape(Rectangle()) // The row is tappable
-        .onTapGesture {
+        .onTapGesture(count: 2) {
             onTap()
         }
         .contextMenu {
