@@ -38,6 +38,11 @@ class LayoutUIManager: ObservableObject {
             objectWillChange.send() // Notify SwiftUI of changes
         }
     }
+    
+    // to move into ClusterManager
+    @State var lastLayoutSignature: String = ""
+    @State private var statusChanged: Int = 0
+
 
     // MARK: - Dependencies
     /// A reference to the `ReservationStore` for table data and layout operations.
@@ -64,7 +69,6 @@ class LayoutUIManager: ObservableObject {
         loadLayout()
         loadClusters()
         isConfigured = true
-        print("LayoutUIManager configured for date: \(store.formattedDate(date: date, locale: Locale.current)) and category: \(category.rawValue)")
     }
     
     // MARK: - Layout Management
@@ -168,6 +172,13 @@ extension LayoutUIManager {
         clusters = store.loadClusters(for: date, category: category)
     }
     
-    /// Saves the current layout to the store.
-
+    func onTableUpdated(_ updatedTable: TableModel) {
+        // Normal table updates here...
+        let newSignature = store?.computeLayoutSignature(tables: self.tables)
+        if newSignature != lastLayoutSignature {
+            // We have a real adjacency change, so we might need to recalc clusters
+            lastLayoutSignature = newSignature ?? ""
+            statusChanged += 1  // or some equivalent trigger
+        }
+    }
 }

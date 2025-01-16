@@ -1,5 +1,12 @@
+//
+//  BottomSheetControls.swift
+//  KoenjiApp
+//
+//  Created by Matteo Nassini on 24/12/24.
+//
+
+
 import SwiftUI
-import Combine
 
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
@@ -19,12 +26,9 @@ struct LayoutView: View {
     
     // Time
     @State private var systemTime: Date = Date()
-    @State private var systemDate: Date = Date()
     @StateObject private var timerManager = TimerManager()
     @State private var currentTime: Date = Date()
     @State private var isManuallyOverridden: Bool = false
-    @State private var showingTimePickerSheet: Bool = false
-    @State private var isInitialized: Bool = false
 
     
     // Reservation editing
@@ -42,102 +46,50 @@ struct LayoutView: View {
     @State private var showingNoBookingAlert: Bool = false
     @State private var isLayoutLocked: Bool = true
     @State private var isZoomLocked: Bool = false
-    @State private var showTopControls: Bool = true
     @State private var isLayoutReset: Bool = false
     @State private var showingBottomSheet = false
 
 
-    // Zoom and pan state
-    @State private var scale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    
-    @State private var clusters: [CachedCluster] = []
-
     @State private var sidebarColor: Color = Color.sidebar_lunch // Default color
-
-    
-    // Navigation direction
-        
-        
-    @State  var navigationDirection: NavigationDirection = .forward
-    
     var onSidebarColorChange: ((Color) -> Void)?
+
+    @State  var navigationDirection: NavigationDirection = .forward
+
     
     var body: some View {
         GeometryReader { geometry in
-            let isCompact = horizontalSizeClass == .compact
+            
             let selectedDate = dates[safe: selectedIndex] ?? Date()
-            var adjustedWidth = showInspector ? geometry.size.width - 300 : geometry.size.width // Adjust for sidebar width
-
             
             ZStack {
-            
                 // Current Layout Page View
                 LayoutPageView(
                     selectedDate: selectedDate,
                     selectedCategory: selectedCategory ?? .lunch,
                     currentTime: $currentTime,
                     isManuallyOverridden: $isManuallyOverridden,
-                    showingTimePickerSheet: $showingTimePickerSheet,
                     selectedReservation: $selectedReservation,
                     showInspector: $showInspector,
                     showingEditReservation: $showingEditReservation,
                     showingAddReservationSheet: $showingAddReservationSheet,
                     tableForNewReservation: $tableForNewReservation,
-                    showingNoBookingAlert: $showingNoBookingAlert,
                     isLayoutLocked: $isLayoutLocked,
-                    isLayoutReset: $isLayoutReset,
-                    scale: $scale,
-                    offset: $offset,
-                    clusters: clusters,
-                    adjustedWidth: adjustedWidth
+                    isLayoutReset: $isLayoutReset
                 )
-
-                
-                .environmentObject(store)
-                .environmentObject(reservationService)
-                .environmentObject(gridData)
                 .id(selectedIndex) // Force view refresh on index change
-                //.matchedGeometryEffect(id: "layoutPageView\(selectedIndex)", in: animationNamespace) // Removed
                 
 
                 // Left Arrow Button
-                if selectedIndex > 0 {
-                    Button(action: {
-                        withAnimation {
-                            navigateToPreviousDate()
-                        }
-                    }) {
-                        Image(systemName: "chevron.left.circle.fill")
-                            .resizable()
-                            .frame(width: 40, height: 40)
-                            .foregroundColor(.blue.opacity(0.7))
-                            .shadow(radius: 2)
-                    }
+                dateForward
                     .position(x: geometry.size.width * 0.05, y: geometry.size.height / 2)
                     .accessibilityLabel("Previous Date")
-                }
                 
                 // Right Arrow Button
-                if selectedIndex < dates.count - 1 {
-                    Button(action: {
-                        withAnimation {
-                            navigateToNextDate()
-                        }
-                    }) {
-                        Image(systemName: "chevron.right.circle.fill")
-                            .resizable()
-                            .frame(width: 40, height: 40)
-                            .foregroundColor(.blue.opacity(0.7))
-                            .shadow(radius: 2)
-                    }
+                dateBackward
                     .position(x: geometry.size.width * 0.95, y: geometry.size.height / 2)
                     .accessibilityLabel("Next Date")
-                }
+                
             }
-            
-            
-            //.ignoresSafeArea(.all, edges: .top)
             .navigationTitle("Layout Tavoli")
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -192,33 +144,13 @@ struct LayoutView: View {
                 }
             }
             .inspector(isPresented: $showInspector) {// Show Inspector if a reservation is selected
-                ZStack {
-                    Color (
-                        sidebarColor
-                    )
-                        .ignoresSafeArea()
-
-                    
-                    if let reservation = selectedReservation {
-                        ReservationInfoCard(
-                            reservationID: reservation.id,
-                            onClose: {
-                                dismissInfoCard()
-                            },
-                            onEdit: {
-                                currentReservation = reservation
-                                showingEditReservation = true
-                            }
-                        )
-                        .background(.clear)
-
-                        
-                    } else {
-                        Text("(Nessuna prenotazione selezionata)")
-                            .multilineTextAlignment(.center)
-                            .padding()
-                    }
-                }
+                InspectorSideView(
+                    selectedReservation: $selectedReservation,
+                    currentReservation: $currentReservation,
+                    showInspector: $showInspector,
+                    showingEditReservation: $showingEditReservation,
+                    sidebarColor: $sidebarColor
+                )
             }
             .sheet(item: $currentReservation) { reservation in
                 EditReservationView(reservation: reservation,
@@ -226,8 +158,6 @@ struct LayoutView: View {
                     showingEditReservation = false
                 }
                 )
-                    .environmentObject(store)
-                    .environmentObject(reservationService)
             }
             .sheet(isPresented: $showingAddReservationSheet) {
                 AddReservationView(
@@ -243,8 +173,6 @@ struct LayoutView: View {
                     }
                     ),
                     startTime: $currentTime)
-                    .environmentObject(store)
-                    .environmentObject(reservationService)
             }
             .sheet(isPresented: $showingBottomSheet) {
                 BottomSheetControls(
@@ -253,7 +181,7 @@ struct LayoutView: View {
                     selectedCategory: $selectedCategory,
                     currentTime: $currentTime,
                     systemTime: $systemTime,
-                    systemDate: $systemDate,
+
                     isManuallyOverridden: $isManuallyOverridden,
                     sidebarColor: $sidebarColor,
                     updateDatesAroundSelectedDate: { newDate in
@@ -262,20 +190,12 @@ struct LayoutView: View {
                     onSidebarColorChange: onSidebarColorChange
                 )
             }
-            .alert(isPresented: $showingNoBookingAlert) {
-                Alert(
-                    title: Text("Attenzione!"),
-                    message: Text("Impossibile inserire prenotazioni fuori da orario pranzo o cena."),
-                    dismissButton: .default(Text("OK"))
-                )
-            }
             .onAppear {
                 initializeView()
                 print("Current time as LayoutView appears: \(currentTime)")
 
             }
             .onChange(of: selectedIndex) {
-                adjustedWidth = showInspector ? geometry.size.width - 300 : geometry.size.width
                 handleSelectedIndexChange()
             }
             .onChange(of: selectedCategory) { oldCategory, newCategory in
@@ -309,12 +229,6 @@ struct LayoutView: View {
     }
     
     // MARK: - Navigation Methods
-    func dismissInfoCard() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { // Match animation duration
-            showInspector = false
-            selectedReservation = nil
-        }
-    }
     
     private func navigateToPreviousDate() {
         guard selectedIndex > 0 else { return }
@@ -360,7 +274,6 @@ struct LayoutView: View {
     
     private func initializeView() {
         // Initialize default date/time configuration
-        
         currentTime = timerManager.currentDate
         
         // Generate date array
@@ -449,149 +362,36 @@ struct LayoutView: View {
     }
     
     // MARK: - Helper Methods
-    struct BottomSheetControls: View {
-        @Binding var dates: [Date]
-        @Binding var selectedIndex: Int
-        @Binding var selectedCategory: Reservation.ReservationCategory?
-        @Binding var currentTime: Date
-        @Binding var systemTime: Date
-        @Binding var systemDate: Date
-        @Binding var isManuallyOverridden: Bool
-        @Binding var sidebarColor: Color
-        let updateDatesAroundSelectedDate: (Date) -> Void // Closure for the method
-
-
-        var onSidebarColorChange: ((Color) -> Void)?
-
-        var body: some View {
-            ZStack {
-                sidebarColor
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 16) {
-                    Spacer()
-                    
-                    Text("Controls")
-                        .font(.title2)
-                        .bold()
-                        .padding(.top)
-                        .padding(.horizontal)
-                    
-                    Divider()
-                    
-                    datePicker
-                    
-                    Divider()
-                    
-                    categoryPicker
-                    
-                    Divider()
-                    
-                    timePicker
-                        .padding(.bottom)
-                    
-                    Spacer()
+    
+    private var dateForward: some View {
+        
+            Button(action: {
+                withAnimation {
+                    navigateToPreviousDate()
                 }
-                
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
+            }) {
+                Image(systemName: "chevron.left.circle.fill")
+                    .resizable()
+                    .frame(width: 40, height: 40)
+                    .foregroundColor(.blue.opacity(0.7))
+                    .shadow(radius: 2)
+            }
+    }
+    
+    private var dateBackward: some View {
+        
+            Button(action: {
+                withAnimation {
+                    navigateToNextDate()
+                }
+            }) {
+                Image(systemName: "chevron.right.circle.fill")
+                    .resizable()
+                    .frame(width: 40, height: 40)
+                    .foregroundColor(.blue.opacity(0.7))
+                    .shadow(radius: 2)
             }
             
-        }
-
-        // MARK: - Date Picker
-        private var datePicker: some View {
-            VStack(alignment: .leading) {
-                Text("Seleziona Giorno")
-                    .font(.caption)
-                HStack(alignment: .center, spacing: 8) {
-                    DatePicker(
-                        "",
-                        selection: Binding(
-                            get: { dates[safe: selectedIndex] ?? Date() },
-                            set: { newDate in
-                                
-                                updateDatesAroundSelectedDate(newDate)
-                            }
-                        ),
-                        displayedComponents: .date
-                    )
-                    .labelsHidden()
-                    .frame(height: 44)
-                    
-                    // Reset to Default or System Time
-                    Button("Torna a oggi") {
-                        withAnimation {
-                            let today = Calendar.current.startOfDay(for: systemTime) // Get today's date with no time component
-                            print("Today: \(today)")
-                            guard let currentTimeOnly = DateHelper.extractTime(time: currentTime) else { return } // Extract time components
-                            currentTime = DateHelper.normalizedInputTime(time: currentTimeOnly, date: today) ?? Date()
-                            updateDatesAroundSelectedDate(currentTime)
-                            print("New currentTime: \(currentTime)")
-                            isManuallyOverridden = false
-                        }
-                    }
-                    .font(.caption)
-                    .opacity(Calendar.current.isDate(currentTime, inSameDayAs: systemTime) ? 0 : 1)
-                    .animation(.easeInOut, value: currentTime)
-                }
-            }
-        }
-
-        // MARK: - Category Picker
-        private var categoryPicker: some View {
-            VStack(alignment: .leading) {
-                Text("Categoria")
-                    .font(.caption)
-                Picker("Categoria", selection: $selectedCategory) {
-                    Text("Pranzo").tag(Reservation.ReservationCategory?.some(.lunch))
-                    Text("Cena").tag(Reservation.ReservationCategory?.some(.dinner))
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 200, height: 44)
-                .onChange(of: selectedCategory) { oldCategory, newCategory in
-                    if let newCategory = newCategory {
-                        onSidebarColorChange?(newCategory.sidebarColor)
-                    }
-                }
-            }
-        }
-
-        // MARK: - Time Picker
-        private var timePicker: some View {
-            VStack(alignment: .leading) {
-                Text("Orario")
-                    .font(.caption)
-                HStack(alignment: .center, spacing: 8) {
-                    // Time Picker
-                    DatePicker(
-                        "Scegli orario",
-                        selection: Binding(
-                            get: { currentTime },
-                            set: { newTime in
-                                currentTime = DateHelper.combine(date: systemDate, time: newTime)
-                                isManuallyOverridden = true // Mark as manually overridden
-                            }
-                        ),
-                        displayedComponents: .hourAndMinute
-                    )
-                    .labelsHidden()
-                    
-                    // Reset to Default or System Time
-                    Button("Torna all'ora corrente") {
-                        withAnimation {
-                            currentTime = systemTime // Reset to system time
-                            isManuallyOverridden = false
-                        }
-                    }
-                    .font(.caption)
-                    .opacity(DateHelper.compareTimes(firstTime: currentTime, secondTime: systemTime, interval: 60) ? 0 : 1)
-                    .animation(.easeInOut, value: currentTime)
-                }
-            }
-
-            
-        }
     }
 
     private var addReservationButton: some View {
@@ -757,14 +557,6 @@ struct LazyView<Content: View>: View {
     }
 }
 
-extension AnyTransition {
-    static func slideFromSide(navigationDirection: NavigationDirection) -> AnyTransition {
-        AnyTransition.modifier(
-            active: SlideFromSideModifier(offset: navigationDirection == .forward ? CGSize(width: UIScreen.main.bounds.width, height: 0) : CGSize(width: -UIScreen.main.bounds.width, height: 0)),
-            identity: SlideFromSideModifier(offset: .zero)
-        )
-    }
-}
 
 struct SlideFromSideModifier: ViewModifier {
     let offset: CGSize

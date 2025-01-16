@@ -543,12 +543,7 @@ extension ReservationStore {
     
     // MARK: - Misc Helpers
     extension ReservationStore {
-        func formattedDate(date: Date, locale: Locale) -> String {
-            let formatter = DateFormatter()
-            formatter.locale = locale
-            formatter.dateFormat = "EEEE, dd/MM/yyyy"
-            return formatter.string(from: date)
-        }
+
         
         func triggerFlashAnimation(for tableID: Int) {
             DispatchQueue.main.async {
@@ -753,4 +748,15 @@ extension ReservationStore {
 
         print("Invalidated active reservation cache for reservation \(reservation.id).")
     }
+    
+    /// A simple hash from table positions and dimensions.
+    /// E.g., "id_1_row_0_col_0_width_3_height_3;id_2_row_0_col_3_width_3_height_3;..."
+    func computeLayoutSignature(tables: [TableModel]) -> String {
+        let sortedTables = tables.sorted { $0.id < $1.id }
+        let components = sortedTables.map { table in
+            "id_\(table.id)_row_\(table.row)_col_\(table.column)_w_\(table.width)_h_\(table.height)"
+        }
+        return components.joined(separator: ";")
+    }
+    
 }

@@ -12,8 +12,6 @@ struct TableView: View {
     @EnvironmentObject var reservationService: ReservationService
     @ObservedObject var layoutUI: LayoutUIManager
 
-    @Binding var showingNoBookingAlert: Bool
-
     let onTapEmpty: () -> Void
     let onStatusChange: () -> Void
     @Binding var showInspector: Bool
@@ -40,6 +38,7 @@ struct TableView: View {
 
     @State private var statusChanged: Int = 0
     @State private var showEmojiPicker: Bool = false
+    @State private var isContextMenuActive = false
 
         
     private var cellSize: CGFloat { return layoutUI.cellSize }
@@ -70,118 +69,127 @@ struct TableView: View {
             return false
         }()
         
+        let (fillColor, idSuffix): (Color, String) = {
+            if isDragging {
+                return (Color(hex: "#AEAB7D").opacity(0.2), "dragging")
+            } else if activeReservation != nil {
+                return (isLunch ? Color.active_table_lunch : Color.active_table_dinner, "reserved")
+            } else if isLayoutLocked {
+                return (Color(hex: "#A3B7D2"), "locked")
+            } else {
+                return (Color(hex: "#A3B7D2"), "default")
+            }
+        }()
         
         ZStack {
+            // Parent ZStack for interaction
+                Color.clear // Makes the area outside the rectangle tappable
+                .contentShape(RoundedRectangle(cornerRadius: 8.0)) // Expands the tappable area
+                    .frame(width: tableFrame.width + 10, height: tableFrame.height + 10) // Adjust size to include badge
+            // Main ZStack with rectangle and badge
             
-            let uniqueKey = UUID().uuidString
-
-            // Determine table style and ID suffix dynamically
-            let (fillColor, idSuffix): (Color, String) = {
-                if isDragging {
-                    return (Color(hex: "#AEAB7D").opacity(0.2), "dragging")
-                } else if activeReservation != nil {
-                    return (isLunch ? Color.active_table_lunch : Color.active_table_dinner, "reserved")
-                } else if isLayoutLocked {
-                    return (Color(hex: "#A3B7D2"), "locked")
-                } else {
-                    return (Color(hex: "#A3B7D2"), "default")
-                }
-            }()
-
-            RoundedRectangle(cornerRadius: 8.0)
-                .fill(fillColor)
-                .frame(width: tableFrame.width * (isDragging ? 1.2 : 1.0), height: tableFrame.height * (isDragging ? 1.2 : 1.0))
-                .matchedGeometryEffect(
-                    id: "\(table.id)-\(selectedDate)-\(selectedCategory.rawValue)-\(idSuffix)-\(uniqueKey)",
-                    in: animationNamespace
-                )
-
-            // Stroke overlay
-            RoundedRectangle(cornerRadius: 8.0)
-                .stroke(
-                    isDragging ? Color.yellow.opacity(0.5) :
-                    (isHighlighted ? Color(hex: "#9DA3D0") :
-                        (isLayoutLocked ? (isLunch ? Color.layout_locked_lunch : Color.layout_locked_dinner) : (isLunch ? Color.layout_unlocked_lunch : Color.layout_unlocked_dinner))),
-                    style: isDragging
+            ZStack {
+                
+                let uniqueKey = UUID().uuidString
+                
+                // Determine table style and ID suffix dynamically
+                
+                
+                RoundedRectangle(cornerRadius: 8.0)
+                    .fill(fillColor)
+                    .frame(width: tableFrame.width * (isDragging ? 1.2 : 1.0), height: tableFrame.height * (isDragging ? 1.2 : 1.0))
+                    .matchedGeometryEffect(
+                        id: "\(table.id)-\(selectedDate)-\(selectedCategory.rawValue)-\(idSuffix)-\(uniqueKey)",
+                        in: animationNamespace
+                    )
+                
+                // Stroke overlay
+                RoundedRectangle(cornerRadius: 8.0)
+                    .stroke(
+                        isDragging ? Color.yellow.opacity(0.5) :
+                            (isHighlighted ? Color(hex: "#9DA3D0") :
+                                (isLayoutLocked ? (isLunch ? Color.layout_locked_lunch : Color.layout_locked_dinner) : (isLunch ? Color.layout_unlocked_lunch : Color.layout_unlocked_dinner))),
+                        style: isDragging
                         ? StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 3]) // Dashed when dragging
-                    : StrokeStyle(lineWidth: (isLayoutLocked ? 3 : 2)) // Solid for other states
-                )
-                .frame(
-                    width: tableFrame.width,
-                    height: tableFrame.height
-                )
-            
-            // Image overlay in the top-left corner
-
-            
-            // Reservation information or table name
-            Group {
-                if let reservation = activeReservation {
-                    reservationInfo(reservation: reservation, tableWidth: tableFrame.width, tableHeight: tableFrame.height)
-                } else {
-                    tableName(name: table.name, tableWidth: tableFrame.width, tableHeight: tableFrame.height)
-                }
-            }
-            
-            if let activeReservation = activeReservation, activeReservation.status == .showedUp {
-                  Image(systemName: "checkmark.seal.fill") // Replace with your custom image or SF Symbol
-                      .resizable()
-                      .scaledToFit()
-                      .frame(width: 30, height: 30) // Adjust size as needed
-                      .foregroundColor(.green ) // Optional styling
-                      .offset(x: -tableFrame.width / 2, y: -tableFrame.height / 2) // Position in the top-left corner
-                      .zIndex(2)
-              }
-            
-            if let reservation = activeReservation {
-                Text(reservation.assignedEmoji ?? "")
-                    .font(.system(size: 30)) // Match the font size to the frame of the Image
-                    .frame(width: 30, height: 30) // Same dimensions as the Image
-                    .offset(x: tableFrame.width / 2, y: -tableFrame.height / 2) // Match position
-                    .zIndex(2)
-            }
-            
-            if let activeReservation = activeReservation,
-               activeReservation.status != .showedUp,
-               let startTime = DateHelper.parseTime(activeReservation.startTime),
-               let currentTimeComponents = DateHelper.extractTime(time: currentTime) {
+                        : StrokeStyle(lineWidth: (isLayoutLocked ? 3 : 2)) // Solid for other states
+                    )
+                    .frame(
+                        width: tableFrame.width,
+                        height: tableFrame.height
+                    )
                 
-                // Create normalized startTime and subtract one hour
-                let calendar = Calendar.current
-                let startTimeComponents = calendar.dateComponents([.hour, .minute], from: startTime)
+                // Image overlay in the top-left corner
                 
-                // Build a new Date object for adjustedStartTime
-                if let adjustedStartTime = calendar.date(bySettingHour: (startTimeComponents.hour ?? 0),
-                                                         minute: startTimeComponents.minute ?? 0,
-                                                         second: 0,
-                                                         of: currentTime), // Use currentTime to align the date
-                   let normalizedCurrentTime = calendar.date(bySettingHour: currentTimeComponents.hour ?? 0,
-                                                             minute: currentTimeComponents.minute ?? 0,
-                                                             second: 0,
-                                                             of: currentTime) { // Use currentTime to align the date
-                    
-                    // Compare the times
-                    if normalizedCurrentTime.timeIntervalSince(adjustedStartTime) >= 15 * 60 { // 15 minutes in seconds
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 30, height: 30) // Adjust size as needed
-                            .foregroundColor(.orange) // Optional styling
-                            .offset(x: -tableFrame.width / 2, y: -tableFrame.height / 2) // Position in the top-left corner
-                            .zIndex(2)
+                
+                // Reservation information or table name
+                Group {
+                    if let reservation = activeReservation {
+                        reservationInfo(reservation: reservation, tableWidth: tableFrame.width, tableHeight: tableFrame.height)
+                    } else {
+                        tableName(name: table.name, tableWidth: tableFrame.width, tableHeight: tableFrame.height)
                     }
                 }
+                
+                if let activeReservation = activeReservation, activeReservation.status == .showedUp, !isContextMenuActive {
+                    Image(systemName: "checkmark.seal.fill") // Replace with your custom image or SF Symbol
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 25, height: 25) // Adjust size as needed
+                        .foregroundColor(.green ) // Optional styling
+                        .offset(x: -tableFrame.width / 2 + 15, y: -tableFrame.height / 2 + 15) // Position in the top-left corner
+                        .zIndex(2)
+                }
+                
+                if let reservation = activeReservation, !isContextMenuActive {
+                    Text(reservation.assignedEmoji ?? "")
+                        .font(.system(size: 25)) // Match the font size to the frame of the Image
+                        .frame(maxWidth: 28, maxHeight: 28) // Same dimensions as the Image
+                        .offset(x: tableFrame.width / 2 - 18, y: -tableFrame.height / 2 + 15) // Match position
+                        .zIndex(2)
+                }
+                
+                if let activeReservation = activeReservation,
+                   activeReservation.status != .showedUp, !isContextMenuActive,
+                   let startTime = DateHelper.parseTime(activeReservation.startTime),
+                   let currentTimeComponents = DateHelper.extractTime(time: currentTime) {
+                    
+                    // Create normalized startTime and subtract one hour
+                    let calendar = Calendar.current
+                    let startTimeComponents = calendar.dateComponents([.hour, .minute], from: startTime)
+                    
+                    // Build a new Date object for adjustedStartTime
+                    if let adjustedStartTime = calendar.date(bySettingHour: (startTimeComponents.hour ?? 0),
+                                                             minute: startTimeComponents.minute ?? 0,
+                                                             second: 0,
+                                                             of: currentTime), // Use currentTime to align the date
+                       let normalizedCurrentTime = calendar.date(bySettingHour: currentTimeComponents.hour ?? 0,
+                                                                 minute: currentTimeComponents.minute ?? 0,
+                                                                 second: 0,
+                                                                 of: currentTime) { // Use currentTime to align the date
+                        
+                        // Compare the times
+                        if normalizedCurrentTime.timeIntervalSince(adjustedStartTime) >= 15 * 60 { // 15 minutes in seconds
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 30, height: 30) // Adjust size as needed
+                                .foregroundColor(.orange) // Optional styling
+                                .offset(x: -tableFrame.width / 2, y: -tableFrame.height / 2) // Position in the top-left corner
+                                .zIndex(2)
+                        }
+                    }
+                }
+                
+                //            if let activeReservation = activeReservation, activeReservation.status == .pending {
+                //                Image(systemName: "")
+                //                    .resizable()
+                //                    .scaledToFit()
+                //                    .frame(width: 20, height: 20)
+                //                    .offset(x: -tableFrame.width / 2, y: -tableFrame.height / 2)
+                //                    .zIndex(2)
+                //            }
+                
             }
-            
-//            if let activeReservation = activeReservation, activeReservation.status == .pending {
-//                Image(systemName: "")
-//                    .resizable()
-//                    .scaledToFit()
-//                    .frame(width: 20, height: 20)
-//                    .offset(x: -tableFrame.width / 2, y: -tableFrame.height / 2)
-//                    .zIndex(2)
-//            }
-            
         }
         .onChange(of: statusChanged) {
             if let reservation = activeReservation {
@@ -193,16 +201,15 @@ struct TableView: View {
             activeReservation = filterActiveReservation(for: table) ?? nil
         }
         .contextMenu {
-            // Delete Button
+            // Your context menu buttons
             Button("Delete") {
                 if let reservation = activeReservation {
                     handleDelete(reservation)
                 }
             }
-
-            // Quick Emoji Options
+            
             if let _ = activeReservation {
-                ForEach(["🍕", "🍔", "🥗", "🍣", "🍪"], id: \.self) { emoji in
+                ForEach(["❤️", "💀", "🥗", "🍣", "🍪"], id: \.self) { emoji in
                     Button {
                         activeReservation?.assignedEmoji = emoji
                         reservationService.updateReservation(activeReservation!)
@@ -212,17 +219,13 @@ struct TableView: View {
                         Text(emoji)
                     }
                 }
-                
-                
-                // Open Full Emoji Picker
+
                 Button {
-                    // Show the full emoji picker
                     showEmojiPicker = true
                 } label: {
                     Label("Pick Emoji", systemImage: "ellipsis.circle")
                 }
-            }
-
+            } // Optional: Add padding if needed
         }
         .sheet(isPresented: $showEmojiPicker) {
             if let _ = activeReservation {
@@ -236,7 +239,6 @@ struct TableView: View {
                     }
                 )
                 EmojiPickerMenuView(selectedEmoji: assignedEmojiBinding, isPresented: $showEmojiPicker)
-                    .allowsHitTesting(false)
 
             }
         }
