@@ -25,6 +25,8 @@ struct Reservation: Identifiable, Hashable, Codable {
     var tables: [TableModel]
     let creationDate: Date
     var isMock: Bool = false // Distinguish mock data
+    
+    var assignedEmoji: String?
 
     /// A convenience accessor for converting `dateString` into a Foundation.Date.
     /// (You will want better date/time conversion in a real app!)

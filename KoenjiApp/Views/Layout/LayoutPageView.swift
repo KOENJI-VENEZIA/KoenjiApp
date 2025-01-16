@@ -65,6 +65,7 @@ struct LayoutPageView: View {
 
     
     @State private var pendingClusterUpdate: DispatchWorkItem?
+    @State private var statusChanged: Int = 0
     
     private var backgroundColor: Color {
             return selectedCategory.backgroundColor
@@ -202,6 +203,9 @@ struct LayoutPageView: View {
                                             layoutUI: layoutUI,
                                             showingNoBookingAlert: $showingNoBookingAlert,
                                             onTapEmpty: { handleEmptyTableTap(for: table) },
+                                            onStatusChange: {
+                                                statusChanged += 1
+                                            },
                                             showInspector: $showInspector,
                                             onEditReservation: { reservation in
                                                 selectedReservation = reservation
@@ -295,6 +299,7 @@ struct LayoutPageView: View {
                         Task {
                             DispatchQueue.main.async {
                                 loadCurrentLayout()
+                                print("Current time as LayoutPageView appears: \(currentTime)")
                                 let activeReservations = fetchActiveReservationsIfNeeded()
                                 debounceClusterUpdate(for: activeReservations)
                                 isLoadingClusters = false
@@ -334,6 +339,16 @@ struct LayoutPageView: View {
                         
                         
                         
+                        
+                    }
+                    .onChange(of: showingEditReservation) { old, newValue in
+                        print("Triggered onChange of showingEditReservation")
+                        let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+                        
+                        layoutUI.tables = store.loadTables(for: combinedDate, category: selectedCategory)
+                        let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
+                        debounceClusterUpdate(for: activeReservations)
+
                     }
                     .onChange(of: currentTime) { old, newTime in
                         let combinedDate = DateHelper.combine(date: selectedDate, time: newTime)
@@ -368,6 +383,17 @@ struct LayoutPageView: View {
                         // e.g. either a 'debounceClusterUpdate(for:)' or 'forceUpdateClusterCache(for:)'
                         debounceClusterUpdate(for: activeReservations)
                     }
+                    .onChange(of: statusChanged) {
+                        let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+                        layoutUI.tables = store.loadTables(for: combinedDate, category: selectedCategory)
+                        
+                        let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
+                        
+                        // Recalculate clusters or force-update them:
+                        // e.g. either a 'debounceClusterUpdate(for:)' or 'forceUpdateClusterCache(for:)'
+                        debounceClusterUpdate(for: activeReservations)
+                    }
+                
                     .alert(isPresented: $layoutUI.showAlert) {
                         Alert(
                             title: Text("Posizionamento non valido"),
@@ -729,9 +755,9 @@ extension LayoutPageView {
         }
     }
     
-    private func fetchActiveReservationsIfNeeded() -> [Reservation] {
+    private func fetchActiveReservationsIfNeeded(forceTrigger: Bool = false) -> [Reservation] {
         // Check if the fetch is redundant
-        if lastFetchedCount == store.reservations.count {
+        if lastFetchedCount == store.reservations.count && forceTrigger == false {
             if let lastDate = lastFetchedDate,
                let lastTime = lastFetchedTime,
                Calendar.current.isDate(selectedDate, inSameDayAs: lastDate),

@@ -15,6 +15,7 @@ struct TableView: View {
     @Binding var showingNoBookingAlert: Bool
 
     let onTapEmpty: () -> Void
+    let onStatusChange: () -> Void
     @Binding var showInspector: Bool
     let onEditReservation: (Reservation) -> Void
 
@@ -37,6 +38,9 @@ struct TableView: View {
     let animationNamespace: Namespace.ID // Animation namespace from LayoutView
     let onTableUpdated: (TableModel) -> Void
 
+    @State private var statusChanged: Int = 0
+    @State private var showEmojiPicker: Bool = false
+
         
     private var cellSize: CGFloat { return layoutUI.cellSize }
     
@@ -54,7 +58,7 @@ struct TableView: View {
         let isHighlighted = store.tableAnimationState[table.id] ?? false
         
         // Get active reservation
-        let activeReservation = filterActiveReservation(for: table) ?? nil
+        var activeReservation = filterActiveReservation(for: table) ?? nil
         
         let isDragging = {
             if case .dragging = dragState { return true }
@@ -107,6 +111,9 @@ struct TableView: View {
                     height: tableFrame.height
                 )
             
+            // Image overlay in the top-left corner
+
+            
             // Reservation information or table name
             Group {
                 if let reservation = activeReservation {
@@ -115,12 +122,122 @@ struct TableView: View {
                     tableName(name: table.name, tableWidth: tableFrame.width, tableHeight: tableFrame.height)
                 }
             }
+            
+            if let activeReservation = activeReservation, activeReservation.status == .showedUp {
+                  Image(systemName: "checkmark.seal.fill") // Replace with your custom image or SF Symbol
+                      .resizable()
+                      .scaledToFit()
+                      .frame(width: 30, height: 30) // Adjust size as needed
+                      .foregroundColor(.green ) // Optional styling
+                      .offset(x: -tableFrame.width / 2, y: -tableFrame.height / 2) // Position in the top-left corner
+                      .zIndex(2)
+              }
+            
+            if let reservation = activeReservation {
+                Text(reservation.assignedEmoji ?? "")
+                    .font(.system(size: 30)) // Match the font size to the frame of the Image
+                    .frame(width: 30, height: 30) // Same dimensions as the Image
+                    .offset(x: tableFrame.width / 2, y: -tableFrame.height / 2) // Match position
+                    .zIndex(2)
+            }
+            
+            if let activeReservation = activeReservation,
+               activeReservation.status != .showedUp,
+               let startTime = DateHelper.parseTime(activeReservation.startTime),
+               let currentTimeComponents = DateHelper.extractTime(time: currentTime) {
+                
+                // Create normalized startTime and subtract one hour
+                let calendar = Calendar.current
+                let startTimeComponents = calendar.dateComponents([.hour, .minute], from: startTime)
+                
+                // Build a new Date object for adjustedStartTime
+                if let adjustedStartTime = calendar.date(bySettingHour: (startTimeComponents.hour ?? 0),
+                                                         minute: startTimeComponents.minute ?? 0,
+                                                         second: 0,
+                                                         of: currentTime), // Use currentTime to align the date
+                   let normalizedCurrentTime = calendar.date(bySettingHour: currentTimeComponents.hour ?? 0,
+                                                             minute: currentTimeComponents.minute ?? 0,
+                                                             second: 0,
+                                                             of: currentTime) { // Use currentTime to align the date
+                    
+                    // Compare the times
+                    if normalizedCurrentTime.timeIntervalSince(adjustedStartTime) >= 15 * 60 { // 15 minutes in seconds
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 30, height: 30) // Adjust size as needed
+                            .foregroundColor(.orange) // Optional styling
+                            .offset(x: -tableFrame.width / 2, y: -tableFrame.height / 2) // Position in the top-left corner
+                            .zIndex(2)
+                    }
+                }
+            }
+            
+//            if let activeReservation = activeReservation, activeReservation.status == .pending {
+//                Image(systemName: "")
+//                    .resizable()
+//                    .scaledToFit()
+//                    .frame(width: 20, height: 20)
+//                    .offset(x: -tableFrame.width / 2, y: -tableFrame.height / 2)
+//                    .zIndex(2)
+//            }
+            
+        }
+        .onChange(of: statusChanged) {
+            if let reservation = activeReservation {
+                print("Reservation start time: \(reservation.startTime)")
+
+            }
+            print("Status change triggered!")
+            print("Current time: \(currentTime)")
+            activeReservation = filterActiveReservation(for: table) ?? nil
         }
         .contextMenu {
+            // Delete Button
             Button("Delete") {
                 if let reservation = activeReservation {
                     handleDelete(reservation)
                 }
+            }
+
+            // Quick Emoji Options
+            if let _ = activeReservation {
+                ForEach(["🍕", "🍔", "🥗", "🍣", "🍪"], id: \.self) { emoji in
+                    Button {
+                        activeReservation?.assignedEmoji = emoji
+                        reservationService.updateReservation(activeReservation!)
+                        statusChanged += 1
+                        onStatusChange()
+                    } label: {
+                        Text(emoji)
+                    }
+                }
+                
+                
+                // Open Full Emoji Picker
+                Button {
+                    // Show the full emoji picker
+                    showEmojiPicker = true
+                } label: {
+                    Label("Pick Emoji", systemImage: "ellipsis.circle")
+                }
+            }
+
+        }
+        .sheet(isPresented: $showEmojiPicker) {
+            if let _ = activeReservation {
+                let assignedEmojiBinding = Binding(
+                    get: { activeReservation?.assignedEmoji ?? "" },
+                    set: {
+                        activeReservation?.assignedEmoji = $0
+                        reservationService.updateReservation(activeReservation!)
+                        statusChanged += 1
+                        onStatusChange()
+                    }
+                )
+                EmojiPickerMenuView(selectedEmoji: assignedEmojiBinding, isPresented: $showEmojiPicker)
+                    .allowsHitTesting(false)
+
             }
         }
         .position(x: tableFrame.minX, y: tableFrame.minY)
@@ -147,9 +264,12 @@ struct TableView: View {
                     )
                 }
             )
+        .simultaneousGesture(TapGesture(count: 1).onEnded {_ in
+            handleTap(activeReservation)
+        })
         .simultaneousGesture(TapGesture(count: 2).onEnded {_ in
             dragState = .idle
-            handleTap()
+            handleDoubleTap()
         })
     }
 
@@ -175,11 +295,6 @@ struct TableView: View {
 
             if let remaining = TimeHelpers.remainingTimeString(endTime: reservation.endTime, currentTime: currentTime) {
                 Text("Rimasto: \(remaining)")
-                    .foregroundColor(Color(hex: "#B4231F"))
-                    .font(.footnote)
-            }
-            if let duration = TimeHelpers.availableTimeString(endTime: reservation.endTime, startTime: reservation.startTime) {
-                Text("\(duration)")
                     .foregroundColor(Color(hex: "#B4231F"))
                     .font(.footnote)
             }
@@ -247,7 +362,25 @@ struct TableView: View {
     }
 
     // MARK: - Actions
-    private func handleTap() {
+    private func handleTap(_ activeReservation: Reservation?) {
+        if let index = activeReservations.firstIndex(where: { $0.id == activeReservation?.id }) {
+            var currentReservation = activeReservations[index]
+            if currentReservation.status == .pending {
+               
+                currentReservation.status = .showedUp
+                reservationService.updateReservation(currentReservation) // Ensure the data store is updated
+                statusChanged += 1
+                onStatusChange()
+                
+            } else {
+                currentReservation.status = .pending
+                reservationService.updateReservation(currentReservation) // Ensure the data store is updated
+                statusChanged += 1
+                onStatusChange()
+            }
+        }
+    }
+    private func handleDoubleTap() {
         
 
         let startTimeString = DateHelper.formatTime(currentTime)

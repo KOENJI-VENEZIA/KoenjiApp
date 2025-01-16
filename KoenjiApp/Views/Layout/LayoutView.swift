@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
@@ -19,7 +20,7 @@ struct LayoutView: View {
     // Time
     @State private var systemTime: Date = Date()
     @State private var systemDate: Date = Date()
-    var timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+    @StateObject private var timerManager = TimerManager()
     @State private var currentTime: Date = Date()
     @State private var isManuallyOverridden: Bool = false
     @State private var showingTimePickerSheet: Bool = false
@@ -171,6 +172,7 @@ struct LayoutView: View {
                     Button(action: {
                         withAnimation {
                             showingBottomSheet = true
+                            isManuallyOverridden = true
                         }
                     }) {
                         Image(systemName: "slider.horizontal.3")
@@ -205,6 +207,7 @@ struct LayoutView: View {
                             },
                             onEdit: {
                                 currentReservation = reservation
+                                showingEditReservation = true
                             }
                         )
                         .background(.clear)
@@ -218,7 +221,11 @@ struct LayoutView: View {
                 }
             }
             .sheet(item: $currentReservation) { reservation in
-                EditReservationView(reservation: reservation)
+                EditReservationView(reservation: reservation,
+                                    onClose: {
+                    showingEditReservation = false
+                }
+                )
                     .environmentObject(store)
                     .environmentObject(reservationService)
             }
@@ -264,6 +271,7 @@ struct LayoutView: View {
             }
             .onAppear {
                 initializeView()
+                print("Current time as LayoutView appears: \(currentTime)")
 
             }
             .onChange(of: selectedIndex) {
@@ -287,6 +295,11 @@ struct LayoutView: View {
             .onChange(of: showInspector) { oldValue, newValue in
                 if !newValue {
                     selectedReservation = nil
+                }
+            }
+            .onReceive(timerManager.$currentDate) { newTime in
+                if !isManuallyOverridden {
+                    currentTime = newTime
                 }
             }
             .toolbarBackground(Material.ultraThin, for: .navigationBar)
@@ -347,9 +360,8 @@ struct LayoutView: View {
     
     private func initializeView() {
         // Initialize default date/time configuration
-        if !isManuallyOverridden {
-            currentTime = systemTime
-        }
+        
+        currentTime = timerManager.currentDate
         
         // Generate date array
         dates = generateInitialDates()
@@ -446,11 +458,9 @@ struct LayoutView: View {
         @Binding var systemDate: Date
         @Binding var isManuallyOverridden: Bool
         @Binding var sidebarColor: Color
-        
         let updateDatesAroundSelectedDate: (Date) -> Void // Closure for the method
 
 
-        var timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
         var onSidebarColorChange: ((Color) -> Void)?
 
         var body: some View {
@@ -579,9 +589,8 @@ struct LayoutView: View {
                     .animation(.easeInOut, value: currentTime)
                 }
             }
-            .onReceive(timer) { currentDate in
-                systemTime = currentDate
-            }
+
+            
         }
     }
 

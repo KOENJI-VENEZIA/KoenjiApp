@@ -651,7 +651,7 @@ extension ReservationStore {
         lockedTableIDs.contains(tableID)
     }
     
-    func finalizeReservation(_ reservation: Reservation, tables: [TableModel]) {
+    func finalizeReservation(_ reservation: Reservation) {
         // Mark tables as reserved in persistent storage, if needed
         // Unlock tables after finalization
         if let index = reservations.firstIndex(where: { $0.id == reservation.id }) {
@@ -669,6 +669,8 @@ extension ReservationStore {
         let start = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.startTime)
         let end   = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.endTime)
 
+        print("Populating active reservation cache with: \(reservation.name)...")
+        
         var current = start
         while current < end {
             for table in reservation.tables {
@@ -677,6 +679,7 @@ extension ReservationStore {
                     date: Calendar.current.startOfDay(for: current),
                     time: current
                 )
+                
                 activeReservationCache[cacheKey] = reservation
             }
             current.addTimeInterval(60) // next minute
@@ -713,5 +716,41 @@ struct ActiveReservationCacheKey: Hashable, Codable {
         return lhs.tableID == rhs.tableID &&
                lhs.date == rhs.date &&
                lhs.time == rhs.time
+    }
+}
+
+extension ReservationStore {
+    func invalidateActiveReservationCache(for reservation: Reservation) {
+        // Reconstruct the full date range for this reservation
+        let start = DateHelper.combineDateAndTimeStrings(
+            dateString: reservation.dateString,
+            timeString: reservation.startTime
+        )
+        let end   = DateHelper.combineDateAndTimeStrings(
+            dateString: reservation.dateString,
+            timeString: reservation.endTime
+        )
+        
+        // Bail out if times are invalid or reversed
+        guard start < end else {
+            print("Cannot invalidate active cache: start >= end for reservation \(reservation.id)")
+            return
+        }
+
+        var current = start
+        while current < end {
+            for table in reservation.tables {
+                // Each minute + each table -> remove from cache
+                let cacheKey = ActiveReservationCacheKey(
+                    tableID: table.id,
+                    date: Calendar.current.startOfDay(for: current),
+                    time: current
+                )
+                activeReservationCache.removeValue(forKey: cacheKey)
+            }
+            current.addTimeInterval(60) // Move to next minute
+        }
+
+        print("Invalidated active reservation cache for reservation \(reservation.id).")
     }
 }

@@ -122,7 +122,7 @@ class TableAssignmentService {
             return false
         }
 
-        let buffer: TimeInterval = 0 // 15 minutes
+        let gracePeriod: TimeInterval = 5 * 60 // 5 minutes
 
         return reservations.contains { reservation in
             // Exclude current reservation if editing
@@ -132,23 +132,30 @@ class TableAssignmentService {
                   let reservationStart = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime),
                   let reservationEnd = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.endTime),
                   reservation.tables.contains(where: { $0.id == table.id }) else {
-                print("Failed to parse reservation: \(reservation)")
+                print("Failed to parse reservation: \(reservation.name)")
                 return false
             }
 
+            // Check if the reservation ends within 5 minutes before the new reservation's start
+            let reservationEndsCloseToNewStart = reservationEnd.addingTimeInterval(gracePeriod) > start &&
+                                                 reservationEnd <= start
+
             // Adjust reservation times for buffer
-            let adjustedReservationStart = reservationStart.addingTimeInterval(-buffer)
-            let adjustedReservationEnd = reservationEnd.addingTimeInterval(buffer)
+            let adjustedReservationStart = reservationStart
+            let adjustedReservationEnd = reservationEnd.addingTimeInterval(gracePeriod)
+
+            let overlaps = TimeHelpers.timeRangesOverlap(
+                start1: adjustedReservationStart,
+                end1: adjustedReservationEnd,
+                start2: start,
+                end2: end
+            )
 
             return reservationDate.isSameDay(as: date) &&
-                   TimeHelpers.timeRangesOverlap(
-                       start1: adjustedReservationStart,
-                       end1: adjustedReservationEnd,
-                       start2: start,
-                       end2: end
-                   )
+                   (overlaps || reservationEndsCloseToNewStart)
         }
     }
+    
     private func assignTablesInOrder(
         for reservation: Reservation,
         reservations: [Reservation],

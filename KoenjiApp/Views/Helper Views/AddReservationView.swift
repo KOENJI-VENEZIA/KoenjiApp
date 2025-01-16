@@ -206,7 +206,7 @@ struct AddReservationView: View {
             DispatchQueue.main.async {
                 // do actual saving logic here
                 newReservation.tables = assignedTables
-                store.finalizeReservation(newReservation, tables: assignedTables)
+                store.finalizeReservation(newReservation)
                 reservationService.saveReservationsToDisk(includeMock: true)
 
 

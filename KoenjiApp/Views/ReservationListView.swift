@@ -274,7 +274,7 @@ struct ReservationListView: View {
                 .environmentObject(reservationService)
         }
         .sheet(item: $currentReservation) { reservation in
-            EditReservationView(reservation: reservation)
+            EditReservationView(reservation: reservation, onClose: {})
                 .environmentObject(store)
                 .environmentObject(reservationService)
         }

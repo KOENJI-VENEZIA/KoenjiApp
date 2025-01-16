@@ -47,6 +47,9 @@ class ReservationService: ObservableObject {
     
     /// Updates an existing reservation, refreshes the cache, and reassigns tables if needed.
        func updateReservation(_ updatedReservation: Reservation, at index: Int? = nil) {
+           removeReservationFromActiveCache(updatedReservation)
+           store.invalidateActiveReservationCache(for: updatedReservation)
+
            DispatchQueue.main.async {
                let reservationIndex = index ?? self.store.reservations.firstIndex(where: { $0.id == updatedReservation.id })
 
@@ -61,9 +64,15 @@ class ReservationService: ObservableObject {
                self.store.reservations[reservationIndex] = updatedReservation
                updatedReservation.tables.forEach { self.store.markTable($0, occupied: true) }
                self.invalidateClusterCache(for: updatedReservation)
-               self.saveReservationsToDisk()
+               self.store.reservations = self.store.reservations
+
+               
+               
                print("Updated reservation \(updatedReservation.id).")
            }
+           
+           store.finalizeReservation(updatedReservation)
+           saveReservationsToDisk()
        }
     
     /// Deletes reservations and invalidates the associated cluster cache.
@@ -74,6 +83,8 @@ class ReservationService: ObservableObject {
 
                 // 1) Remove from activeReservationCache
                 self.removeReservationFromActiveCache(reservation)
+                self.store.invalidateActiveReservationCache(for: reservation)
+                self.store.populateActiveCache(for: reservation)
 
                 // 2) Unlock the tables, invalidate cluster cache, etc.
                 reservation.tables.forEach { self.store.unmarkTable($0) }
@@ -89,7 +100,7 @@ class ReservationService: ObservableObject {
     }
     
     
-    private func removeReservationFromActiveCache(_ reservation: Reservation) {
+    func removeReservationFromActiveCache(_ reservation: Reservation) {
         let start = DateHelper.combineDateAndTimeStrings(
             dateString: reservation.dateString,
             timeString: reservation.startTime
@@ -486,7 +497,7 @@ extension ReservationService {
                     }
                         
                         assignedTables.forEach { self.store.unlockTable($0.id) }
-                        self.store.finalizeReservation(updatedReservation, tables: assignedTables)
+                        self.store.finalizeReservation(updatedReservation)
 
                         if !self.store.reservations.contains(where: { $0.id == updatedReservation.id }) {
                             self.store.reservations.append(updatedReservation)

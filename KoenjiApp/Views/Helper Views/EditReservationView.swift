@@ -12,7 +12,8 @@ struct EditReservationView: View {
     @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
     @State private var currentTime: Date = Date()
-    
+    var onClose: () -> Void
+
 
     var body: some View {
         NavigationView {
@@ -74,7 +75,11 @@ struct EditReservationView: View {
             .navigationTitle("Edit Reservation")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") {
+                        store.populateActiveCache(for: reservation)
+                        onClose()
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { saveChanges() }
@@ -103,14 +108,15 @@ struct EditReservationView: View {
 
     private func saveChanges() {
         guard validateInputs() else { return }
+        
 
         if let assignedTables = store.assignTables(for: reservation, selectedTableID: selectedForcedTableID) {
             reservation.tables = assignedTables
             reservationService.updateReservation(reservation)
-            store.finalizeReservation(reservation, tables: assignedTables)
 
             store.updateActiveReservationAdjacencyCounts(for: reservation)
 
+            onClose()
             dismiss()
         } else {
             alertMessage = "Table assignment failed."
