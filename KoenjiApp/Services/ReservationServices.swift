@@ -11,16 +11,21 @@ import Foundation
 /// This class interacts with the `ReservationStore` for managing reservation data.
 class ReservationService: ObservableObject {
     // MARK: - Dependencies
-    private let store: ReservationStore          // single source of truth
+    private let store: ReservationStore         
+    private let clusterStore: ClusterStore
+    private let clusterServices: ClusterServices
+
     private let tableAssignmentService: TableAssignmentService
 
     // MARK: - Initializer
-    init(store: ReservationStore, tableAssignmentService: TableAssignmentService) {
+    init(store: ReservationStore, clusterStore: ClusterStore, clusterServices: ClusterServices, tableAssignmentService: TableAssignmentService) {
         self.store = store
+        self.clusterStore = clusterStore
+        self.clusterServices = clusterServices
         self.tableAssignmentService = tableAssignmentService
 
         self.store.loadFromDisk()
-        self.store.loadClustersFromDisk()
+        self.clusterServices.loadClustersFromDisk()
         self.loadReservationsFromDisk()
         
         let today = Calendar.current.startOfDay(for: Date())
@@ -153,7 +158,7 @@ class ReservationService: ObservableObject {
                print("Failed to parse dateString \(reservation.dateString). Cache invalidation skipped.")
                return
            }
-           self.store.invalidateClusterCache(for: reservationDate, category: reservation.category)
+           self.clusterStore.invalidateClusterCache(for: reservationDate, category: reservation.category)
        }
     
     // MARK: - Placeholder Methods for Queries
@@ -594,8 +599,8 @@ extension ReservationService {
             self.store.saveToDisk() // Persist changes
 
             // Clear cluster cache
-            self.store.clusterCache.removeAll()
-            self.store.saveClustersToDisk() // Persist changes
+            self.clusterStore.clusterCache.removeAll()
+            self.clusterServices.saveClustersToDisk() // Persist changes
 
             // Clear active reservation cache
             self.store.activeReservationCache.removeAll()

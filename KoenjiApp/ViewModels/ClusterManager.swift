@@ -13,6 +13,7 @@ class ClusterManager: ObservableObject {
     // MARK: - Dependencies
     private var store: ReservationStore?
     private var reservationService: ReservationService?
+    private var clusterServices: ClusterServices?
     
     private var date: Date
     private var category: Reservation.ReservationCategory
@@ -35,9 +36,10 @@ class ClusterManager: ObservableObject {
         self.category = category
     }
     
-    func configure(store: ReservationStore, reservationService: ReservationService) {
+    func configure(store: ReservationStore, reservationService: ReservationService, clusterServices: ClusterServices) {
         self.store = store
         self.reservationService = reservationService
+        self.clusterServices = clusterServices
         // methods to load clusters
         // methods to load clusters
         isConfigured = true
@@ -45,13 +47,13 @@ class ClusterManager: ObservableObject {
     
     // MARK: - Loading Methods
     func loadClusters() {
-        guard let store = store else { return }
-        clusters = store.loadClusters(for: date, category: category)
+        guard let clusterServices = clusterServices else { return }
+        clusters = clusterServices.loadClusters(for: date, category: category)
     }
     
     private func loadClustersFromCache() {
-        guard let store = store else { return }
-        let cached = store.loadClusters(for: date, category: category)
+        guard let clusterServices = clusterServices else { return }
+        let cached = clusterServices.loadClusters(for: date, category: category)
         self.clusters = cached
     }
     
@@ -214,6 +216,7 @@ class ClusterManager: ObservableObject {
     func recalculateClustersIfNeeded(for activeReservations: [Reservation], tables: [TableModel], combinedDate: Date, selectedCategory: Reservation.ReservationCategory, cellSize: CGFloat) {
         print("Recalculating clusters... [recalculateClustersIfNeeded()]")
         guard let store = store else { return }
+        guard let clusterServices = clusterServices else { return }
         // Grab the current layout from store / layoutUI
         let currentTables = tables
         
@@ -223,7 +226,7 @@ class ClusterManager: ObservableObject {
             return
         }
 
-        let cachedClusters = store.loadClusters(for: date, category: category)
+        let cachedClusters = clusterServices.loadClusters(for: date, category: category)
 
         // 2) Attempt to load cached clusters for the date+time
         
@@ -239,7 +242,7 @@ class ClusterManager: ObservableObject {
                 self.clusters = newClusters
             }
             self.lastLayoutSignature = store.computeLayoutSignature(tables: currentTables)
-            store.saveClusters(newClusters, for: combinedDate, category: selectedCategory)
+            clusterServices.saveClusters(newClusters, for: combinedDate, category: selectedCategory)
         }
     }
 

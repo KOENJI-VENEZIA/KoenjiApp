@@ -13,6 +13,8 @@ struct LayoutPageView: View {
     // MARK: - Dependencies
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var reservationService: ReservationService
+    @EnvironmentObject var clusterStore: ClusterStore
+    @EnvironmentObject var clusterServices: ClusterServices
     @EnvironmentObject var gridData: GridData
     
     @Environment(\.locale) var locale
@@ -273,7 +275,7 @@ struct LayoutPageView: View {
                 
                 // 3) If we already have clusters for this minute in the store, just use them:
                 if !clusterManager.clusters.isEmpty {
-                    clusterManager.clusters = store.loadClusters(for: newCombinedDate, category: selectedCategory)
+                    clusterManager.clusters = clusterServices.loadClusters(for: newCombinedDate, category: selectedCategory)
                 } else {
                     clusterManager.recalculateClustersIfNeeded(for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate, selectedCategory: selectedCategory, cellSize: gridData.cellSize)
                 }
@@ -356,7 +358,7 @@ struct LayoutPageView: View {
         
         self.updateAdjacencyCountsForLayout(updatedTable)
         clusterManager.recalculateClustersIfNeeded(for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate, selectedCategory: selectedCategory, cellSize: gridData.cellSize)
-        store.saveClusters(clusterManager.clusters, for: combinedDate, category: selectedCategory)
+        clusterServices.saveClusters(clusterManager.clusters, for: combinedDate, category: selectedCategory)
         layoutUI.saveLayout()
         store.saveTables(layoutUI.tables, for: combinedDate, category: selectedCategory)
         
@@ -382,8 +384,8 @@ struct LayoutPageView: View {
         }
         
         if !clusterManager.isConfigured {
-            clusterManager.configure(store: store, reservationService: reservationService)
-            clusterManager.clusters = store.loadClusters(for: combinedDate, category: selectedCategory)
+            clusterManager.configure(store: store, reservationService: reservationService, clusterServices: clusterServices)
+            clusterManager.clusters = clusterServices.loadClusters(for: combinedDate, category: selectedCategory)
         }
         
         clusterManager.recalculateClustersIfNeeded(for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate, selectedCategory: selectedCategory, cellSize: gridData.cellSize)
@@ -403,7 +405,7 @@ struct LayoutPageView: View {
         }
         
         clusterManager.clusters = []
-        store.saveClusters([], for: combinedDate, category: selectedCategory)
+        clusterServices.saveClusters([], for: combinedDate, category: selectedCategory)
         store.cachedLayouts[key] = nil
         
         // Ensure flag is cleared after reset completes

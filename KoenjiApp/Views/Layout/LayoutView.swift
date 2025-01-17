@@ -11,6 +11,9 @@ import SwiftUI
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var reservationService: ReservationService
+    @EnvironmentObject var clusterStore: ClusterStore
+    @EnvironmentObject var clusterServices: ClusterServices
+
     @EnvironmentObject var gridData: GridData
     
     @Environment(\.locale) var locale
@@ -258,8 +261,8 @@ struct LayoutView: View {
         store.tables = store.loadTables(for: combinedDate, category: currentCategory)
         
         // Clear clusters
-        store.resetClusters(for: combinedDate, category: currentCategory)
-        store.saveClusters([], for: combinedDate, category: currentCategory)
+        clusterServices.resetClusters(for: combinedDate, category: currentCategory)
+        clusterServices.saveClusters([], for: combinedDate, category: currentCategory)
         
         // Ensure layout flags are updated after reset completes
         DispatchQueue.main.async {

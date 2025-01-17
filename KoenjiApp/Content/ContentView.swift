@@ -3,6 +3,8 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var reservationService: ReservationService
+    @EnvironmentObject var clusterStore: ClusterStore
+    @EnvironmentObject var clusterServices: ClusterServices
     @EnvironmentObject var gridData: GridData
 
     @Environment(\.locale) var locale // Access the current locale set by .italianLocale()
@@ -32,9 +34,7 @@ struct ContentView: View {
                 .foregroundColor(.secondary)
             
         }
-        .environmentObject(store)
-        .environmentObject(reservationService)
-        .environmentObject(gridData)
+
     
         .toolbar {
 

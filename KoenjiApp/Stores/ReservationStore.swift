@@ -32,7 +32,6 @@ class ReservationStore: ObservableObject {
     // Locking mechanism for tables
     var lockedTableIDs: Set<Int> = []
 
-
     
     // Published Variables
     @Published var reservations: [Reservation] = []
@@ -52,17 +51,6 @@ class ReservationStore: ObservableObject {
     
     var activeReservationCache: [ActiveReservationCacheKey: Reservation] = [:]
     var cachePreloadedFrom: Date?
-
-    
-    struct ClusterCacheEntry {
-            var clusters: [CachedCluster]
-            var lastAccessed: Date
-        }
-
-    @Published var clusterCache: [String: ClusterCacheEntry] = [:]
-    private let maxCacheEntries = 100
-
-
     
     // Private Variables
     var grid: [[Int?]] = []
@@ -138,37 +126,6 @@ class ReservationStore: ObservableObject {
         return sortedKeys.last { $0 < "\(formattedDate)-\(category.rawValue)" }
     }
     
-    func loadClusters(for date: Date, category: Reservation.ReservationCategory) -> [CachedCluster] {
-        let key = keyFor(date: date, category: category)
-        print("Loading clusters for key: \(key)")
-
-        // Attempt to load from the cache
-        if let entry = clusterCache[key] {
-            clusterCache[key]?.lastAccessed = Date() // Update access timestamp
-            print("Loaded clusters from cache for key: \(key)")
-            return entry.clusters
-        }
-
-        // Fallback: Use the closest prior key
-        let fallbackKey = findClosestPriorClusterKey(for: date, category: category)
-        if let fallbackClusters = fallbackKey.flatMap({ clusterCache[$0]?.clusters }) {
-            clusterCache[key] = ClusterCacheEntry(clusters: fallbackClusters, lastAccessed: Date()) // Copy clusters
-            print("Copied clusters from fallback key: \(fallbackKey ?? "none") to key: \(key)")
-            return fallbackClusters
-        }
-
-        // Final fallback: Return empty clusters
-        print("No clusters found for key: \(key). Returning empty list.")
-        return []
-    }
-    
-    private func findClosestPriorClusterKey(for date: Date, category: Reservation.ReservationCategory) -> String? {
-        let formattedDate = DateHelper.formatDate(date)
-        let allKeys = clusterCache.keys.filter { $0.starts(with: "\(formattedDate)-\(category.rawValue)") }
-
-        let sortedKeys = allKeys.sorted(by: { $0 < $1 }) // Chronologically sort keys
-        return sortedKeys.last { $0 < keyFor(date: date, category: category) }
-    }
     
     /// Saves tables for a specific date and category.
     func saveTables(_ tables: [TableModel], for date: Date, category: Reservation.ReservationCategory) {
@@ -236,161 +193,32 @@ class ReservationStore: ObservableObject {
             print("No cached layouts found.")
         }
     }
-    
-    // MARK: - Clusters Permanence
-    
-    func saveClustersToDisk() {
-            let encoder = JSONEncoder()
-            let cachedClusters = clusterCache.mapValues { entry in
-                entry.clusters
-            }
-            if let data = try? encoder.encode(cachedClusters) {
-                UserDefaults.standard.set(data, forKey: "clusterCache")
-                print("Cluster cache saved successfully.")
-            } else {
-                print("Failed to encode cluster cache.")
-            }
-        }
-    
-    func loadClustersFromDisk() {
-            let decoder = JSONDecoder()
-            if let data = UserDefaults.standard.data(forKey: "clusterCache"),
-               let cachedClusters = try? decoder.decode([String: [CachedCluster]].self, from: data) {
-                clusterCache = cachedClusters.mapValues { clusters in
-                    ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
-                }
-                print("Cluster cache loaded successfully.")
-            } else {
-                print("No cluster cache found.")
-            }
-        }
-    
-    func updateClusterFrame(for date: Date, category: Reservation.ReservationCategory, clusterID: UUID, newFrame: CGRect) {
-        let key = keyFor(date: date, category: category)
-
-        guard var cacheEntry = clusterCache[key] else {
-            print("No clusters found for key: \(key)")
-            return
-        }
-
-        // Find the cluster by ID
-        guard let index = cacheEntry.clusters.firstIndex(where: { $0.id == clusterID }) else {
-            print("Cluster with ID \(clusterID) not found in \(key)")
-            return
-        }
-
-        // Update the frame
-        var updatedCluster = cacheEntry.clusters[index]
-        updatedCluster.frame = newFrame
-        cacheEntry.clusters[index] = updatedCluster
-
-        // Update the cache with the modified cluster and update the last accessed timestamp
-        clusterCache[key] = ClusterCacheEntry(clusters: cacheEntry.clusters, lastAccessed: Date())
-        saveClustersToDisk() // Persist the updated cluster
-        print("Updated frame for cluster \(clusterID) in \(key)")
-    }
-    
-    func resetClusters(for date: Date, category: Reservation.ReservationCategory) {
-        let key = keyFor(date: date, category: category)
-        clusterCache[key] = ClusterCacheEntry(clusters: [], lastAccessed: Date())
-        print("Reset clusters for key: \(key)")
-
-        // Propagate reset to future timeslots
-        propagateClusterReset(from: key)
-        saveClustersToDisk()
-    }
-
-    private func propagateClusterReset(from key: String) {
-        let category = key.split(separator: "-").last!
-        let allKeys = clusterCache.keys.filter { $0.hasSuffix("-\(category)") }
-
-        let futureKeys = allKeys.sorted().filter { $0 > key }
-        for futureKey in futureKeys where clusterCache[futureKey] == nil {
-            clusterCache[futureKey] = ClusterCacheEntry(clusters: [], lastAccessed: Date())
-            print("Reset clusters for future key: \(futureKey)")
-        }
-    }
-    
-    
-
-    func updateClusters(_ clusters: [CachedCluster], for date: Date, category: Reservation.ReservationCategory) {
-        let key = keyFor(date: date, category: category)
-        clusterCache[key] = ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
-        print("Updated clusters for key: \(key)")
-
-        // Propagate changes to future timeslots
-        propagateClusterChange(from: key, clusters: clusters)
-        enforceLRUCacheLimit()
-        saveClustersToDisk()
-    }
-
-    private func propagateClusterChange(from key: String, clusters: [CachedCluster]) {
-        let category = key.split(separator: "-").last!
-        let allKeys = clusterCache.keys.filter { $0.hasSuffix("-\(category)") }
-
-        let futureKeys = allKeys.sorted().filter { $0 > key }
-        for futureKey in futureKeys where clusterCache[futureKey] == nil {
-            clusterCache[futureKey] = ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
-            print("Propagated clusters to future key: \(futureKey)")
-        }
-    }
-    
-    func saveClusters(_ clusters: [CachedCluster], for date: Date, category: Reservation.ReservationCategory) {
-        let key = keyFor(date: date, category: category)
-        DispatchQueue.main.async {
-            self.clusterCache[key] = ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
-            print("Clusters saved for key: \(key)")
-            self.propagateClusterChange(from: key, clusters: clusters)
-            self.enforceLRUCacheLimit()
-            self.saveClustersToDisk()
-        }
-
-
-        // Propagate changes to future timeslots
-
-    }
-    
-    private func enforceLRUCacheLimit() {
-            // Remove least recently used entries if cache size exceeds the limit
-            guard clusterCache.count > maxCacheEntries else { return }
-
-            let sortedKeys = clusterCache
-                .sorted { $0.value.lastAccessed < $1.value.lastAccessed }
-                .map { $0.key }
-
-            let keysToRemove = sortedKeys.prefix(clusterCache.count - maxCacheEntries)
-            keysToRemove.forEach { key in
-                clusterCache.removeValue(forKey: key)
-                print("Removed LRU cache entry for key: \(key)")
-            }
-        }
-    
 }
 
-    // MARK: - Queries
-    extension ReservationStore {
-        /// Updates the category (lunch, dinner, or noBookingZone) based on time
-        func updateCategory(for time: Date) {
-            let hour = Calendar.current.component(.hour, from: time)
-            switch hour {
-            case 12...15:
-                selectedCategory = .lunch
-            case 18...23:
-                selectedCategory = .dinner
-            default:
-                selectedCategory = .noBookingZone
-            }
-            
-            print("Category updated to \(selectedCategory?.rawValue ?? "none") based on time.")
+// MARK: - Queries
+extension ReservationStore {
+    /// Updates the category (lunch, dinner, or noBookingZone) based on time
+    func updateCategory(for time: Date) {
+        let hour = Calendar.current.component(.hour, from: time)
+        switch hour {
+        case 12...15:
+            selectedCategory = .lunch
+        case 18...23:
+            selectedCategory = .dinner
+        default:
+            selectedCategory = .noBookingZone
         }
         
-        /// Called when time changes (e.g. user picks a new time).
-        func handleTimeUpdate(_ newTime: Date) {
-            currentTime = newTime
-            updateCategory(for: newTime)
-            print("Time updated to \(newTime), category set to \(selectedCategory?.rawValue ?? "none")")
-        }
+        print("Category updated to \(selectedCategory?.rawValue ?? "none") based on time.")
     }
+    
+    /// Called when time changes (e.g. user picks a new time).
+    func handleTimeUpdate(_ newTime: Date) {
+        currentTime = newTime
+        updateCategory(for: newTime)
+        print("Time updated to \(newTime), category set to \(selectedCategory?.rawValue ?? "none")")
+    }
+}
     
     // MARK: - Getters and Setters
 extension ReservationStore {
@@ -414,16 +242,9 @@ extension ReservationStore {
             self.cachedLayouts = layouts
     }
     
-    func setClusterCache(_ clusters: [String: [CachedCluster]]) {
-        clusterCache = clusters.mapValues { clusters in
-            ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
-        }
-        print("Cluster cache updated with \(clusters.count) entries.")
-    }
+
 }
 
-
-    
     // MARK: - Table Assignment
     extension ReservationStore {
     
@@ -544,24 +365,6 @@ extension ReservationStore {
             return layout
         }
     }
-    
-    // MARK: - Misc Helpers
-    extension ReservationStore {
-
-        
-        func triggerFlashAnimation(for tableID: Int) {
-            DispatchQueue.main.async {
-                withAnimation(.easeInOut(duration: 0.5)) {
-                    self.tableAnimationState[tableID] = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        self.tableAnimationState[tableID] = false
-                    }
-                }
-            }
-        }
-    }
 
 // MARK: - Table Placement Helpers
 extension ReservationStore {
@@ -616,17 +419,6 @@ extension ReservationStore {
         let key = keyFor(date: date, category: category)
         return cachedLayouts[key] != nil
     }
-
-//    /// Initializes a new layout if it doesn't already exist.
-//    func initializeLayoutIfNeeded(for date: Date, category: Reservation.ReservationCategory) {
-//        let key = keyFor(date: date, category: category)
-//        if cachedLayouts[key] == nil {
-//            cachedLayouts[key] = baseTables
-//            print("Initialized new layout for \(key)")
-//        } else {
-//            print("Layout already exists for \(key)")
-//        }
-//    }
 }
 
 extension ReservationStore {
@@ -687,18 +479,6 @@ extension ReservationStore {
   
 }
 
-extension ReservationStore {
-    func invalidateClusterCache(for date: Date, category: Reservation.ReservationCategory) {
-        let key = keyFor(date: date, category: category)
-        clusterCache.removeValue(forKey: key)
-        print("Cluster cache invalidated for key: \(key)")
-    }
-    
-    func invalidateAllClusterCaches() {
-        clusterCache.removeAll()
-        print("All cluster caches invalidated.")
-    }
-}
 
 struct ActiveReservationCacheKey: Hashable, Codable {
     let tableID: Int
