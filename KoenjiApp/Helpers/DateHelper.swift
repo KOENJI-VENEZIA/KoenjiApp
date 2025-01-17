@@ -37,7 +37,6 @@ struct DateHelper {
         return formatter.string(from: date)
     }
 
-    
     // Date formatting
     static func formatDate(_ date: Date) -> String {
         return dateFormatter.string(from: date)

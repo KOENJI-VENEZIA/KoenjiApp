@@ -41,10 +41,9 @@ struct TableView: View {
     @State private var isContextMenuActive = false
 
         
-    private var cellSize: CGFloat { return layoutUI.cellSize }
+    private var cellSize: CGFloat { return gridData.cellSize }
     
     private var tableFrame: CGRect {
-        let cellSize = layoutUI.cellSize
         let width = CGFloat(table.width) * cellSize
         let height = CGFloat(table.height) * cellSize
         let xPos = CGFloat(table.column) * cellSize + width / 2

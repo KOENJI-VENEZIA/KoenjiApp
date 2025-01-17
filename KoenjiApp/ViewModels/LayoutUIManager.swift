@@ -33,15 +33,8 @@ class LayoutUIManager: ObservableObject {
         }
     }
     
-    @Published var clusters: [CachedCluster] = [] {
-        didSet {
-            objectWillChange.send() // Notify SwiftUI of changes
-        }
-    }
     
     // to move into ClusterManager
-    @State var lastLayoutSignature: String = ""
-    @State private var statusChanged: Int = 0
 
 
     // MARK: - Dependencies
@@ -67,7 +60,6 @@ class LayoutUIManager: ObservableObject {
         self.store = store
         self.reservationService = reservationService
         loadLayout()
-        loadClusters()
         isConfigured = true
     }
     
@@ -167,18 +159,6 @@ extension LayoutUIManager {
         tables = store.loadTables(for: date, category: category)
     }
     
-    func loadClusters() {
-        guard let store = store else { return }
-        clusters = store.loadClusters(for: date, category: category)
-    }
     
-    func onTableUpdated(_ updatedTable: TableModel) {
-        // Normal table updates here...
-        let newSignature = store?.computeLayoutSignature(tables: self.tables)
-        if newSignature != lastLayoutSignature {
-            // We have a real adjacency change, so we might need to recalc clusters
-            lastLayoutSignature = newSignature ?? ""
-            statusChanged += 1  // or some equivalent trigger
-        }
-    }
+
 }

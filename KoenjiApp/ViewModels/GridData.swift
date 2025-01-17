@@ -14,7 +14,8 @@ class GridData: ObservableObject {
     private(set) var gridBounds: CGRect = .zero
 
     @Published var excludedRegions: [CGRect] = []
-    
+    let cellSize: CGFloat = 40
+
     
     init(store: ReservationStore) {
         self.store = store
@@ -29,7 +30,6 @@ class GridData: ObservableObject {
     
     func calculateExclusionRegions(
         borderFeatures: [BorderFeature],
-        cellSize: CGFloat,
         totalWidth: CGFloat,
         totalHeight: CGFloat
     ) -> [CGRect] {
@@ -89,13 +89,11 @@ class GridData: ObservableObject {
 
     func updateExclusionRegions(
         borderFeatures: [BorderFeature],
-        cellSize: CGFloat,
         totalWidth: CGFloat,
         totalHeight: CGFloat
     ) {
         excludedRegions = calculateExclusionRegions(
             borderFeatures: borderFeatures,
-            cellSize: cellSize,
             totalWidth: totalWidth,
             totalHeight: totalHeight
         )
@@ -123,9 +121,8 @@ class GridData: ObservableObject {
         return GeometryReader { geometry in
             let rows = 15
             let cols = 18
-            let cellSize = 40.0
-            let totalWidth = CGFloat(cols) * cellSize
-            let totalHeight = CGFloat(rows) * cellSize
+            let totalWidth = CGFloat(cols) * self.cellSize
+            let totalHeight = CGFloat(rows) * self.cellSize
 
             
             
@@ -137,7 +134,7 @@ class GridData: ObservableObject {
                     side: .top,
                     type: .hole(
                         hole: Hole(
-                            position: CGPoint(x: cellSize * 2, y: 0),
+                            position: CGPoint(x: self.cellSize * 2, y: 0),
                             span: 4
                         )
                     )
@@ -146,7 +143,7 @@ class GridData: ObservableObject {
                     side: .top,
                     type: .hole(
                         hole: Hole(
-                            position: CGPoint(x: cellSize * 12, y: 0),
+                            position: CGPoint(x: self.cellSize * 12, y: 0),
                             span: 4
                         )
                     )
@@ -155,7 +152,7 @@ class GridData: ObservableObject {
                     side: .right,
                     type: .indentation(
                         indentation: Indentation(
-                            position: CGPoint(x: totalWidth, y: cellSize * 11),
+                            position: CGPoint(x: totalWidth, y: self.cellSize * 11),
                             horizontalSpan: 4,
                             verticalSpan: 4,
                             sides: [.top, .left]
@@ -166,7 +163,7 @@ class GridData: ObservableObject {
                     side: .right,
                     type: .hole(
                         hole: Hole(
-                            position: CGPoint(x: totalWidth, y: cellSize * 4),
+                            position: CGPoint(x: totalWidth, y: self.cellSize * 4),
                             span: 7
                         )
                     )
@@ -175,7 +172,7 @@ class GridData: ObservableObject {
                     side: .bottom,
                     type: .hole(
                         hole: Hole(
-                            position: CGPoint(x: totalWidth - (cellSize*4), y: totalHeight),
+                            position: CGPoint(x: totalWidth - (self.cellSize*4), y: totalHeight),
                             span: 4
                         )
                     )
@@ -184,7 +181,7 @@ class GridData: ObservableObject {
                     side: .bottom,
                     type: .indentation(
                         indentation: Indentation(
-                            position: CGPoint(x: cellSize * 5, y: totalHeight),
+                            position: CGPoint(x: self.cellSize * 5, y: totalHeight),
                             horizontalSpan: 5,
                             verticalSpan: 3,
                             sides: [.top, .left, .right]
@@ -236,8 +233,8 @@ class GridData: ObservableObject {
                             case .indentation(let indentation):
                                 let indentSide = feature.side
                                 let indentStart = indentation.position
-                                let indentWidth = CGFloat(indentation.horizontalSpan) * cellSize
-                                let indentHeight = CGFloat(indentation.verticalSpan) * cellSize
+                                let indentWidth = CGFloat(indentation.horizontalSpan) * self.cellSize
+                                let indentHeight = CGFloat(indentation.verticalSpan) * self.cellSize
                                 
                                 // Draw each specified side independently
                                 if indentSide == .bottom && indentation.sides.contains(.top) {
@@ -273,7 +270,7 @@ class GridData: ObservableObject {
                                 
                             case .hole(let hole):
                                 let holeStart = hole.position
-                                let holeSpan = CGFloat(hole.span) * cellSize
+                                let holeSpan = CGFloat(hole.span) * self.cellSize
                                 
                                 // Draw line up to the hole start
                                 path.move(to: CGPoint(x: currentX, y: currentY))
@@ -301,7 +298,6 @@ class GridData: ObservableObject {
                 
                 let excludedRegions = self.calculateExclusionRegions(
                                 borderFeatures: borderFeatures,
-                                cellSize: cellSize,
                                 totalWidth: totalWidth,
                                 totalHeight: totalHeight
                             )
@@ -309,7 +305,6 @@ class GridData: ObservableObject {
                 InnerGridBackground(
                         rows: rows,
                         cols: cols,
-                        cellSize: cellSize,
                         borderFeatures: borderFeatures,
                         excludedRegions: excludedRegions
                 )
@@ -320,7 +315,7 @@ class GridData: ObservableObject {
                 InnerGridLines(
                     rows: rows,
                     cols: cols,
-                    cellSize: cellSize,
+                    cellSize: self.cellSize,
                     borderFeatures: borderFeatures
                 )
                 .stroke(
@@ -332,7 +327,6 @@ class GridData: ObservableObject {
             .onAppear {
                 self.updateExclusionRegions(
                                borderFeatures: borderFeatures,
-                               cellSize: cellSize,
                                totalWidth: totalWidth,
                                totalHeight: totalHeight
                            )
@@ -357,7 +351,6 @@ class GridData: ObservableObject {
     struct InnerGridBackground: Shape {
         let rows: Int
         let cols: Int
-        let cellSize: CGFloat
         let borderFeatures: [BorderFeature]
         let excludedRegions: [CGRect] // Add this parameter
 
@@ -405,7 +398,7 @@ class GridData: ObservableObject {
 
             // Draw horizontal grid lines
             for row in 1..<rows {
-                let y = CGFloat(row) * cellSize
+                let y = CGFloat(row) * self.cellSize
 
                 // Find all exclusion ranges for this horizontal line
                 let exclusionRanges = indentationRegions

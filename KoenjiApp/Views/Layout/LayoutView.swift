@@ -92,7 +92,7 @@ struct LayoutView: View {
             }
             .navigationTitle("Layout Tavoli")
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     // Lock/Unlock Layout Button
                     Button(action: {
                         isLayoutLocked.toggle()
@@ -101,7 +101,8 @@ struct LayoutView: View {
                         Image(systemName: isLayoutLocked ? "lock.fill" : "lock.open.fill")
                     }
                     .accessibilityLabel(isLayoutLocked ? "Unlock Layout" : "Lock Layout")
-                    
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
                     // Reset Layout Button
                     Button(action: {
                         resetLayout()
@@ -131,6 +132,9 @@ struct LayoutView: View {
                             .imageScale(.large)
                     }
                     .accessibilityLabel("Show Controls")
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    addReservationButton
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
@@ -193,7 +197,6 @@ struct LayoutView: View {
             .onAppear {
                 initializeView()
                 print("Current time as LayoutView appears: \(currentTime)")
-
             }
             .onChange(of: selectedIndex) {
                 handleSelectedIndexChange()
@@ -205,12 +208,7 @@ struct LayoutView: View {
                 }
             }
             .onChange(of: currentTime) { oldTime, newTime in
-                
-                
-                
                 handleCurrentTimeChange(newTime)
-                
-                
             }
             .onChange(of: showInspector) { oldValue, newValue in
                 if !newValue {
@@ -225,7 +223,6 @@ struct LayoutView: View {
             .toolbarBackground(Material.ultraThin, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
         }
-       // .background(selectedCategory == .lunch ? Color.background_lunch : Color.background_dinner)
     }
     
     // MARK: - Navigation Methods
@@ -544,25 +541,6 @@ extension Array {
     /// Safely returns the element at the given index, if it exists.
     subscript(safe index: Int) -> Element? {
         return indices.contains(index) ? self[index] : nil
-    }
-}
-
-struct LazyView<Content: View>: View {
-    let build: () -> Content
-    init(_ build: @autoclosure @escaping () -> Content) {
-        self.build = build
-    }
-    var body: Content {
-        build()
-    }
-}
-
-
-struct SlideFromSideModifier: ViewModifier {
-    let offset: CGSize
-
-    func body(content: Content) -> some View {
-        content.offset(offset)
     }
 }
 
