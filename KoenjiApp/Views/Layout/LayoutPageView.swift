@@ -286,14 +286,7 @@ struct LayoutPageView: View {
                 reloadLayout(selectedCategory, activeReservations)
             }
             .onChange(of: currentTime) { old, newTime in
-                let newCombinedDate = DateHelper.combine(date: selectedDate, time: newTime)
-                
-                // 3) If we already have clusters for this minute in the store, just use them:
-                if !clusterManager.clusters.isEmpty {
-                    clusterManager.clusters = clusterServices.loadClusters(for: newCombinedDate, category: selectedCategory)
-                } else {
-                    clusterManager.recalculateClustersIfNeeded(for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate, selectedCategory: selectedCategory, cellSize: gridData.cellSize)
-                }
+                clusterManager.recalculateClustersIfNeeded(for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate, selectedCategory: selectedCategory, cellSize: gridData.cellSize)
                 
             }
             .onChange(of: store.reservations) { oldValue, newValue in
@@ -458,7 +451,7 @@ struct LayoutPageView: View {
             guard key.date == preloadDate,
                   
                   key.time >= currentTime,
-                  key.time < currentTime.addingTimeInterval(3600)
+                  key.time < currentTime.addingTimeInterval(14400)
             else {
                 continue
             }

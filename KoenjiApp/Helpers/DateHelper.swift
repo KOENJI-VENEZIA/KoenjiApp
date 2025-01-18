@@ -166,5 +166,61 @@ struct DateHelper {
 
           return calendar.date(from: components) ?? date
       }
+    
+   static func timeUntilReservation(currentTime: Date,
+                               reservationDateString: String,
+                               reservationStartTimeString: String,
+                               dateFormat: String = "yyyy-MM-dd",
+                               timeFormat: String = "HH:mm") -> TimeInterval? {
+        
+        let calendar = Calendar.current
+        
+        // Create DateFormatter(s) for the date and time.
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = dateFormat
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = timeFormat
+        timeFormatter.locale = Locale(identifier: "en_US_POSIX")
+        
+        // Parse the reservation date.
+        guard let reservationDate = dateFormatter.date(from: reservationDateString) else {
+            print("Failed to parse reservation date string: \(reservationDateString)")
+            return nil
+        }
+        
+        // Parse the reservation start time.
+        guard let reservationTime = timeFormatter.date(from: reservationStartTimeString) else {
+            print("Failed to parse reservation time string: \(reservationStartTimeString)")
+            return nil
+        }
+        
+        // Extract hour and minute components from the reservation start time.
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: reservationTime)
+        
+        // Create a DateComponents for the full reservation datetime
+        var reservationDateComponents = calendar.dateComponents([.year, .month, .day], from: reservationDate)
+        reservationDateComponents.hour = timeComponents.hour
+        reservationDateComponents.minute = timeComponents.minute
+        
+        // Combine into a full Date for the reservation start.
+        guard let reservationStartDate = calendar.date(from: reservationDateComponents) else {
+            print("Failed to combine date and time into a reservation start date.")
+            return nil
+        }
+        
+        // Compute and return the time interval (reservation start minus current time).
+        return reservationStartDate.timeIntervalSince(currentTime)
+    }
+    
+    static func formattedTime(from seconds: TimeInterval) -> String? {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.hour, .minute]
+        formatter.unitsStyle = .positional  // e.g. "01:05"
+        formatter.zeroFormattingBehavior = [.pad]
+        
+        return formatter.string(from: seconds)
+    }
 }
 

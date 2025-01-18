@@ -114,7 +114,10 @@ struct EditReservationView: View {
     private func saveChanges() {
         guard validateInputs() else { return }
         
-
+        for table in reservation.tables {
+            layoutServices.unlockTable(table.id)
+        }
+        
         if let assignedTables = layoutServices.assignTables(for: reservation, selectedTableID: selectedForcedTableID) {
             reservation.tables = assignedTables
             reservationService.updateReservation(reservation)

@@ -128,9 +128,30 @@ struct TableView: View {
                 // Reservation information or table name
                 Group {
                     if let reservation = activeReservation {
-                        reservationInfo(reservation: reservation, tableWidth: tableFrame.width, tableHeight: tableFrame.height)
+                        // Active reservation exists: display reservation details.
+                        reservationInfo(
+                            reservation: reservation,
+                            tableWidth: tableFrame.width,
+                            tableHeight: tableFrame.height
+                        )
+                    } else if let upcomingRes = upcomingReservation(for: table,
+                                                                    from: activeReservations,
+                                                                    selectedDate: selectedDate,
+                                                                    selectedCategory: selectedCategory,
+                                                                    currentTime: currentTime) {
+                        // No active reservation, but there is an upcoming reservation.
+                        upcomingReservationPlaceholder(
+                            reservation: upcomingRes,
+                            tableWidth: tableFrame.width,
+                            tableHeight: tableFrame.height
+                        )
                     } else {
-                        tableName(name: table.name, tableWidth: tableFrame.width, tableHeight: tableFrame.height)
+                        // Otherwise, just display the table name.
+                        tableName(
+                            name: table.name,
+                            tableWidth: tableFrame.width,
+                            tableHeight: tableFrame.height
+                        )
                     }
                 }
                 
@@ -252,7 +273,7 @@ struct TableView: View {
         })
         .simultaneousGesture(TapGesture(count: 2).onEnded {_ in
             dragState = .idle
-            handleDoubleTap()
+            handleDoubleTap(activeReservations)
         })
     }
 
@@ -287,6 +308,32 @@ struct TableView: View {
 
             if let remaining = TimeHelpers.remainingTimeString(endTime: reservation.endTime, currentTime: currentTime) {
                 Text("Rimasto: \(remaining)")
+                    .foregroundColor(Color(hex: "#B4231F"))
+                    .font(.footnote)
+            }
+        }
+        .background(Color.clear)
+        .cornerRadius(8)
+        .frame(width: tableFrame.width, height: tableFrame.height)
+    }
+    
+    private func upcomingReservationPlaceholder(reservation: Reservation, tableWidth: CGFloat, tableHeight: CGFloat) -> some View {
+        VStack(spacing: 2) {
+            Text(reservation.name)
+                .bold()
+                .font(.headline)
+            Text("\(reservation.numberOfPersons) pers.")
+                .font(.footnote)
+                .opacity(0.8)
+
+            Text("\(reservation.phone)")
+                .font(.footnote)
+                .opacity(0.8)
+
+            if let upcomingTime = DateHelper.timeUntilReservation(currentTime: currentTime,
+                                                                  reservationDateString: reservation.dateString,
+                                                                  reservationStartTimeString: reservation.startTime) {
+                Text("In arrivo tra: \(DateHelper.formattedTime(from: upcomingTime) ?? "Errore")")
                     .foregroundColor(Color(hex: "#B4231F"))
                     .font(.footnote)
             }
@@ -372,23 +419,35 @@ struct TableView: View {
             }
         }
     }
-    private func handleDoubleTap() {
-        
-
+    private func handleDoubleTap(_ activeReservations: [Reservation]) {
         let startTimeString = DateHelper.formatTime(currentTime)
         let endTimeString = TimeHelpers.calculateEndTime(startTime: startTimeString, category: selectedCategory)
+        
+        // Check if the table is occupied by filtering active reservations.
+        let isOccupied = activeReservations.contains { (reservation: Reservation) in
+            // The reservation must "own" the table.
+            guard reservation.tables.contains(where: { $0.id == table.id }) else {
+                return false
+            }
 
-        let isOccupied = store.tableAssignmentService.isTableOccupied(
-            table,
-            reservations: store.reservations,
-            date: selectedDate,
-            startTime: startTimeString,
-            endTime: endTimeString
-        )
+            // Ensure the reservation is active (i.e., overlaps with the current time).
+            let resStart = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.startTime)
+            let resEnd = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.endTime)
+            
+
+            return TimeHelpers.timeRangesOverlap(
+                start1: resStart,
+                end1: resEnd,
+                start2: DateHelper.combineDateAndTime(date: selectedDate, timeString: startTimeString) ?? Date(),
+                end2: DateHelper.combineDateAndTime(date: selectedDate, timeString: endTimeString) ?? Date()
+            )
+        }
 
         if !isOccupied {
+            // Table is not occupied: handle as empty.
             onTapEmpty()
         } else if let reservation = filterActiveReservation(for: table) {
+            // Table is occupied: handle as an active reservation.
             showInspector = true
             onEditReservation(reservation)
         }
@@ -493,6 +552,113 @@ struct TableView: View {
                     return normalizedCurrentTime >= normalizedStartTime && normalizedCurrentTime < normalizedEndTime
                 }()
             }
+    }
+
+
+    /// Returns a Date object that represents the reservation's start date and time.
+    /// Adjust date formats as needed.
+    func reservationStartDate(for reservation: Reservation) -> Date? {
+        let calendar = Calendar.current
+        
+        // Assuming reservation.dateString is something like "2025-01-18"
+        // and reservation.startTime is something like "18:00"
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "HH:mm"
+        timeFormatter.locale = Locale(identifier: "en_US_POSIX")
+        
+        guard let baseDate = dateFormatter.date(from: reservation.dateString),
+              let timeDate = timeFormatter.date(from: reservation.startTime) else {
+            return nil
+        }
+        
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: timeDate)
+        var fullComponents = calendar.dateComponents([.year, .month, .day], from: baseDate)
+        fullComponents.hour = timeComponents.hour
+        fullComponents.minute = timeComponents.minute
+        
+        return calendar.date(from: fullComponents)
+    }
+
+    /// Returns the time window for the given reservation category on the provided date.
+    func timeWindow(for category: Reservation.ReservationCategory, on date: Date) -> (start: Date, end: Date)? {
+        let calendar = Calendar.current
+        switch category {
+        case .lunch:
+            guard let start = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date),
+                  let end = calendar.date(bySettingHour: 15, minute: 0, second: 0, of: date) else {
+                return nil
+            }
+            return (start, end)
+        case .dinner:
+            guard let start = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: date),
+                  let end = calendar.date(bySettingHour: 23, minute: 45, second: 0, of: date) else {
+                return nil
+            }
+            return (start, end)
+        case .noBookingZone:
+            return nil
+        }
+    }
+
+    /// Returns the first upcoming reservation for the given table that:
+    /// 1. Is on the selected date and in the selected category.
+    /// 2. Has a start time in the future (relative to currentTime).
+    /// 3. Has a start time that falls within the category's time window.
+    func upcomingReservation(for table: TableModel,
+                             from activeReservations: [Reservation],
+                             selectedDate: Date,
+                             selectedCategory: Reservation.ReservationCategory,
+                             currentTime: Date) -> Reservation? {
+        
+        // Get the time window for the category on the selected date.
+        guard let window = timeWindow(for: selectedCategory, on: selectedDate) else {
+            return nil
+        }
+        
+        // Filter reservations that:
+        // - "Own" the table.
+        // - Are in the selected category.
+        // - Are on the selected date.
+        // - Have a start time within the time window (window.start <= resStart <= window.end).
+        // - Have a start time in the future relative to `currentTime`.
+        let filteredReservations = activeReservations.filter { reservation in
+            guard reservation.tables.contains(where: { $0.id == table.id }) else {
+                return false
+            }
+            
+            guard reservation.category == selectedCategory else {
+                return false
+            }
+            
+            let reservationDate = DateHelper.parseDate(reservation.dateString) ?? selectedDate
+            guard Calendar.current.isDate(selectedDate, inSameDayAs: reservationDate) else {
+                return false
+            }
+            
+            guard let resStart = reservationStartDate(for: reservation) else {
+                return false
+            }
+            
+            if !(resStart >= currentTime && resStart <= window.end) {
+                return false
+            }
+            
+            return true
+        }
+        
+        // Sort by start time (soonest first)
+        let sortedReservations = filteredReservations.sorted {
+            let start1 = reservationStartDate(for: $0) ?? Date.distantFuture
+            let start2 = reservationStartDate(for: $1) ?? Date.distantFuture
+            return start1 < start2
+        }
+        
+        // Return the soonest upcoming reservation, if any.
+        return sortedReservations.first
     }
     
 }
