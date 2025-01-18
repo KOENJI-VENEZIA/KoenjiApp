@@ -80,6 +80,12 @@ struct LayoutView: View {
                         isLayoutLocked: $isLayoutLocked,
                         isLayoutReset: $isLayoutReset
                     )
+                    .environmentObject(store)
+                    .environmentObject(tableStore)
+                    .environmentObject(reservationService) // For the new service
+                    .environmentObject(clusterServices)
+                    .environmentObject(layoutServices)
+                    .environmentObject(gridData)
                     .id(selectedIndex) // Force view refresh on index change
                 }
 
@@ -166,6 +172,9 @@ struct LayoutView: View {
                     showingEditReservation = false
                 }
                 )
+                .environmentObject(store)
+                .environmentObject(reservationService) // For the new service
+                .environmentObject(layoutServices)
             }
             .sheet(isPresented: $showingAddReservationSheet) {
                 AddReservationView(
@@ -181,6 +190,9 @@ struct LayoutView: View {
                     }
                     ),
                     startTime: $currentTime)
+                .environmentObject(store)
+                .environmentObject(reservationService) // For the new service
+                .environmentObject(layoutServices)
             }
             .sheet(isPresented: $showingBottomSheet) {
                 BottomSheetControls(

@@ -11,8 +11,40 @@ struct ClusterView: View {
     let cluster: CachedCluster
     let overlayFrame: CGRect
     @Binding var currentTime: Date
+
     @Binding var isLayoutLocked: Bool
     var isLunch: Bool
+    
+    private var timesUp: Bool {
+        let activeReservation = cluster.reservationID
+        if let endTime = DateHelper.parseTime(activeReservation.endTime),
+        let currentTimeComponents = DateHelper.extractTime(time: currentTime),
+        let newTime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: endTime),
+        endTime.timeIntervalSince(newTime) <= 60 * 30 {
+            return true
+        }
+        return false
+    }
+    
+    private var showedUp: Bool {
+        let activeReservation = cluster.reservationID
+        if activeReservation.status == .showedUp {
+            return true
+        }
+        return false
+    }
+    
+    private var isLate: Bool {
+        let activeReservation = cluster.reservationID
+        if activeReservation.status != .showedUp,
+           let startTime = DateHelper.parseTime(activeReservation.startTime),
+           let currentTimeComponents = DateHelper.extractTime(time: currentTime),
+           let newtime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: startTime),
+           newtime.timeIntervalSince(startTime) >= 15 * 60 {
+            return true
+        }
+        return false
+    }
     
     var body: some View {
         
@@ -21,7 +53,7 @@ struct ClusterView: View {
                 .fill(isLunch ? Color.active_table_lunch : Color.active_table_dinner)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8.0)
-                        .stroke(isLayoutLocked ? (isLunch ? Color.layout_locked_lunch : Color.layout_locked_dinner) : (isLunch ? Color.layout_unlocked_lunch : Color.layout_unlocked_dinner), lineWidth: isLayoutLocked ? 3 : 2))
+                        .stroke(timesUp ? .red : (isLate ? Color(hex: "#f78457") : (showedUp ? .green : .white)), lineWidth: 3))
                 .frame(width: overlayFrame.width, height: overlayFrame.height)
                 .position(x: overlayFrame.midX, y: overlayFrame.midY)
                 .zIndex(1)
@@ -33,21 +65,26 @@ struct ClusterView: View {
                     Text(cluster.reservationID.name)
                         .bold()
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                     Text("\(cluster.reservationID.numberOfPersons) pers.")
                         .font(.footnote)
+                        .foregroundStyle(.white)
                         .opacity(0.8)
                     Text(cluster.reservationID.phone)
                         .font(.footnote)
+                        .foregroundStyle(.white)
                         .opacity(0.8)
                     if let remaining = TimeHelpers.remainingTimeString(endTime: cluster.reservationID.endTime, currentTime: currentTime) {
-                        Text("Rimasto: \(remaining)")
-                            .foregroundColor(Color(hex: "#B4231F"))
+                        Text("Tempo rimasto:")
+                            .bold()
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(.white)
                             .font(.footnote)
-                    }
-                    if let duration = TimeHelpers.availableTimeString(endTime: cluster.reservationID.endTime, startTime: cluster.reservationID.startTime) {
-                        Text("\(duration)")
-                            .foregroundColor(Color(hex: "#B4231F"))
+                        
+                        Text("\(remaining)")
+                            .bold()
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(timesUp ? Color(hex: "#f78457") : .white)
                             .font(.footnote)
                     }
                 }

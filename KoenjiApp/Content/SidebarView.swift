@@ -30,12 +30,24 @@ struct SidebarView: View {
                    
                     List {
                         NavigationLink(destination: ReservationListView()
+                            .environmentObject(store)
+                            .environmentObject(tableStore)
+                            .environmentObject(reservationService) // For the new service
+                            .environmentObject(clusterServices)
+                            .environmentObject(layoutServices)
+                            .environmentObject(gridData)
                             .onAppear {
                                 sidebarColor = Color.sidebar_generic
                             }) {
                                 Label("Database", systemImage: "list.bullet")
                             }
                         NavigationLink(destination: CalendarView()
+                            .environmentObject(store)
+                            .environmentObject(tableStore)
+                            .environmentObject(reservationService) // For the new service
+                            .environmentObject(clusterServices)
+                            .environmentObject(layoutServices)
+                            .environmentObject(gridData)
                             .onAppear {
                                 sidebarColor = Color.sidebar_generic
                             }) {
@@ -47,7 +59,13 @@ struct SidebarView: View {
                             currentReservation: $currentReservation,
                             onSidebarColorChange: { newColor in
                                 sidebarColor = newColor // Update sidebar color
-                            })) {
+                            })
+                            .environmentObject(store)
+                            .environmentObject(tableStore)
+                            .environmentObject(reservationService) // For the new service
+                            .environmentObject(clusterServices)
+                            .environmentObject(layoutServices)
+                            .environmentObject(gridData)) {
                                 Label("Layout Tavoli", systemImage: "rectangle.grid.3x2")
                             }
                     }

@@ -33,6 +33,12 @@ struct ContentView: View {
                 currentReservation: $currentReservation,
                 selectedCategory: $selectedCategory
             )
+            .environmentObject(store)
+            .environmentObject(tableStore)
+            .environmentObject(reservationService) // For the new service
+            .environmentObject(clusterServices)
+            .environmentObject(layoutServices)
+            .environmentObject(gridData)
                 
         }
         detail: {

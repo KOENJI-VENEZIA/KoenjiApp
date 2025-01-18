@@ -5,6 +5,7 @@ struct TableView: View {
     let selectedDate: Date
     let selectedCategory: Reservation.ReservationCategory
     let currentTime: Date
+    @State private var systemTime: Date = Date()
     let activeReservations: [Reservation]
     
     @EnvironmentObject var gridData: GridData
@@ -44,6 +45,8 @@ struct TableView: View {
     @State private var isContextMenuActive = false
     @State private var selectedEmoji: String? = nil
 
+    @State private var tapTimer: Timer?
+    @State private var isDoubleTap = false
 
         
     private var cellSize: CGFloat { return gridData.cellSize }
@@ -85,6 +88,36 @@ struct TableView: View {
             }
         }()
         
+        let timesUp = {
+            guard let activeReservation = activeReservation else { return false}
+            if let endTime = DateHelper.parseTime(activeReservation.endTime),
+            let currentTimeComponents = DateHelper.extractTime(time: currentTime),
+            let newTime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: endTime),
+            endTime.timeIntervalSince(newTime) <= 60 * 30 {
+                return true
+            }
+            return false
+        }()
+        
+        let showedUp = {
+            if let activeReservation = activeReservation, activeReservation.status == .showedUp {
+                return true
+            }
+            return false
+        }()
+        
+        let isLate = {
+            if let activeReservation = activeReservation,
+               activeReservation.status != .showedUp, !isContextMenuActive,
+               let startTime = DateHelper.parseTime(activeReservation.startTime),
+               let currentTimeComponents = DateHelper.extractTime(time: currentTime),
+               let newtime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: startTime),
+               newtime.timeIntervalSince(startTime) >= 15 * 60 {
+                return true
+            }
+            return false
+        }()
+        
         ZStack {
             // Parent ZStack for interaction
                 Color.clear // Makes the area outside the rectangle tappable
@@ -112,10 +145,10 @@ struct TableView: View {
                     .stroke(
                         isDragging ? Color.yellow.opacity(0.5) :
                             (isHighlighted ? Color(hex: "#9DA3D0") :
-                                (isLayoutLocked ? (isLunch ? Color.layout_locked_lunch : Color.layout_locked_dinner) : (isLunch ? Color.layout_unlocked_lunch : Color.layout_unlocked_dinner))),
+                                (timesUp ? .red : (isLate ? Color(hex: "#f78457") : (showedUp ? .green : .white)))),
                         style: isDragging
                         ? StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 3]) // Dashed when dragging
-                        : StrokeStyle(lineWidth: (isLayoutLocked ? 3 : 2)) // Solid for other states
+                        : StrokeStyle(lineWidth: 3) // Solid for other states
                     )
                     .frame(
                         width: tableFrame.width,
@@ -129,7 +162,7 @@ struct TableView: View {
                 Group {
                     if let reservation = activeReservation {
                         // Active reservation exists: display reservation details.
-                        reservationInfo(
+                        reservationInfo(status: timesUp,
                             reservation: reservation,
                             tableWidth: tableFrame.width,
                             tableHeight: tableFrame.height
@@ -155,13 +188,13 @@ struct TableView: View {
                     }
                 }
                 
-                if let activeReservation = activeReservation, activeReservation.status == .showedUp, !isContextMenuActive {
+                if showedUp, !isContextMenuActive {
                     Image(systemName: "checkmark.circle.fill") // Replace with your custom image or SF Symbol
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 20, height: 20) // Adjust size as needed
+                        .frame(width: 17, height: 17) // Adjust size as needed
                         .foregroundColor(.green ) // Optional styling
-                        .offset(x: -tableFrame.width / 2 + 15, y: -tableFrame.height / 2 + 15) // Position in the top-left corner
+                        .offset(x: -tableFrame.width / 2 + 13, y: -tableFrame.height / 2 + 13) // Position in the top-left corner
                         .zIndex(2)
                 }
                 
@@ -169,40 +202,30 @@ struct TableView: View {
                     Text(reservation.assignedEmoji ?? "")
                         .font(.system(size: 20)) // Match the font size to the frame of the Image
                         .frame(maxWidth: 23, maxHeight: 23) // Same dimensions as the Image
-                        .offset(x: tableFrame.width / 2 - 18, y: -tableFrame.height / 2 + 15) // Match position
+                        .offset(x: tableFrame.width / 2 - 18, y: -tableFrame.height / 2 + 12) // Match position
                         .zIndex(2)
                 }
                 
-                if let activeReservation = activeReservation,
-                   activeReservation.status != .showedUp, !isContextMenuActive,
-                   let startTime = DateHelper.parseTime(activeReservation.startTime),
-                   let currentTimeComponents = DateHelper.extractTime(time: currentTime) {
-                    
-                    // Create normalized startTime and subtract one hour
-                    let calendar = Calendar.current
-                    let startTimeComponents = calendar.dateComponents([.hour, .minute], from: startTime)
-                    
-                    // Build a new Date object for adjustedStartTime
-                    if let adjustedStartTime = calendar.date(bySettingHour: (startTimeComponents.hour ?? 0),
-                                                             minute: startTimeComponents.minute ?? 0,
-                                                             second: 0,
-                                                             of: currentTime), // Use currentTime to align the date
-                       let normalizedCurrentTime = calendar.date(bySettingHour: currentTimeComponents.hour ?? 0,
-                                                                 minute: currentTimeComponents.minute ?? 0,
-                                                                 second: 0,
-                                                                 of: currentTime) { // Use currentTime to align the date
-                        
-                        // Compare the times
-                        if normalizedCurrentTime.timeIntervalSince(adjustedStartTime) >= 15 * 60 { // 15 minutes in seconds
-                            Image(systemName: "exclamationmark.triangle.fill")
+                if isLate {
+                            Image(systemName: "clock.badge.exclamationmark.fill")
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: 20, height: 20) // Adjust size as needed
-                                .foregroundColor(.orange) // Optional styling
+                                .frame(width: 17, height: 17) // Adjust size as needed
+                                .foregroundColor(.yellow) // Optional styling
+                                .symbolRenderingMode(.multicolor)
                                 .offset(x: -tableFrame.width / 2 + 15, y: -tableFrame.height / 2 + 15) // Position in the top-left corner
                                 .zIndex(2)
-                        }
-                    }
+                }
+                
+                if timesUp {
+                    Image(systemName: "figure.walk.motion.trianglebadge.exclamationmark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20) // Adjust size as needed
+                        .foregroundStyle(.yellow, .orange /*isLunch ? Color(hex: "#6a6094") : Color(hex: "#435166")*/) // Optional styling
+                        .symbolRenderingMode(.palette) // Enable multicolor rendering
+                        .offset(x: tableFrame.width / 2 - 15, y: tableFrame.height / 2 - 15) // Position in the top-left corner
+                        .zIndex(2)
                 }
             }
         }
@@ -267,14 +290,33 @@ struct TableView: View {
                         yPos: tableFrame.minY
                     )
                 }
-            )
-        .simultaneousGesture(TapGesture(count: 1).onEnded {_ in
-            handleTap(activeReservation)
-        })
-        .simultaneousGesture(TapGesture(count: 2).onEnded {_ in
-            dragState = .idle
-            handleDoubleTap(activeReservations)
-        })
+        )
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded {
+                // Cancel the single-tap timer and process double-tap
+                tapTimer?.invalidate()
+                isDoubleTap = true // Prevent single-tap action
+                dragState = .idle
+                handleDoubleTap(activeReservations)
+
+                // Reset double-tap state shortly after handling
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    isDoubleTap = false
+                }
+            }
+        )
+        .simultaneousGesture(
+            TapGesture(count: 1).onEnded {
+                // Start a timer for single-tap action
+                tapTimer?.invalidate() // Cancel any existing timer
+                tapTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
+                    if !isDoubleTap {
+                        // Process single-tap only if no double-tap occurred
+                        handleTap(activeReservation)
+                    }
+                }
+            }
+        )
     }
 
     // MARK: - Subviews
@@ -293,22 +335,33 @@ struct TableView: View {
         onStatusChange()
     }
 
-    private func reservationInfo(reservation: Reservation, tableWidth: CGFloat, tableHeight: CGFloat) -> some View {
+    private func reservationInfo(status: Bool, reservation: Reservation, tableWidth: CGFloat, tableHeight: CGFloat) -> some View {
         VStack(spacing: 2) {
             Text(reservation.name)
                 .bold()
                 .font(.headline)
+                .foregroundStyle(.white)
             Text("\(reservation.numberOfPersons) pers.")
                 .font(.footnote)
+                .foregroundStyle(.white)
                 .opacity(0.8)
 
             Text("\(reservation.phone)")
                 .font(.footnote)
+                .foregroundStyle(.white)
                 .opacity(0.8)
 
             if let remaining = TimeHelpers.remainingTimeString(endTime: reservation.endTime, currentTime: currentTime) {
-                Text("Rimasto: \(remaining)")
-                    .foregroundColor(Color(hex: "#B4231F"))
+                Text("Tempo rimasto:")
+                    .bold()
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.white)
+                    .font(.footnote)
+                
+                Text("\(remaining)")
+                    .bold()
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(status ? Color(hex: "#f78457") : .white)
                     .font(.footnote)
             }
         }
@@ -322,19 +375,24 @@ struct TableView: View {
             Text(reservation.name)
                 .bold()
                 .font(.headline)
+                .foregroundStyle(.white)
             Text("\(reservation.numberOfPersons) pers.")
                 .font(.footnote)
                 .opacity(0.8)
+                .foregroundStyle(.white)
 
             Text("\(reservation.phone)")
                 .font(.footnote)
+                .foregroundStyle(.white)
                 .opacity(0.8)
 
             if let upcomingTime = DateHelper.timeUntilReservation(currentTime: currentTime,
                                                                   reservationDateString: reservation.dateString,
                                                                   reservationStartTimeString: reservation.startTime) {
-                Text("In arrivo tra: \(DateHelper.formattedTime(from: upcomingTime) ?? "Errore")")
-                    .foregroundColor(Color(hex: "#B4231F"))
+                Text("In arrivo tra:\n\(DateHelper.formattedTime(from: upcomingTime) ?? "Errore")")
+                    .bold()
+                    .foregroundColor(Color(hex: "#5681ba"))
+                    .multilineTextAlignment(.center)
                     .font(.footnote)
             }
         }
@@ -421,7 +479,6 @@ struct TableView: View {
     }
     private func handleDoubleTap(_ activeReservations: [Reservation]) {
         let startTimeString = DateHelper.formatTime(currentTime)
-        let endTimeString = TimeHelpers.calculateEndTime(startTime: startTimeString, category: selectedCategory)
         
         // Check if the table is occupied by filtering active reservations.
         let isOccupied = activeReservations.contains { (reservation: Reservation) in
@@ -432,15 +489,8 @@ struct TableView: View {
 
             // Ensure the reservation is active (i.e., overlaps with the current time).
             let resStart = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.startTime)
-            let resEnd = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.endTime)
-            
 
-            return TimeHelpers.timeRangesOverlap(
-                start1: resStart,
-                end1: resEnd,
-                start2: DateHelper.combineDateAndTime(date: selectedDate, timeString: startTimeString) ?? Date(),
-                end2: DateHelper.combineDateAndTime(date: selectedDate, timeString: endTimeString) ?? Date()
-            )
+            return resStart <= DateHelper.combineDateAndTime(date: selectedDate, timeString: startTimeString) ?? Date()
         }
 
         if !isOccupied {

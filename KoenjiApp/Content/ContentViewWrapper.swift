@@ -20,7 +20,12 @@ struct ContentViewWrapper: View {
 
     var body: some View {
         ContentView()
-            .applyCustomStyles() // Applies dynamic backgrounds and Italian locale
+            .environmentObject(store)
+            .environmentObject(tableStore)
+            .environmentObject(reservationService) // For the new service
+            .environmentObject(clusterServices)
+            .environmentObject(layoutServices)
+            .environmentObject(gridData)            .applyCustomStyles() // Applies dynamic backgrounds and Italian locale
             .onAppear {
                 print("App appearing. Loading data...")
                 // Data loading already handled by ReservationStore initializer

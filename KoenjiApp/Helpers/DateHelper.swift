@@ -217,7 +217,7 @@ struct DateHelper {
     static func formattedTime(from seconds: TimeInterval) -> String? {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.hour, .minute]
-        formatter.unitsStyle = .positional  // e.g. "01:05"
+        formatter.unitsStyle = .abbreviated  // e.g. "01:05"
         formatter.zeroFormattingBehavior = [.pad]
         
         return formatter.string(from: seconds)

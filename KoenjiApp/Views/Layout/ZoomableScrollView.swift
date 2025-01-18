@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ZoomableScrollView<Content: View>: UIViewRepresentable {
-    
+    @EnvironmentObject private var gridData: GridData
     private var content: Content
     @Binding private var scale: CGFloat
     @Binding private var category: Reservation.ReservationCategory

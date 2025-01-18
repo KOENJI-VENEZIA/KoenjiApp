@@ -272,12 +272,14 @@ struct ReservationListView: View {
         .sheet(isPresented: $showingAddReservation) {
             AddReservationView(category: $selectedCategory, selectedDate: $selectedDate, startTime: $currentTime)
                 .environmentObject(store)
-                .environmentObject(reservationService)
+                .environmentObject(reservationService) // For the new service
+                .environmentObject(layoutServices)
         }
         .sheet(item: $currentReservation) { reservation in
             EditReservationView(reservation: reservation, onClose: {})
                 .environmentObject(store)
-                .environmentObject(reservationService)
+                .environmentObject(reservationService) // For the new service
+                .environmentObject(layoutServices)
         }
         .sheet(isPresented: $showingDebugConfig) {
             DebugConfigView(

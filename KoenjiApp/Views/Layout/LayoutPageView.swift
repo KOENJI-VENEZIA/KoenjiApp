@@ -196,6 +196,12 @@ struct LayoutPageView: View {
                                 self.onTableUpdated(updatedTable)
                             }
                         )
+                        .environmentObject(store)
+                        .environmentObject(tableStore)
+                        .environmentObject(reservationService) // For the new service
+                        .environmentObject(clusterServices)
+                        .environmentObject(layoutServices)
+                        .environmentObject(gridData)
                         .transition(.opacity) // Fade in/out transition
 
 
@@ -238,6 +244,12 @@ struct LayoutPageView: View {
                 .compositingGroup()
 
             }
+            .environmentObject(store)
+            .environmentObject(tableStore)
+            .environmentObject(reservationService) // For the new service
+            .environmentObject(clusterServices)
+            .environmentObject(layoutServices)
+            .environmentObject(gridData)
             .transition(.opacity) // Fade in/out transition
             //.frame(width: viewportWidth, height: viewportHeight)
         
