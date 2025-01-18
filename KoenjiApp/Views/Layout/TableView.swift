@@ -9,7 +9,9 @@ struct TableView: View {
     
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
+    @EnvironmentObject var layoutServices: LayoutServices
     @ObservedObject var layoutUI: LayoutUIManager
 
     let onTapEmpty: () -> Void
@@ -26,7 +28,8 @@ struct TableView: View {
     }
     @State private var dragState: DragState = .idle
     
-    
+    @State private var selectedTable: TableModel?
+
     
     @State private var isDragging: Bool = false // State to track dragging
     @State private var isHeld: Bool = false // State for long press hold
@@ -39,6 +42,8 @@ struct TableView: View {
     @State private var statusChanged: Int = 0
     @State private var showEmojiPicker: Bool = false
     @State private var isContextMenuActive = false
+    @State private var selectedEmoji: String? = nil
+
 
         
     private var cellSize: CGFloat { return gridData.cellSize }
@@ -53,7 +58,7 @@ struct TableView: View {
 
     var body: some View {
         // Determine if the table is highlighted
-        let isHighlighted = store.tableAnimationState[table.id] ?? false
+        let isHighlighted = layoutServices.tableAnimationState[table.id] ?? false
         
         // Get active reservation
         var activeReservation = filterActiveReservation(for: table) ?? nil
@@ -130,10 +135,10 @@ struct TableView: View {
                 }
                 
                 if let activeReservation = activeReservation, activeReservation.status == .showedUp, !isContextMenuActive {
-                    Image(systemName: "checkmark.seal.fill") // Replace with your custom image or SF Symbol
+                    Image(systemName: "checkmark.circle.fill") // Replace with your custom image or SF Symbol
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 25, height: 25) // Adjust size as needed
+                        .frame(width: 20, height: 20) // Adjust size as needed
                         .foregroundColor(.green ) // Optional styling
                         .offset(x: -tableFrame.width / 2 + 15, y: -tableFrame.height / 2 + 15) // Position in the top-left corner
                         .zIndex(2)
@@ -141,8 +146,8 @@ struct TableView: View {
                 
                 if let reservation = activeReservation, !isContextMenuActive {
                     Text(reservation.assignedEmoji ?? "")
-                        .font(.system(size: 25)) // Match the font size to the frame of the Image
-                        .frame(maxWidth: 28, maxHeight: 28) // Same dimensions as the Image
+                        .font(.system(size: 20)) // Match the font size to the frame of the Image
+                        .frame(maxWidth: 23, maxHeight: 23) // Same dimensions as the Image
                         .offset(x: tableFrame.width / 2 - 18, y: -tableFrame.height / 2 + 15) // Match position
                         .zIndex(2)
                 }
@@ -171,23 +176,13 @@ struct TableView: View {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: 30, height: 30) // Adjust size as needed
+                                .frame(width: 20, height: 20) // Adjust size as needed
                                 .foregroundColor(.orange) // Optional styling
-                                .offset(x: -tableFrame.width / 2, y: -tableFrame.height / 2) // Position in the top-left corner
+                                .offset(x: -tableFrame.width / 2 + 15, y: -tableFrame.height / 2 + 15) // Position in the top-left corner
                                 .zIndex(2)
                         }
                     }
                 }
-                
-                //            if let activeReservation = activeReservation, activeReservation.status == .pending {
-                //                Image(systemName: "")
-                //                    .resizable()
-                //                    .scaledToFit()
-                //                    .frame(width: 20, height: 20)
-                //                    .offset(x: -tableFrame.width / 2, y: -tableFrame.height / 2)
-                //                    .zIndex(2)
-                //            }
-                
             }
         }
         .onChange(of: statusChanged) {
@@ -199,46 +194,33 @@ struct TableView: View {
             print("Current time: \(currentTime)")
             activeReservation = filterActiveReservation(for: table) ?? nil
         }
+        .onChange(of: selectedEmoji) {
+            handleEmojiAssignment(activeReservation, selectedEmoji ?? "")
+        }
         .contextMenu {
-            // Your context menu buttons
+            
+            Button {
+                showEmojiPicker = true
+            } label: {
+                Label("Pick Emoji", systemImage: "ellipsis.circle")
+            }
+        
+            Divider()
+        
             Button("Delete") {
                 if let reservation = activeReservation {
                     handleDelete(reservation)
                 }
             }
-            
-            if let _ = activeReservation {
-                ForEach(["❤️", "💀", "🥗", "🍣", "🍪"], id: \.self) { emoji in
-                    Button {
-                        activeReservation?.assignedEmoji = emoji
-                        reservationService.updateReservation(activeReservation!)
-                        statusChanged += 1
-                        onStatusChange()
-                    } label: {
-                        Text(emoji)
-                    }
-                }
-
-                Button {
-                    showEmojiPicker = true
-                } label: {
-                    Label("Pick Emoji", systemImage: "ellipsis.circle")
-                }
-            } // Optional: Add padding if needed
         }
-        .sheet(isPresented: $showEmojiPicker) {
-            if let _ = activeReservation {
-                let assignedEmojiBinding = Binding(
-                    get: { activeReservation?.assignedEmoji ?? "" },
-                    set: {
-                        activeReservation?.assignedEmoji = $0
-                        reservationService.updateReservation(activeReservation!)
-                        statusChanged += 1
-                        onStatusChange()
-                    }
-                )
-                EmojiPickerMenuView(selectedEmoji: assignedEmojiBinding, isPresented: $showEmojiPicker)
-
+        .popover(isPresented: $showEmojiPicker, arrowEdge: .top) {
+            EmojiPickerView { emoji in
+                if selectedEmoji != emoji {
+                    selectedEmoji = emoji
+                } else {
+                    selectedEmoji = ""
+                }
+                showEmojiPicker = false // Dismiss the popover
             }
         }
         .position(x: tableFrame.minX, y: tableFrame.minY)
@@ -281,6 +263,15 @@ struct TableView: View {
         }
     }
     
+    private func handleEmojiAssignment(_ activeReservation: Reservation?, _ emoji: String) {
+        guard var reservationActive = activeReservation else { return }
+        print("Emoji: \(emoji)")
+        reservationActive.assignedEmoji = emoji
+        reservationService.updateReservation(reservationActive)
+        statusChanged += 1
+        onStatusChange()
+    }
+
     private func reservationInfo(reservation: Reservation, tableWidth: CGFloat, tableHeight: CGFloat) -> some View {
         VStack(spacing: 2) {
             Text(reservation.name)
@@ -406,7 +397,7 @@ struct TableView: View {
     private func handleDragEnd(translation: CGSize, cellSize: CGFloat, tableWidth: CGFloat, tableHeight: CGFloat, xPos: CGFloat, yPos: CGFloat) {
         layoutUI.isDragging = false
         guard !isLayoutLocked else {
-            store.currentlyDraggedTableID = nil
+            layoutServices.currentlyDraggedTableID = nil
             return
         }
 
@@ -430,7 +421,7 @@ struct TableView: View {
         // Check for blockage before moving the table
         if !gridData.isBlockage(proposedFrame) {
             print("Blockage detected! Table move rejected.")
-            store.currentlyDraggedTableID = nil
+            layoutServices.currentlyDraggedTableID = nil
             return
         }
         
@@ -445,21 +436,21 @@ struct TableView: View {
         
         let tables = layoutUI.tables
         let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
-        store.saveTables(tables, for: combinedDate, category: selectedCategory)
-        if let updatedLayout = store.cachedLayouts[store.keyFor(date: combinedDate, category: selectedCategory)] {
+        layoutServices.saveTables(tables, for: combinedDate, category: selectedCategory)
+        if let updatedLayout = layoutServices.cachedLayouts[layoutServices.keyFor(date: combinedDate, category: selectedCategory)] {
             print("Updated cache for \(selectedCategory):")
             for table in updatedLayout {
                 print("Updated table \(table.name) at (\(table.row), \(table.column))")
             }
         }
         
-        let layoutKey = store.keyFor(date: combinedDate, category: selectedCategory)
-        store.cachedLayouts[layoutKey] = layoutUI.tables
-        store.saveToDisk()
+        let layoutKey = layoutServices.keyFor(date: combinedDate, category: selectedCategory)
+        layoutServices.cachedLayouts[layoutKey] = layoutUI.tables
+        layoutServices.saveToDisk()
         
         onTableUpdated(updatedTable)
         isLayoutReset = false
-        store.currentlyDraggedTableID = nil
+        layoutServices.currentlyDraggedTableID = nil
         
     }
     
@@ -502,6 +493,48 @@ struct TableView: View {
                     return normalizedCurrentTime >= normalizedStartTime && normalizedCurrentTime < normalizedEndTime
                 }()
             }
+    }
+    
+}
+
+struct EmojiPickerView: View {
+    let onEmojiSelected: (String) -> Void
+    private let emojis = ["❤️", "😂", "😮", "😢", "🙏", "❗️"]
+
+    var body: some View {
+        HStack {
+            ForEach(emojis, id: \.self) { emoji in
+                Button {
+                    onEmojiSelected(emoji)
+                } label: {
+                    Text(emoji)
+                        .font(.title)
+                }
+            }
+        }
+        .padding()
+        .presentationDetents([.height(50.0)]) // Bottom sheet size
+        .presentationDragIndicator(.visible)   // Optional drag indicator
+    }
+}
+
+struct EmojiButton: View {
+    let emoji: Character
+    @State private var animate = false
+
+    var body: some View {
+        Text(String(emoji))
+            .font(.largeTitle)
+            .phaseAnimator([false, true], trigger: animate) { content, phase in
+                content.scaleEffect(phase ? 1.3 : 1)
+            } animation: { phase in
+                .bouncy(duration: phase ? 0.2 : 0.05, extraBounce: phase ? 0.7 : 0)
+            }
+            .onTapGesture {
+                print("\(emoji) tapped")
+                animate.toggle()
+            }
+
     }
     
 }

@@ -10,10 +10,11 @@ import SwiftUI
 
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var clusterStore: ClusterStore
     @EnvironmentObject var clusterServices: ClusterServices
-
+    @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
     
     @Environment(\.locale) var locale
@@ -39,7 +40,7 @@ struct LayoutView: View {
     @Binding  var currentReservation: Reservation?
 
     @State private var showingEditReservation: Bool = false
-    @Binding  var showInspector: Bool      // Controls Inspector visibility
+    @State private var showInspector: Bool = false      // Controls Inspector visibility
 
     // Add Reservation
     @State private var showingAddReservationSheet: Bool = false
@@ -65,22 +66,22 @@ struct LayoutView: View {
             let selectedDate = dates[safe: selectedIndex] ?? Date()
             
             ZStack {
-                // Current Layout Page View
-                LayoutPageView(
-                    selectedDate: selectedDate,
-                    selectedCategory: selectedCategory ?? .lunch,
-                    currentTime: $currentTime,
-                    isManuallyOverridden: $isManuallyOverridden,
-                    selectedReservation: $selectedReservation,
-                    showInspector: $showInspector,
-                    showingEditReservation: $showingEditReservation,
-                    showingAddReservationSheet: $showingAddReservationSheet,
-                    tableForNewReservation: $tableForNewReservation,
-                    isLayoutLocked: $isLayoutLocked,
-                    isLayoutReset: $isLayoutReset
-                )
-                .id(selectedIndex) // Force view refresh on index change
-                
+                CardSwapView(selectedIndex: $selectedIndex) {
+                    LayoutPageView(
+                        selectedDate: selectedDate,
+                        selectedCategory: selectedCategory ?? .lunch,
+                        currentTime: $currentTime,
+                        isManuallyOverridden: $isManuallyOverridden,
+                        selectedReservation: $selectedReservation,
+                        showInspector: $showInspector,
+                        showingEditReservation: $showingEditReservation,
+                        showingAddReservationSheet: $showingAddReservationSheet,
+                        tableForNewReservation: $tableForNewReservation,
+                        isLayoutLocked: $isLayoutLocked,
+                        isLayoutReset: $isLayoutReset
+                    )
+                    .id(selectedIndex) // Force view refresh on index change
+                }
 
                 // Left Arrow Button
                 dateForward
@@ -228,6 +229,32 @@ struct LayoutView: View {
         }
     }
     
+    struct CardSwapView<Content: View>: View {
+        @Binding var selectedIndex: Int
+        let content: () -> Content
+        
+        @State private var rotationAngle: Double = 0
+
+        var body: some View {
+            ZStack {
+                content()
+                    .id(selectedIndex) // Ensure content refresh
+                    .flipEffect(rotation: rotationAngle, axis: (x: 30, y: 0, z: 0))
+            }
+            .onChange(of: selectedIndex) {
+                // Animate flip out
+                withAnimation(.spring(duration: 0.3)) {
+                    rotationAngle = 15
+                }
+                // Swap content once half-flipped (after animation delay)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.spring(duration: 0.5)) {
+                        rotationAngle = 0
+                    }
+                }
+            }
+        }
+    }
     // MARK: - Navigation Methods
     
     private func navigateToPreviousDate() {
@@ -240,8 +267,9 @@ struct LayoutView: View {
     private func navigateToNextDate() {
         guard selectedIndex < dates.count - 1 else { return }
         navigationDirection = .forward
-        selectedIndex += 1
-        handleSelectedIndexChange()
+            selectedIndex += 1
+            handleSelectedIndexChange()
+
     }
     
     private func resetLayout() {
@@ -257,8 +285,8 @@ struct LayoutView: View {
         
         // Perform layout reset
         let combinedDate = DateHelper.combine(date: currentDate, time: currentTime)
-        store.resetTables(for: currentDate, category: currentCategory)
-        store.tables = store.loadTables(for: combinedDate, category: currentCategory)
+        layoutServices.resetTables(for: currentDate, category: currentCategory)
+        layoutServices.tables = layoutServices.loadTables(for: combinedDate, category: currentCategory)
         
         // Clear clusters
         clusterServices.resetClusters(for: combinedDate, category: currentCategory)
@@ -366,9 +394,9 @@ struct LayoutView: View {
     private var dateForward: some View {
         
             Button(action: {
-                withAnimation {
-                    navigateToPreviousDate()
-                }
+                
+                navigateToPreviousDate()
+                
             }) {
                 Image(systemName: "chevron.left.circle.fill")
                     .resizable()
@@ -381,9 +409,8 @@ struct LayoutView: View {
     private var dateBackward: some View {
         
             Button(action: {
-                withAnimation {
                     navigateToNextDate()
-                }
+                
             }) {
                 Image(systemName: "chevron.right.circle.fill")
                     .resizable()
@@ -528,6 +555,9 @@ struct LayoutView: View {
             return systemTime
         }
     }
+    
+
+    
 }
 
 // MARK: - Extensions
@@ -551,3 +581,8 @@ enum NavigationDirection {
     case forward
     case backward
 }
+
+
+
+
+

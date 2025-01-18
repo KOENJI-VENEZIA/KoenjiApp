@@ -9,16 +9,19 @@ import SwiftUI
 
 struct SidebarView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var clusterStore: ClusterStore
     @EnvironmentObject var clusterServices: ClusterServices
+    @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
     @State private var sidebarColor: Color = Color.sidebar_generic // Default color
     @Binding  var selectedReservation: Reservation?
     @Binding  var currentReservation: Reservation?
     @Binding  var selectedCategory: Reservation.ReservationCategory? 
-    @Binding  var showInspector: Bool       // Controls Inspector visibility
 
+
+    
     var body: some View {
         ZStack {
             sidebarColor
@@ -42,7 +45,6 @@ struct SidebarView: View {
                             selectedCategory: $selectedCategory,
                             selectedReservation: $selectedReservation,
                             currentReservation: $currentReservation,
-                            showInspector: $showInspector,
                             onSidebarColorChange: { newColor in
                                 sidebarColor = newColor // Update sidebar color
                             })) {
@@ -55,7 +57,7 @@ struct SidebarView: View {
                     .navigationTitle("Prenotazioni")
                     .padding(.vertical)
                     .toolbarColorScheme(.dark, for: .navigationBar)
-            
+
                 Spacer()
                 
                 Image("logo_image") // Replace "YourImageName" with the actual image asset name

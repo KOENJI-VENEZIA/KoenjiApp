@@ -12,9 +12,11 @@ import CoreGraphics
 struct LayoutPageView: View {
     // MARK: - Dependencies
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var clusterStore: ClusterStore
     @EnvironmentObject var clusterServices: ClusterServices
+    @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
     
     @Environment(\.locale) var locale
@@ -87,7 +89,7 @@ struct LayoutPageView: View {
     }
     
     private var cacheKey: String {
-        store.keyFor(date: combinedDate, category: selectedCategory)
+        layoutServices.keyFor(date: combinedDate, category: selectedCategory)
     }
 
 
@@ -153,20 +155,22 @@ struct LayoutPageView: View {
                 gridData.gridBackground(selectedCategory: selectedCategory)
                     .background(backgroundColor)
                 
+                
                 if isLoading {
-                   
-                    loadingView
-                    
-                    Text("Caricamento...")
-                        .foregroundColor(Color.gray.opacity(0.8))
-                        .font(.headline)
-                        .padding(20)
-                        .background(Color.white.opacity(0.3))
-                        .cornerRadius(8)
-                        .frame(width: gridWidth / 2, height: gridHeight / 2)
-                        .position(x: gridWidth / 2, y: gridHeight / 2 - gridData.cellSize)
-                        .animation(.spring(duration: 0.3), value: 3)
-                    
+                    ZStack {
+                        loadingView
+                        
+                        Text("Caricamento...")
+                            .foregroundColor(Color.gray.opacity(0.8))
+                            .font(.headline)
+                            .padding(20)
+                            .background(Color.white.opacity(0.3))
+                            .cornerRadius(8)
+                            .frame(width: gridWidth / 2, height: gridHeight / 2)
+                            .position(x: gridWidth / 2, y: gridHeight / 2 - gridData.cellSize)
+                    }
+
+
                 } else {
                     // Individual tables
                     ForEach(layoutUI.tables, id: \.id) { table in
@@ -192,7 +196,9 @@ struct LayoutPageView: View {
                                 self.onTableUpdated(updatedTable)
                             }
                         )
-                        .animation(.spring(duration: 0.3), value: viewportWidth)
+                        .transition(.opacity) // Fade in/out transition
+
+
                         
                         if clusterManager.clusters.isEmpty && !isLoadingClusters {
                         } else if isLoadingClusters {
@@ -225,23 +231,29 @@ struct LayoutPageView: View {
                         }
                     }
                 }
+            .transition(.opacity) // Fade in/out transition
                 
                 .drawingGroup()
                 .frame(width: gridWidth, height: gridHeight)
                 .compositingGroup()
 
             }
-            .frame(width: viewportWidth, height: viewportHeight)
+            .transition(.opacity) // Fade in/out transition
+            //.frame(width: viewportWidth, height: viewportHeight)
         
             .onAppear {
-                isLoadingClusters = true
-                isLoading = true
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isLoadingClusters = true
+                    isLoading = true
+                }
                 Task {
                     DispatchQueue.main.async {
                         loadCurrentLayout()
                         print("Current time as LayoutPageView appears: \(currentTime)")
-                        isLoadingClusters = false
-                        isLoading = false
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isLoadingClusters = false
+                            isLoading = false
+                        }
                     }
                 }
             }
@@ -251,7 +263,10 @@ struct LayoutPageView: View {
                     resetCurrentLayout()
                     
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                        isLoading = false
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            
+                            isLoading = false
+                        }
                         isLayoutReset = false // Clear reset state
                     }
                 }
@@ -304,7 +319,8 @@ struct LayoutPageView: View {
     // MARK: - Helper Views
     private var loadingView: some View {
         
-        ForEach(store.baseTables, id: \.id) { table in
+        
+        ForEach(tableStore.baseTables, id: \.id) { table in
             let tableWidth = CGFloat(table.width) * gridData.cellSize
             let tableHeight = CGFloat(table.height) * gridData.cellSize
             let xPos = CGFloat(table.column) * gridData.cellSize + tableWidth / 2
@@ -350,7 +366,7 @@ struct LayoutPageView: View {
     // MARK: - UI Update Methods
     
     private func reloadLayout(_ selectedCategory: Reservation.ReservationCategory, _ activeReservations: [Reservation]) {
-        layoutUI.tables = store.loadTables(for: combinedDate, category: selectedCategory)
+        layoutUI.tables = layoutServices.loadTables(for: combinedDate, category: selectedCategory)
         clusterManager.recalculateClustersIfNeeded(for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate, selectedCategory: selectedCategory, cellSize: gridData.cellSize)
     }
     
@@ -360,9 +376,9 @@ struct LayoutPageView: View {
         clusterManager.recalculateClustersIfNeeded(for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate, selectedCategory: selectedCategory, cellSize: gridData.cellSize)
         clusterServices.saveClusters(clusterManager.clusters, for: combinedDate, category: selectedCategory)
         layoutUI.saveLayout()
-        store.saveTables(layoutUI.tables, for: combinedDate, category: selectedCategory)
+        layoutServices.saveTables(layoutUI.tables, for: combinedDate, category: selectedCategory)
         
-        let newSignature = store.computeLayoutSignature(tables: layoutUI.tables)
+        let newSignature = layoutServices.computeLayoutSignature(tables: layoutUI.tables)
         if newSignature != clusterManager.lastLayoutSignature {
             // We have a real adjacency change, so we might need to recalc clusters
             clusterManager.lastLayoutSignature = newSignature
@@ -372,19 +388,21 @@ struct LayoutPageView: View {
     
 
     private func updateLayoutResetState() {
-        isLayoutReset = (layoutUI.tables == store.baseTables)
+        isLayoutReset = (layoutUI.tables == tableStore.baseTables)
     }
     
     
     
     private func loadCurrentLayout() {
         if !layoutUI.isConfigured {
-            layoutUI.configure(store: store, reservationService: reservationService)
-            layoutUI.tables = store.loadTables(for: combinedDate, category: selectedCategory)
+            layoutUI.configure(store: store, reservationService: reservationService,
+                layoutServices: layoutServices)
+            layoutUI.tables = layoutServices.loadTables(for: combinedDate, category: selectedCategory)
         }
         
         if !clusterManager.isConfigured {
-            clusterManager.configure(store: store, reservationService: reservationService, clusterServices: clusterServices)
+            clusterManager.configure(store: store, reservationService: reservationService, clusterServices: clusterServices,
+                layoutServices: layoutServices)
             clusterManager.clusters = clusterServices.loadClusters(for: combinedDate, category: selectedCategory)
         }
         
@@ -396,9 +414,9 @@ struct LayoutPageView: View {
     private func resetCurrentLayout() {
         print("Resetting layout... [resetCurrentLayout()]")
         resetInProgress = true
-        let key = store.keyFor(date: combinedDate, category: selectedCategory)
+        let key = layoutServices.keyFor(date: combinedDate, category: selectedCategory)
         
-        if let baseTables = store.cachedLayouts[key] {
+        if let baseTables = layoutServices.cachedLayouts[key] {
             layoutUI.tables = baseTables
         } else {
             layoutUI.tables = []
@@ -406,7 +424,7 @@ struct LayoutPageView: View {
         
         clusterManager.clusters = []
         clusterServices.saveClusters([], for: combinedDate, category: selectedCategory)
-        store.cachedLayouts[key] = nil
+        layoutServices.cachedLayouts[key] = nil
         
         // Ensure flag is cleared after reset completes
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -471,7 +489,7 @@ struct LayoutPageView: View {
         var affectedTableIDs = Set<Int>()
         affectedTableIDs.insert(updatedTable.id)
         
-        let adjacencyResult = store.isTableAdjacent(updatedTable, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
+        let adjacencyResult = layoutServices.isTableAdjacent(updatedTable, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
         for neighbor in adjacencyResult.adjacentDetails.values {
             affectedTableIDs.insert(neighbor.id)
         }
@@ -483,10 +501,10 @@ struct LayoutPageView: View {
         for tableID in affectedTableIDs {
             if let index = layoutUI.tables.firstIndex(where: { $0.id == tableID }) {
                 let table = layoutUI.tables[index]
-                let adjacency = store.isTableAdjacent(table, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
+                let adjacency = layoutServices.isTableAdjacent(table, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
                 layoutUI.tables[index].adjacentCount = adjacency.adjacentCount
                 
-                layoutUI.tables[index].activeReservationAdjacentCount = store.isAdjacentWithSameReservation(
+                layoutUI.tables[index].activeReservationAdjacentCount = layoutServices.isAdjacentWithSameReservation(
                     for: table,
                     combinedDateTime: combinedDate,
                     activeTables: layoutUI.tables
@@ -495,9 +513,9 @@ struct LayoutPageView: View {
         }
         
         // Update cached layout and save
-        let layoutKey = store.keyFor(date: combinedDate, category: selectedCategory)
-        store.cachedLayouts[layoutKey] = layoutUI.tables
-        store.saveToDisk()
+        let layoutKey = layoutServices.keyFor(date: combinedDate, category: selectedCategory)
+        layoutServices.cachedLayouts[layoutKey] = layoutUI.tables
+        layoutServices.saveToDisk()
     }
     
 }

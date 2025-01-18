@@ -16,15 +16,6 @@ class ReservationStore: ObservableObject {
        let tableAssignmentService: TableAssignmentService
     // Constants
     let reservationsFileName = "reservations.json"
-    let baseTables = [
-        TableModel(id: 1, name: "T1", maxCapacity: 2, row: 1, column: 14),
-        TableModel(id: 2, name: "T2", maxCapacity: 2, row: 1, column: 10),
-        TableModel(id: 3, name: "T3", maxCapacity: 2, row: 1, column: 6),
-        TableModel(id: 4, name: "T4", maxCapacity: 2, row: 1, column: 1),
-        TableModel(id: 5, name: "T5", maxCapacity: 2, row: 8, column: 7),
-        TableModel(id: 6, name: "T6", maxCapacity: 2, row: 6, column: 1),
-        TableModel(id: 7, name: "T7", maxCapacity: 2, row: 11, column: 1)
-    ]
     
     let totalRows: Int = 15
     let totalColumns: Int = 18
@@ -38,14 +29,10 @@ class ReservationStore: ObservableObject {
     @Published var activeReservations: [Reservation] = []
 
 
-    @Published var tableAnimationState: [Int: Bool] = [:]
-    @Published var currentlyDraggedTableID: Int? = nil
     @Published var isSidebarVisible = true
-    @Published var cachedLayouts: [String: [TableModel]] = [:]
     @Published var selectedCategory: Reservation.ReservationCategory? = .lunch
     @Published var currentTime: Date = Date()
-    var lastSavedKey: String? = nil
-    var isUpdatingLayout: Bool = false
+
 
     
     
@@ -54,8 +41,6 @@ class ReservationStore: ObservableObject {
     
     // Private Variables
     var grid: [[Int?]] = []
-    @Published var tables: [TableModel] = []
-
     
     // MARK: - Initializers
     init(tableAssignmentService: TableAssignmentService) {
@@ -63,136 +48,8 @@ class ReservationStore: ObservableObject {
             // Initialize cachedLayouts with base tables for today and default category
             let today = Calendar.current.startOfDay(for: Date())
             let defaultCategory: Reservation.ReservationCategory = .lunch
-            let key = keyFor(date: today, category: defaultCategory)
-            if cachedLayouts[key] == nil {
-                cachedLayouts[key] = baseTables
-                self.tables = baseTables
-
-            }
-        }
-    
-    // MARK: - Layout Management
-    
-    /// Generates a unique key based on date and category.
-    func keyFor(date: Date, category: Reservation.ReservationCategory) -> String {
-        let formattedDateTime = DateHelper.formatDate(date) // Ensure the date includes both date and time
-        return "\(formattedDateTime)-\(category.rawValue)"
-    }
-    
-    /// Loads tables for a specific date and category.
-    func loadTables(for date: Date, category: Reservation.ReservationCategory) -> [TableModel] {
-        let fullKey = keyFor(date: date, category: category)
-        print("Loading tables for key: \(fullKey)")
-
-        // Check if the exact layout exists
-        if let tables = cachedLayouts[fullKey] {
-            // Assign to self.tables *on the main thread*
-            DispatchQueue.main.async {
-                self.tables = tables
-                print("Loaded exact layout for key: \(fullKey)")
-            }
-            return tables
         }
 
-        // Fallback: Use the closest prior configuration
-        let fallbackKey = findClosestPriorKey(for: date, category: category)
-        if let fallbackTables = fallbackKey.flatMap({ cachedLayouts[$0] }) {
-            // Copy the fallback layout for this specific timeslot
-            cachedLayouts[fullKey] = fallbackTables
-            
-            DispatchQueue.main.async {
-                self.tables = fallbackTables
-                print("Copied fallback layout from key: \(fallbackKey ?? "none") to key: \(fullKey)")
-            }
-            return fallbackTables
-        }
-
-        // Final fallback: Initialize with base tables
-
-        
-        DispatchQueue.main.async {
-            self.cachedLayouts[fullKey] = self.baseTables
-            self.tables = self.baseTables
-            print("Initialized new layout for key: \(fullKey) with base tables")
-        }
-        return baseTables
-    }
-    
-    private func findClosestPriorKey(for date: Date, category: Reservation.ReservationCategory) -> String? {
-        let formattedDate = DateHelper.formatDate(date)
-        let allKeys = cachedLayouts.keys.filter { $0.starts(with: "\(formattedDate)-\(category.rawValue)") }
-
-        let sortedKeys = allKeys.sorted(by: { $0 < $1 }) // Sort keys chronologically
-        return sortedKeys.last { $0 < "\(formattedDate)-\(category.rawValue)" }
-    }
-    
-    
-    /// Saves tables for a specific date and category.
-    func saveTables(_ tables: [TableModel], for date: Date, category: Reservation.ReservationCategory) {
-        let fullKey = keyFor(date: date, category: category)
-        cachedLayouts[fullKey] = tables
-        print("Saved tables for key: \(fullKey)")
-
-        // Propagate changes to future timeslots
-        propagateLayoutChange(from: fullKey, tables: tables)
-        saveToDisk()
-    }
-    
-    func saveToDisk() {
-        let encoder = JSONEncoder()
-        if let data = try? encoder.encode(cachedLayouts) {
-            UserDefaults.standard.set(data, forKey: "cachedLayouts")
-            print("Layouts saved successfully.")
-        } else {
-            print("Failed to encode cached layouts.")
-        }
-    }
-    
-    private func propagateLayoutChange(from key: String, tables: [TableModel]) {
-        let category = key.split(separator: "-").last!
-        let allKeys = cachedLayouts.keys.filter { $0.hasSuffix("-\(category)") }
-
-        let futureKeys = allKeys.sorted().filter { $0 > key }
-        for futureKey in futureKeys where cachedLayouts[futureKey] == nil {
-            cachedLayouts[futureKey] = tables
-            print("Propagated layout to future key: \(futureKey)")
-        }
-    }
-    
-    func resetTables(for date: Date, category: Reservation.ReservationCategory) {
-        let fullKey = keyFor(date: date, category: category)
-
-        // Reset the layout for this specific key
-        cachedLayouts[fullKey] = baseTables
-        tables = baseTables
-        print("Reset tables for key: \(fullKey) to base tables.")
-
-        // Propagate reset to future timeslots
-        propagateLayoutReset(from: fullKey)
-        saveToDisk()
-    }
-
-    private func propagateLayoutReset(from key: String) {
-        let category = key.split(separator: "-").last!
-        let allKeys = cachedLayouts.keys.filter { $0.hasSuffix("-\(category)") }
-
-        let futureKeys = allKeys.sorted().filter { $0 > key }
-        for futureKey in futureKeys where cachedLayouts[futureKey] == nil {
-            cachedLayouts[futureKey] = baseTables
-            print("Reset future key: \(futureKey) to base tables.")
-        }
-    }
-    
-    
-    func loadFromDisk() {
-        if let data = UserDefaults.standard.data(forKey: "cachedLayouts"),
-           let decoded = try? JSONDecoder().decode([String: [TableModel]].self, from: data) {
-               setCachedLayouts(decoded)
-            print("Cached layouts loaded successfully: \(cachedLayouts.keys)")
-        } else {
-            print("No cached layouts found.")
-        }
-    }
 }
 
 // MARK: - Queries
@@ -225,157 +82,31 @@ extension ReservationStore {
     func getReservations() -> [Reservation] {
         return self.reservations
     }
-
-    func getTables() -> [TableModel] {
-        return self.tables
-    }
     
     func setReservations(_ reservations: [Reservation]) {
             self.reservations = reservations
     }
     
-    func setTables(_ newTables: [TableModel]) {
-            self.tables = newTables
-    }
-    
-    func setCachedLayouts(_ layouts: [String: [TableModel]]) {
-            self.cachedLayouts = layouts
-    }
-    
+   
 
 }
 
     // MARK: - Table Assignment
     extension ReservationStore {
     
-        /// Decides if manual or auto/contiguous assignment based on `selectedTableID`.
-        /// Returns the tables assigned or `nil` if assignment fails.
-        func assignTables(
-            for reservation: Reservation,
-            selectedTableID: Int?
-        ) -> [TableModel]? {
-            // Generate the layout key once
-            let reservationDate = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.startTime)
-           
-            let layoutKey = keyFor(date: reservationDate, category: reservation.category)
-            print("Generated layout key: \(layoutKey) for date: \(reservationDate) and category: \(reservation.category)")
-
-            print("Available cachedLayouts keys: \(cachedLayouts.keys)")
-            
-            // Retrieve cached tables
-            guard let tables = cachedLayouts[layoutKey] ?? generateAndCacheLayout(for: layoutKey, date: reservationDate, category: reservation.category) else {
-                print("Failed to retrieve or generate layout for key: \(layoutKey). No tables available.")
-                return nil
-            }
-
-            if let tableID = selectedTableID {
-                // MANUAL CASE: Assign a specific table
-                guard let selectedTable = tables.first(where: { $0.id == tableID }) else {
-                    print("Failed to assign table \(tableID): Table not found in layout for key \(layoutKey).")
-                    return nil
-                }
-
-                if isTableLocked(selectedTable.id) {
-                    print("Table \(selectedTable.id) is currently locked and cannot be reserved.")
-                    return nil
-                }
-
-                // Lock the table temporarily
-                lockTable(selectedTable.id)
-
-                // Attempt manual assignment
-                let assignedTables = tableAssignmentService.assignTablesManually(
-                    for: reservation,
-                    tables: tables,
-                    reservations: reservations, // Pass the array
-                    startingFrom: selectedTable
-                )
-
-                if let assignedTables = assignedTables {
-                    print("Successfully assigned tables manually for reservation \(reservation.id).")
-
-                    // Update or append the reservation in the array on the main thread
-                    DispatchQueue.main.async {
-                        if let index = self.reservations.firstIndex(where: { $0.id == reservation.id }) {
-                            self.reservations[index].tables = assignedTables
-                        } else {
-                            var updatedReservation = reservation
-                            updatedReservation.tables = assignedTables
-                            self.reservations.append(updatedReservation)
-                        }
-                    }
-
-                    return assignedTables
-                } else {
-                    // Unlock the table on failure
-                    unlockTable(selectedTable.id)
-                    print("Failed to assign tables manually for reservation \(reservation.id).")
-                    return nil
-                }
-
-            } else {
-                // AUTO CASE: Find and assign tables automatically
-                let unlockedTables = tables.filter { !isTableLocked($0.id) }
-                if unlockedTables.isEmpty {
-                    print("Failed to assign tables: No unlocked tables available for layout key \(layoutKey).")
-                    return nil
-                }
-
-                // Attempt automatic assignment
-                let assignedTables = tableAssignmentService.assignTablesPreferContiguous(
-                    for: reservation,
-                    reservations: reservations, // Pass the array
-                    tables: unlockedTables
-                )
-
-                if let assignedTables = assignedTables {
-                    // Lock all assigned tables
-                    assignedTables.forEach { lockTable($0.id) }
-                    print("Successfully assigned tables automatically for reservation \(reservation.id).")
-
-                    // Update or append the reservation in the array on the main thread
-                    DispatchQueue.main.async {
-                        if let index = self.reservations.firstIndex(where: { $0.id == reservation.id }) {
-                            self.reservations[index].tables = assignedTables
-                        } else {
-                            var updatedReservation = reservation
-                            updatedReservation.tables = assignedTables
-                            self.reservations.append(updatedReservation)
-                        }
-                    }
-
-                    return assignedTables
-                } else {
-                    print("Failed to assign tables automatically for reservation \(reservation.id).")
-                    return nil
-                }
-            }
-        }
-        
-        func generateAndCacheLayout(for layoutKey: String, date: Date, category: Reservation.ReservationCategory) -> [TableModel]? {
-            print("Generating layout for key: \(layoutKey)")
-            let layout = loadTables(for: date, category: category) // Your layout generation logic
-            
-            if !layout.isEmpty {
-                cachedLayouts[layoutKey] = layout
-                print("Layout cached for key: \(layoutKey)")
-            } else {
-                print("Failed to generate layout for key: \(layoutKey)")
-            }
-            return layout
-        }
+   
     }
 
 // MARK: - Table Placement Helpers
-extension ReservationStore {
+extension LayoutServices {
     /// Checks if a table can be placed at a new position for a given date and category.
     func canPlaceTable(_ table: TableModel, for date: Date, category: Reservation.ReservationCategory, activeTables: [TableModel]) -> Bool {
         print("Checking placement for table: \(table.name) at row: \(table.row), column: \(table.column), width: \(table.width), height: \(table.height)")
         
         // Ensure the table is within grid bounds
         guard table.row >= 0, table.column >= 0,
-              table.row + table.height <= totalRows,
-              table.column + table.width <= totalColumns else {
+              table.row + table.height <= tableStore.totalRows,
+              table.column + table.width <= tableStore.totalColumns else {
             print("Table \(table.name) is out of bounds.")
             return false
         }
@@ -415,10 +146,7 @@ extension ReservationStore {
 
 extension ReservationStore {
     /// Checks if a layout exists for the given date and category.
-    func layoutExists(for date: Date, category: Reservation.ReservationCategory) -> Bool {
-        let key = keyFor(date: date, category: category)
-        return cachedLayouts[key] != nil
-    }
+    
 }
 
 extension ReservationStore {
@@ -426,21 +154,7 @@ extension ReservationStore {
 
     
 
-    func lockTable(_ tableID: Int) {
-        lockedTableIDs.insert(tableID)
-    }
-
-    func unlockTable(_ tableID: Int) {
-        lockedTableIDs.remove(tableID)
-    }
-
-    func unlockAllTables() {
-        lockedTableIDs.removeAll()
-    }
     
-    func isTableLocked(_ tableID: Int) -> Bool {
-        lockedTableIDs.contains(tableID)
-    }
     
     func finalizeReservation(_ reservation: Reservation) {
         // Mark tables as reserved in persistent storage, if needed
@@ -498,49 +212,4 @@ struct ActiveReservationCacheKey: Hashable, Codable {
     }
 }
 
-extension ReservationStore {
-    func invalidateActiveReservationCache(for reservation: Reservation) {
-        // Reconstruct the full date range for this reservation
-        let start = DateHelper.combineDateAndTimeStrings(
-            dateString: reservation.dateString,
-            timeString: reservation.startTime
-        )
-        let end   = DateHelper.combineDateAndTimeStrings(
-            dateString: reservation.dateString,
-            timeString: reservation.endTime
-        )
-        
-        // Bail out if times are invalid or reversed
-        guard start < end else {
-            print("Cannot invalidate active cache: start >= end for reservation \(reservation.id)")
-            return
-        }
 
-        var current = start
-        while current < end {
-            for table in reservation.tables {
-                // Each minute + each table -> remove from cache
-                let cacheKey = ActiveReservationCacheKey(
-                    tableID: table.id,
-                    date: Calendar.current.startOfDay(for: current),
-                    time: current
-                )
-                activeReservationCache.removeValue(forKey: cacheKey)
-            }
-            current.addTimeInterval(60) // Move to next minute
-        }
-
-        print("Invalidated active reservation cache for reservation \(reservation.id).")
-    }
-    
-    /// A simple hash from table positions and dimensions.
-    /// E.g., "id_1_row_0_col_0_width_3_height_3;id_2_row_0_col_3_width_3_height_3;..."
-    func computeLayoutSignature(tables: [TableModel]) -> String {
-        let sortedTables = tables.sorted { $0.id < $1.id }
-        let components = sortedTables.map { table in
-            "id_\(table.id)_row_\(table.row)_col_\(table.column)_w_\(table.width)_h_\(table.height)"
-        }
-        return components.joined(separator: ";")
-    }
-    
-}

@@ -2,7 +2,12 @@ import SwiftUI
 
 struct EditReservationView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
+    @EnvironmentObject var clusterStore: ClusterStore
+    @EnvironmentObject var clusterServices: ClusterServices
+    @EnvironmentObject var layoutServices: LayoutServices
+    @EnvironmentObject var gridData: GridData
     @Environment(\.dismiss) var dismiss
     @Environment(\.locale) var locale
 
@@ -41,7 +46,7 @@ struct EditReservationView: View {
                         ForEach(store.tableAssignmentService.availableTables(
                             for: reservation,
                             reservations: store.getReservations(),
-                            tables: store.getTables()
+                            tables: layoutServices.getTables()
                         ), id: \.table.id) { entry in
                             Text(entry.isCurrentlyAssigned ? "\(entry.table.name) (currently assigned)" : entry.table.name)
                                 .tag(entry.table.id as Int?)
@@ -97,7 +102,7 @@ struct EditReservationView: View {
                 print(store.tableAssignmentService.availableTables(
                     for: reservation,
                     reservations: store.getReservations(),
-                    tables: store.getTables()
+                    tables: layoutServices.getTables()
                 ))
                 print("Selected Forced Table ID: \(String(describing: selectedForcedTableID))")
 
@@ -110,11 +115,11 @@ struct EditReservationView: View {
         guard validateInputs() else { return }
         
 
-        if let assignedTables = store.assignTables(for: reservation, selectedTableID: selectedForcedTableID) {
+        if let assignedTables = layoutServices.assignTables(for: reservation, selectedTableID: selectedForcedTableID) {
             reservation.tables = assignedTables
             reservationService.updateReservation(reservation)
 
-            store.updateActiveReservationAdjacencyCounts(for: reservation)
+            reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
 
             onClose()
             dismiss()

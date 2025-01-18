@@ -9,8 +9,10 @@ import Foundation
 import SwiftUI
 
 class ClusterStore: ObservableObject {
-    static let shared = ClusterStore(store: ReservationStore.shared)
+    static let shared = ClusterStore(store: ReservationStore.shared, tableStore: TableStore.shared, layoutServices: LayoutServices(store: ReservationStore.shared, tableStore: TableStore.shared, tableAssignmentService: TableAssignmentService()))
     private let store: ReservationStore
+    private let tableStore: TableStore
+    private let layoutServices: LayoutServices
 
     
     struct ClusterCacheEntry {
@@ -21,9 +23,11 @@ class ClusterStore: ObservableObject {
     @Published var clusterCache: [String: ClusterCacheEntry] = [:]
     let maxCacheEntries = 100
     
-    init(store: ReservationStore)
+    init(store: ReservationStore, tableStore: TableStore, layoutServices: LayoutServices)
     {
         self.store = store
+        self.tableStore = tableStore
+        self.layoutServices = layoutServices
     }
     // MARK: Caching
     func setClusterCache(_ clusters: [String: [CachedCluster]]) {
@@ -34,7 +38,7 @@ class ClusterStore: ObservableObject {
     }
     
     func invalidateClusterCache(for date: Date, category: Reservation.ReservationCategory) {
-        let key = store.keyFor(date: date, category: category)
+        let key = layoutServices.keyFor(date: date, category: category)
         clusterCache.removeValue(forKey: key)
         print("Cluster cache invalidated for key: \(key)")
     }

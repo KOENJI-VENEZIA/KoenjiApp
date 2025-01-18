@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 /// Extension to manage grid-related operations for tables
-extension ReservationStore {
+extension LayoutServices {
     
     // MARK: - Movement
 
@@ -12,8 +12,8 @@ extension ReservationStore {
     }
 
     func moveTable(_ table: TableModel, toRow: Int, toCol: Int) -> MoveResult {
-        let maxRow = totalRows - table.height
-        let maxCol = totalColumns - table.width
+        let maxRow = tableStore.totalRows - table.height
+        let maxCol = tableStore.totalColumns - table.width
         let clampedRow = max(0, min(toRow, maxRow))
         let clampedCol = max(0, min(toCol, maxCol))
 
@@ -93,10 +93,10 @@ extension ReservationStore {
         print(tables)
         for r in table.row..<(table.row + table.height) {
             for c in table.column..<(table.column + table.width) {
-                guard r >= 0, r < grid.count, c >= 0, c < grid[0].count else {
+                guard r >= 0, r < tableStore.grid.count, c >= 0, c < tableStore.grid[0].count else {
                     print("markTable: Skipping out-of-bounds position (\(r), \(c))")
                     continue }
-                grid[r][c] = occupied ? table.id : nil
+                tableStore.grid[r][c] = occupied ? table.id : nil
             }
         }
     }
@@ -117,9 +117,9 @@ extension ReservationStore {
     
     func markTablesInGrid() {
         print("Marking tables in grid...")
-        grid = Array(
-            repeating: Array(repeating: nil, count: totalColumns),
-            count: totalRows
+        tableStore.grid = Array(
+            repeating: Array(repeating: nil, count: tableStore.totalColumns),
+            count: tableStore.totalRows
         )
         print("Tables in array:")
 
@@ -177,7 +177,7 @@ extension ReservationStore {
     // MARK: - Reservation-Aware Adjacency
     func isAdjacentWithSameReservation(for table: TableModel, combinedDateTime: Date, activeTables: [TableModel]) -> [TableModel] {
         // Get all reservation IDs for the given table
-        let reservationIDs = reservations
+        let reservationIDs = store.reservations
             .filter { $0.tables.contains(where: { $0.id == table.id }) }
             .map { $0.id }
 
@@ -187,7 +187,7 @@ extension ReservationStore {
 
         for (_, adjacentTable) in adjacentDetails {
             // Check if the adjacent table shares a reservation
-            let sharedReservations = reservations.filter { reservation in
+            let sharedReservations = store.reservations.filter { reservation in
                 reservation.tables.contains(where: { $0.id == adjacentTable.id }) && reservationIDs.contains(reservation.id)
             }
 
@@ -219,7 +219,7 @@ extension ReservationStore {
         }
 
         // Fallback to tables managed by the store
-        let storeTables = reservations.flatMap { $0.tables }
+        let storeTables = store.reservations.flatMap { $0.tables }
         if let table = storeTables.first(where: { $0.row == row && $0.column == column }) {
             print("fetchTable: Found table \(table.id) in store at (\(row), \(column))")
             return table
@@ -229,89 +229,7 @@ extension ReservationStore {
         return nil
     }
 
-
-    
-    // MARK: - Active Reservations caching
-    
    
-    
-    func preloadActiveReservationCache(around date: Date, forDaysBefore beforeDays: Int, afterDays: Int) {
-        let calendar = Calendar.current
-
-        // Calculate start and end dates based on the provided date
-        let startDate = calendar.date(byAdding: .day, value: -beforeDays, to: date) ?? date
-        let endDate = calendar.date(byAdding: .day, value: afterDays, to: date) ?? date
-
-        print("DEBUG: Preloading active reservation cache from \(startDate) to \(endDate)")
-
-        // Iterate through the date range
-        for preloadDate in stride(from: startDate, through: endDate, by: 86400) { // 86400 seconds in a day
-            
-            // Check if any keys for the date already exist in the cache
-            let existingKeys = activeReservationCache.keys.contains { $0.date == preloadDate }
-            guard !existingKeys else {
-                print("DEBUG: Cache already contains keys for date: \(preloadDate). Skipping.")
-                continue
-            }
-            
-            let reservationsByDate = Dictionary(grouping: reservations) { DateHelper.parseDate($0.dateString) }
-            
-            guard let dateReservations = reservationsByDate[preloadDate] else {
-                print("DEBUG: No reservations found for date: \(preloadDate).")
-                continue
-            }
-            
-            for reservation in dateReservations {
-                for table in reservation.tables {
-                    guard let startTime = DateHelper.combineDateAndTime(date: preloadDate, timeString: reservation.startTime),
-                          let endTime = DateHelper.combineDateAndTime(date: preloadDate, timeString: reservation.endTime) else {
-                        print("DEBUG: Failed to combine date and time for reservation \(reservation).")
-                        continue
-                    }
-                    
-                    for currentTime in stride(from: startTime, to: endTime, by: 60) { // Increment by 1 minute
-                        let cacheKey = ActiveReservationCacheKey(tableID: table.id, date: preloadDate, time: currentTime)
-                        activeReservationCache[cacheKey] = reservation
-                    }
-                }
-            }
-        }
-
-        cachePreloadedFrom = max(cachePreloadedFrom ?? startDate, endDate)
-        print("DEBUG: Active reservation cache preloaded until \(cachePreloadedFrom!).")
-    }
-    
-    func updateActiveReservationAdjacencyCounts(for reservation: Reservation) {
-        guard let reservationDate = DateHelper.parseDate(reservation.dateString),
-              let combinedDateTime = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime) else {
-            print("Invalid reservation date or time for updating adjacency counts.")
-            return
-        }
-
-        // Get active tables for the reservation's layout
-        let activeTables = getTables(for: reservationDate, category: reservation.category)
-
-        // Iterate over all tables in the reservation
-        for table in reservation.tables {
-            // Calculate adjacent tables with shared reservations
-            let sharedTables = isAdjacentWithSameReservation(for: table, combinedDateTime: combinedDateTime, activeTables: activeTables)
-
-            // Update `activeReservationAdjacentCount` for this table
-            if let index = tables.firstIndex(where: { $0.id == table.id }) {
-                tables[index].activeReservationAdjacentCount = sharedTables.count
-            }
-
-            // Update in the cached layout
-            let key = keyFor(date: reservationDate, category: reservation.category)
-            if let cachedIndex = cachedLayouts[key]?.firstIndex(where: { $0.id == table.id }) {
-                cachedLayouts[key]?[cachedIndex].activeReservationAdjacentCount = sharedTables.count
-            }
-        }
-
-        // Save changes to disk
-        saveToDisk()
-        print("Updated activeReservationAdjacentCount for tables in reservation \(reservation.id).")
-    }
     
     func getTables(for date: Date, category: Reservation.ReservationCategory) -> [TableModel] {
         let key = keyFor(date: date, category: category)
@@ -320,7 +238,7 @@ extension ReservationStore {
         } else {
             // If no layout exists for this date and category, fallback to base tables
             print("No cached tables found for \(key). Returning base tables.")
-            return baseTables
+            return tableStore.baseTables
         }
     }
     

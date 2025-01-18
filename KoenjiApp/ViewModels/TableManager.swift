@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+// To update to: TableLayoutManager
 /// Manages UI-related state and interactions for table layout.
 class LayoutUIManager: ObservableObject {
     // MARK: - Dragging State
@@ -41,6 +42,7 @@ class LayoutUIManager: ObservableObject {
     /// A reference to the `ReservationStore` for table data and layout operations.
     private var store: ReservationStore?
     private var reservationService: ReservationService?
+    private var layoutServices: LayoutServices?
     
     /// The date and category this LayoutUIManager is associated with.
     private var date: Date
@@ -56,9 +58,10 @@ class LayoutUIManager: ObservableObject {
     }
 
     /// Configures the manager with necessary dependencies.
-    func configure(store: ReservationStore, reservationService: ReservationService) {
+    func configure(store: ReservationStore, reservationService: ReservationService, layoutServices: LayoutServices) {
         self.store = store
         self.reservationService = reservationService
+        self.layoutServices = layoutServices
         loadLayout()
         isConfigured = true
     }
@@ -70,8 +73,8 @@ class LayoutUIManager: ObservableObject {
     
     /// Saves the current layout to the store.
     func saveLayout() {
-        guard let store = store else { return }
-        store.saveTables(tables, for: date, category: category)
+        guard let layoutServices = layoutServices else { return }
+        layoutServices.saveTables(tables, for: date, category: category)
     }
     
     // MARK: - Dragging Helpers
@@ -87,7 +90,7 @@ class LayoutUIManager: ObservableObject {
 
     /// Attempts to move a table to a new position.
     func attemptMove(table: TableModel, to newPosition: (row: Int, col: Int), for date: Date, activeTables: [TableModel]) {
-        guard let store = store else { return }
+        guard let layoutServices = layoutServices else { return }
         let newTable = TableModel(
             id: table.id,
             name: table.name,
@@ -96,7 +99,7 @@ class LayoutUIManager: ObservableObject {
             column: newPosition.col
         )
 
-        if store.canPlaceTable(newTable, for: date, category: category, activeTables: activeTables) {
+        if layoutServices.canPlaceTable(newTable, for: date, category: category, activeTables: activeTables) {
             updateTablePosition(from: table, to: newTable)
             print("attemptMove: Successfully moved \(table.name) to (\(newPosition.row), \(newPosition.col))")
         } else {
@@ -107,8 +110,8 @@ class LayoutUIManager: ObservableObject {
 
     /// Updates the grid and data for a table's new position.
     private func updateTablePosition(from oldTable: TableModel, to newTable: TableModel) {
-        store?.unmarkTable(oldTable)
-        store?.markTable(newTable, occupied: true)
+        layoutServices?.unmarkTable(oldTable)
+        layoutServices?.markTable(newTable, occupied: true)
 
         if let index = tables.firstIndex(where: { $0.id == oldTable.id }) {
             tables[index] = newTable
@@ -155,8 +158,8 @@ class LayoutUIManager: ObservableObject {
 extension LayoutUIManager {
     /// Loads the layout for the associated date and category.
     func loadLayout() {
-        guard let store = store else { return }
-        tables = store.loadTables(for: date, category: category)
+        guard let layoutServices = layoutServices else { return }
+        tables = layoutServices.loadTables(for: date, category: category)
     }
     
     

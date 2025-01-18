@@ -14,6 +14,7 @@ class ClusterManager: ObservableObject {
     private var store: ReservationStore?
     private var reservationService: ReservationService?
     private var clusterServices: ClusterServices?
+    private var layoutServices: LayoutServices?
     
     private var date: Date
     private var category: Reservation.ReservationCategory
@@ -36,10 +37,11 @@ class ClusterManager: ObservableObject {
         self.category = category
     }
     
-    func configure(store: ReservationStore, reservationService: ReservationService, clusterServices: ClusterServices) {
+    func configure(store: ReservationStore, reservationService: ReservationService, clusterServices: ClusterServices, layoutServices: LayoutServices) {
         self.store = store
         self.reservationService = reservationService
         self.clusterServices = clusterServices
+        self.layoutServices = layoutServices
         // methods to load clusters
         // methods to load clusters
         isConfigured = true
@@ -138,7 +140,7 @@ class ClusterManager: ObservableObject {
         guard !activeReservations.isEmpty else { return false }
         
         // 2) Have the tables physically moved?
-        let currentSignature = store?.computeLayoutSignature(tables: tables)
+        let currentSignature = layoutServices?.computeLayoutSignature(tables: tables)
         if currentSignature == self.lastLayoutSignature {
             // No physical changes => No adjacency changes => Skip
             return false
@@ -215,7 +217,7 @@ class ClusterManager: ObservableObject {
     // MARK: - Callable Method
     func recalculateClustersIfNeeded(for activeReservations: [Reservation], tables: [TableModel], combinedDate: Date, selectedCategory: Reservation.ReservationCategory, cellSize: CGFloat) {
         print("Recalculating clusters... [recalculateClustersIfNeeded()]")
-        guard let store = store else { return }
+        guard let layoutServices = layoutServices else { return }
         guard let clusterServices = clusterServices else { return }
         // Grab the current layout from store / layoutUI
         let currentTables = tables
@@ -230,7 +232,7 @@ class ClusterManager: ObservableObject {
 
         // 2) Attempt to load cached clusters for the date+time
         
-        if !cachedClusters.isEmpty && lastLayoutSignature == store.computeLayoutSignature(tables: currentTables) {
+        if !cachedClusters.isEmpty && lastLayoutSignature == layoutServices.computeLayoutSignature(tables: currentTables) {
                 self.clusters = cachedClusters
                 return
             }
@@ -241,7 +243,7 @@ class ClusterManager: ObservableObject {
             await MainActor.run {
                 self.clusters = newClusters
             }
-            self.lastLayoutSignature = store.computeLayoutSignature(tables: currentTables)
+            self.lastLayoutSignature = layoutServices.computeLayoutSignature(tables: currentTables)
             clusterServices.saveClusters(newClusters, for: combinedDate, category: selectedCategory)
         }
     }

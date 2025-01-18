@@ -2,7 +2,12 @@ import SwiftUI
 
 struct AddReservationView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
+    @EnvironmentObject var clusterStore: ClusterStore
+    @EnvironmentObject var clusterServices: ClusterServices
+    @EnvironmentObject var layoutServices: LayoutServices
+    @EnvironmentObject var gridData: GridData
     @Environment(\.dismiss) var dismiss
 
     // MARK: - State
@@ -132,7 +137,7 @@ struct AddReservationView: View {
                 availableTables = store.tableAssignmentService.availableTables(
                                    for: createTemporaryReservation(),
                                    reservations: store.getReservations(),
-                                   tables: store.getTables()
+                                   tables: layoutServices.getTables()
                                )
                 
                 print("Start time after: \(startTimeString)")
@@ -202,7 +207,7 @@ struct AddReservationView: View {
         }
 
         var newReservation = createTemporaryReservation()
-        if let assignedTables = store.assignTables(for: newReservation, selectedTableID: selectedForcedTableID) {
+        if let assignedTables = layoutServices.assignTables(for: newReservation, selectedTableID: selectedForcedTableID) {
             DispatchQueue.main.async {
                 // do actual saving logic here
                 newReservation.tables = assignedTables

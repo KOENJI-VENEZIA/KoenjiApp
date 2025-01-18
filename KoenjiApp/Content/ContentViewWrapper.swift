@@ -10,9 +10,11 @@ import SwiftUI
 
 struct ContentViewWrapper: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var clusterStore: ClusterStore
     @EnvironmentObject var clusterServices: ClusterServices
+    @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
 
 

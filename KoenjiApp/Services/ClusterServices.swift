@@ -10,19 +10,22 @@ import Foundation
 class ClusterServices: ObservableObject {
     private let store: ReservationStore
     private let clusterStore: ClusterStore          // single source of truth
-    
+    private let tableStore: TableStore
+    private let layoutServices: LayoutServices
 
     // MARK: - Initializer
-    init(store: ReservationStore, clusterStore: ClusterStore) {
+    init(store: ReservationStore, clusterStore: ClusterStore, tableStore: TableStore, layoutServices: LayoutServices) {
         self.store = store
         self.clusterStore = clusterStore
+        self.tableStore = tableStore
+        self.layoutServices = layoutServices
 
         self.loadClustersFromDisk()
     }
     
     // MARK: - Read/Write
     func loadClusters(for date: Date, category: Reservation.ReservationCategory) -> [CachedCluster] {
-        let key = store.keyFor(date: date, category: category)
+        let key = layoutServices.keyFor(date: date, category: category)
         print("Loading clusters for key: \(key)")
 
         // Attempt to load from the cache
@@ -46,7 +49,7 @@ class ClusterServices: ObservableObject {
     }
     
     func saveClusters(_ clusters: [CachedCluster], for date: Date, category: Reservation.ReservationCategory) {
-        let key = store.keyFor(date: date, category: category)
+        let key = layoutServices.keyFor(date: date, category: category)
         DispatchQueue.main.async {
             self.clusterStore.clusterCache[key] = ClusterStore.ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
             print("Clusters saved for key: \(key)")
@@ -61,7 +64,7 @@ class ClusterServices: ObservableObject {
     }
     
     func updateClusters(_ clusters: [CachedCluster], for date: Date, category: Reservation.ReservationCategory) {
-        let key = store.keyFor(date: date, category: category)
+        let key = layoutServices.keyFor(date: date, category: category)
         clusterStore.clusterCache[key] = ClusterStore.ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
         print("Updated clusters for key: \(key)")
 
@@ -72,7 +75,7 @@ class ClusterServices: ObservableObject {
     }
     
     func resetClusters(for date: Date, category: Reservation.ReservationCategory) {
-        let key = store.keyFor(date: date, category: category)
+        let key = layoutServices.keyFor(date: date, category: category)
         clusterStore.clusterCache[key] = ClusterStore.ClusterCacheEntry(clusters: [], lastAccessed: Date())
         print("Reset clusters for key: \(key)")
 
@@ -140,7 +143,7 @@ class ClusterServices: ObservableObject {
         let allKeys = clusterStore.clusterCache.keys.filter { $0.starts(with: "\(formattedDate)-\(category.rawValue)") }
 
         let sortedKeys = allKeys.sorted(by: { $0 < $1 }) // Chronologically sort keys
-        return sortedKeys.last { $0 < store.keyFor(date: date, category: category) }
+        return sortedKeys.last { $0 < layoutServices.keyFor(date: date, category: category) }
     }
     
     private func enforceLRUCacheLimit() {

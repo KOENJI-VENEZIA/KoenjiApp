@@ -3,6 +3,7 @@ import SwiftUI
 struct ReservationListView: View {
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var reservationService: ReservationService
+    @EnvironmentObject var layoutServices: LayoutServices
 
     // MARK: - State
     @State private var searchDate = Date()
@@ -434,7 +435,7 @@ struct ReservationListView: View {
         store.setReservations([]) // Clear all reservations
         reservationService.clearAllData() // Custom method to reset any cached or stored data
         flushCaches()
-        store.unlockAllTables()
+        layoutServices.unlockAllTables()
         print("All data has been reset.")
     }
     

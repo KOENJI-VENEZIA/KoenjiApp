@@ -2,9 +2,11 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var clusterStore: ClusterStore
     @EnvironmentObject var clusterServices: ClusterServices
+    @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
 
     @Environment(\.locale) var locale // Access the current locale set by .italianLocale()
@@ -16,6 +18,12 @@ struct ContentView: View {
     @State private var selectedCategory: Reservation.ReservationCategory? 
     @State private var showInspector: Bool = false       // Controls Inspector visibility
 
+    init() {
+        UINavigationBar.appearance().largeTitleTextAttributes = [.foregroundColor: UIColor.red]
+
+        //Use this if NavigationBarTitle is with displayMode = .inline
+        UINavigationBar.appearance().titleTextAttributes = [.foregroundColor: UIColor.red]
+    }
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility)
         {
@@ -23,8 +31,7 @@ struct ContentView: View {
             SidebarView(
                 selectedReservation: $selectedReservation,
                 currentReservation: $currentReservation,
-                selectedCategory: $selectedCategory,
-                showInspector: $showInspector
+                selectedCategory: $selectedCategory
             )
                 
         }

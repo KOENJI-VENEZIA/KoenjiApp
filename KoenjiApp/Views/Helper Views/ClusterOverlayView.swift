@@ -13,18 +13,21 @@ struct ClusterOverlayView: View {
     var body: some View {
         ZStack {
             // Checkmark overlay for "showed up" status
-            CheckmarkView(status: cluster.reservationID.status)
-                    .equatable()
-                    .animation(.easeInOut, value: cluster.reservationID.status)
-                    .scaledToFit()
-                    .frame(width: 25, height: 25)
-                    .position(x: cluster.frame.minX + 15, y: cluster.frame.minY + 15)
+           
+            Image(systemName: cluster.reservationID.status == .pending ? "" : "checkmark.circle.fill")
+                .resizable()
+                .foregroundColor(cluster.reservationID.status == .pending ? .gray : .green)
+                .animation(.easeInOut, value: cluster.reservationID.status)
+                .scaledToFit()
+                .frame(width: 20, height: 20)
+                .position(x: cluster.frame.minX + 15, y: cluster.frame.minY + 15)
+        
 
             // Emoji overlay
             if let emoji = cluster.reservationID.assignedEmoji {
                 Text(emoji)
-                    .font(.system(size: 25))
-                    .frame(maxWidth: 28, maxHeight: 28)
+                    .font(.system(size: 20))
+                    .frame(maxWidth: 23, maxHeight: 23)
                     .position(x: cluster.frame.maxX - 15, y: cluster.frame.minY + 15)
             }
 
@@ -37,7 +40,7 @@ struct ClusterOverlayView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 25, height: 25)
+                    .frame(width: 20, height: 20)
                     .foregroundColor(.orange)
                     .position(x: cluster.frame.minX + 15, y: cluster.frame.minY + 15)
             }
