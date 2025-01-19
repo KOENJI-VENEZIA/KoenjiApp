@@ -114,8 +114,17 @@ struct EditReservationView: View {
     private func saveChanges() {
         guard validateInputs() else { return }
         
+        let reservationStart = DateHelper.combineDateAndTimeStrings(
+            dateString: reservation.dateString,
+            timeString: reservation.startTime
+        )
+        let reservationEnd = DateHelper.combineDateAndTimeStrings(
+            dateString: reservation.dateString,
+            timeString: reservation.endTime
+        )
+        
         for table in reservation.tables {
-            layoutServices.unlockTable(table.id)
+            layoutServices.unlockTable(tableID: table.id, start: reservationStart, end: reservationEnd)
         }
         
         if let assignedTables = layoutServices.assignTables(for: reservation, selectedTableID: selectedForcedTableID) {

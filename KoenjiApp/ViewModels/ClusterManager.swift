@@ -215,7 +215,7 @@ class ClusterManager: ObservableObject {
     }
     
     // MARK: - Callable Method
-    func recalculateClustersIfNeeded(for activeReservations: [Reservation], tables: [TableModel], combinedDate: Date, selectedCategory: Reservation.ReservationCategory, cellSize: CGFloat) {
+    func recalculateClustersIfNeeded(for activeReservations: [Reservation], tables: [TableModel], combinedDate: Date, oldCategory: Reservation.ReservationCategory, selectedCategory: Reservation.ReservationCategory, cellSize: CGFloat) {
         print("Recalculating clusters... [recalculateClustersIfNeeded()]")
         guard let layoutServices = layoutServices else { return }
         guard let clusterServices = clusterServices else { return }
@@ -223,9 +223,11 @@ class ClusterManager: ObservableObject {
         let currentTables = tables
         
         // 1) Early-exit if no adjacency changes
-        guard shouldRecalculateClusters(for: activeReservations, tables: currentTables) else {
-            print("Skipping recalc: no physical adjacency change or no active reservations.")
-            return
+        if oldCategory == selectedCategory {
+            guard shouldRecalculateClusters(for: activeReservations, tables: currentTables) else {
+                print("Skipping recalc: no physical adjacency change or no active reservations.")
+                return
+            }
         }
 
         let cachedClusters = clusterServices.loadClusters(for: date, category: category)

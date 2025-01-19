@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A07F1E1C2D3C150E005B2581 /* Zoomable in Frameworks */ = {isa = PBXBuildFile; productRef = A07F1E1B2D3C150E005B2581 /* Zoomable */; };
+		A07F1E1F2D3C168E005B2581 /* Zoomable in Frameworks */ = {isa = PBXBuildFile; productRef = A07F1E1E2D3C168E005B2581 /* Zoomable */; };
+		A07F1E222D3C1896005B2581 /* LazyPager in Frameworks */ = {isa = PBXBuildFile; productRef = A07F1E212D3C1896005B2581 /* LazyPager */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		A030D8682D27798300EA08E2 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -36,6 +42,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A07F1E222D3C1896005B2581 /* LazyPager in Frameworks */,
+				A07F1E1C2D3C150E005B2581 /* Zoomable in Frameworks */,
+				A07F1E1F2D3C168E005B2581 /* Zoomable in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,6 +88,9 @@
 			);
 			name = KoenjiApp;
 			packageProductDependencies = (
+				A07F1E1B2D3C150E005B2581 /* Zoomable */,
+				A07F1E1E2D3C168E005B2581 /* Zoomable */,
+				A07F1E212D3C1896005B2581 /* LazyPager */,
 			);
 			productName = KoenjiApp;
 			productReference = A0775E242D1CAA1F00068B00 /* KoenjiApp.app */;
@@ -109,6 +121,8 @@
 			mainGroup = A0775E1B2D1CAA1F00068B00;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				A07F1E1D2D3C168E005B2581 /* XCLocalSwiftPackageReference "../Downloads/Zoomable-0.5.0" */,
+				A07F1E202D3C1896005B2581 /* XCRemoteSwiftPackageReference "LazyPager" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A0775E252D1CAA1F00068B00 /* Products */;
@@ -281,7 +295,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -315,7 +329,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -351,6 +365,40 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A07F1E1D2D3C168E005B2581 /* XCLocalSwiftPackageReference "../Downloads/Zoomable-0.5.0" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../Downloads/Zoomable-0.5.0";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A07F1E202D3C1896005B2581 /* XCRemoteSwiftPackageReference "LazyPager" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gh123man/LazyPager";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.7;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A07F1E1B2D3C150E005B2581 /* Zoomable */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Zoomable;
+		};
+		A07F1E1E2D3C168E005B2581 /* Zoomable */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Zoomable;
+		};
+		A07F1E212D3C1896005B2581 /* LazyPager */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A07F1E202D3C1896005B2581 /* XCRemoteSwiftPackageReference "LazyPager" */;
+			productName = LazyPager;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A0775E1C2D1CAA1F00068B00 /* Project object */;
 }

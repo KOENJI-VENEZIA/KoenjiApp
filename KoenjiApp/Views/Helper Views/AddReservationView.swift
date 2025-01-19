@@ -33,6 +33,7 @@ struct AddReservationView: View {
     @Binding var category: Reservation.ReservationCategory?
     @Binding var selectedDate: Date
     @Binding var startTime: Date
+    var passedTable: TableModel?
     
     @State private var availableTables: [(table: TableModel, isCurrentlyAssigned: Bool)] = []
 
@@ -139,6 +140,10 @@ struct AddReservationView: View {
                                    reservations: store.getReservations(),
                                    tables: layoutServices.getTables()
                                )
+                
+                if passedTable != nil {
+                    selectedForcedTableID = passedTable!.id
+                }
                 
                 print("Start time after: \(startTimeString)")
                 print("End time after: \(endTimeString)")

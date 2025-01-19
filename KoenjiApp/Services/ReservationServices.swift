@@ -503,8 +503,16 @@ extension ReservationService {
                     if self.layoutServices.cachedLayouts[key] == nil {
                         self.layoutServices.cachedLayouts[key] = self.tableStore.baseTables
                     }
+                        let reservationStart = DateHelper.combineDateAndTimeStrings(
+                            dateString: reservation.dateString,
+                            timeString: reservation.startTime
+                        )
+                        let reservationEnd = DateHelper.combineDateAndTimeStrings(
+                            dateString: reservation.dateString,
+                            timeString: reservation.endTime
+                        )
                         
-                        assignedTables.forEach { self.layoutServices.unlockTable($0.id) }
+                        assignedTables.forEach { self.layoutServices.unlockTable(tableID: $0.id, start: reservationStart, end: reservationEnd) }
                         self.store.finalizeReservation(updatedReservation)
 
                         if !self.store.reservations.contains(where: { $0.id == updatedReservation.id }) {

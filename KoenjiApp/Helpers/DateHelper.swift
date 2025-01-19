@@ -224,3 +224,12 @@ struct DateHelper {
     }
 }
 
+extension Calendar {
+    /// Rounds a given date down to the nearest multiple of 15 minutes.
+    func roundedDownToNearest15(_ date: Date) -> Date {
+        let minuteOfHour = component(.minute, from: date)
+        let remainder = minuteOfHour % 15
+        // Subtract 'remainder' minutes to get down to 0, 15, 30, or 45.
+        return self.date(byAdding: .minute, value: -remainder, to: date)!
+    }
+}

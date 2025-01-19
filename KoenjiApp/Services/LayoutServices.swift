@@ -23,7 +23,7 @@ class LayoutServices: ObservableObject {
     
     @Published var tables: [TableModel] = []
     
-    var lockedTableIDs: Set<Int> = []
+    var lockedIntervals: [Int: [(start: Date, end: Date)]] = [:]
     var lastSavedKey: String? = nil
     var isUpdatingLayout: Bool = false
     
@@ -180,7 +180,15 @@ class LayoutServices: ObservableObject {
     ) -> [TableModel]? {
         // Generate the layout key once
         let reservationDate = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.startTime)
-       
+        let reservationStart = DateHelper.combineDateAndTimeStrings(
+            dateString: reservation.dateString,
+            timeString: reservation.startTime
+        )
+        let reservationEnd = DateHelper.combineDateAndTimeStrings(
+            dateString: reservation.dateString,
+            timeString: reservation.endTime
+        )
+        
         let layoutKey = keyFor(date: reservationDate, category: reservation.category)
         print("Generated layout key: \(layoutKey) for date: \(reservationDate) and category: \(reservation.category)")
 
@@ -199,13 +207,13 @@ class LayoutServices: ObservableObject {
                 return nil
             }
 
-            if isTableLocked(selectedTable.id) {
+            if isTableLocked(tableID: selectedTable.id, start: reservationStart, end: reservationEnd) {
                 print("Table \(selectedTable.id) is currently locked and cannot be reserved.")
                 return nil
             }
 
             // Lock the table temporarily
-            lockTable(selectedTable.id)
+            lockTable(tableID: selectedTable.id, start: reservationStart, end: reservationEnd)
 
             // Attempt manual assignment
             let assignedTables = tableAssignmentService.assignTablesManually(
@@ -232,14 +240,14 @@ class LayoutServices: ObservableObject {
                 return assignedTables
             } else {
                 // Unlock the table on failure
-                unlockTable(selectedTable.id)
+                unlockTable(tableID: selectedTable.id, start: reservationStart, end: reservationEnd)
                 print("Failed to assign tables manually for reservation \(reservation.id).")
                 return nil
             }
 
         } else {
             // AUTO CASE: Find and assign tables automatically
-            let unlockedTables = tables.filter { !isTableLocked($0.id) }
+            let unlockedTables = tables.filter { !isTableLocked(tableID: $0.id, start: reservationStart, end: reservationEnd) }
             if unlockedTables.isEmpty {
                 print("Failed to assign tables: No unlocked tables available for layout key \(layoutKey).")
                 return nil
@@ -254,7 +262,7 @@ class LayoutServices: ObservableObject {
 
             if let assignedTables = assignedTables {
                 // Lock all assigned tables
-                assignedTables.forEach { lockTable($0.id) }
+                assignedTables.forEach { lockTable(tableID: $0.id, start: reservationStart, end: reservationEnd) }
                 print("Successfully assigned tables automatically for reservation \(reservation.id).")
 
                 // Update or append the reservation in the array on the main thread
@@ -289,20 +297,35 @@ class LayoutServices: ObservableObject {
         return layout
     }
     
-    func lockTable(_ tableID: Int) {
-        lockedTableIDs.insert(tableID)
+    func lockTable(tableID: Int, start: Date, end: Date) {
+        var intervals = lockedIntervals[tableID] ?? []
+        intervals.append((start, end))  // or TimeIntervalLock(...)
+        lockedIntervals[tableID] = intervals
     }
 
-    func unlockTable(_ tableID: Int) {
-        lockedTableIDs.remove(tableID)
+    func unlockTable(tableID: Int, start: Date, end: Date) {
+        guard var intervals = lockedIntervals[tableID] else { return }
+        // Remove the matching interval. Or if you store a reservation ID:
+        // remove the item associated with that reservation ID
+        intervals.removeAll(where: { $0.start == start && $0.end == end })
+        lockedIntervals[tableID] = intervals
     }
 
     func unlockAllTables() {
-        lockedTableIDs.removeAll()
+        lockedIntervals.removeAll()
     }
     
-    func isTableLocked(_ tableID: Int) -> Bool {
-        lockedTableIDs.contains(tableID)
+    func isTableLocked(tableID: Int, start: Date, end: Date) -> Bool {
+        guard let intervals = lockedIntervals[tableID] else {
+            return false
+        }
+        for interval in intervals {
+            // Overlap condition: (start1 < end2) && (start2 < end1)
+            if start < interval.end && interval.start < end {
+                return true
+            }
+        }
+        return false
     }
     
     func layoutExists(for date: Date, category: Reservation.ReservationCategory) -> Bool {

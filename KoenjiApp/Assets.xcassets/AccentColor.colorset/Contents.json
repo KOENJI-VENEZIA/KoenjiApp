@@ -7,6 +7,15 @@
       "appearances" : [
         {
           "appearance" : "luminosity",
+          "value" : "light"
+        }
+      ],
+      "idiom" : "universal"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
           "value" : "dark"
         }
       ],
@@ -19,6 +28,15 @@
       "appearances" : [
         {
           "appearance" : "luminosity",
+          "value" : "light"
+        }
+      ],
+      "idiom" : "iphone"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
           "value" : "dark"
         }
       ],
@@ -26,8 +44,31 @@
     },
     {
       "color" : {
-        "platform" : "ios",
-        "reference" : "systemCyanColor"
+        "color-space" : "display-p3",
+        "components" : {
+          "alpha" : "1.000",
+          "blue" : "0xA3",
+          "green" : "0x7B",
+          "red" : "0x6C"
+        }
+      },
+      "idiom" : "ipad"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "light"
+        }
+      ],
+      "color" : {
+        "color-space" : "display-p3",
+        "components" : {
+          "alpha" : "1.000",
+          "blue" : "0xA3",
+          "green" : "0x7B",
+          "red" : "0x6C"
+        }
       },
       "idiom" : "ipad"
     },
@@ -39,8 +80,13 @@
         }
       ],
       "color" : {
-        "platform" : "ios",
-        "reference" : "systemCyanColor"
+        "color-space" : "display-p3",
+        "components" : {
+          "alpha" : "1.000",
+          "blue" : "0xD2",
+          "green" : "0xB7",
+          "red" : "0xA3"
+        }
       },
       "idiom" : "ipad"
     }

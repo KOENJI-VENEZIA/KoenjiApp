@@ -1,0 +1,33 @@
+{
+  "originHash" : "9b5c9674216c6ab1e1b95d058561b70bec722de8baf9c489bd6421098efd0a2c",
+  "pins" : [
+    {
+      "identity" : "lazypager",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/gh123man/LazyPager",
+      "state" : {
+        "revision" : "3601245191ffb0aa237ca408d7b4dd03b4d9d7eb",
+        "version" : "1.1.7"
+      }
+    },
+    {
+      "identity" : "sdwebimage",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SDWebImage/SDWebImage.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "15f6675966dafc3228e061b8e7e4f450286d274a"
+      }
+    },
+    {
+      "identity" : "sdwebimageswiftui",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SDWebImage/SDWebImageSwiftUI.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "451c6dfd5ecec2cf626d1d9ca81c2d4a60355172"
+      }
+    }
+  ],
+  "version" : 3
+}

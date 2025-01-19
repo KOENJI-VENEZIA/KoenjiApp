@@ -14,7 +14,7 @@ struct ClusterOverlayView: View {
     private var timesUp: Bool {
         let activeReservation = cluster.reservationID
         if let endTime = DateHelper.parseTime(activeReservation.endTime),
-        let currentTimeComponents = DateHelper.extractTime(time: currentTime),
+        let currentTimeComponents = DateHelper.extractTime(time: systemTime),
         let newTime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: endTime),
         endTime.timeIntervalSince(newTime) <= 60 * 30 {
             return true
@@ -45,7 +45,7 @@ struct ClusterOverlayView: View {
             // Warning overlay for reservations running late
             if cluster.reservationID.status != .showedUp,
                let startTime = DateHelper.parseTime(cluster.reservationID.startTime),
-               let currentTimeComponents = DateHelper.extractTime(time: currentTime),
+               let currentTimeComponents = DateHelper.extractTime(time: systemTime),
                let newtime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: startTime),
                newtime.timeIntervalSince(startTime) >= 15 * 60 {
                 Image(systemName: "clock.badge.exclamationmark.fill")
@@ -58,7 +58,7 @@ struct ClusterOverlayView: View {
             }
             
             if let endTime = DateHelper.parseTime(cluster.reservationID.endTime),
-               let currentTimeComponents = DateHelper.extractTime(time: currentTime),
+               let currentTimeComponents = DateHelper.extractTime(time: systemTime),
                let newTime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: endTime),
                endTime.timeIntervalSince(newTime) <= 60 * 30 {
                 Image(systemName: "figure.walk.motion.trianglebadge.exclamationmark")
@@ -72,31 +72,6 @@ struct ClusterOverlayView: View {
             }
         }
         .animation(.easeInOut, value: cluster.reservationID.status)
-        .onAppear {
-            
-            if let endTime = DateHelper.parseTime(cluster.reservationID.endTime),
-               let currentTimeComponents = DateHelper.extractTime(time: currentTime),
-               let newTime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: endTime) {
-                print("End time: \(endTime) [ClusterOverlayView]")
-                print("Current time components: \(currentTimeComponents) [ClusterOverlayView]")
-                print("New time: \(newTime) [ClusterOverlayView]")
-                print("Result: \(endTime.timeIntervalSince(newTime) <= 60 * 30) [ClusterOverlayView]")
-            }
-            
-        }
     }
 }
 
-struct CheckmarkView: View, Equatable {
-    let status: Reservation.ReservationStatus
-
-    static func == (lhs: CheckmarkView, rhs: CheckmarkView) -> Bool {
-        lhs.status == rhs.status
-    }
-
-    var body: some View {
-        Image(systemName: status == .pending ? "" : "checkmark.circle.fill")
-            .foregroundColor(status == .pending ? .gray : .green)
-            // Add any animations or transitions if needed
-    }
-}

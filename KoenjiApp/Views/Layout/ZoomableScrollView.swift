@@ -5,11 +5,10 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     private var content: Content
     @Binding private var scale: CGFloat
     @Binding private var category: Reservation.ReservationCategory
-    private var availableSize: CGSize
 
 
-    init(availableSize: CGSize, category: Binding<Reservation.ReservationCategory>, scale: Binding<CGFloat>, @ViewBuilder content: () -> Content) {
-        self.availableSize = availableSize
+
+    init(category: Binding<Reservation.ReservationCategory>, scale: Binding<CGFloat>, @ViewBuilder content: () -> Content) {
         self._category = category
         self._scale = scale
         self.content = content()

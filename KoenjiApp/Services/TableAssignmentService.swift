@@ -122,7 +122,8 @@ class TableAssignmentService {
             return false
         }
 
-        let gracePeriod: TimeInterval = 5 * 60 // 5 minutes
+        // we should evaluate if it's okay to keep it 0 or we want to hard code it; eventually it could be configured in the settings!
+        let gracePeriod: TimeInterval = 0 
 
         return reservations.contains { reservation in
             // Exclude current reservation if editing

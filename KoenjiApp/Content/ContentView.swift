@@ -18,12 +18,7 @@ struct ContentView: View {
     @State private var selectedCategory: Reservation.ReservationCategory? 
     @State private var showInspector: Bool = false       // Controls Inspector visibility
 
-    init() {
-        UINavigationBar.appearance().largeTitleTextAttributes = [.foregroundColor: UIColor.red]
-
-        //Use this if NavigationBarTitle is with displayMode = .inline
-        UINavigationBar.appearance().titleTextAttributes = [.foregroundColor: UIColor.red]
-    }
+   
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility)
         {

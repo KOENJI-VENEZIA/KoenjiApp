@@ -46,8 +46,7 @@ class ReservationStore: ObservableObject {
     init(tableAssignmentService: TableAssignmentService) {
             self.tableAssignmentService = tableAssignmentService
             // Initialize cachedLayouts with base tables for today and default category
-            let today = Calendar.current.startOfDay(for: Date())
-            let defaultCategory: Reservation.ReservationCategory = .lunch
+
         }
 
 }
