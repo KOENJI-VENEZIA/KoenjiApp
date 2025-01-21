@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import PencilKit
 
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
@@ -15,16 +16,18 @@ struct LayoutView: View {
     @EnvironmentObject var clusterServices: ClusterServices
     @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
+    @EnvironmentObject var scribbleService: ScribbleService
+
 
     @Environment(\.locale) var locale
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.colorScheme) var colorScheme
 
-    // Dynamic Dates Array
+    // Dynamic Arrays
     @State private var dates: [Date] = []
     @State private var selectedIndex: Int = 15  // Start in the middle of the dates array
     @State private var selectedDate: Date = Date()
-
+    @State var activeReservations: [Reservation] = []
 
     // Filters
     @Binding var selectedCategory: Reservation.ReservationCategory?
@@ -54,47 +57,52 @@ struct LayoutView: View {
     @State private var isZoomLocked: Bool = false
     @State private var isLayoutReset: Bool = false
 
+    // Sidebar Color
     @State private var sidebarColor: Color = Color.sidebar_lunch  // Default color
     var onSidebarColorChange: ((Color) -> Void)?
 
     @State var navigationDirection: NavigationDirection = .forward
 
-    @State var activeReservations: [Reservation] = []
-
-
-    enum ToolbarState {
-        case pinnedLeft
-        case pinnedRight
-        case pinnedBottom
-        case overlay
-    }
-
+    // Toolbar
     @State private var toolbarState: ToolbarState = .pinnedLeft
     @State private var dragAmount: CGPoint? = nil
     @State private var initialOverlayOffset: CGSize? = nil
     @State private var sideDragOffset: CGFloat = 0
     @State private var bottomDragOffset: CGFloat = 0
     @State private var isDragging: Bool = false
-
-
-    // Whether the toolbar is currently visible
     @State private var isToolbarVisible: Bool = true
-    var lastPinnedSide: ToolbarState = .pinnedLeft // track last pinned
     @State private var lastPinnedPosition: CGPoint = .zero
-
-    enum OverlayOrientation {
-        case horizontal, vertical
-    }
-
     @State private var overlayOrientation: OverlayOrientation = .horizontal
-    
+    var lastPinnedSide: ToolbarState = .pinnedLeft // track last pinned
+
+    // Drawing mode
+    @State private var isScribbleModeEnabled = false
+    @State private var drawings: [String: PKDrawing] = [:]
+    @StateObject private var currentDrawing = DrawingModel()
+    @StateObject private var zoomableState = ZoomableScrollViewState()
+    @StateObject var sharedToolPicker = SharedToolPicker(window: UIApplication.shared.windows.first)
+
+    @State private var scale: CGFloat = 1
+
     var body: some View {
+        
         GeometryReader { geometry in
 
-            
+            let fullRect = CGRect(origin: .zero, size: geometry.size)
+            let holeRect = CGRect(
+                            x: geometry.size.width / 2,
+                            y: geometry.size.height / 2,
+                            width: gridWidth,
+                            height: gridHeight
+                        )
             ZStack {
+                
+                
+                
+                
                 CardSwapView(selectedIndex: $selectedIndex, navigationDirection: navigationDirection) {
                     LayoutPageView(
+                        scale: $scale,
                         selectedDate: selectedDate,
                         selectedCategory: selectedCategory ?? .lunch,
                         currentTime: $currentTime,
@@ -107,20 +115,49 @@ struct LayoutView: View {
                         tableForNewReservation: $tableForNewReservation,
                         isLayoutLocked: $isLayoutLocked,
                         isLayoutReset: $isLayoutReset,
+                        isScribbleModeEnabled: $isScribbleModeEnabled,
                         onFetchedReservations: { newActiveReservations in
                             activeReservations = newActiveReservations
                         }
                     )
-                    
                     .environmentObject(store)
                     .environmentObject(tableStore)
                     .environmentObject(reservationService)  // For the new service
                     .environmentObject(clusterServices)
                     .environmentObject(layoutServices)
                     .environmentObject(gridData)
+                    .environmentObject(scribbleService)
+                    .environmentObject(currentDrawing)
+                    .environmentObject(sharedToolPicker)
                     .id(selectedIndex)  // Force view refresh on index change
                 }
                 //                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                
+
+                if scale <= 1 {
+                    PencilKitCanvas(
+                        zoomableState: zoomableState,
+                        layer: .layer1,
+                        gridWidth: nil,
+                        gridHeight: nil,
+                        canvasSize: nil,
+                        isEditable: isScribbleModeEnabled
+                    )
+                    .environmentObject(currentDrawing)
+                    .environmentObject(sharedToolPicker)
+                    .frame(width: (geometry.size.width - gridWidth), height: geometry.size.height)
+                    .position(x: geometry.size.width, y: geometry.size.height / 2)
+                }
+//                .mask(
+//                    InverseRectangleMask(fullRect: fullRect, holeRect: holeRect)
+//                )
+
+//                TouchBlocker(holeRect: holeRect, geometrySize: geometry.size)
+            
+               
+                
+                
+
                 
                 if isToolbarVisible {
                     ZStack {
@@ -179,11 +216,33 @@ struct LayoutView: View {
                         toolbarGesture(in: geometry)
                     )
                 }
+                
             }
+            .environmentObject(sharedToolPicker)
             .ignoresSafeArea(edges: .bottom)  // Ignore only the bottom safe area
             .navigationTitle("Layout Tavoli")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            withAnimation {
+                                currentDrawing.layer1 = PKDrawing()
+                                currentDrawing.layer2 = PKDrawing()
+                            }
+                        }) {
+                            Label("Delete Current Scribble", systemImage: "trash")
+                        }
+                    }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        isScribbleModeEnabled.toggle()
+                    }) {
+                        Label(
+                            isScribbleModeEnabled ? "Exit Scribble Mode" : "Enable Scribble",
+                            systemImage: isScribbleModeEnabled ? "pencil.slash" : "pencil"
+                        )
+                    }
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     // Lock/Unlock Layout Button
                     Button(action: {
@@ -289,6 +348,11 @@ struct LayoutView: View {
                 // This is your existing logic to handle expansions
                 updateDatesAroundSelectedDate(newDate)
             }
+            .onChange(of: isScribbleModeEnabled) {
+                DispatchQueue.main.async {
+                    saveScribbleForCurrentLayout()
+                }
+            }
             .onReceive(timerManager.$currentDate) { newTime in
                 if !isManuallyOverridden {
                     
@@ -301,6 +365,35 @@ struct LayoutView: View {
         }
         .ignoresSafeArea(.keyboard)
 
+    }
+    
+    var currentLayoutKey: String {
+        let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
+        let combinedDate = DateHelper.combine(date: currentDate, time: currentTime)
+        return layoutServices.keyFor(date: combinedDate, category: selectedCategory ?? .lunch)
+        }
+    
+    private var gridWidth: CGFloat {
+        CGFloat(store.totalColumns) * gridData.cellSize
+    }
+
+    private var gridHeight: CGFloat {
+        CGFloat(store.totalRows) * gridData.cellSize
+    }
+    
+    func loadScribbleForCurrentLayout() {
+        // Update the currentDrawing model with the loaded layers
+        currentDrawing.layer1 = scribbleService.loadDrawing(for: currentLayoutKey, layer: "layer1") ?? PKDrawing()
+        currentDrawing.layer2 = scribbleService.loadDrawing(for: currentLayoutKey, layer: "layer2") ?? PKDrawing()
+
+        print("Scribbles loaded successfully for key: \(currentLayoutKey)")
+    }
+
+    func saveScribbleForCurrentLayout() {
+        scribbleService.saveDrawing(currentDrawing.layer1, for: currentLayoutKey, layer: "layer1")
+        scribbleService.saveDrawing(currentDrawing.layer2, for: currentLayoutKey, layer: "layer2")
+
+        print("Scribbles saved successfully for key: \(currentLayoutKey)")
     }
     
     private func transitionForCurrentState(geometry: GeometryProxy) -> AnyTransition {
@@ -1043,3 +1136,30 @@ enum NavigationDirection {
     case backward
 }
 
+struct InverseRectangleMask: Shape {
+    let fullRect: CGRect
+    let holeRect: CGRect
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        // Add the full area:
+        path.addRect(fullRect)
+        // Add the hole:
+        path.addRect(holeRect)
+        // When used as a mask, the even-odd rule will cause the holeRect to be transparent.
+        return path
+    }
+}
+
+//struct TouchBlocker: View {
+//    let holeRect: CGRect
+//    let geometrySize: CGSize
+//
+//    var body: some View {
+//        Color.clear
+//            .frame(width: holeRect.width, height: holeRect.height)
+//            .position(x: geometrySize.width / 2, y: geometrySize.height / 2 + 44)
+////            .contentShape(Rectangle())
+////            .allowsHitTesting(true)
+//    }
+//}

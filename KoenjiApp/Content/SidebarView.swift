@@ -23,6 +23,9 @@ struct SidebarView: View {
 
     
     var body: some View {
+        
+        let scribbleService = ScribbleService(layoutServices: layoutServices)
+        
         ZStack {
             sidebarColor
                 .ignoresSafeArea() // Sidebar background
@@ -65,7 +68,8 @@ struct SidebarView: View {
                             .environmentObject(reservationService) // For the new service
                             .environmentObject(clusterServices)
                             .environmentObject(layoutServices)
-                            .environmentObject(gridData)) {
+                            .environmentObject(gridData)
+                            .environmentObject(scribbleService)) {
                                 Label("Layout Tavoli", systemImage: "rectangle.grid.3x2")
                             }
                     }
