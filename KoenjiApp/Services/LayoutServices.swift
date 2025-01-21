@@ -177,56 +177,43 @@ class LayoutServices: ObservableObject {
     func assignTables(
         for reservation: Reservation,
         selectedTableID: Int?
-    ) -> [TableModel]? {
-        // Generate the layout key once
-        let reservationDate = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.startTime)
-        let reservationStart = DateHelper.combineDateAndTimeStrings(
+    ) -> Result<[TableModel], TableAssignmentError> {
+        let reservationDate = DateHelper.combineDateAndTimeStrings(
             dateString: reservation.dateString,
             timeString: reservation.startTime
         )
-        let reservationEnd = DateHelper.combineDateAndTimeStrings(
-            dateString: reservation.dateString,
-            timeString: reservation.endTime
-        )
+        let reservationStart = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.startTime)
+        let reservationEnd = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.endTime)
         
         let layoutKey = keyFor(date: reservationDate, category: reservation.category)
-        print("Generated layout key: \(layoutKey) for date: \(reservationDate) and category: \(reservation.category)")
-
-        print("Available cachedLayouts keys: \(cachedLayouts.keys)")
-        
-        // Retrieve cached tables
-        guard let tables = cachedLayouts[layoutKey] ?? generateAndCacheLayout(for: layoutKey, date: reservationDate, category: reservation.category) else {
-            print("Failed to retrieve or generate layout for key: \(layoutKey). No tables available.")
-            return nil
+        guard let tables = cachedLayouts[layoutKey]
+               ?? generateAndCacheLayout(for: layoutKey, date: reservationDate, category: reservation.category)
+        else {
+            return .failure(.noTablesLeft)  // Or .unknown if you prefer
         }
-
+        
+        // Manual assignment if tableID is set
         if let tableID = selectedTableID {
-            // MANUAL CASE: Assign a specific table
+            // 1) Check existence
             guard let selectedTable = tables.first(where: { $0.id == tableID }) else {
-                print("Failed to assign table \(tableID): Table not found in layout for key \(layoutKey).")
-                return nil
+                return .failure(.tableNotFound)
             }
-
+            // 2) Check lock
             if isTableLocked(tableID: selectedTable.id, start: reservationStart, end: reservationEnd) {
-                print("Table \(selectedTable.id) is currently locked and cannot be reserved.")
-                return nil
+                return .failure(.tableLocked)
             }
-
-            // Lock the table temporarily
-            lockTable(tableID: selectedTable.id, start: reservationStart, end: reservationEnd)
-
-            // Attempt manual assignment
+            
+            // 3) Attempt manual assignment
             let assignedTables = tableAssignmentService.assignTablesManually(
                 for: reservation,
                 tables: tables,
-                reservations: store.reservations, // Pass the array
+                reservations: store.reservations,
                 startingFrom: selectedTable
             )
-
+            
             if let assignedTables = assignedTables {
-                print("Successfully assigned tables manually for reservation \(reservation.id).")
-
-                // Update or append the reservation in the array on the main thread
+                // Lock tables, update store, etc.
+                lockTable(tableID: selectedTable.id, start: reservationStart, end: reservationEnd)
                 DispatchQueue.main.async {
                     if let index = self.store.reservations.firstIndex(where: { $0.id == reservation.id }) {
                         self.store.reservations[index].tables = assignedTables
@@ -236,36 +223,26 @@ class LayoutServices: ObservableObject {
                         self.store.reservations.append(updatedReservation)
                     }
                 }
-
-                return assignedTables
+                return .success(assignedTables)
             } else {
-                // Unlock the table on failure
-                unlockTable(tableID: selectedTable.id, start: reservationStart, end: reservationEnd)
-                print("Failed to assign tables manually for reservation \(reservation.id).")
-                return nil
+                // Potentially differentiate between not enough capacity vs. table locked
+                return .failure(.insufficientTables)
             }
-
+            
         } else {
-            // AUTO CASE: Find and assign tables automatically
+            // Auto assignment
             let unlockedTables = tables.filter { !isTableLocked(tableID: $0.id, start: reservationStart, end: reservationEnd) }
-            if unlockedTables.isEmpty {
-                print("Failed to assign tables: No unlocked tables available for layout key \(layoutKey).")
-                return nil
+            guard !unlockedTables.isEmpty else {
+                return .failure(.noTablesLeft)
             }
-
-            // Attempt automatic assignment
-            let assignedTables = tableAssignmentService.assignTablesPreferContiguous(
+            
+            if let assignedTables = tableAssignmentService.assignTablesPreferContiguous(
                 for: reservation,
-                reservations: store.reservations, // Pass the array
+                reservations: store.reservations,
                 tables: unlockedTables
-            )
-
-            if let assignedTables = assignedTables {
-                // Lock all assigned tables
+            ) {
+                // Lock each table, update store, etc.
                 assignedTables.forEach { lockTable(tableID: $0.id, start: reservationStart, end: reservationEnd) }
-                print("Successfully assigned tables automatically for reservation \(reservation.id).")
-
-                // Update or append the reservation in the array on the main thread
                 DispatchQueue.main.async {
                     if let index = self.store.reservations.firstIndex(where: { $0.id == reservation.id }) {
                         self.store.reservations[index].tables = assignedTables
@@ -275,11 +252,10 @@ class LayoutServices: ObservableObject {
                         self.store.reservations.append(updatedReservation)
                     }
                 }
-
-                return assignedTables
+                return .success(assignedTables)
             } else {
-                print("Failed to assign tables automatically for reservation \(reservation.id).")
-                return nil
+                // Distinguish not enough capacity from unknown error, if you’d like:
+                return .failure(.insufficientTables)
             }
         }
     }

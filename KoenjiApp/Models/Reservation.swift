@@ -13,7 +13,7 @@ struct Reservation: Identifiable, Hashable, Codable {
     var name: String
     var phone: String
     var numberOfPersons: Int
-    var dateString: String  // "DD/MM/YYYY"
+    var dateString: String  // "yyyy-mm-dd"
     var category: ReservationCategory
     var startTime: String   // "HH:MM"
     var endTime: String     // computed but editable by user
@@ -25,8 +25,7 @@ struct Reservation: Identifiable, Hashable, Codable {
     var tables: [TableModel]
     let creationDate: Date
     var isMock: Bool = false // Distinguish mock data
-    
-    var assignedEmoji: String?
+    var assignedEmoji: String = ""
 
     /// A convenience accessor for converting `dateString` into a Foundation.Date.
     /// (You will want better date/time conversion in a real app!)
@@ -72,11 +71,14 @@ struct Reservation: Identifiable, Hashable, Codable {
         case showedUp
         case canceled
         case pending
+        case late
+        case na
     }
     
     enum ReservationType: String, CaseIterable {
         case walkIn
         case inAdvance
+        case waitingList
     }
     
     init(
@@ -113,6 +115,26 @@ struct Reservation: Identifiable, Hashable, Codable {
         self.tables = tables
         self.creationDate = creationDate
         self.isMock = isMock
+        
+        
+               // Using DateHelper to combine date and time strings
+        if let reservationDate = DateHelper.parseDate(dateString) {
+            
+          let combinedStartDate = DateHelper.combineDateAndTimeStrings(dateString: dateString, timeString: startTime)
+           
+           let calendar = Calendar.current
+           // If the creation date is the same day as the reservation's date
+           // and the creation time is at or after the start time, mark as walkIn.
+           if calendar.isDate(creationDate, inSameDayAs: reservationDate) &&
+               creationDate >= combinedStartDate {
+               self.reservationType = .walkIn
+           } else {
+               self.reservationType = .inAdvance
+           }
+       } else {
+           // Fallback if date parsing fails.
+           self.reservationType = .inAdvance
+       }
     }
 }
 
@@ -239,3 +261,60 @@ extension Reservation {
         )
     }
 }
+
+extension Reservation.ReservationCategory {
+    var localized: String {
+        switch self {
+        case .lunch:
+            return "pranzo"
+        case .dinner:
+            return "cena"
+        case .noBookingZone:
+            return "(chiusura)"
+        }
+    }
+}
+
+extension Reservation.Acceptance {
+    var localized: String {
+        switch self {
+        case .confirmed:
+            return "confermata"
+        case .toConfirm:
+            return "da confermare"
+        }
+    }
+}
+
+extension Reservation.ReservationType {
+    var localized: String {
+        switch self {
+        case .walkIn:
+            return "walk-in"
+        case .inAdvance:
+            return "con anticipo"
+        case .waitingList:
+            return "waiting list"
+        }
+    }
+}
+
+extension Reservation.ReservationStatus {
+    var localized: String {
+        switch self {
+            case .pending:
+            return "prenotato"
+        case .canceled:
+            return "cancellazione"
+        case .noShow:
+            return "no show"
+        case .showedUp:
+            return "arrivati"
+        case .late:
+            return "in ritardo"
+        case .na:
+            return "N/A"
+        }
+    }
+}
+

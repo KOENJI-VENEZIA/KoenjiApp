@@ -156,7 +156,7 @@ class ClusterManager: ObservableObject {
 
         // Filter out reservations that ended or haven't started
         let validReservations = activeReservations.filter { reservation in
-            print("\nDEBUG: Checking reservation: \(reservation)")
+            print("\nDEBUG: Checking reservation: \(reservation.name)")
 
             // Parse startTime and endTime of the reservation
             guard let startTime = DateHelper.parseTime(reservation.startTime),

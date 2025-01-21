@@ -40,8 +40,26 @@ struct LayoutView_Previews: PreviewProvider {
         let currentReservation: Binding<Reservation?> = .constant(nil)
         
         return
-        NavigationSplitView {
-            SidebarView(selectedReservation: selectedReservation, currentReservation: currentReservation, selectedCategory: selectedCategory)
+            NavigationSplitView {
+                SidebarView(selectedReservation: selectedReservation, currentReservation: currentReservation, selectedCategory: selectedCategory)
+                    .environmentObject(localStore)
+                    .environmentObject(localTableStore)
+                    .environmentObject(localClusterStore)
+                    .environmentObject(localReservationService)
+                    .environmentObject(localClusterServices)
+                    .environmentObject(layoutServices)
+                    .environmentObject(localGridData)
+            } detail: {
+                LayoutView(
+                    selectedCategory: selectedCategory,
+                    selectedReservation: selectedReservation,
+                    currentReservation: currentReservation,
+                    onSidebarColorChange: { newColor in
+                        // Optional: handle color change
+                        print("Sidebar color changed to \(newColor)")
+                    }
+                )
+                // 3) Inject into the environment, just like in your real app
                 .environmentObject(localStore)
                 .environmentObject(localTableStore)
                 .environmentObject(localClusterStore)
@@ -49,25 +67,7 @@ struct LayoutView_Previews: PreviewProvider {
                 .environmentObject(localClusterServices)
                 .environmentObject(layoutServices)
                 .environmentObject(localGridData)
-        } detail: {
-            LayoutView(
-                selectedCategory: selectedCategory,
-                selectedReservation: selectedReservation,
-                currentReservation: currentReservation,
-                onSidebarColorChange: { newColor in
-                    // Optional: handle color change
-                    print("Sidebar color changed to \(newColor)")
-                }
-            )
-            // 3) Inject into the environment, just like in your real app
-            .environmentObject(localStore)
-            .environmentObject(localTableStore)
-            .environmentObject(localClusterStore)
-            .environmentObject(localReservationService)
-            .environmentObject(localClusterServices)
-            .environmentObject(layoutServices)
-            .environmentObject(localGridData)
-        }
+            }
     }
 
 }

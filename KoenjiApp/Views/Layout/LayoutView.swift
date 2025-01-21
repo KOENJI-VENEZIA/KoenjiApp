@@ -40,6 +40,7 @@ struct LayoutView: View {
     @State private var showingEditReservation: Bool = false
     @State private var showInspector: Bool = false  // Controls Inspector visibility
     @State private var showingDatePicker: Bool = false
+    @State private var changedReservation: Reservation? = nil
 
     // Add Reservation
     @State private var showingAddReservationSheet: Bool = false
@@ -56,7 +57,7 @@ struct LayoutView: View {
 
     @State var navigationDirection: NavigationDirection = .forward
 
-
+    @State var activeReservations: [Reservation] = []
 
 
     enum ToolbarState {
@@ -110,12 +111,16 @@ struct LayoutView: View {
                         currentTime: $currentTime,
                         isManuallyOverridden: $isManuallyOverridden,
                         selectedReservation: $selectedReservation,
+                        changedReservation: $changedReservation,
                         showInspector: $showInspector,
                         showingEditReservation: $showingEditReservation,
                         showingAddReservationSheet: $showingAddReservationSheet,
                         tableForNewReservation: $tableForNewReservation,
                         isLayoutLocked: $isLayoutLocked,
-                        isLayoutReset: $isLayoutReset
+                        isLayoutReset: $isLayoutReset,
+                        onFetchedReservations: { newActiveReservations in
+                            activeReservations = newActiveReservations
+                        }
                     )
                     
                     .environmentObject(store)
@@ -149,7 +154,7 @@ struct LayoutView: View {
                     }
                     .ignoresSafeArea(.keyboard)
                     .position(isDragging ? dragAmount ?? calculatePosition(geometry: geometry) : calculatePosition(geometry: geometry))
-                    .animation(.spring, value: toolbarState) // or whichever animation you prefer
+                    .animation(isDragging ? .none : .spring(), value: isDragging)
                     .transition(transitionForCurrentState(geometry: geometry))
                     .gesture(
                         toolbarGesture(in: geometry)
@@ -171,7 +176,7 @@ struct LayoutView: View {
                     }
                     .ignoresSafeArea(.keyboard)
                     .position(isDragging ? dragAmount ?? calculatePosition(geometry: geometry) : calculatePosition(geometry: geometry)) // depends on pinned side
-                    .animation(.easeInOut, value: toolbarState) // or whichever animation you prefer
+                    .animation(isDragging ? .none : .spring(), value: isDragging)
                     .transition(transitionForCurrentState(geometry: geometry))
                     .gesture(
                         TapGesture()
@@ -231,10 +236,16 @@ struct LayoutView: View {
                     currentReservation: $currentReservation,
                     showInspector: $showInspector,
                     showingEditReservation: $showingEditReservation,
-                    sidebarColor: $sidebarColor
+                    sidebarColor: $sidebarColor,
+                    changedReservation: $changedReservation,
+                    activeReservations: activeReservations,
+                    currentTime: $currentTime,
+                    selectedCategory: selectedCategory ?? .lunch
                 )
             }
             .sheet(item: $currentReservation) { reservation in
+                let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
+                
                 EditReservationView(
                     reservation: reservation,
                     onClose: {
@@ -273,7 +284,8 @@ struct LayoutView: View {
                 handleSelectedIndexChange()
             }
             .onChange(of: selectedCategory) { oldCategory, newCategory in
-                handleSelectedCategoryChange(newCategory)
+                handleSelectedCategoryChange(oldCategory, newCategory)
+                print("Called handleSelectedCategoryChange() from LayoutView [onChange of selectedCategory]")
                 if let category = newCategory {
                     sidebarColor = category.sidebarColor
                 }
@@ -288,7 +300,9 @@ struct LayoutView: View {
             }
             .onReceive(timerManager.$currentDate) { newTime in
                 if !isManuallyOverridden {
-                    currentTime = newTime
+                    
+                    let combinedTime = DateHelper.combine(date: currentTime, time: newTime)
+                    currentTime = combinedTime
                 }
             }
             .toolbarBackground(Material.ultraThin, for: .navigationBar)
@@ -467,7 +481,7 @@ struct LayoutView: View {
         } else if toolbarState == .pinnedRight {
            return CGPoint(x: geometry.size.width - 90, y: geometry.size.height / 2)
         } else if toolbarState == .pinnedBottom {
-           return CGPoint(x: geometry.size.width / 2, y: geometry.size.height - 40)
+           return CGPoint(x: geometry.size.width / 2, y: geometry.size.height - 90)
         } else {
             return lastPinnedPosition
         }
@@ -575,7 +589,7 @@ struct LayoutView: View {
 
     private func initializeView() {
         // Initialize default date/time configuration
-        currentTime = timerManager.currentDate
+        currentTime = Date()
 
         // Generate date array
         dates = generateInitialDates()
@@ -612,9 +626,11 @@ struct LayoutView: View {
         trimDatesAround(selectedIndex)
     }
 
-    private func handleSelectedCategoryChange(_ newCategory: Reservation.ReservationCategory?) {
+    private func handleSelectedCategoryChange(_ oldCategory: Reservation.ReservationCategory?, _ newCategory: Reservation.ReservationCategory?) {
         guard let newCategory = newCategory else { return }
-
+        guard let oldCategory = oldCategory else { return }
+        guard oldCategory != newCategory else { return }
+        print("Old category: \(oldCategory.rawValue)")
         print("Category changed to \(newCategory.rawValue)")
 
         // Only adjust time if it's not manually overridden
@@ -660,9 +676,9 @@ struct LayoutView: View {
 
         // Compare newTime against the ranges
         let determinedCategory: Reservation.ReservationCategory
-        if newTime >= lunchStart && newTime <= lunchEnd {
+        if currentTime >= lunchStart && currentTime <= lunchEnd {
             determinedCategory = .lunch
-        } else if newTime >= dinnerStart && newTime <= dinnerEnd {
+        } else if currentTime >= dinnerStart && currentTime <= dinnerEnd {
             determinedCategory = .dinner
         } else {
             determinedCategory = .noBookingZone
@@ -788,7 +804,9 @@ struct LayoutView: View {
         // Reset to Default or System Time
         Button(action: {
             withAnimation {
-                currentTime = timerManager.currentDate  // Reset to system time
+                let currentSystemTime = Date()  // Reset to system time
+                currentTime = DateHelper.combine(date: currentTime, time: currentSystemTime)
+                print("Time reset to \(currentTime)")
                 isManuallyOverridden = false
             }
             

@@ -7,6 +7,8 @@ struct TableView: View {
     let currentTime: Date
     @State private var systemTime: Date = Date()
     let activeReservations: [Reservation]
+    @Binding var changedReservation: Reservation?
+    @Binding var isEditing: Bool
 
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var store: ReservationStore
@@ -108,7 +110,7 @@ struct TableView: View {
 
         let isLate = {
             if let activeReservation = activeReservation,
-                activeReservation.status != .showedUp, !isContextMenuActive,
+               activeReservation.status != .showedUp, !isContextMenuActive,
                 let startTime = DateHelper.parseTime(activeReservation.startTime),
                 let currentTimeComponents = DateHelper.extractTime(time: currentTime),
                 let newtime = DateHelper.normalizedInputTime(
@@ -212,7 +214,7 @@ struct TableView: View {
                 }
 
                 if let reservation = activeReservation, !isContextMenuActive {
-                    Text(reservation.assignedEmoji ?? "")
+                    Text(reservation.assignedEmoji)
                         .font(.system(size: 20))  // Match the font size to the frame of the Image
                         .frame(maxWidth: 23, maxHeight: 23)  // Same dimensions as the Image
                         .offset(x: tableFrame.width / 2 - 18, y: -tableFrame.height / 2 + 12)  // Match position
@@ -228,6 +230,23 @@ struct TableView: View {
                         .symbolRenderingMode(.multicolor)
                         .offset(x: -tableFrame.width / 2 + 15, y: -tableFrame.height / 2 + 15)  // Position in the top-left corner
                         .zIndex(2)
+                        .onAppear {
+                            activeReservation = filterActiveReservation(for: table)
+                            if var reservation = activeReservation {
+                                guard reservation.reservationType != .waitingList else { return }
+                                reservation.status = .late
+                                reservationService.updateReservation(reservation)
+                            }
+                        }
+                        .onDisappear {
+                            activeReservation = filterActiveReservation(for: table)
+                            if var reservation = activeReservation {
+                                guard reservation.reservationType != .waitingList else { return }
+                                reservation.status = .pending
+                                reservationService.updateReservation(reservation)
+
+                            }
+                        }
                 }
 
                 if timesUp {
@@ -242,6 +261,7 @@ struct TableView: View {
                         .symbolRenderingMode(.palette)  // Enable multicolor rendering
                         .offset(x: tableFrame.width / 2 - 15, y: tableFrame.height / 2 - 15)  // Position in the top-left corner
                         .zIndex(2)
+                        
                 }
             }
         }
@@ -257,19 +277,22 @@ struct TableView: View {
         .onChange(of: selectedEmoji) {
             handleEmojiAssignment(activeReservation, selectedEmoji ?? "")
         }
+        .onChange(of: changedReservation) {
+            activeReservation = filterActiveReservation(for: table) ?? nil
+        }
         .contextMenu {
 
             Button {
                 showEmojiPicker = true
             } label: {
-                Label("Pick Emoji", systemImage: "ellipsis.circle")
+                Label("Scegli Emoji", systemImage: "ellipsis.circle")
             }
 
             Divider()
 
-            Button("Delete") {
+            Button("Cancellazione") {
                 if let reservation = activeReservation {
-                    handleDelete(reservation)
+                    handleCancelled(reservation)
                 }
             }
         }
@@ -336,11 +359,15 @@ struct TableView: View {
     }
 
     // MARK: - Subviews
-    private func handleDelete(_ reservation: Reservation) {
-        if let idx = store.reservations.firstIndex(where: { $0.id == reservation.id }) {
-            reservationService.deleteReservations(at: IndexSet(integer: idx))
+    private func handleCancelled(_ reservation: Reservation) {
+            var updatedReservation = reservation
+        if updatedReservation.status != .canceled {
+            updatedReservation.status = .canceled
         }
+        changedReservation = updatedReservation
+        reservationService.updateReservation(updatedReservation)
     }
+    
 
     private func handleEmojiAssignment(_ activeReservation: Reservation?, _ emoji: String) {
         guard var reservationActive = activeReservation else { return }
@@ -359,7 +386,7 @@ struct TableView: View {
                 .bold()
                 .font(.headline)
                 .foregroundStyle(.white)
-            Text("\(reservation.numberOfPersons) pers.")
+            Text("\(reservation.numberOfPersons) p.")
                 .font(.footnote)
                 .foregroundStyle(.white)
                 .opacity(0.8)
@@ -398,7 +425,7 @@ struct TableView: View {
                 .bold()
                 .font(.headline)
                 .foregroundStyle(.white)
-            Text("\(reservation.numberOfPersons) pers.")
+            Text("\(reservation.numberOfPersons) p.")
                 .font(.footnote)
                 .opacity(0.8)
                 .foregroundStyle(.white)
@@ -500,7 +527,7 @@ struct TableView: View {
     private func handleTap(_ activeReservation: Reservation?) {
         if let index = activeReservations.firstIndex(where: { $0.id == activeReservation?.id }) {
             var currentReservation = activeReservations[index]
-            if currentReservation.status == .pending {
+            if currentReservation.status == .pending || currentReservation.status == .late {
 
                 currentReservation.status = .showedUp
                 reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
@@ -508,7 +535,12 @@ struct TableView: View {
                 onStatusChange()
 
             } else {
-                currentReservation.status = .pending
+                if let reservationStart = DateHelper.parseTime(currentReservation.startTime),
+                   currentTime.timeIntervalSince(reservationStart) >= 60 * 15 {
+                    currentReservation.status = .late
+                } else {
+                    currentReservation.status = .pending
+                }
                 reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
                 statusChanged += 1
                 onStatusChange()
@@ -614,45 +646,52 @@ struct TableView: View {
     private func filterActiveReservation(for table: TableModel) -> Reservation? {
         let calendar = Calendar.current
 
-        return activeReservations.first { reservation in
-            // Check if the table is assigned to this reservation
-            reservation.tables.contains(where: { $0.id == table.id })
-
-                // Check if the reservation date matches the selected date
-                && reservation.dateString == DateHelper.formatDate(selectedDate)
-
-                // Check if the current time falls within the reservation's time range
-                && {
-                    let timeFormatter = DateFormatter()
-                    timeFormatter.dateFormat = "HH:mm"
-                    timeFormatter.timeZone = TimeZone.current
-
-                    guard let startTime = timeFormatter.date(from: reservation.startTime),
-                        let endTime = timeFormatter.date(from: reservation.endTime),
-                        let normalizedStartTime = calendar.date(
-                            bySettingHour: calendar.component(.hour, from: startTime),
-                            minute: calendar.component(.minute, from: startTime),
-                            second: 0,
-                            of: calendar.startOfDay(for: selectedDate)),
-                        let normalizedEndTime = calendar.date(
-                            bySettingHour: calendar.component(.hour, from: endTime),
-                            minute: calendar.component(.minute, from: endTime),
-                            second: 0,
-                            of: calendar.startOfDay(for: selectedDate)),
-                        let normalizedCurrentTime = calendar.date(
-                            bySettingHour: calendar.component(.hour, from: currentTime),
-                            minute: calendar.component(.minute, from: currentTime),
-                            second: 0,
-                            of: calendar.startOfDay(for: selectedDate))
-                    else {
-                        return false
-                    }
-
-                    return normalizedCurrentTime >= normalizedStartTime
+        
+        return store.reservations.first { reservation in
+                    // Check if the table is assigned to this reservation
+                    reservation.tables.contains(where: { $0.id == table.id })
+                    
+                    && reservation.status != .canceled
+                    && reservation.reservationType != .waitingList
+                    // Check if the reservation date matches the selected date
+                    && reservation.dateString == DateHelper.formatDate(selectedDate)
+                    
+                    // Check if the current time falls within the reservation's time range
+                    && {
+                        let timeFormatter = DateFormatter()
+                        timeFormatter.dateFormat = "HH:mm"
+                        timeFormatter.timeZone = TimeZone.current
+                        
+                        guard let startTime = timeFormatter.date(from: reservation.startTime),
+                              let endTime = timeFormatter.date(from: reservation.endTime),
+                              let normalizedStartTime = calendar.date(
+                                bySettingHour: calendar.component(.hour, from: startTime),
+                                minute: calendar.component(.minute, from: startTime),
+                                second: 0,
+                                of: calendar.startOfDay(for: selectedDate)),
+                              let normalizedEndTime = calendar.date(
+                                bySettingHour: calendar.component(.hour, from: endTime),
+                                minute: calendar.component(.minute, from: endTime),
+                                second: 0,
+                                of: calendar.startOfDay(for: selectedDate)),
+                              let normalizedCurrentTime = calendar.date(
+                                bySettingHour: calendar.component(.hour, from: currentTime),
+                                minute: calendar.component(.minute, from: currentTime),
+                                second: 0,
+                                of: calendar.startOfDay(for: selectedDate))
+                        else {
+                            return false
+                        }
+                        
+                        return normalizedCurrentTime >= normalizedStartTime
                         && normalizedCurrentTime < normalizedEndTime
-                }()
+                    }()
+                }
         }
     }
+
+//activeReservations.filter { reservation in
+//    let filteredReservations = reservation.status != .canceled
 
     /// Returns a Date object that represents the reservation's start date and time.
     /// Adjust date formats as needed.
@@ -735,6 +774,14 @@ struct TableView: View {
             guard reservation.tables.contains(where: { $0.id == table.id }) else {
                 return false
             }
+            
+            guard reservation.status != .canceled else {
+                return false
+            }
+            
+            guard reservation.reservationType != .waitingList else {
+                return false
+            }
 
             guard reservation.category == selectedCategory else {
                 return false
@@ -767,7 +814,7 @@ struct TableView: View {
         return sortedReservations.first
     }
 
-}
+
 
 struct EmojiPickerView: View {
     let onEmojiSelected: (String) -> Void

@@ -15,7 +15,7 @@ class TimerManager: ObservableObject {
 
     init() {
         currentDate = Date() // Initialize to the current time
-        timer = Timer.publish(every: 1, on: .main, in: .common)
+        timer = Timer.publish(every: 30.0, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] date in
                 self?.currentDate = date

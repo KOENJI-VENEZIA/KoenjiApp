@@ -262,3 +262,11 @@ class TableAssignmentService {
         }
     }
 }
+
+enum TableAssignmentError: Error {
+    case noTablesLeft       // No tables are available at all
+    case insufficientTables // There are tables, but not enough to seat the requested party
+    case tableNotFound      // The manually selected table doesn't exist in the layout
+    case tableLocked        // The requested table is currently locked/occupied
+    case unknown            // Fallback for any undefined error
+}

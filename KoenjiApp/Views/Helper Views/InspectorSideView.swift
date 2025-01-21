@@ -12,8 +12,19 @@ struct InspectorSideView: View {
     @Binding var currentReservation: Reservation?
     @Binding var showInspector: Bool
     @Binding var showingEditReservation: Bool
-    @Binding var sidebarColor: Color // Default color
-
+    @Binding var sidebarColor: Color // Default
+    @Binding var changedReservation: Reservation?
+    @State private var selectedView: SelectedView = .info
+    var activeReservations: [Reservation]
+    @Binding var currentTime: Date
+    var selectedCategory: Reservation.ReservationCategory
+    
+    
+    enum SelectedView {
+        case info
+        case cancelled
+        case waiting
+    }
     // MARK: - Body
     var body: some View {
 
@@ -21,24 +32,87 @@ struct InspectorSideView: View {
             Color(sidebarColor)
                 .ignoresSafeArea()
 
-            if let reservation = selectedReservation {
-                ReservationInfoCard(
-                    reservationID: reservation.id,
-                    onClose: {
+            VStack {
+                
+//                Rectangle()
+//                    .fill(.clear)
+//                    .background(.clear)
+//                    .frame(width: 100, height: 50)
+                
+                Picker("Dettagli", selection: $selectedView) {
+                    Text("Info").tag(SelectedView.info)
+                    Text("Cancellati").tag(SelectedView.cancelled)
+                    Text("Waiting List").tag(SelectedView.waiting)
+                }
+                .pickerStyle(.segmented)
+                .frame(height: 80)
+                .padding()
+                
+                switch selectedView {
+                case .info:
+                    
+                    if let reservation = selectedReservation {
+                    ReservationInfoCard(
+                        reservationID: reservation.id,
+                        onClose: {
+                            dismissInfoCard()
+                        },
+                        onEdit: {
+                            currentReservation = reservation
+                            showingEditReservation = true
+                        }
+                    )
+                    .background(.clear)
+                    
+                } else {
+                    
+                    ReservationsInfoListView(activeReservations: activeReservations, currentTime: $currentTime, selectedCategory: selectedCategory,
+                                             onClose: {
                         dismissInfoCard()
                     },
-                    onEdit: {
+                                             onEdit: { reservation in
                         currentReservation = reservation
                         showingEditReservation = true
-                    }
-                )
-                .background(.clear)
-
-            } else {
-                Text("(Nessuna prenotazione selezionata)")
-                    .multilineTextAlignment(.center)
-                    .padding()
+                    },
+                                             onCancelled: { reservation in
+                        changedReservation = reservation
+                    })
+                        .background(.clear)
+                }
+                case .cancelled:
+                    
+                    ReservationCancelledView(activeReservations: activeReservations, currentTime: currentTime, selectedCategory: selectedCategory,
+                                             onClose: {
+                        dismissInfoCard()
+                    },
+                                             onEdit: { reservation in
+                        currentReservation = reservation
+                        showingEditReservation = true
+                    },
+                                             onRestore: { reservation in
+                    changedReservation = reservation
+                    })
+                        .background(.clear)
+                    
+                case .waiting:
+                    
+                    ReservationWaitingListView(activeReservations: activeReservations, currentTime: currentTime, selectedCategory: selectedCategory,
+                                               onClose: {
+                          dismissInfoCard()
+                      },
+                                               onEdit: { reservation in
+                          currentReservation = reservation
+                          showingEditReservation = true
+                      },
+                                               onConfirm: { reservation in
+                      changedReservation = reservation
+                      })
+                    
+                }
+                
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
         }
         
     }

@@ -14,22 +14,24 @@ struct EditReservationView: View {
     @State var reservation: Reservation
     @State private var selectedDate: Date = Date()
     @State private var selectedForcedTableID: Int? = nil
-    @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
     @State private var currentTime: Date = Date()
+    @State private var selectedStatus: ReservationOption = .acceptance(.confirmed)
+    @State private var activeAlert: AddReservationAlertType? = nil
+
     var onClose: () -> Void
 
 
     var body: some View {
         NavigationView {
             Form {
-                Section("Required") {
-                    TextField("Name", text: $reservation.name)
-                    TextField("Phone", text: $reservation.phone)
+                Section("Obbligatori") {
+                    TextField("Nome", text: $reservation.name)
+                    TextField("Contatto", text: $reservation.phone)
                         .keyboardType(.phonePad)
-                    Stepper("Guests: \(reservation.numberOfPersons)", value: $reservation.numberOfPersons, in: 2...14)
+                    Stepper("Numero Clienti: \(reservation.numberOfPersons)", value: $reservation.numberOfPersons, in: 2...14)
 
-                    DatePicker("Select Date", selection: $selectedDate, displayedComponents: .date)
+                    DatePicker("Seleziona Data", selection: $selectedDate, displayedComponents: .date)
                         .onChange(of: selectedDate) { oldDate, newDate in
                             reservation.dateString = DateHelper.formatDate(newDate)
                         }
@@ -38,26 +40,70 @@ struct EditReservationView: View {
                             if let reservationDate = DateHelper.parseDate(reservation.dateString) {
                                 selectedDate = reservationDate
                             }
+                            print("Selected date: \(selectedDate)")
                         }
+                    
+                    Picker("Tipologia", selection: $reservation.reservationType) {
+                        ForEach(Reservation.ReservationType.allCases, id: \.self) { type in
+                            Text(type.localized.capitalized).tag(type)
+                        }
+                    }
+                    .onAppear {
+                        adjustNotesForStatus()
+
+                    }
+                    .onChange(of: reservation.reservationType) {
+                        adjustNotesForStatus()
+                        if reservation.reservationType == .waitingList {
+                            reservation.status = .na
+                        }
+                    }
+                    
+                    Picker("Stato", selection: $reservation.status) {
+                        ForEach(Reservation.ReservationStatus.allCases, id: \.self) { type in
+                            Text(type.localized.capitalized).tag(type)
+                        }
+                    }
+                    .onAppear {
+                        adjustNotesForStatus()
+
+                    }
+                    .onChange(of: reservation.status) {
+                        adjustNotesForStatus()
+                    }
+                    
+                    Picker("Accettazione", selection: $reservation.acceptance) {
+                        ForEach(Reservation.Acceptance.allCases, id: \.self) { type in
+                            Text(type.localized.capitalized).tag(type)
+                        }
+                    }
+                    .onAppear {
+                        adjustNotesForStatus()
+
+                    }
+                    .onChange(of: reservation.acceptance) {
+                        adjustNotesForStatus()
+                    }
+                    
 
                     
-                    Picker("Table", selection: $selectedForcedTableID) {
-                        Text("Auto Assign").tag(nil as Int?)
+                    Picker("Tavolo", selection: $selectedForcedTableID) {
+                        Text("Auto Assegna").tag(nil as Int?)
                         ForEach(store.tableAssignmentService.availableTables(
                             for: reservation,
                             reservations: store.getReservations(),
                             tables: layoutServices.getTables()
                         ), id: \.table.id) { entry in
-                            Text(entry.isCurrentlyAssigned ? "\(entry.table.name) (currently assigned)" : entry.table.name)
+                            Text(entry.isCurrentlyAssigned ? "\(entry.table.name) (già assegnato)" : entry.table.name)
                                 .tag(entry.table.id as Int?)
                         }
                     }
 
 
-                    Picker("Category", selection: $reservation.category) {
-                        Text("Lunch").tag(Reservation.ReservationCategory.lunch)
-                        Text("Dinner").tag(Reservation.ReservationCategory.dinner)
-                        Text("No Booking").tag(Reservation.ReservationCategory.noBookingZone)
+                    Picker("Categoria", selection: $reservation.category) {
+                        Text("Pranzo").tag(Reservation.ReservationCategory.lunch)
+                        Text("Cena").tag(Reservation.ReservationCategory.dinner)
+                        Text("Pomeriggio").tag(Reservation.ReservationCategory.noBookingZone)
                     }
                     .onChange(of: reservation.category) { adjustTimesForCategory() }
 
@@ -72,26 +118,43 @@ struct EditReservationView: View {
 
                 }
 
-                Section("Notes") {
+                Section("Facoltativo: Note") {
                     TextEditor(text: $reservation.notes.orEmpty())
                         .frame(minHeight: 80)
                 }
             }
-            .navigationTitle("Edit Reservation")
+            .navigationTitle("Modifica Prenotazione")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("Annulla") {
                         store.populateActiveCache(for: reservation)
                         onClose()
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { saveChanges() }
+                    Button("Salva") { saveChanges() }
                 }
             }
-            .alert(isPresented: $showAlert) {
-                Alert(title: Text("Error"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
+            .alert(item: $activeAlert) { alertType in
+                switch alertType {
+                case .mondayConfirmation:
+                    return Alert(
+                        title: Text("Attenzione!"),
+                        message: Text("Stai cercando di prenotare di lunedì. Sei sicuro di voler continuare?"),
+                        primaryButton: .destructive(Text("Annulla")),
+                        secondaryButton: .default(Text("Prosegui")) {
+                            performSaveReservation()
+                        }
+                    )
+
+                case .error(let message):
+                    return Alert(
+                        title: Text("Errore:"),
+                        message: Text(message),
+                        dismissButton: .default(Text("OK"))
+                    )
+                }
             }
             .onAppear {
                 loadInitialDate()
@@ -123,33 +186,110 @@ struct EditReservationView: View {
             timeString: reservation.endTime
         )
         
+        
         for table in reservation.tables {
             layoutServices.unlockTable(tableID: table.id, start: reservationStart, end: reservationEnd)
         }
         
-        if let assignedTables = layoutServices.assignTables(for: reservation, selectedTableID: selectedForcedTableID) {
-            reservation.tables = assignedTables
+        let calendar = Calendar.current
+            let weekday = calendar.component(.weekday, from: selectedDate)
+            // In the Gregorian calendar Sunday is 1, Monday is 2, etc.
+            if weekday == 2 {  // Monday detected
+                activeAlert = .mondayConfirmation
+                return
+            }
+        
+        performSaveReservation()
+        
+        
+    }
+    
+    private func performSaveReservation() {
+        if reservation.reservationType == .waitingList {
+            reservation.tables.removeAll()
+            
             reservationService.updateReservation(reservation)
-
             reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
+            
+            print("Updated tables of \(reservation.name): \(reservation.tables)")
+            print("Updated status of \(reservation.name): \(reservation.status)")
 
             onClose()
             dismiss()
-        } else {
-            alertMessage = "Table assignment failed."
-            showAlert = true
         }
+        
+        if reservation.reservationType != .waitingList {
+            let assignmentResult = layoutServices.assignTables(for: reservation, selectedTableID: selectedForcedTableID)
+            switch assignmentResult {
+            case .success(let assignedTables):
+                reservation.tables = assignedTables
+                reservationService.updateReservation(reservation)
+                
+                reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
+                
+                onClose()
+                dismiss()
+            case .failure(let error):
+                switch error {
+                case .noTablesLeft:
+                    activeAlert = .error("Non ci sono tavoli disponibili.")
+                case .insufficientTables:
+                    activeAlert = .error("Non ci sono abbastanza tavoli per la prenotazione.")
+                case .tableNotFound:
+                    activeAlert = .error("Tavolo selezionato non trovato.")
+                case .tableLocked:
+                    activeAlert = .error("Il tavolo scelto è occupato o bloccato.")
+                case .unknown:
+                    activeAlert = .error("Errore sconosciuto.")
+                }
+                return
+            }
+        }
+    }
+    
+    private func adjustNotesForStatus() {
+        // Define a pattern that finds our "tag" substrings, for example "[...];"
+        let tagPattern = #"\[[^\]]*\];"#   // Match a "[", any number of non-"]", then "];"
+
+        // Remove all existing tags from the notes:
+        reservation.notes = reservation.notes?.replacingOccurrences(of: tagPattern, with: "", options: .regularExpression)
+        
+        // Optionally, remove trailing whitespace and add one space (if you need it)
+        reservation.notes = (reservation.notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "") + " "
+        
+        // Determine the new tag to add based on selectedStatus.
+        var newTag: String = ""
+        switch reservation.status {
+            case .canceled: newTag = "[cancellazione];"
+            case .noShow: newTag = "[no show];"
+            case .pending: newTag = "[in attesa];"
+            case .showedUp: newTag = "[arrivati];"
+            case .late: newTag = "[in ritardo];"
+            case .na: newTag = ""
+            }
+        switch reservation.acceptance {
+            case .confirmed: newTag = "[confermata];"
+            case .toConfirm: newTag = "[da confermare];"
+            }
+        switch reservation.reservationType {
+            case .inAdvance: newTag = "[prenotata];"
+            case .walkIn: newTag = "[walk-in];"
+            case .waitingList: newTag = "[waiting list];"
+
+            }
+        
+        // Append the new tag.
+        
+        reservation.notes! += newTag
     }
 
     private func validateInputs() -> Bool {
         if reservation.name.trimmingCharacters(in: .whitespaces).isEmpty {
-            alertMessage = "Name cannot be empty."
-            showAlert = true
+            activeAlert = .error("Il nome non può essere lasciato vuoto.")
             return false
         }
         if reservation.phone.trimmingCharacters(in: .whitespaces).isEmpty {
-            alertMessage = "Phone cannot be empty."
-            showAlert = true
+            activeAlert = .error("Il contatto non può essere lasciato vuoto.")
             return false
         }
         return true
@@ -173,9 +313,9 @@ struct EditReservationView: View {
     }
 
     private func loadInitialDate() {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd/MM/yyyy"
-        selectedDate = formatter.date(from: reservation.dateString) ?? Date()
+        selectedDate = DateHelper.parseDate(reservation.dateString) ?? Date()
+        print("Selected date: \(selectedDate)")
+
     }
 
    

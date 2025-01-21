@@ -17,7 +17,7 @@ struct ReservationInfoCard: View {
     var body: some View {
         if let reservation = store.reservations.first(where: { $0.id == reservationID }) {
             
-            VStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .center, spacing: 20) {
                 Text("Dettagli Prenotazione")
                     .font(.headline)
                     .padding()
@@ -48,7 +48,8 @@ struct ReservationInfoCard: View {
                         Text("Data:")
                             .fontWeight(.semibold)
                         Spacer()
-                        Text("\(DateHelper.dayOfWeek(for: DateHelper.parseFullDate(reservation.dateString) ?? Calendar.current.startOfDay(for: Date()))) - \(DateHelper.parseFullDate(reservation.dateString))")
+                        Text("\(DateHelper.dayOfWeek(for: DateHelper.parseDate(reservation.dateString) ?? Calendar.current.startOfDay(for: Date())))\n\(DateHelper.formatFullDate(DateHelper.parseDate(reservation.dateString) ?? Date()))")
+                            .multilineTextAlignment(.trailing)
                     }
                     .padding(.horizontal)
                     
@@ -57,6 +58,14 @@ struct ReservationInfoCard: View {
                             .fontWeight(.semibold)
                         Spacer()
                         Text("\(reservation.startTime) - \(reservation.endTime)")
+                    }
+                    .padding(.horizontal)
+                    
+                    HStack {
+                        Text("Tavoli:")
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text("\(reservation.tables.map(\.name).joined(separator: ", "))")
                     }
                     .padding(.horizontal)
                 }
@@ -69,7 +78,7 @@ struct ReservationInfoCard: View {
                         Text("Categoria:")
                             .fontWeight(.semibold)
                         Spacer()
-                        Text(reservation.category.rawValue.capitalized)
+                        Text(reservation.category.localized.capitalized)
                     }
                     .padding(.horizontal)
                     
@@ -77,7 +86,7 @@ struct ReservationInfoCard: View {
                         Text("Stato:")
                             .fontWeight(.semibold)
                         Spacer()
-                        Text(reservation.status.rawValue.capitalized)
+                        Text(reservation.reservationType != .waitingList ? reservation.status.localized.capitalized : "N/A")
                     }
                     .padding(.horizontal)
                     
@@ -85,7 +94,7 @@ struct ReservationInfoCard: View {
                         Text("Tipologia:")
                             .fontWeight(.semibold)
                         Spacer()
-                        Text(reservation.reservationType.rawValue.capitalized)
+                        Text(reservation.reservationType.localized.capitalized)
                     }
                     .padding(.horizontal)
                 }
@@ -107,22 +116,20 @@ struct ReservationInfoCard: View {
                 
                 HStack {// Close Button
                     Button(action: onEdit) {
-                        Text("Edit")
+                        Text("Modifica")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
-                            .padding()
                             .background(Color.clear)
                     }
-                    .padding()
-                    
+                }
+                
+                HStack {
                     Button(action: onClose) {
-                        Text("Close")
+                        Text("Chiudi")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
-                            .padding()
                             .background(Color.clear)
                     }
-                    .padding()
                 }
             }
             .padding()

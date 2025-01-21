@@ -71,7 +71,9 @@ class ReservationService: ObservableObject {
                oldReservation.tables.forEach { self.layoutServices.unmarkTable($0) }
 
                self.store.reservations[reservationIndex] = updatedReservation
-               updatedReservation.tables.forEach { self.layoutServices.markTable($0, occupied: true) }
+               if updatedReservation.tables != [] {
+                   updatedReservation.tables.forEach { self.layoutServices.markTable($0, occupied: true) }
+               }
                self.invalidateClusterCache(for: updatedReservation)
                self.store.reservations = self.store.reservations
 
@@ -209,8 +211,9 @@ class ReservationService: ObservableObject {
         print("DEBUG: Input time components: \(inputTimeComponents)")
               
         for reservation in reservationsForDate {
-            print("\nDEBUG: Checking reservation: \(reservation)")
+            print("\nDEBUG: Checking reservation: \(reservation.name)")
 
+            guard reservation.reservationType != .waitingList else { continue }
             // Parse startTime and endTime of the reservation
             guard let startTime = DateHelper.parseTime(reservation.startTime),
                   let endTime = DateHelper.parseTime(reservation.endTime),
@@ -494,7 +497,9 @@ extension ReservationService {
 
 
                 await MainActor.run {
-                    if let assignedTables = self.layoutServices.assignTables(for: reservation, selectedTableID: nil) {
+                let assignmentResult = self.layoutServices.assignTables(for: reservation, selectedTableID: nil)
+                    switch assignmentResult {
+                    case .success(let assignedTables):
                         var updatedReservation = reservation
                         updatedReservation.tables = assignedTables
                         
@@ -519,6 +524,21 @@ extension ReservationService {
                             self.store.reservations.append(updatedReservation)
                             print("Generated reservation: \(updatedReservation)")
                         }
+                    case .failure(let error):
+                        // Show an alert message based on `error`.
+                        switch error {
+                        case .noTablesLeft:
+                             print("Non ci sono tavoli disponibili.")
+                        case .insufficientTables:
+                            print("Non ci sono abbastanza tavoli per la prenotazione.")
+                        case .tableNotFound:
+                            print("Tavolo selezionato non trovato.")
+                        case .tableLocked:
+                            print("Il tavolo scelto è occupato o bloccato.")
+                        case .unknown:
+                            print("Errore sconosciuto.")
+                        }
+                        
                 }
                     
                 
@@ -562,7 +582,7 @@ extension ReservationService {
     }
     
     func loadStringsFromFile(fileName: String, folder: String? = nil) -> [String] {
-        let resourceName = folder != nil ? "\(folder)/\(fileName)" : fileName
+        let resourceName = folder != nil ? "\(String(describing: folder))/\(fileName)" : fileName
         guard let fileURL = Bundle.main.url(forResource: resourceName, withExtension: "txt") else {
             print("Failed to load \(fileName) from folder \(String(describing: folder)).")
             return []

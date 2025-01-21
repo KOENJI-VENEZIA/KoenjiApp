@@ -71,7 +71,7 @@ struct ClusterView: View {
             .bold()
             .font(.headline)
             .foregroundStyle(.white)
-          Text("\(cluster.reservationID.numberOfPersons) pers.")
+          Text("\(cluster.reservationID.numberOfPersons) p.")
             .font(.footnote)
             .foregroundStyle(.white)
             .opacity(0.8)
