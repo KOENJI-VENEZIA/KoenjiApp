@@ -20,5 +20,6 @@ struct DatePickerView: View {
                 )
                 .datePickerStyle(GraphicalDatePickerStyle())
                 .labelsHidden()
+                
     }
 }

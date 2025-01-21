@@ -285,6 +285,11 @@ struct LayoutPageView: View {
         }
         .onChange(of: selectedDate) { old, newDate in
             reloadLayout(selectedCategory, activeReservations)
+            let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
+            clusterManager.recalculateClustersIfNeeded(
+                for: activeReservations, tables: layoutUI.tables, combinedDate: newDate,
+                oldCategory: selectedCategory,
+                selectedCategory: selectedCategory, cellSize: gridData.cellSize)
 
         }
         .onChange(of: showingEditReservation) { old, newValue in

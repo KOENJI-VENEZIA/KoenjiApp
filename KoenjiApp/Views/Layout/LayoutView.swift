@@ -23,6 +23,8 @@ struct LayoutView: View {
     // Dynamic Dates Array
     @State private var dates: [Date] = []
     @State private var selectedIndex: Int = 15  // Start in the middle of the dates array
+    @State private var selectedDate: Date = Date()
+
 
     // Filters
     @Binding var selectedCategory: Reservation.ReservationCategory?
@@ -89,19 +91,6 @@ struct LayoutView: View {
     var body: some View {
         GeometryReader { geometry in
 
-            let selectedDate = dates[safe: selectedIndex] ?? Date()
-            let selectedDateBinding = Binding<Date>(
-                get: {
-                    // Safely retrieve the date at selectedIndex, or default to Date()
-                    dates.indices.contains(selectedIndex) ? dates[selectedIndex] : Date()
-                },
-                set: { newDate in
-                    // Update the date at selectedIndex if it's within bounds.
-                    if dates.indices.contains(selectedIndex) {
-                        dates[selectedIndex] = newDate
-                    }
-                }
-            )
             
             ZStack {
                 CardSwapView(selectedIndex: $selectedIndex, navigationDirection: navigationDirection) {
@@ -150,7 +139,7 @@ struct LayoutView: View {
                             .opacity(toolbarState == .overlay ? 0.5 : 1.0)
 
                         // MARK: Toolbar Content
-                        toolbarContent(in: geometry, selectedDate: selectedDateBinding)
+                        toolbarContent(in: geometry, selectedDate: $selectedDate)
                     }
                     .ignoresSafeArea(.keyboard)
                     .position(isDragging ? dragAmount ?? calculatePosition(geometry: geometry) : calculatePosition(geometry: geometry))
@@ -244,8 +233,6 @@ struct LayoutView: View {
                 )
             }
             .sheet(item: $currentReservation) { reservation in
-                let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
-                
                 EditReservationView(
                     reservation: reservation,
                     onClose: {
@@ -297,6 +284,10 @@ struct LayoutView: View {
                 if !newValue {
                     selectedReservation = nil
                 }
+            }
+            .onChange(of: selectedDate) { old, newDate in
+                // This is your existing logic to handle expansions
+                updateDatesAroundSelectedDate(newDate)
             }
             .onReceive(timerManager.$currentDate) { newTime in
                 if !isManuallyOverridden {
@@ -593,6 +584,12 @@ struct LayoutView: View {
 
         // Generate date array
         dates = generateInitialDates()
+        
+        if let defaultDate = dates[safe: selectedIndex] {
+            selectedDate = defaultDate
+        } else {
+            selectedDate = Date()
+        }
 
         print(
             "Initialized with currentTime: \(currentTime), selectedCategory: \(selectedCategory?.rawValue ?? "None")"
@@ -610,14 +607,15 @@ struct LayoutView: View {
     private func handleSelectedIndexChange() {
 
         // Explicitly set and log current time
-        let newDate = dates[safe: selectedIndex] ?? Date()
-        guard let combinedTime = DateHelper.normalizedTime(time: currentTime, date: newDate) else {
-            return
+        if let newDate = dates[safe: selectedIndex], let combinedTime = DateHelper.normalizedTime(time: currentTime, date: newDate) {
+            selectedDate = newDate
+            currentTime = combinedTime
+
         }
-        currentTime = combinedTime
+
 
         print(
-            "Selected index changed to \(selectedIndex), date: \(DateHelper.formatFullDate(newDate))"
+            "Selected index changed to \(selectedIndex), date: \(DateHelper.formatFullDate(selectedDate))"
         )
 
         // Handle progressive date loading
@@ -928,26 +926,29 @@ struct LayoutView: View {
     }
 
     private func updateDatesAroundSelectedDate(_ newDate: Date) {
-        if let newIndex = dates.firstIndex(where: {
-            Calendar.current.isDate($0, inSameDayAs: newDate)
-        }) {
-            withAnimation {
-                selectedIndex = newIndex
-            }
-            handleSelectedIndexChange()
-        } else {
-            // Regenerate the dates array centered around the newDate
-            dates = generateDatesCenteredAround(newDate)
+            // If newDate is in the array, pick that index
             if let newIndex = dates.firstIndex(where: {
                 Calendar.current.isDate($0, inSameDayAs: newDate)
             }) {
                 withAnimation {
                     selectedIndex = newIndex
                 }
+                // Possibly call handleSelectedIndexChange
                 handleSelectedIndexChange()
+            } else {
+                // Re-generate the array around newDate
+                dates = generateDatesCenteredAround(newDate)
+                // Now find the newIndex
+                if let newIndex = dates.firstIndex(where: {
+                    Calendar.current.isDate($0, inSameDayAs: newDate)
+                }) {
+                    withAnimation {
+                        selectedIndex = newIndex
+                    }
+                    handleSelectedIndexChange()
+                }
             }
         }
-    }
 
     private func generateDatesCenteredAround(_ centerDate: Date, range: Int = 15) -> [Date] {
         let calendar = Calendar.current
