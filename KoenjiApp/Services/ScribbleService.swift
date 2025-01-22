@@ -11,6 +11,7 @@ import PencilKit
 class ScribbleService: ObservableObject {
     private let layoutServices: LayoutServices
     @Published var cachedScribbles: [String: [String: PKDrawing]] = [:]
+    private let scribbleQueue = DispatchQueue(label: "com.koenjiapp.scribbleQueue")
 
     init(layoutServices: LayoutServices) {
         self.layoutServices = layoutServices
@@ -19,19 +20,43 @@ class ScribbleService: ObservableObject {
 
     // MARK: - Save Scribble
     func saveDrawing(_ drawing: PKDrawing, for key: String, layer: String) {
-        if cachedScribbles[key] == nil {
-            cachedScribbles[key] = [:]
+        if !validateDrawingData(drawing) {
+            print("Invalid drawing detected; skipping save.")
+            return
         }
-        cachedScribbles[key]?[layer] = drawing
-        saveToDisk() // Persist the updated scribbles
+        scribbleQueue.sync {
+            
+            if cachedScribbles[key] == nil {
+                cachedScribbles[key] = [:]
+            }
+            cachedScribbles[key]?[layer] = drawing
+            saveToDisk()
+        }
     }
 
     // MARK: - Load Scribble
     func loadDrawing(for key: String, layer: String) -> PKDrawing? {
-        return cachedScribbles[key]?[layer]
+        return scribbleQueue.sync {
+            return cachedScribbles[key]?[layer]
+        }
     }
 
     // MARK: - Disk Persistence
+    
+    func validateDrawingData(_ drawing: PKDrawing) -> Bool {
+        do {
+            let data = try drawing.dataRepresentation()
+            guard let decodedDrawing = try? PKDrawing(data: data) else {
+                print("Failed to decode drawing from data.")
+                return false
+            }
+            return decodedDrawing == drawing
+        } catch {
+            print("Error during validation: \(error)")
+            return false
+        }
+    }
+    
     private func saveToDisk() {
         let encoder = JSONEncoder()
         do {
@@ -54,7 +79,11 @@ class ScribbleService: ObservableObject {
                 cachedScribbles = try decoded.mapValues { layers in
                     try layers.mapValues { value in
                         guard let data = Data(base64Encoded: value) else { throw NSError() }
-                        return try PKDrawing(data: data)
+                        guard let drawing = try? PKDrawing(data: data) else {
+                            print("Invalid drawing data for layer: \(value)")
+                            return PKDrawing() // Fallback to an empty drawing
+                        }
+                        return drawing
                     }
                 }
                 print("Scribbles loaded successfully: \(cachedScribbles.keys)")
@@ -75,6 +104,9 @@ class ScribbleService: ObservableObject {
         
         // Load layer 2 or use an empty drawing
         drawingModel.layer2 = loadDrawing(for: layoutKey, layer: "layer2") ?? PKDrawing()
+        
+        drawingModel.layer3 = loadDrawing(for: layoutKey, layer: "layer3") ?? PKDrawing()
+
 
         return drawingModel
     }

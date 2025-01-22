@@ -20,10 +20,10 @@ struct SidebarView: View {
     @Binding  var currentReservation: Reservation?
     @Binding  var selectedCategory: Reservation.ReservationCategory? 
 
-
     
     var body: some View {
         
+
         let scribbleService = ScribbleService(layoutServices: layoutServices)
         
         ZStack {

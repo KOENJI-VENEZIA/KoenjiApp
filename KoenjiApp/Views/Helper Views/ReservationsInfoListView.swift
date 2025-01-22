@@ -60,11 +60,12 @@ struct ReservationsInfoListView: View {
                                 )
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                     Button {
-                                        handleDelete(reservation)
+                                        handleCancelled(reservation)
+                                        onCancelled(reservation)
                                     } label: {
-                                        Label("Elimina", systemImage: "trash")
+                                        Label("Cancellazione", systemImage: "x.circle.fill")
                                     }
-                                    .tint(.red)
+                                    .tint(Color(hex: "#5c140f"))
                                     
                                     Button {
                                         markReservationStatus(reservation)
@@ -79,15 +80,6 @@ struct ReservationsInfoListView: View {
                                         Label("Mostra", systemImage: "arrowshape.turn.up.backward.badge.clock.fill")
                                     }
                                     .tint(.indigo)
-                                }
-                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                                    Button {
-                                        handleCancelled(reservation)
-                                        onCancelled(reservation)
-                                    } label: {
-                                        Label("Cancellazione", systemImage: "x.circle.fill")
-                                    }
-                                    .tint(Color(hex: "#5c140f"))
                                 }
                                 .listRowSeparator(.visible) // Ensure dividers are visible
                                 .listRowSeparatorTint(Color.white, edges: .bottom) // Customize divider color

@@ -50,6 +50,7 @@ struct LayoutPageView: View {
     @Binding var isLayoutLocked: Bool
     @Binding var isLayoutReset: Bool
     @Binding var isScribbleModeEnabled: Bool
+    @Binding var toolPickerShows: Bool
 
     var onFetchedReservations: ([Reservation]) -> Void
 
@@ -63,8 +64,6 @@ struct LayoutPageView: View {
     @State private var lastFetchedCount: Int = 0
     @State private var pendingClusterUpdate: DispatchWorkItem?
     @State private var statusChanged: Int = 0
-
-    @StateObject var exclusionAreaModel = ExclusionAreaModel()
 
     // MARK: - Computed Properties
     private var isCompact: Bool {
@@ -115,6 +114,7 @@ struct LayoutPageView: View {
         isLayoutLocked: Binding<Bool>,
         isLayoutReset: Binding<Bool>,
         isScribbleModeEnabled: Binding<Bool>,
+        toolPickerShows: Binding<Bool>,
         onFetchedReservations: @escaping ([Reservation]) -> Void
     ) {
         // Assign parameters to properties
@@ -132,6 +132,7 @@ struct LayoutPageView: View {
         self._isLayoutLocked = isLayoutLocked
         self._isLayoutReset = isLayoutReset
         self._isScribbleModeEnabled = isScribbleModeEnabled
+        self._toolPickerShows = toolPickerShows
         self.onFetchedReservations = onFetchedReservations
 
         // Initialize StateObjects
@@ -147,174 +148,132 @@ struct LayoutPageView: View {
     var body: some View {
         GeometryReader { geometry in
 
-            ZStack {
+                ZoomableScrollView(
+                    state: zoomableState,
+                    category: .constant(selectedCategory),
+                    scale: $scale
+                ) {
 
-//                PencilKitCanvas(
-//                    zoomableState: zoomableState,
-//                    layer: .layer1,
-//                    gridWidth: nil,
-//                    gridHeight: nil,
-//                    canvasSize: nil,
-//                    isEditable: isScribbleModeEnabled
-//                )
-//                .environmentObject(currentDrawing)
-//                .environmentObject(exclusionAreaModel)
-//                .background(Color.clear)
-//                .zIndex(3)
-//                .blendMode(.overlay) // This renders the view behind what's already rendered (if configured correctly)
-//                .frame(width: geometry.size.width, height: geometry.size.height)
+                    Text(
+                        "\(DateHelper.dayOfWeek(for: selectedDate)), \(DateHelper.formatFullDate(selectedDate)) - \(selectedCategory.localized.uppercased()) - \(DateHelper.formatTime(currentTime))"
+                    )
+                    .font(.system(size: 28, weight: .bold))
+                    .padding(.top, 16)
+                    .padding(.horizontal, 16)
 
-//                TouchDebugView()
-//                    .background(Color.clear)
-//                    .zIndex(1)
-                
-//                GeometryReader { scrollGeo in
-                    ZoomableScrollView(
-                        state: zoomableState,
-                        category: .constant(selectedCategory),
-                        scale: $scale
-                    ) {
+                    ZStack {
+                        gridData.gridBackground(selectedCategory: selectedCategory)
+                            .background(backgroundColor)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                        Text(
-                            "\(DateHelper.dayOfWeek(for: selectedDate)), \(DateHelper.formatFullDate(selectedDate)) - \(selectedCategory.localized.uppercased()) - \(DateHelper.formatTime(currentTime))"
-                        )
-                        .font(.system(size: 28, weight: .bold))
-                        .padding(.top, 16)
-                        .padding(.horizontal, 16)
+                        RoundedRectangle(cornerRadius: 12.0)
+                            .stroke(style: StrokeStyle(lineWidth: 2, dash: [5]))
 
-                        ZStack {
-                            gridData.gridBackground(selectedCategory: selectedCategory)
-                                .background(backgroundColor)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        if isLoading {
+                            ZStack {
+                                loadingView
 
-                            RoundedRectangle(cornerRadius: 12.0)
-                                .stroke(style: StrokeStyle(lineWidth: 2, dash: [5]))
+                                Text("Caricamento...")
+                                    .foregroundColor(Color.gray.opacity(0.8))
+                                    .font(.headline)
+                                    .padding(20)
+                                    .background(Color.white.opacity(0.3))
+                                    .cornerRadius(12)
+                                    .frame(width: gridWidth / 2, height: gridHeight / 2)
+                                    .position(
+                                        x: gridWidth / 2, y: gridHeight / 2 - gridData.cellSize)
+                            }
 
-                            if isLoading {
-                                ZStack {
-                                    loadingView
-
-                                    Text("Caricamento...")
-                                        .foregroundColor(Color.gray.opacity(0.8))
-                                        .font(.headline)
-                                        .padding(20)
-                                        .background(Color.white.opacity(0.3))
-                                        .cornerRadius(12)
-                                        .frame(width: gridWidth / 2, height: gridHeight / 2)
-                                        .position(
-                                            x: gridWidth / 2, y: gridHeight / 2 - gridData.cellSize)
-                                }
-
-                            } else {
-                                // Individual tables
-                                ForEach(layoutUI.tables, id: \.id) { table in
-                                    TableView(
-                                        table: table,
-                                        selectedDate: selectedDate,
-                                        selectedCategory: selectedCategory,
-                                        currentTime: currentTime,
-                                        activeReservations: activeReservations,
-                                        changedReservation: $changedReservation,
-                                        isEditing: $showingEditReservation,
-                                        layoutUI: layoutUI,
-                                        onTapEmpty: { table in
-                                            handleEmptyTableTap(for: table)
-                                        },
-                                        onStatusChange: {
-                                            statusChanged += 1
-                                        },
-                                        showInspector: $showInspector,
-                                        onEditReservation: { reservation in
-                                            selectedReservation = reservation
-                                        },
-                                        isLayoutLocked: isLayoutLocked,
-                                        isLayoutReset: $isLayoutReset,
-                                        animationNamespace: animationNamespace,
-                                        onTableUpdated: { updatedTable in
-                                            self.onTableUpdated(updatedTable)
-                                        }
-                                    )
-                                    .environmentObject(store)
-                                    .environmentObject(tableStore)
-                                    .environmentObject(reservationService)  // For the new service
-                                    .environmentObject(clusterServices)
-                                    .environmentObject(layoutServices)
-                                    .environmentObject(gridData)
-                                    .transition(.opacity)  // Fade in/out transition
-
-                                    if clusterManager.clusters.isEmpty && !isLoadingClusters {
-                                    } else if isLoadingClusters {
-                                        ProgressView("Loading Clusters...")
-                                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    } else {
-                                        // Reservation clusters overlay
-                                        ForEach(clusterManager.clusters) { cluster in
-                                            let overlayFrame = cluster.frame
-
-                                            ClusterView(
-                                                cluster: cluster,
-                                                overlayFrame: overlayFrame,
-                                                currentTime: $currentTime,
-                                                isLayoutLocked: $isLayoutLocked,
-                                                isLunch: isLunch
-                                            )
-                                        }
+                        } else {
+                            // Individual tables
+                            ForEach(layoutUI.tables, id: \.id) { table in
+                                TableView(
+                                    table: table,
+                                    selectedDate: selectedDate,
+                                    selectedCategory: selectedCategory,
+                                    currentTime: currentTime,
+                                    activeReservations: activeReservations,
+                                    changedReservation: $changedReservation,
+                                    isEditing: $showingEditReservation,
+                                    layoutUI: layoutUI,
+                                    onTapEmpty: { table in
+                                        handleEmptyTableTap(for: table)
+                                    },
+                                    onStatusChange: {
+                                        statusChanged += 1
+                                    },
+                                    showInspector: $showInspector,
+                                    onEditReservation: { reservation in
+                                        selectedReservation = reservation
+                                    },
+                                    isLayoutLocked: isLayoutLocked,
+                                    isLayoutReset: $isLayoutReset,
+                                    animationNamespace: animationNamespace,
+                                    onTableUpdated: { updatedTable in
+                                        self.onTableUpdated(updatedTable)
                                     }
-                                }
+                                )
+                                .environmentObject(store)
+                                .environmentObject(tableStore)
+                                .environmentObject(reservationService)  // For the new service
+                                .environmentObject(clusterServices)
+                                .environmentObject(layoutServices)
+                                .environmentObject(gridData)
+                                .transition(.opacity)  // Fade in/out transition
 
-                                ForEach(clusterManager.clusters) { cluster in
-                                    ClusterOverlayView(cluster: cluster, currentTime: currentTime)
-                                        .zIndex(2)
-                                        .gesture(
-                                            TapGesture(count: 1).onEnded {
-                                                handleTap(activeReservations, cluster.reservationID)
-                                            }
+                                if clusterManager.clusters.isEmpty && !isLoadingClusters {
+                                } else if isLoadingClusters {
+                                    ProgressView("Loading Clusters...")
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                } else {
+                                    // Reservation clusters overlay
+                                    ForEach(clusterManager.clusters) { cluster in
+                                        let overlayFrame = cluster.frame
+
+                                        ClusterView(
+                                            cluster: cluster,
+                                            overlayFrame: overlayFrame,
+                                            currentTime: $currentTime,
+                                            isLayoutLocked: $isLayoutLocked,
+                                            isLunch: isLunch
                                         )
+                                    }
                                 }
                             }
 
-                            PencilKitCanvas(
-                                zoomableState: zoomableState,
-                                layer: .layer2,
-                                gridWidth: gridWidth,
-                                gridHeight: gridHeight,
-                                canvasSize: CGSize(width: gridWidth, height: gridHeight),
-                                isEditable: isScribbleModeEnabled
-                            )
-                            .environmentObject(currentDrawing)
-                            .environmentObject(sharedToolPicker)
-                            .background(Color.clear)
-
-                            .zIndex(2)
-                            .frame(width: gridWidth, height: gridHeight)
-                            //                            .frame(width: gridWidth, height: gridHeight)
+                            ForEach(clusterManager.clusters) { cluster in
+                                ClusterOverlayView(cluster: cluster, currentTime: currentTime)
+                                    .zIndex(2)
+                                    .gesture(
+                                        TapGesture(count: 1).onEnded {
+                                            handleTap(activeReservations, cluster.reservationID)
+                                        }
+                                    )
+                            }
                         }
-                        .transition(.opacity)  // Fade in/out transition
 
+                        PencilKitCanvas(
+                            zoomableState: zoomableState,
+                            toolPickerShows: $toolPickerShows,
+                            layer: .layer2,
+                            gridWidth: gridWidth,
+                            gridHeight: gridHeight,
+                            canvasSize: CGSize(width: gridWidth, height: gridHeight),
+                            isEditable: isScribbleModeEnabled
+                        )
+                        .environmentObject(currentDrawing)
+                        .environmentObject(sharedToolPicker)
+                        .background(Color.clear)
+
+                        .zIndex(2)
                         .frame(width: gridWidth, height: gridHeight)
+                        //                            .frame(width: gridWidth, height: gridHeight)
+                    }
+                    .transition(.opacity)  // Fade in/out transition
 
-//                    }
-//                    .zIndex(0)
-//                    .background(Color.clear)  // Ensure ZoomableScrollView allows transparency
-//                    .onAppear {
-//                        let scrollGlobalFrame = scrollGeo.frame(in: .global)
-//                        let parentGlobalFrame = geometry.frame(in: .global)
-//
-//                        let localFrame = CGRect(
-//                            x: scrollGlobalFrame.minX - parentGlobalFrame.minX,
-//                            y: scrollGlobalFrame.minY - parentGlobalFrame.minY,
-//                            width: scrollGlobalFrame.width,
-//                            height: scrollGlobalFrame.height
-//                        )
-//
-//                        // Update exclusion area if it changes
-//                        if exclusionAreaModel.exclusionRect != localFrame {
-//                            exclusionAreaModel.exclusionRect = localFrame
-//                        }
-//                    }
+                    .frame(width: gridWidth, height: gridHeight)
                 }
 
-            }
         }
 
         .onAppear {
@@ -465,9 +424,15 @@ struct LayoutPageView: View {
         layoutUI.tables = layoutServices.loadTables(for: combinedDate, category: selectedCategory)
         let newDrawingModel = scribbleService.reloadDrawings(
             for: combinedDate, category: selectedCategory)
+        
         currentDrawing.layer1 = newDrawingModel.layer1
         currentDrawing.layer2 = newDrawingModel.layer2
+        currentDrawing.layer3 = newDrawingModel.layer3
 
+        print("Layer 1: \(currentDrawing.layer1.strokes.count) strokes")
+        print("Layer 2: \(currentDrawing.layer2.strokes.count) strokes")
+        print("Layer 3: \(currentDrawing.layer3.strokes.count) strokes")
+        
         clusterManager.recalculateClustersIfNeeded(
             for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
             oldCategory: selectedCategory,
@@ -534,11 +499,12 @@ struct LayoutPageView: View {
             clusterManager.clusters = clusterServices.loadClusters(
                 for: combinedDate, category: determinedCategory)
         }
-
+        
         let newDrawingModel = scribbleService.reloadDrawings(
-            for: combinedDate, category: selectedCategory)
-        currentDrawing.layer1 = newDrawingModel.layer1
-        currentDrawing.layer2 = newDrawingModel.layer2
+                   for: combinedDate, category: selectedCategory)
+               currentDrawing.layer1 = newDrawingModel.layer1
+               currentDrawing.layer2 = newDrawingModel.layer2
+        currentDrawing.layer3 = newDrawingModel.layer3
 
         onFetchedReservations(activeReservations)
 

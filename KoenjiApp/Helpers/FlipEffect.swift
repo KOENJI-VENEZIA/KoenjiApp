@@ -20,7 +20,7 @@ struct FlipEffect: AnimatableModifier {
     func body(content: Content) -> some View {
         // When the rotation exceeds 90°, you might choose to hide content behind the flip
         content
-            .opacity(rotation > 90 && rotation < 270 ? 0 : 1)
+            .opacity(rotation > 10 && rotation < 350 ? 0 : 1)
             .rotation3DEffect(.degrees(rotation), axis: axis)
     }
 }

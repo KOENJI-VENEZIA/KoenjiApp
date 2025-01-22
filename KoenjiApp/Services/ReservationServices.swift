@@ -16,6 +16,7 @@ class ReservationService: ObservableObject {
     private let clusterServices: ClusterServices
     private let tableStore: TableStore
     private let layoutServices: LayoutServices
+    
 
     private let tableAssignmentService: TableAssignmentService
 

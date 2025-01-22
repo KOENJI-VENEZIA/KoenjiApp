@@ -59,8 +59,6 @@ struct ReservationWaitingListView: View {
                                         Label("Elimina", systemImage: "trash")
                                     }
                                     .tint(.red)
-                                }
-                                .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                     Button {
                                         handleConfirm(reservation)
                                         onConfirm(reservation)

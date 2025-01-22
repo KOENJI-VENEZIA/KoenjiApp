@@ -5,8 +5,8 @@
 //  Created by Matteo Nassini on 24/12/24.
 //
 
-import SwiftUI
 import PencilKit
+import SwiftUI
 
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
@@ -17,7 +17,6 @@ struct LayoutView: View {
     @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var scribbleService: ScribbleService
-
 
     @Environment(\.locale) var locale
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
@@ -73,34 +72,31 @@ struct LayoutView: View {
     @State private var isToolbarVisible: Bool = true
     @State private var lastPinnedPosition: CGPoint = .zero
     @State private var overlayOrientation: OverlayOrientation = .horizontal
-    var lastPinnedSide: ToolbarState = .pinnedLeft // track last pinned
+    var lastPinnedSide: ToolbarState = .pinnedLeft  // track last pinned
 
     // Drawing mode
-    @State private var isScribbleModeEnabled = false
+    @State private var isScribbleModeEnabled: Bool = false
     @State private var drawings: [String: PKDrawing] = [:]
     @StateObject private var currentDrawing = DrawingModel()
     @StateObject private var zoomableState = ZoomableScrollViewState()
+    @State private var toolPickerShows = false
     @StateObject var sharedToolPicker = SharedToolPicker(window: UIApplication.shared.windows.first)
+    
+    
+    @Environment(\.scenePhase) private var scenePhase
+    @State var refreshID = UUID()
 
     @State private var scale: CGFloat = 1
 
     var body: some View {
-        
+
         GeometryReader { geometry in
 
-            let fullRect = CGRect(origin: .zero, size: geometry.size)
-            let holeRect = CGRect(
-                            x: geometry.size.width / 2,
-                            y: geometry.size.height / 2,
-                            width: gridWidth,
-                            height: gridHeight
-                        )
             ZStack {
                 
-                
-                
-                
-                CardSwapView(selectedIndex: $selectedIndex, navigationDirection: navigationDirection) {
+                CardSwapView(
+                    selectedIndex: $selectedIndex, navigationDirection: navigationDirection
+                ) {
                     LayoutPageView(
                         scale: $scale,
                         selectedDate: selectedDate,
@@ -116,6 +112,7 @@ struct LayoutView: View {
                         isLayoutLocked: $isLayoutLocked,
                         isLayoutReset: $isLayoutReset,
                         isScribbleModeEnabled: $isScribbleModeEnabled,
+                        toolPickerShows: $toolPickerShows,
                         onFetchedReservations: { newActiveReservations in
                             activeReservations = newActiveReservations
                         }
@@ -131,12 +128,11 @@ struct LayoutView: View {
                     .environmentObject(sharedToolPicker)
                     .id(selectedIndex)  // Force view refresh on index change
                 }
-                //                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
                 
-
                 if scale <= 1 {
                     PencilKitCanvas(
                         zoomableState: zoomableState,
+                        toolPickerShows: $toolPickerShows,
                         layer: .layer1,
                         gridWidth: nil,
                         gridHeight: nil,
@@ -145,78 +141,94 @@ struct LayoutView: View {
                     )
                     .environmentObject(currentDrawing)
                     .environmentObject(sharedToolPicker)
-                    .frame(width: (geometry.size.width - gridWidth), height: geometry.size.height)
+                    .frame(width: abs(geometry.size.width - gridWidth), height: geometry.size.height)
                     .position(x: geometry.size.width, y: geometry.size.height / 2)
-                }
-//                .mask(
-//                    InverseRectangleMask(fullRect: fullRect, holeRect: holeRect)
-//                )
-
-//                TouchBlocker(holeRect: holeRect, geometrySize: geometry.size)
-            
-               
-                
-                
-
-                
-                if isToolbarVisible {
-                    ZStack {
-                        // MARK: Background (RoundedRectangle)
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.thinMaterial)
-                            .frame(
-                                width: toolbarState != .pinnedBottom
-                                     ? 80   // 20% of the available width (you can tweak the factor)
-                                     : geometry.size.width * 0.9,  // 90% of the available width when pinned bottom
-                                height: toolbarState != .pinnedBottom
-                                     ? geometry.size.height * 0.9  // 90% of the available height when vertical
-                                     : 80  // 15% of the available height when horizontal
-                            )
-                            .scaleEffect(toolbarState == .overlay ? 1.25 : 1.0, anchor: .center)
-                            .opacity(toolbarState == .overlay ? 0.5 : 1.0)
-
-                        // MARK: Toolbar Content
-                        toolbarContent(in: geometry, selectedDate: $selectedDate)
-                    }
-                    .ignoresSafeArea(.keyboard)
-                    .position(isDragging ? dragAmount ?? calculatePosition(geometry: geometry) : calculatePosition(geometry: geometry))
-                    .animation(isDragging ? .none : .spring(), value: isDragging)
-                    .transition(transitionForCurrentState(geometry: geometry))
-                    .gesture(
-                        toolbarGesture(in: geometry)
-                    )
                     
-                }
-                else {
-                    // 2) Show a handle if hidden, positioned based on the last pinned side
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(.thinMaterial)
-                            .frame(width: 90, height: 90)
-                        
-                        Image(systemName: "slider.horizontal.3")
-                            .resizable()
-                            .scaledToFit()
-                            .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
-                            .frame(width: 50, height: 50)
-                    }
-                    .ignoresSafeArea(.keyboard)
-                    .position(isDragging ? dragAmount ?? calculatePosition(geometry: geometry) : calculatePosition(geometry: geometry)) // depends on pinned side
-                    .animation(isDragging ? .none : .spring(), value: isDragging)
-                    .transition(transitionForCurrentState(geometry: geometry))
-                    .gesture(
-                        TapGesture()
-                            .onEnded {
-                                withAnimation {
-                                    isToolbarVisible = true
-                                }
-                            }
+                    PencilKitCanvas(
+                        zoomableState: zoomableState,
+                        toolPickerShows: $toolPickerShows,
+                        layer: .layer3,
+                        gridWidth: nil,
+                        gridHeight: nil,
+                        canvasSize: nil,
+                        isEditable: isScribbleModeEnabled
                     )
-                    .simultaneousGesture(
-                        toolbarGesture(in: geometry)
-                    )
+                    .environmentObject(currentDrawing)
+                    .environmentObject(sharedToolPicker)
+                    .frame(width: abs(geometry.size.width - gridWidth), height: geometry.size.height)
+                    .position(x: 0, y: geometry.size.height / 2)
                 }
                 
+                
+                if !isScribbleModeEnabled {
+                    if isToolbarVisible {
+                        ZStack {
+                            // MARK: Background (RoundedRectangle)
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.thinMaterial)
+                                .frame(
+                                    width: toolbarState != .pinnedBottom
+                                    ? 80  // 20% of the available width (you can tweak the factor)
+                                    : geometry.size.width * 0.9,  // 90% of the available width when pinned bottom
+                                    height: toolbarState != .pinnedBottom
+                                    ? geometry.size.height * 0.9  // 90% of the available height when vertical
+                                    : 80  // 15% of the available height when horizontal
+                                )
+                                .scaleEffect(toolbarState == .overlay ? 1.25 : 1.0, anchor: .center)
+                                .opacity(toolbarState == .overlay ? 0.5 : 1.0)
+                            
+                            // MARK: Toolbar Content
+                            toolbarContent(in: geometry, selectedDate: $selectedDate)
+                        }
+                        .ignoresSafeArea(.keyboard)
+                        .position(
+                            isDragging
+                            ? dragAmount ?? calculatePosition(geometry: geometry)
+                            : calculatePosition(geometry: geometry)
+                        )
+                        .animation(isDragging ? .none : .spring(), value: isDragging)
+                        .transition(transitionForCurrentState(geometry: geometry))
+                        .gesture(
+                            toolbarGesture(in: geometry)
+                        )
+                        
+                    } else {
+                        // 2) Show a handle if hidden, positioned based on the last pinned side
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.thinMaterial)
+                                .frame(width: 90, height: 90)
+                            
+                            Image(systemName: "slider.horizontal.3")
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundStyle(
+                                    colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
+                                )
+                                .frame(width: 50, height: 50)
+                        }
+                        .ignoresSafeArea(.keyboard)
+                        .position(
+                            isDragging
+                            ? dragAmount ?? calculatePosition(geometry: geometry)
+                            : calculatePosition(geometry: geometry)
+                        )  // depends on pinned side
+                        .animation(isDragging ? .none : .spring(), value: isDragging)
+                        .transition(transitionForCurrentState(geometry: geometry))
+                        .gesture(
+                            TapGesture()
+                                .onEnded {
+                                    withAnimation {
+                                        isToolbarVisible = true
+                                    }
+                                }
+                        )
+                        .simultaneousGesture(
+                            toolbarGesture(in: geometry)
+                        )
+                    }
+                }
+
             }
             .environmentObject(sharedToolPicker)
             .ignoresSafeArea(edges: .bottom)  // Ignore only the bottom safe area
@@ -224,24 +236,32 @@ struct LayoutView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(action: {
-                            withAnimation {
-                                currentDrawing.layer1 = PKDrawing()
-                                currentDrawing.layer2 = PKDrawing()
-                            }
-                        }) {
-                            Label("Delete Current Scribble", systemImage: "trash")
+                    Button(action: {
+                        withAnimation {
+                            scribbleService.deleteAllScribbles()
+                            UserDefaults.standard.removeObject(forKey: "cachedScribbles")
+                            currentDrawing.layer1 = PKDrawing()
+                            currentDrawing.layer2 = PKDrawing()
+                            currentDrawing.layer3 = PKDrawing()
                         }
+                    }) {
+                        Label("Delete Current Scribble", systemImage: "trash")
                     }
+                    .id(refreshID)
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
-                        isScribbleModeEnabled.toggle()
+                        withAnimation {
+                            isScribbleModeEnabled.toggle()
+                            toolPickerShows.toggle()
+                        }
                     }) {
                         Label(
                             isScribbleModeEnabled ? "Exit Scribble Mode" : "Enable Scribble",
                             systemImage: isScribbleModeEnabled ? "pencil.slash" : "pencil"
                         )
                     }
+                    .id(refreshID)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     // Lock/Unlock Layout Button
@@ -249,23 +269,22 @@ struct LayoutView: View {
                         isLayoutLocked.toggle()
                         isZoomLocked.toggle()
                     }) {
-                        Image(systemName: isLayoutLocked ? "lock.fill" : "lock.open.fill")
+                        Label(isLayoutLocked ? "Unlock Layout" : "Lock Layout", systemImage: isLayoutLocked ? "lock.fill" : "lock.open.fill")
                     }
-                    .accessibilityLabel(isLayoutLocked ? "Unlock Layout" : "Lock Layout")
+                    .id(refreshID)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     // Reset Layout Button
                     Button(action: {
                         resetLayout()
                     }) {
-                        ZStack {
-                            Image(systemName: "arrow.counterclockwise.circle")
-                        }
+                            Label("Reset Layout", systemImage: "arrow.counterclockwise.circle")
                     }
-                    .accessibilityLabel("Reset Layout")
+                    .id(refreshID)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     addReservationButton
+                        .id(refreshID)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
@@ -273,9 +292,9 @@ struct LayoutView: View {
                             showInspector.toggle()
                         }
                     }) {
-                        Image(systemName: "info.circle")
+                        Label("Toggle Inspector", systemImage: "info.circle")
                     }
-                    .accessibilityLabel("Toggle Inspector")
+                    .id(refreshID)
                 }
             }
             .inspector(isPresented: $showInspector) {  // Show Inspector if a reservation is selected
@@ -326,12 +345,17 @@ struct LayoutView: View {
                 initializeView()
                 print("Current time as LayoutView appears: \(currentTime)")
             }
+            .onChange(of: scenePhase) { _, newPhase in
+                refreshID = UUID()
+            }
             .onChange(of: selectedIndex) {
                 handleSelectedIndexChange()
             }
             .onChange(of: selectedCategory) { oldCategory, newCategory in
                 handleSelectedCategoryChange(oldCategory, newCategory)
-                print("Called handleSelectedCategoryChange() from LayoutView [onChange of selectedCategory]")
+                print(
+                    "Called handleSelectedCategoryChange() from LayoutView [onChange of selectedCategory]"
+                )
                 if let category = newCategory {
                     sidebarColor = category.sidebarColor
                 }
@@ -355,7 +379,7 @@ struct LayoutView: View {
             }
             .onReceive(timerManager.$currentDate) { newTime in
                 if !isManuallyOverridden {
-                    
+
                     let combinedTime = DateHelper.combine(date: currentTime, time: newTime)
                     currentTime = combinedTime
                 }
@@ -366,13 +390,13 @@ struct LayoutView: View {
         .ignoresSafeArea(.keyboard)
 
     }
-    
+
     var currentLayoutKey: String {
         let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
         let combinedDate = DateHelper.combine(date: currentDate, time: currentTime)
         return layoutServices.keyFor(date: combinedDate, category: selectedCategory ?? .lunch)
-        }
-    
+    }
+
     private var gridWidth: CGFloat {
         CGFloat(store.totalColumns) * gridData.cellSize
     }
@@ -380,22 +404,29 @@ struct LayoutView: View {
     private var gridHeight: CGFloat {
         CGFloat(store.totalRows) * gridData.cellSize
     }
-    
+
     func loadScribbleForCurrentLayout() {
         // Update the currentDrawing model with the loaded layers
-        currentDrawing.layer1 = scribbleService.loadDrawing(for: currentLayoutKey, layer: "layer1") ?? PKDrawing()
-        currentDrawing.layer2 = scribbleService.loadDrawing(for: currentLayoutKey, layer: "layer2") ?? PKDrawing()
+        currentDrawing.layer1 =
+            scribbleService.loadDrawing(for: currentLayoutKey, layer: "layer1") ?? PKDrawing()
+        currentDrawing.layer2 =
+            scribbleService.loadDrawing(for: currentLayoutKey, layer: "layer2") ?? PKDrawing()
+        currentDrawing.layer3 =
+            scribbleService.loadDrawing(for: currentLayoutKey, layer: "layer3") ?? PKDrawing()
 
         print("Scribbles loaded successfully for key: \(currentLayoutKey)")
     }
 
     func saveScribbleForCurrentLayout() {
+        print("Generated currentLayoutKey: \(currentLayoutKey)")
+        
         scribbleService.saveDrawing(currentDrawing.layer1, for: currentLayoutKey, layer: "layer1")
         scribbleService.saveDrawing(currentDrawing.layer2, for: currentLayoutKey, layer: "layer2")
+        scribbleService.saveDrawing(currentDrawing.layer3, for: currentLayoutKey, layer: "layer3")
 
         print("Scribbles saved successfully for key: \(currentLayoutKey)")
     }
-    
+
     private func transitionForCurrentState(geometry: GeometryProxy) -> AnyTransition {
         switch toolbarState {
         case .overlay:
@@ -409,10 +440,12 @@ struct LayoutView: View {
             return .move(edge: .bottom)
         }
     }
-    
+
     // MARK: - Toolbar Content
     @ViewBuilder
-    private func toolbarContent(in geometry: GeometryProxy, selectedDate: Binding<Date>) -> some View {
+    private func toolbarContent(in geometry: GeometryProxy, selectedDate: Binding<Date>)
+        -> some View
+    {
         switch toolbarState {
         case .pinnedLeft, .pinnedRight:
             // Vertical layout:
@@ -427,7 +460,7 @@ struct LayoutView: View {
                 timeForward
                 resetTime
             }
-            
+
         case .pinnedBottom:
             // Horizontal layout:
             HStack(spacing: 25) {
@@ -441,9 +474,8 @@ struct LayoutView: View {
                 timeForward
                 resetTime
 
-                
             }
-            
+
         case .overlay:
             // *Decide* if you want a vertical or horizontal layout
             // depending on the user’s drag or your thresholds.
@@ -461,7 +493,7 @@ struct LayoutView: View {
                     timeForward
                     resetTime
                 }
-                
+
             case .vertical:
                 // Vertical
                 VStack(spacing: 25) {
@@ -476,39 +508,37 @@ struct LayoutView: View {
             }
         }
     }
-    
+
     private func toolbarGesture(in geometry: GeometryProxy) -> some Gesture {
         DragGesture()
             .onChanged { value in
-                
+
                 isDragging = true
-                
+
                 var currentLocation = value.location
                 let currentOffset = value.translation
-                
+
                 if toolbarState != .pinnedBottom {
                     currentLocation.y = (geometry.size.height / 2) + currentOffset.height
-                    
+
                 } else {
                     currentLocation.x = (geometry.size.height / 2) + currentOffset.width
                 }
-                
+
                 dragAmount = currentLocation
-               
-                
+
             }
             .onEnded { value in
                 var currentLocation = value.location
                 let currentOffset = value.translation
-                
+
                 if toolbarState == .pinnedBottom {
                     if currentOffset.height > 0 {
                         withAnimation {
                             isToolbarVisible = false
                         }
                     }
-                }
-                else if toolbarState == .pinnedLeft {
+                } else if toolbarState == .pinnedLeft {
                     if currentOffset.width < 0 {
                         withAnimation {
                             isToolbarVisible = false
@@ -521,20 +551,26 @@ struct LayoutView: View {
                         }
                     }
                 }
-            
-                if currentLocation.y > geometry.size.height / 2 && currentOffset.height > 0 && (currentLocation.x > geometry.size.width / 2 && currentOffset.width < 0 || currentLocation.x < geometry.size.width / 2 && currentOffset.width > 0) {
+
+                if currentLocation.y > geometry.size.height / 2 && currentOffset.height > 0
+                    && (currentLocation.x > geometry.size.width / 2 && currentOffset.width < 0
+                        || currentLocation.x < geometry.size.width / 2 && currentOffset.width > 0)
+                {
                     withAnimation {
                         toolbarState = .pinnedBottom
                     }
-                } else if currentLocation.x < geometry.size.width / 2 && currentOffset.width < 0 && currentOffset.height < 0 {
+                } else if currentLocation.x < geometry.size.width / 2 && currentOffset.width < 0
+                    && currentOffset.height < 0
+                {
                     toolbarState = .pinnedLeft
-                }
-                else if currentLocation.x > geometry.size.width / 2 && currentOffset.width > 0  && currentOffset.height < 0 {
+                } else if currentLocation.x > geometry.size.width / 2 && currentOffset.width > 0
+                    && currentOffset.height < 0
+                {
                     toolbarState = .pinnedRight
                 }
-                
+
                 print("ToolbarState: \(toolbarState)")
-                
+
                 if toolbarState == .pinnedLeft {
                     currentLocation.x = 60
                     currentLocation.y = geometry.size.height / 2
@@ -554,24 +590,23 @@ struct LayoutView: View {
                         dragAmount = currentLocation
                     }
                 }
-                
+
                 isDragging = false
             }
     }
-    
+
     private func calculatePosition(geometry: GeometryProxy) -> CGPoint {
         if toolbarState == .pinnedLeft {
             return CGPoint(x: 90, y: geometry.size.height / 2)
         } else if toolbarState == .pinnedRight {
-           return CGPoint(x: geometry.size.width - 90, y: geometry.size.height / 2)
+            return CGPoint(x: geometry.size.width - 90, y: geometry.size.height / 2)
         } else if toolbarState == .pinnedBottom {
-           return CGPoint(x: geometry.size.width / 2, y: geometry.size.height - 90)
+            return CGPoint(x: geometry.size.width / 2, y: geometry.size.height - 90)
         } else {
             return lastPinnedPosition
         }
     }
 
-    
     struct CardSwapView<Content: View>: View {
         @Binding var selectedIndex: Int
         let navigationDirection: NavigationDirection
@@ -583,7 +618,10 @@ struct LayoutView: View {
             ZStack {
                 content()
                     .id(selectedIndex)  // Ensure content refresh
-                    .flipEffect(rotation: rotationAngle, axis: navigationDirection == .backward ? (x: 0, y: -30, z: 0) : (x:0, y: 30, z:0))
+                    .flipEffect(
+                        rotation: rotationAngle,
+                        axis: navigationDirection == .backward
+                            ? (x: 0, y: -30, z: 0) : (x: 0, y: 30, z: 0))
             }
             .onChange(of: selectedIndex) {
                 // Animate flip out
@@ -600,7 +638,6 @@ struct LayoutView: View {
         }
     }
 
-    
     private func navigateToPreviousDate() {
         guard selectedIndex > 0 else { return }
         navigationDirection = .backward
@@ -618,24 +655,24 @@ struct LayoutView: View {
 
     private func navigateToNextTime() {
         let calendar = Calendar.current
-        
+
         // 1) Round down to nearest 15-min boundary
         let roundedDown = calendar.roundedDownToNearest15(currentTime)
         // 2) From that boundary, add 15 minutes
         let newTime = calendar.date(byAdding: .minute, value: 15, to: roundedDown)!
-        
+
         currentTime = newTime
         isManuallyOverridden = true
     }
 
     private func navigateToPreviousTime() {
         let calendar = Calendar.current
-        
+
         // 1) Round down to nearest 15-min boundary
         let roundedDown = calendar.roundedDownToNearest15(currentTime)
         // 2) From that boundary, subtract 15 minutes
         let newTime = calendar.date(byAdding: .minute, value: -15, to: roundedDown)!
-        
+
         currentTime = newTime
         isManuallyOverridden = true
     }
@@ -675,9 +712,10 @@ struct LayoutView: View {
         // Initialize default date/time configuration
         currentTime = Date()
 
+//        loadScribbleForCurrentLayout()
         // Generate date array
         dates = generateInitialDates()
-        
+
         if let defaultDate = dates[safe: selectedIndex] {
             selectedDate = defaultDate
         } else {
@@ -700,12 +738,13 @@ struct LayoutView: View {
     private func handleSelectedIndexChange() {
 
         // Explicitly set and log current time
-        if let newDate = dates[safe: selectedIndex], let combinedTime = DateHelper.normalizedTime(time: currentTime, date: newDate) {
+        if let newDate = dates[safe: selectedIndex],
+            let combinedTime = DateHelper.normalizedTime(time: currentTime, date: newDate)
+        {
             selectedDate = newDate
             currentTime = combinedTime
 
         }
-
 
         print(
             "Selected index changed to \(selectedIndex), date: \(DateHelper.formatFullDate(selectedDate))"
@@ -717,7 +756,10 @@ struct LayoutView: View {
         trimDatesAround(selectedIndex)
     }
 
-    private func handleSelectedCategoryChange(_ oldCategory: Reservation.ReservationCategory?, _ newCategory: Reservation.ReservationCategory?) {
+    private func handleSelectedCategoryChange(
+        _ oldCategory: Reservation.ReservationCategory?,
+        _ newCategory: Reservation.ReservationCategory?
+    ) {
         guard let newCategory = newCategory else { return }
         guard let oldCategory = oldCategory else { return }
         guard oldCategory != newCategory else { return }
@@ -847,15 +889,16 @@ struct LayoutView: View {
                 .shadow(radius: 2)
         }
     }
-    
+
     private var lunchButton: some View {
-        
+
         Button(action: {
             isManuallyOverridden = true
             selectedCategory = .lunch
             let lunchTime = "12:00"
             let day = currentTime
-            guard let combinedTime = DateHelper.combineDateAndTime(date: day, timeString: lunchTime) else { return }
+            guard let combinedTime = DateHelper.combineDateAndTime(date: day, timeString: lunchTime)
+            else { return }
             currentTime = combinedTime
         }) {
             Image(systemName: "sun.max.circle.fill")
@@ -868,15 +911,17 @@ struct LayoutView: View {
                 .shadow(radius: 2)
         }
     }
-    
+
     private var dinnerButton: some View {
-        
+
         Button(action: {
             isManuallyOverridden = true
             selectedCategory = .dinner
             let dinnerTime = "18:00"
             let day = currentTime
-            guard let combinedTime = DateHelper.combineDateAndTime(date: day, timeString: dinnerTime) else { return }
+            guard
+                let combinedTime = DateHelper.combineDateAndTime(date: day, timeString: dinnerTime)
+            else { return }
             currentTime = combinedTime
         }) {
             Image(systemName: "moon.circle.fill")
@@ -900,8 +945,9 @@ struct LayoutView: View {
                 print("Time reset to \(currentTime)")
                 isManuallyOverridden = false
             }
-            
-        }) { Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90.circle.fill")
+
+        }) {
+            Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90.circle.fill")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 40, height: 40)
@@ -911,17 +957,17 @@ struct LayoutView: View {
                 .shadow(radius: 2)
         }
         .opacity(
-            DateHelper.compareTimes(firstTime: currentTime, secondTime: timerManager.currentDate, interval: 60)
+            DateHelper.compareTimes(
+                firstTime: currentTime, secondTime: timerManager.currentDate, interval: 60)
                 ? 0 : 1
         )
         .animation(.easeInOut, value: currentTime)
     }
-    
+
     @ViewBuilder
     private func datePicker(selectedDate: Binding<Date>) -> some View {
-        
-            
-        Button(action:{
+
+        Button(action: {
             showingDatePicker = true
         }) {
             Image(systemName: "calendar.circle.fill")
@@ -935,19 +981,23 @@ struct LayoutView: View {
         }
         .popover(isPresented: $showingDatePicker) {
             DatePickerView(
-                selectedDate: selectedDate)
-            .frame(width: 300, height: 350) // Adjust as needed
+                selectedDate: selectedDate
+            )
+            .frame(width: 300, height: 350)  // Adjust as needed
 
         }
-        
+
     }
-    
+
     private var resetDate: some View {
         Button(action: {
             withAnimation {
-                let today = Calendar.current.startOfDay(for: systemTime) // Get today's date with no time component
-                guard let currentTimeOnly = DateHelper.extractTime(time: currentTime) else { return } // Extract time components
-                currentTime = DateHelper.normalizedInputTime(time: currentTimeOnly, date: today) ?? Date()
+                let today = Calendar.current.startOfDay(for: systemTime)  // Get today's date with no time component
+                guard let currentTimeOnly = DateHelper.extractTime(time: currentTime) else {
+                    return
+                }  // Extract time components
+                currentTime =
+                    DateHelper.normalizedInputTime(time: currentTimeOnly, date: today) ?? Date()
                 updateDatesAroundSelectedDate(currentTime)
                 isManuallyOverridden = false
             }
@@ -1019,29 +1069,29 @@ struct LayoutView: View {
     }
 
     private func updateDatesAroundSelectedDate(_ newDate: Date) {
-            // If newDate is in the array, pick that index
+        // If newDate is in the array, pick that index
+        if let newIndex = dates.firstIndex(where: {
+            Calendar.current.isDate($0, inSameDayAs: newDate)
+        }) {
+            withAnimation {
+                selectedIndex = newIndex
+            }
+            // Possibly call handleSelectedIndexChange
+            handleSelectedIndexChange()
+        } else {
+            // Re-generate the array around newDate
+            dates = generateDatesCenteredAround(newDate)
+            // Now find the newIndex
             if let newIndex = dates.firstIndex(where: {
                 Calendar.current.isDate($0, inSameDayAs: newDate)
             }) {
                 withAnimation {
                     selectedIndex = newIndex
                 }
-                // Possibly call handleSelectedIndexChange
                 handleSelectedIndexChange()
-            } else {
-                // Re-generate the array around newDate
-                dates = generateDatesCenteredAround(newDate)
-                // Now find the newIndex
-                if let newIndex = dates.firstIndex(where: {
-                    Calendar.current.isDate($0, inSameDayAs: newDate)
-                }) {
-                    withAnimation {
-                        selectedIndex = newIndex
-                    }
-                    handleSelectedIndexChange()
-                }
             }
         }
+    }
 
     private func generateDatesCenteredAround(_ centerDate: Date, range: Int = 15) -> [Date] {
         let calendar = Calendar.current
@@ -1135,31 +1185,3 @@ enum NavigationDirection {
     case forward
     case backward
 }
-
-struct InverseRectangleMask: Shape {
-    let fullRect: CGRect
-    let holeRect: CGRect
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        // Add the full area:
-        path.addRect(fullRect)
-        // Add the hole:
-        path.addRect(holeRect)
-        // When used as a mask, the even-odd rule will cause the holeRect to be transparent.
-        return path
-    }
-}
-
-//struct TouchBlocker: View {
-//    let holeRect: CGRect
-//    let geometrySize: CGSize
-//
-//    var body: some View {
-//        Color.clear
-//            .frame(width: holeRect.width, height: holeRect.height)
-//            .position(x: geometrySize.width / 2, y: geometrySize.height / 2 + 44)
-////            .contentShape(Rectangle())
-////            .allowsHitTesting(true)
-//    }
-//}

@@ -28,9 +28,12 @@ struct PencilKitCanvas: UIViewRepresentable {
     @EnvironmentObject var drawingModel: DrawingModel
     @EnvironmentObject var sharedToolPicker: SharedToolPicker
     @ObservedObject var zoomableState: ZoomableScrollViewState
+    @Binding var toolPickerShows: Bool
+
     enum Layer {
           case layer1
           case layer2
+        case layer3
       }
     var layer: Layer
     var gridWidth: CGFloat?
@@ -41,14 +44,16 @@ struct PencilKitCanvas: UIViewRepresentable {
     class Coordinator: NSObject, PKCanvasViewDelegate {
         var parent: PencilKitCanvas
         var toolPicker: PKToolPicker
+        @Binding var toolPickerShows: Bool
         private var debounceTimer: Timer?
 //        var exclusionAreaModel: ExclusionAreaModel  // regular property
         var isUpdatingFromModel = false // Flag to prevent infinite loop
 
 
-        init(parent: PencilKitCanvas, toolPicker: PKToolPicker) {
+        init(parent: PencilKitCanvas, toolPicker: PKToolPicker, toolPickerShows: Binding<Bool>) {
                     self.parent = parent
                     self.toolPicker = toolPicker
+                    self._toolPickerShows = toolPickerShows
                 }
         
 //        func setExclusionArea(_ area: CGRect) {
@@ -59,29 +64,21 @@ struct PencilKitCanvas: UIViewRepresentable {
                     if let window = canvasView.window {
                         toolPicker.setVisible(true, forFirstResponder: canvasView)
                         toolPicker.addObserver(canvasView)
-                        canvasView.becomeFirstResponder()
+                        if toolPickerShows {
+                            canvasView.becomeFirstResponder()
+                        }
                     }
                 }
         
         
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-            guard !isUpdatingFromModel else { return } // Skip if we're updating from the model
+            guard !isUpdatingFromModel else { return } // Prevent loops
 
             DispatchQueue.main.async {
                 var newDrawing = canvasView.drawing
 
-                // Optional: Filter strokes based on exclusion area, but only for layer1
-//                if self.parent.layer == .layer1 {
-//                    let exclusionArea = self.exclusionAreaModel.exclusionRect
-//                    let filteredStrokes = newDrawing.strokes.filter { stroke in
-//                        // Keep strokes that do NOT intersect the exclusion area
-//                        !stroke.path.intersects(exclusionArea)
-//                    }
-//                    newDrawing = PKDrawing(strokes: filteredStrokes)
-//                }
-
-                // Update the drawing model
+                // Update the drawing model only if there are changes
                 switch self.parent.layer {
                 case .layer1:
                     if self.parent.drawingModel.layer1 != newDrawing {
@@ -91,6 +88,10 @@ struct PencilKitCanvas: UIViewRepresentable {
                     if self.parent.drawingModel.layer2 != newDrawing {
                         self.parent.drawingModel.layer2 = newDrawing
                     }
+                case .layer3:
+                    if self.parent.drawingModel.layer3 != newDrawing {
+                        self.parent.drawingModel.layer3 = newDrawing
+                    }
                 }
             }
         }
@@ -98,7 +99,7 @@ struct PencilKitCanvas: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        return Coordinator(parent: self, toolPicker: sharedToolPicker.toolPicker)
+        return Coordinator(parent: self, toolPicker: sharedToolPicker.toolPicker, toolPickerShows: $toolPickerShows)
 
     }
     
@@ -137,6 +138,7 @@ struct PencilKitCanvas: UIViewRepresentable {
         switch layer {
         case .layer1: return drawingModel.layer1
         case .layer2: return drawingModel.layer2
+        case .layer3: return drawingModel.layer3
         }
     }
 
@@ -144,23 +146,20 @@ struct PencilKitCanvas: UIViewRepresentable {
         let currentDrawing = getCurrentLayerDrawing()
 
         if uiView.drawing != currentDrawing {
-            context.coordinator.isUpdatingFromModel = true // Prevent feedback loop
-            uiView.drawing = currentDrawing // Update the canvas view with the latest drawing
+            context.coordinator.isUpdatingFromModel = true
+            uiView.drawing = currentDrawing
             context.coordinator.isUpdatingFromModel = false
         }
 
         uiView.isUserInteractionEnabled = isEditable
-
-//        if let gridWidth = gridWidth, let gridHeight = gridHeight, let canvasSize = canvasSize {
-//            let debugFrame = CGRect(
-//                x: (canvasSize.width - gridWidth) / 2,
-//                y: (canvasSize.height - gridHeight) / 2,
-//                width: gridWidth,
-//                height: gridHeight
-//            )
-//
-//            print("Canvas Frame: \(debugFrame)")
-//        }
+        
+        sharedToolPicker.toolPicker.setVisible(toolPickerShows, forFirstResponder: uiView)
+        sharedToolPicker.toolPicker.addObserver(uiView)
+        if toolPickerShows {
+            uiView.becomeFirstResponder()
+        } else {
+            uiView.resignFirstResponder()
+        }
     }
 }
 

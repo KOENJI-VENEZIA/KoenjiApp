@@ -183,6 +183,7 @@ struct ReservationListView: View {
                     // Some icon or label
                     Image(systemName: "rectangle.grid.2x2")
                 }
+                .id(UUID())
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
@@ -206,6 +207,7 @@ struct ReservationListView: View {
                     )
                     .imageScale(.large)
                 }
+                .id(UUID())
             }
             ToolbarItem(placement: .navigationBarTrailing) {
 
@@ -217,6 +219,7 @@ struct ReservationListView: View {
                             ? "line.3.horizontal.decrease.circle.fill"
                             : "line.3.horizontal.decrease.circle"
                     )
+                    .id(UUID())
                     .imageScale(.large)
                 }
                 .sheet(isPresented: $showingFilters) {
@@ -337,14 +340,17 @@ struct ReservationListView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
+                .id(UUID())
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Debug Config") {
                     showingDebugConfig = true
                 }
+                .id(UUID())
             }
             ToolbarItem(placement: .navigationBarLeading) {
                 EditButton()
+                    .id(UUID())
             }
         }
         .sheet(isPresented: $showingAddReservation) {
