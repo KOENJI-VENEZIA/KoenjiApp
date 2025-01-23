@@ -1,5 +1,5 @@
 {
-  "originHash" : "9b5c9674216c6ab1e1b95d058561b70bec722de8baf9c489bd6421098efd0a2c",
+  "originHash" : "91ff1d5036b01bf569c017bc01aacf89a1ff5f9fcbf86e1eb0b1cba6591f0b0a",
   "pins" : [
     {
       "identity" : "lazypager",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "3601245191ffb0aa237ca408d7b4dd03b4d9d7eb",
         "version" : "1.1.7"
+      }
+    },
+    {
+      "identity" : "screenshotswiftui",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/gualtierofrigerio/ScreenshotSwiftUI.git",
+      "state" : {
+        "revision" : "5ce615b99effcf41c17a4357d17ccb1308f281a9",
+        "version" : "0.3.0"
       }
     },
     {

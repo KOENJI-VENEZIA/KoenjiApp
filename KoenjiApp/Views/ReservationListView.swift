@@ -4,6 +4,7 @@ struct ReservationListView: View {
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var layoutServices: LayoutServices
+    @EnvironmentObject var appState: AppState // Access AppState
 
     // MARK: - State
     @State private var searchDate = Date()
@@ -391,6 +392,8 @@ struct ReservationListView: View {
             )
         }
         .onAppear {
+            sidebarDefault = appState.sidebarColor
+            
             NotificationCenter.default.addObserver(
                 forName: .buttonPositionChanged,
                 object: nil,

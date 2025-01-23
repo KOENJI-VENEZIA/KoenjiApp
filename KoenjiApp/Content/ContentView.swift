@@ -8,6 +8,7 @@ struct ContentView: View {
     @EnvironmentObject var clusterServices: ClusterServices
     @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
+    @EnvironmentObject var appState: AppState
 
     @Environment(\.locale) var locale // Access the current locale set by .italianLocale()
 
@@ -34,6 +35,7 @@ struct ContentView: View {
             .environmentObject(clusterServices)
             .environmentObject(layoutServices)
             .environmentObject(gridData)
+            .environmentObject(appState)
                 
         }
         detail: {

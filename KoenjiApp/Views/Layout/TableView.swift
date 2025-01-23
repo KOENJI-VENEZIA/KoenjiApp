@@ -213,8 +213,8 @@ struct TableView: View {
                         .zIndex(2)
                 }
 
-                if let reservation = activeReservation, !isContextMenuActive {
-                    Text(reservation.assignedEmoji)
+                if let reservation = activeReservation, let emoji = reservation.assignedEmoji, !isContextMenuActive {
+                    Text(emoji)
                         .font(.system(size: 20))  // Match the font size to the frame of the Image
                         .frame(maxWidth: 23, maxHeight: 23)  // Same dimensions as the Image
                         .offset(x: tableFrame.width / 2 - 18, y: -tableFrame.height / 2 + 12)  // Match position

@@ -15,7 +15,7 @@ struct SidebarView: View {
     @EnvironmentObject var clusterServices: ClusterServices
     @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
-    @State private var sidebarColor: Color = Color.sidebar_generic // Default color
+    @EnvironmentObject var appState: AppState // Access AppState
     @Binding  var selectedReservation: Reservation?
     @Binding  var currentReservation: Reservation?
     @Binding  var selectedCategory: Reservation.ReservationCategory? 
@@ -27,7 +27,7 @@ struct SidebarView: View {
         let scribbleService = ScribbleService(layoutServices: layoutServices)
         
         ZStack {
-            sidebarColor
+            appState.sidebarColor
                 .ignoresSafeArea() // Sidebar background
             VStack {
                    
@@ -39,9 +39,8 @@ struct SidebarView: View {
                             .environmentObject(clusterServices)
                             .environmentObject(layoutServices)
                             .environmentObject(gridData)
-                            .onAppear {
-                                sidebarColor = Color.sidebar_generic
-                            }) {
+                            .environmentObject(appState)
+                            ) {
                                 Label("Database", systemImage: "list.bullet")
                             }
                         NavigationLink(destination: CalendarView()
@@ -51,31 +50,26 @@ struct SidebarView: View {
                             .environmentObject(clusterServices)
                             .environmentObject(layoutServices)
                             .environmentObject(gridData)
-                            .onAppear {
-                                sidebarColor = Color.sidebar_generic
-                            }) {
+                            .environmentObject(appState)
+                            ) {
                                 Label("Calendario", systemImage: "calendar")
                             }
-                        NavigationLink(destination: LayoutView(
-                            selectedCategory: $selectedCategory,
-                            selectedReservation: $selectedReservation,
-                            currentReservation: $currentReservation,
-                            onSidebarColorChange: { newColor in
-                                sidebarColor = newColor // Update sidebar color
-                            })
+                        NavigationLink(destination: LayoutView(selectedCategory: $selectedCategory, selectedReservation: $selectedReservation, currentReservation: $currentReservation)
                             .environmentObject(store)
                             .environmentObject(tableStore)
                             .environmentObject(reservationService) // For the new service
                             .environmentObject(clusterServices)
                             .environmentObject(layoutServices)
                             .environmentObject(gridData)
-                            .environmentObject(scribbleService)) {
+                            .environmentObject(scribbleService)
+                            .environmentObject(appState)
+                            .environmentObject(SharedToolPicker())) {
                                 Label("Layout Tavoli", systemImage: "rectangle.grid.3x2")
                             }
                     }
                     .listStyle(.sidebar)
                     .scrollContentBackground(.hidden) // Remove default background of the list
-                    .background(sidebarColor) // Match the list background to the sidebar color
+                    .background(appState.sidebarColor) // Match the list background to the sidebar color
                     .navigationTitle("Prenotazioni")
                     .padding(.vertical)
                     .toolbarColorScheme(.dark, for: .navigationBar)

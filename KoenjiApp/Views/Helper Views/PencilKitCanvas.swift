@@ -12,15 +12,10 @@ import PencilKit
 final class SharedToolPicker: ObservableObject {
     let toolPicker: PKToolPicker
     
-    init(window: UIWindow?) {
-        if let window = window {
-            // Create a new instance for this window.
-            self.toolPicker = PKToolPicker()
-            // Additional configuration if needed.
-        } else {
-            // Fallback instance.
-            self.toolPicker = PKToolPicker()
-        }
+    init() {
+        // Create a new instance for this window.
+        self.toolPicker = PKToolPicker()
+        // Additional configuration if needed
     }
 }
 

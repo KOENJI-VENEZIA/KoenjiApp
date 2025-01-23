@@ -16,7 +16,7 @@ struct ContentViewWrapper: View {
     @EnvironmentObject var clusterServices: ClusterServices
     @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
-
+    @EnvironmentObject var appState: AppState
 
     var body: some View {
         ContentView()
@@ -25,7 +25,9 @@ struct ContentViewWrapper: View {
             .environmentObject(reservationService) // For the new service
             .environmentObject(clusterServices)
             .environmentObject(layoutServices)
-            .environmentObject(gridData)            .applyCustomStyles() // Applies dynamic backgrounds and Italian locale
+            .environmentObject(gridData)
+            .environmentObject(appState) // Inject AppState
+            .applyCustomStyles() // Applies dynamic backgrounds and Italian locale
             .onAppear {
                 print("App appearing. Loading data...")
                 // Data loading already handled by ReservationStore initializer

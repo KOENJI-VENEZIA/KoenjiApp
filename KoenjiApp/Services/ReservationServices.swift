@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 
 /// A service class responsible for high-level operations on reservations.
 /// This class interacts with the `ReservationStore` for managing reservation data.
@@ -16,9 +17,10 @@ class ReservationService: ObservableObject {
     private let clusterServices: ClusterServices
     private let tableStore: TableStore
     private let layoutServices: LayoutServices
-    
-
     private let tableAssignmentService: TableAssignmentService
+    
+    private var imageCache: [UUID: UIImage] = [:]
+
 
     // MARK: - Initializer
     init(store: ReservationStore, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService) {
@@ -110,6 +112,7 @@ class ReservationService: ObservableObject {
         }
     }
     
+   
     
     func removeReservationFromActiveCache(_ reservation: Reservation) {
         let start = DateHelper.combineDateAndTimeStrings(
@@ -166,8 +169,9 @@ class ReservationService: ObservableObject {
            }
            self.clusterStore.invalidateClusterCache(for: reservationDate, category: reservation.category)
        }
+        
     
-    // MARK: - Placeholder Methods for Queries
+    // MARK: - Methods for Queries
     
     /// Finds an active reservation for a specific table and time.
     /// - Parameters:

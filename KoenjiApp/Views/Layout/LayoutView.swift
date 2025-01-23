@@ -1,12 +1,7 @@
-//
-//  BottomSheetControls.swift
-//  KoenjiApp
-//
-//  Created by Matteo Nassini on 24/12/24.
-//
-
 import PencilKit
 import SwiftUI
+import UIKit
+import ScreenshotSwiftUI
 
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
@@ -17,6 +12,7 @@ struct LayoutView: View {
     @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var scribbleService: ScribbleService
+    @EnvironmentObject var appState: AppState
 
     @Environment(\.locale) var locale
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
@@ -57,8 +53,6 @@ struct LayoutView: View {
     @State private var isLayoutReset: Bool = false
 
     // Sidebar Color
-    @State private var sidebarColor: Color = Color.sidebar_lunch  // Default color
-    var onSidebarColorChange: ((Color) -> Void)?
 
     @State var navigationDirection: NavigationDirection = .forward
 
@@ -80,8 +74,15 @@ struct LayoutView: View {
     @StateObject private var currentDrawing = DrawingModel()
     @StateObject private var zoomableState = ZoomableScrollViewState()
     @State private var toolPickerShows = false
-    @StateObject var sharedToolPicker = SharedToolPicker(window: UIApplication.shared.windows.first)
+    @StateObject var sharedToolPicker = SharedToolPicker()
     
+    @State private var capturedImage: UIImage? = nil
+    @State private var cachedScreenshot: ScreenshotMaker?
+
+    
+    @State private var isSharing: Bool = false
+    @State private var isPresented: Bool = false
+
     
     @Environment(\.scenePhase) private var scenePhase
     @State var refreshID = UUID()
@@ -89,7 +90,7 @@ struct LayoutView: View {
     @State private var scale: CGFloat = 1
 
     var body: some View {
-
+        
         GeometryReader { geometry in
 
             ZStack {
@@ -113,6 +114,9 @@ struct LayoutView: View {
                         isLayoutReset: $isLayoutReset,
                         isScribbleModeEnabled: $isScribbleModeEnabled,
                         toolPickerShows: $toolPickerShows,
+                        isSharing: $isSharing,
+                        isPresented: $isPresented,
+                        cachedScreenshot: $cachedScreenshot,
                         onFetchedReservations: { newActiveReservations in
                             activeReservations = newActiveReservations
                         }
@@ -228,6 +232,20 @@ struct LayoutView: View {
                         )
                     }
                 }
+                
+                if isPresented && !isSharing {
+                    VisualEffectView(effect: UIBlurEffect(style: .dark))
+                        .edgesIgnoringSafeArea(.all)
+                        .transition(.opacity)  // Fade in/out transition
+
+                }
+                
+                if isSharing {
+                    VisualEffectView(effect: UIBlurEffect(style: .dark))
+                        .edgesIgnoringSafeArea(.all)
+                        .transition(.opacity)  // Fade in/out transition
+
+                }
 
             }
             .environmentObject(sharedToolPicker)
@@ -235,6 +253,17 @@ struct LayoutView: View {
             .navigationTitle("Layout Tavoli")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    
+                    Button(action: {
+                        withAnimation {
+                            isPresented.toggle()
+                        }
+                    }) {
+                        Label("Share Layout", systemImage: "square.and.arrow.up")
+                    }
+                    .id(refreshID)
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         withAnimation {
@@ -303,7 +332,7 @@ struct LayoutView: View {
                     currentReservation: $currentReservation,
                     showInspector: $showInspector,
                     showingEditReservation: $showingEditReservation,
-                    sidebarColor: $sidebarColor,
+                    sidebarColor: $appState.sidebarColor,
                     changedReservation: $changedReservation,
                     activeReservations: activeReservations,
                     currentTime: $currentTime,
@@ -341,6 +370,10 @@ struct LayoutView: View {
                 .environmentObject(reservationService)  // For the new service
                 .environmentObject(layoutServices)
             }
+            .sheet(isPresented: $isPresented) {
+                ShareModal(cachedScreenshot: cachedScreenshot, isPresented: $isPresented, isSharing: $isSharing)
+
+            }
             .onAppear {
                 initializeView()
                 print("Current time as LayoutView appears: \(currentTime)")
@@ -357,7 +390,7 @@ struct LayoutView: View {
                     "Called handleSelectedCategoryChange() from LayoutView [onChange of selectedCategory]"
                 )
                 if let category = newCategory {
-                    sidebarColor = category.sidebarColor
+                    appState.sidebarColor = category.sidebarColor
                 }
             }
             .onChange(of: currentTime) { oldTime, newTime in
@@ -391,6 +424,26 @@ struct LayoutView: View {
 
     }
 
+    var customShareLinkButton: some View {
+        Button {
+            isSharing.toggle()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                presentShareLink()
+            }
+        } label: {
+            Label("share", systemImage: "square.and.arrow.up")
+        }
+    }
+    
+    func presentShareLink() {
+        
+        
+        guard let image = capturedImage else { return }
+        let vc = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+        let scene = UIApplication.shared.connectedScenes.first { $0.activationState == .foregroundActive } as? UIWindowScene
+        scene?.keyWindow?.rootViewController?.present(vc, animated: true)
+    }
+
     var currentLayoutKey: String {
         let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
         let combinedDate = DateHelper.combine(date: currentDate, time: currentTime)
@@ -403,18 +456,6 @@ struct LayoutView: View {
 
     private var gridHeight: CGFloat {
         CGFloat(store.totalRows) * gridData.cellSize
-    }
-
-    func loadScribbleForCurrentLayout() {
-        // Update the currentDrawing model with the loaded layers
-        currentDrawing.layer1 =
-            scribbleService.loadDrawing(for: currentLayoutKey, layer: "layer1") ?? PKDrawing()
-        currentDrawing.layer2 =
-            scribbleService.loadDrawing(for: currentLayoutKey, layer: "layer2") ?? PKDrawing()
-        currentDrawing.layer3 =
-            scribbleService.loadDrawing(for: currentLayoutKey, layer: "layer3") ?? PKDrawing()
-
-        print("Scribbles loaded successfully for key: \(currentLayoutKey)")
     }
 
     func saveScribbleForCurrentLayout() {
@@ -480,7 +521,7 @@ struct LayoutView: View {
             // *Decide* if you want a vertical or horizontal layout
             // depending on the user’s drag or your thresholds.
             // If you want to replicate “vertical if near sides, horizontal if near bottom,”
-            // you can do a quick check on `overlayOffset`.
+            // you can do a quick check on overlayOffset.
             switch overlayOrientation {
             case .horizontal:
                 // Horizontal
@@ -728,7 +769,7 @@ struct LayoutView: View {
 
         // Set initial sidebar color based on selectedCategory
         if let initialCategory = selectedCategory {
-            onSidebarColorChange?(initialCategory.sidebarColor)
+            appState.sidebarColor = initialCategory.sidebarColor
         }
 
         handleCurrentTimeChange(currentTime)
@@ -781,7 +822,7 @@ struct LayoutView: View {
         print("Loaded tables for \(newCategory.rawValue) on \(DateHelper.formatFullDate(newDate))")
 
         // Update sidebar color
-        onSidebarColorChange?(newCategory.sidebarColor)
+        appState.sidebarColor = newCategory.sidebarColor
     }
 
     private func handleCurrentTimeChange(_ newTime: Date) {
@@ -1184,4 +1225,13 @@ extension Array {
 enum NavigationDirection {
     case forward
     case backward
+}
+
+extension UIView {
+    func asImage() -> UIImage {
+        let renderer = UIGraphicsImageRenderer(bounds: bounds)
+        return renderer.image { rendererContext in
+            layer.render(in: rendererContext.cgContext)
+        }
+    }
 }

@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 struct AddReservationView: View {
@@ -20,48 +21,60 @@ struct AddReservationView: View {
     @State private var reservationType: Reservation.ReservationType = .inAdvance
     @State private var group: Bool = false
     @State private var notes: String = ""
-    
+
     @State private var endTimeString: String = "13:45"
     @State private var startTimeString: String = "12:00"
-    
+
     @State private var selectedForcedTableID: Int? = nil
     @State private var activeAlert: AddReservationAlertType? = nil
     @State private var alertMessage: String = ""
-    
+
     @State private var isSaving = false
-    
+
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
+    @State private var selectedImage: Image? = nil
+    @State private var imageData: Data? = nil
+    @State private var showImagePicker = false
+    @State private var showImageField = false
 
     // MARK: - Bindings from parent
     @Binding var category: Reservation.ReservationCategory?
     @Binding var selectedDate: Date
     @Binding var startTime: Date
     var passedTable: TableModel?
-    
-    @State private var availableTables: [(table: TableModel, isCurrentlyAssigned: Bool)] = []
 
+    @State private var availableTables: [(table: TableModel, isCurrentlyAssigned: Bool)] = []
 
     // MARK: - Body
     var body: some View {
         NavigationView {
             Form {
+
                 Section("Obbligatori") {
                     TextField("Nome", text: $name)
                     TextField("Contatto", text: $phone)
                         .keyboardType(.phonePad)
-                    Stepper("Numero Clienti: \(numberOfPersons)",
-                            value: $numberOfPersons,
-                            in: 2...14)
+                    Stepper(
+                        "Numero Clienti: \(numberOfPersons)",
+                        value: $numberOfPersons,
+                        in: 2...14)
 
-                    DatePicker("Seleziona Data", selection: $selectedDate, displayedComponents: .date)
-                        .onChange(of: selectedDate) {
-                            adjustTimesForCategory()
-                        }
-                    
+                    DatePicker(
+                        "Seleziona Data", selection: $selectedDate, displayedComponents: .date
+                    )
+                    .onChange(of: selectedDate) {
+                        adjustTimesForCategory()
+                    }
+
                     Picker("Tipologia", selection: $selectedStatus) {
-                        ForEach([ReservationOption.type(.waitingList),
-                                 ReservationOption.type(.walkIn),
-                                 ReservationOption.acceptance(.confirmed),
-                                 ReservationOption.acceptance(.toConfirm)], id: \.self) { option in
+                        ForEach(
+                            [
+                                ReservationOption.type(.waitingList),
+                                ReservationOption.type(.walkIn),
+                                ReservationOption.acceptance(.confirmed),
+                                ReservationOption.acceptance(.toConfirm),
+                            ], id: \.self
+                        ) { option in
                             Text(option.title.capitalized).tag(option)
                         }
                     }
@@ -78,18 +91,25 @@ struct AddReservationView: View {
                     Picker("Tavolo", selection: $selectedForcedTableID) {
                         Text("Auto Assegna").tag(nil as Int?)
                         ForEach(availableTables, id: \.table.id) { entry in
-                            Text(entry.isCurrentlyAssigned
-                                 ? "\(entry.table.name) (già assegnato)"
-                                 : entry.table.name
+                            Text(
+                                entry.isCurrentlyAssigned
+                                    ? "\(entry.table.name) (già assegnato)"
+                                    : entry.table.name
                             )
                             .tag(entry.table.id as Int?)
                         }
                     }
 
                     Picker("Categoria", selection: $category) {
-                        Text("Pranzo").tag(Reservation.ReservationCategory.lunch as Reservation.ReservationCategory?)
-                        Text("Cena").tag(Reservation.ReservationCategory.dinner as Reservation.ReservationCategory?)
-                        Text("Pomeriggio").tag(Reservation.ReservationCategory.noBookingZone as Reservation.ReservationCategory?)
+                        Text("Pranzo").tag(
+                            Reservation.ReservationCategory.lunch
+                                as Reservation.ReservationCategory?)
+                        Text("Cena").tag(
+                            Reservation.ReservationCategory.dinner
+                                as Reservation.ReservationCategory?)
+                        Text("Pomeriggio").tag(
+                            Reservation.ReservationCategory.noBookingZone
+                                as Reservation.ReservationCategory?)
                     }
                     .onChange(of: category) {
                         adjustTimesForCategory()
@@ -113,6 +133,123 @@ struct AddReservationView: View {
                     )
                     .frame(maxWidth: .infinity, alignment: .center)
 
+                }
+
+                Section("Facoltativo: Immagine") {
+                    VStack {
+                        HStack {
+                            Button(action: {
+                                withAnimation {
+                                    showImageField.toggle()
+                                }
+                            }) {
+                                Label(
+                                    "",
+                                    systemImage: showImageField ? "chevron.up" : "chevron.down")
+                            }
+                            .buttonStyle(BorderlessButtonStyle())
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                            if !showImageField {
+                                Group {
+                                    if let selectedImage {
+                                        ZStack {
+                                            selectedImage
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 50, height: 50)
+                                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 12)
+                                                        .stroke(Color.gray, lineWidth: 1)
+                                                )
+                                                .clipped()
+                                                .transition(
+                                                    .move(edge: .bottom).combined(with: .opacity))  // Add transition
+                                            
+                                        }
+                                    } else {
+                                        Image(systemName: "photo.badge.plus")  // Placeholder image
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 50, height: 50)
+                                            .opacity(0.5)
+                                            .padding(5)
+                                            .transition(
+                                                .move(edge: .bottom).combined(with: .opacity))  // Add transition
+                                    }
+                                }
+                            }
+
+                            Group {
+                                if showImageField {
+                                    if let selectedImage {
+                                        ZStack {
+                                            PhotosPicker(
+                                                selection: $selectedPhotoItem,
+                                                matching: .images,
+                                                photoLibrary: .shared()
+                                            ) {
+                                                selectedImage
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                    .frame(width: 300, height: 300)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 12))  // Rounded corners
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 12)
+                                                            .stroke(Color.gray, lineWidth: 1)  // Optional border
+                                                    )
+                                                    .clipped()
+                                                    .padding(5)
+                                            }
+                                            .buttonStyle(BorderlessButtonStyle())
+                                            .transition(.move(edge: .bottom).combined(with: .opacity))  // Add transition
+                                            
+                                            Button(action: {
+                                                withAnimation {
+                                                    selectedPhotoItem = nil // Clear the image data
+                                                }
+                                            }) {
+                                                Image(systemName: "minus.circle.fill")
+                                                    .resizable()
+                                                    .foregroundColor(.red) // Destructive color
+                                                    .frame(width: 30, height: 30)
+                                                    .overlay(
+                                                        Circle()
+                                                            .stroke(Color.gray, lineWidth: 1)
+                                                        )
+                                            }
+                                            .buttonStyle(BorderlessButtonStyle())
+                                            .offset(x: 130, y: -130)
+                                            .padding(5) // Add padding to position the button inside the corner
+                                            .zIndex(2)
+                                        }
+                                    } else {
+                                        PhotosPicker(
+                                            selection: $selectedPhotoItem,
+                                            matching: .images,
+                                            photoLibrary: .shared()
+                                        ) {
+                                            Text("Scegli un'immagine...")
+                                                .padding(5)
+                                                .background(Color.blue)
+                                                .foregroundColor(.white)
+                                                .cornerRadius(8)
+                                        }
+                                        .frame(height: 50)
+                                        .buttonStyle(BorderlessButtonStyle())
+                                        .frame(maxWidth: .infinity, alignment: .trailing)
+                                        .transition(.move(edge: .bottom).combined(with: .opacity))  // Add transition
+                                    }
+                                }
+
+                            }
+                        }
+                        .listRowBackground(Color.clear)  // Removes background
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .animation(.easeInOut, value: showImageField)  // Apply animation when `showImageField` changes
                 }
 
                 Section("Facoltativo: Note") {
@@ -139,7 +276,8 @@ struct AddReservationView: View {
                 case .mondayConfirmation:
                     return Alert(
                         title: Text("Attenzione!"),
-                        message: Text("Stai cercando di prenotare di lunedì. Sei sicuro di voler continuare?"),
+                        message: Text(
+                            "Stai cercando di prenotare di lunedì. Sei sicuro di voler continuare?"),
                         primaryButton: .destructive(Text("Annulla")),
                         secondaryButton: .default(Text("Prosegui")) {
                             performSaveReservation()
@@ -154,33 +292,60 @@ struct AddReservationView: View {
                     )
                 }
             }
+            .sheet(isPresented: $showImagePicker) {
+                PhotosPicker(
+                    selection: $selectedPhotoItem,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    Text("Select an Image")
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+            }
             .onAppear {
                 print("Passed value: \(DateHelper.formatTime(startTime))")
                 print("Start time before: \(startTimeString)")
                 print("End time before: \(endTimeString)")
                 // Initialize time strings if empty
 
-               
                 startTimeString = DateHelper.formatTime(startTime)
                 endTimeString = TimeHelpers.calculateEndTime(
-                        startTime: startTimeString,
-                        category: category ?? .lunch)
-            
-                
+                    startTime: startTimeString,
+                    category: category ?? .lunch)
+
                 category = categoryForTimeInterval(time: startTime)
                 availableTables = store.tableAssignmentService.availableTables(
-                                   for: createTemporaryReservation(),
-                                   reservations: store.getReservations(),
-                                   tables: layoutServices.getTables()
-                               )
-                
+                    for: createTemporaryReservation(),
+                    reservations: store.getReservations(),
+                    tables: layoutServices.getTables()
+                )
+
                 if passedTable != nil {
                     selectedForcedTableID = passedTable!.id
                 }
-                
+
                 print("Start time after: \(startTimeString)")
                 print("End time after: \(endTimeString)")
-                
+
+            }
+            .onChange(of: selectedPhotoItem) { old, newItem in
+                if let newItem {
+                    Task {
+                        do {
+                            if let data = try await newItem.loadTransferable(type: Data.self),
+                               let uiImage = UIImage(data: data) {
+                                selectedImage = Image(uiImage: uiImage) // Update the displayed image
+                            }
+                        } catch {
+                            print("Error loading image: \(error)")
+                        }
+                    }
+                } else {
+                    selectedImage = nil
+                }
             }
         }
     }
@@ -202,7 +367,8 @@ struct AddReservationView: View {
             reservationType: selectedStatus.asType,
             group: group,
             notes: notes.isEmpty ? nil : notes,
-            tables: []
+            tables: [],
+            imageData: imageData
         )
     }
 
@@ -220,17 +386,17 @@ struct AddReservationView: View {
             category: category ?? .lunch
         )
     }
-    
+
     private func adjustNotesForStatus() {
         // Define a pattern that finds our "tag" substrings, for example "[...];"
-        let tagPattern = #"\[[^\]]*\];"#   // Match a "[", any number of non-"]", then "];"
+        let tagPattern = #"\[[^\]]*\];"#  // Match a "[", any number of non-"]", then "];"
 
         // Remove all existing tags from the notes:
         notes = notes.replacingOccurrences(of: tagPattern, with: "", options: .regularExpression)
-        
+
         // Optionally, remove trailing whitespace and add one space (if you need it)
         notes = notes.trimmingCharacters(in: .whitespacesAndNewlines) + " "
-        
+
         // Determine the new tag to add based on selectedStatus.
         var newTag: String = ""
         switch selectedStatus {
@@ -255,26 +421,25 @@ struct AddReservationView: View {
             case .waitingList: newTag = "[waiting list];"
             }
         }
-        
+
         // Append the new tag.
         notes += newTag
     }
-    
+
     private func categoryForTimeInterval(time: Date) -> Reservation.ReservationCategory {
-    
 
         let calendar = Calendar.current
         let hour = calendar.component(.hour, from: time)
-        
+
         switch hour {
-        case 12..<15: // Lunch hours
+        case 12..<15:  // Lunch hours
             return .lunch
-        case 18..<23: // Dinner hours
+        case 18..<23:  // Dinner hours
             return .dinner
-        default: // Default to no booking zone for other hours
+        default:  // Default to no booking zone for other hours
             return .noBookingZone
         }
-        
+
     }
 
     private func saveReservation() {
@@ -282,14 +447,14 @@ struct AddReservationView: View {
             isSaving = false
             return
         }
-        
+
         let weekday = Calendar.current.component(.weekday, from: selectedDate)
-        if weekday == 2 { // Monday
+        if weekday == 2 {  // Monday
             activeAlert = .mondayConfirmation
             isSaving = false
             return
         }
-        
+
         performSaveReservation()
     }
 
@@ -304,7 +469,7 @@ struct AddReservationView: View {
         }
         return true
     }
-    
+
     private func performSaveReservation() {
         var newReservation = createTemporaryReservation()
         if newReservation.reservationType == .waitingList {
@@ -316,7 +481,8 @@ struct AddReservationView: View {
             isSaving = false
             dismiss()
         } else {
-            let assignmentResult = layoutServices.assignTables(for: newReservation, selectedTableID: selectedForcedTableID)
+            let assignmentResult = layoutServices.assignTables(
+                for: newReservation, selectedTableID: selectedForcedTableID)
             switch assignmentResult {
             case .success(let assignedTables):
                 DispatchQueue.main.async {
@@ -344,17 +510,14 @@ struct AddReservationView: View {
             }
         }
     }
-    
-    
-    
-    
+
 }
 
 enum ReservationOption: Hashable {
     case status(Reservation.ReservationStatus)
     case type(Reservation.ReservationType)
     case acceptance(Reservation.Acceptance)
-    
+
     // Optionally, provide a computed property for a localized title:
     var title: String {
         switch self {
@@ -402,7 +565,7 @@ extension ReservationOption {
         // Provide a default if the current selection isn’t a status.
         return .pending
     }
-    
+
     var asAcceptance: Reservation.Acceptance {
         if case .acceptance(let acceptance) = self {
             return acceptance
@@ -410,7 +573,7 @@ extension ReservationOption {
         // Provide a default if the current selection isn’t acceptance.
         return .toConfirm
     }
-    
+
     var asType: Reservation.ReservationType {
         if case .type(let type) = self {
             return type

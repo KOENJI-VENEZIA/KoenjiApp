@@ -35,11 +35,12 @@ struct ClusterOverlayView: View {
             }
 
             // Emoji overlay
-            let emoji = cluster.reservationID.assignedEmoji
+            if let emoji = cluster.reservationID.assignedEmoji {
                 Text(emoji)
                     .font(.system(size: 20))
                     .frame(maxWidth: 23, maxHeight: 23)
                     .position(x: cluster.frame.maxX - 18, y: cluster.frame.minY + 12)
+            }
             
 
             // Warning overlay for reservations running late

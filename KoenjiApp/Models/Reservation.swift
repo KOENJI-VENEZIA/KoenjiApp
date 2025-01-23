@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 /// Represents a reservation in the system.
 struct Reservation: Identifiable, Hashable, Codable {
@@ -25,7 +26,15 @@ struct Reservation: Identifiable, Hashable, Codable {
     var tables: [TableModel]
     let creationDate: Date
     var isMock: Bool = false // Distinguish mock data
-    var assignedEmoji: String = ""
+    var assignedEmoji: String?
+    var imageData: Data? // Store image data for the reservation
+    
+    var image: Image? {
+        if let imageData, let uiImage = UIImage(data: imageData) {
+            return Image(uiImage: uiImage)
+        }
+        return nil
+    }
 
     /// A convenience accessor for converting `dateString` into a Foundation.Date.
     /// (You will want better date/time conversion in a real app!)
@@ -51,6 +60,8 @@ struct Reservation: Identifiable, Hashable, Codable {
             case tables
             case creationDate
             case isMock
+            case assignedEmoji
+            case imageData
         }
     
     
@@ -97,7 +108,9 @@ struct Reservation: Identifiable, Hashable, Codable {
         notes: String? = nil,
         tables: [TableModel] = [],
         creationDate: Date = Date(),
-        isMock: Bool = false
+        isMock: Bool = false,
+        assignedEmoji: String = "",
+        imageData: Data? = nil
     ) {
         self.id = id
         self.name = name
@@ -115,6 +128,8 @@ struct Reservation: Identifiable, Hashable, Codable {
         self.tables = tables
         self.creationDate = creationDate
         self.isMock = isMock
+        self.assignedEmoji = assignedEmoji
+        self.imageData = imageData
         
         
                // Using DateHelper to combine date and time strings
@@ -162,6 +177,8 @@ extension Reservation {
 
         // Provide a default value for `isMock` if the key is missing
         isMock = try container.decodeIfPresent(Bool.self, forKey: .isMock) ?? false
+        assignedEmoji = try container.decodeIfPresent(String.self, forKey: .assignedEmoji)
+        imageData = try container.decodeIfPresent(Data.self, forKey: .imageData)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -184,6 +201,8 @@ extension Reservation {
         try container.encode(tables, forKey: .tables)
         try container.encode(creationDate, forKey: .creationDate)
         try container.encode(isMock, forKey: .isMock)
+        try container.encode(assignedEmoji, forKey: .assignedEmoji)
+        try container.encode(imageData, forKey: .imageData)
     }
 }
 
