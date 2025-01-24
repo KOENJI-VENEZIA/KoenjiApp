@@ -35,6 +35,10 @@ struct Reservation: Identifiable, Hashable, Codable {
         }
         return nil
     }
+    
+    var normalizedStartTime: Date?
+    var normalizedEndTime: Date?
+    
 
     /// A convenience accessor for converting `dateString` into a Foundation.Date.
     /// (You will want better date/time conversion in a real app!)
@@ -42,6 +46,15 @@ struct Reservation: Identifiable, Hashable, Codable {
         return DateHelper.parseDate(dateString)
     }
 
+    var startTimeDate: Date? {
+        let parsed = DateHelper.parseTime(startTime)
+        return DateHelper.combine(date: date ?? Date(), time: parsed ?? Date())
+    }
+    
+    var endTimeDate: Date? {
+        let parsed = DateHelper.parseTime(endTime)
+        return DateHelper.combine(date: date ?? Date(), time: parsed ?? Date())
+    }
     
     enum CodingKeys: String, CodingKey {
             case id
@@ -133,10 +146,8 @@ struct Reservation: Identifiable, Hashable, Codable {
         
         
                // Using DateHelper to combine date and time strings
-        if let reservationDate = DateHelper.parseDate(dateString) {
-            
-          let combinedStartDate = DateHelper.combineDateAndTimeStrings(dateString: dateString, timeString: startTime)
-           
+        if let reservationDate = date, let combinedStartDate = startTimeDate {
+                       
            let calendar = Calendar.current
            // If the creation date is the same day as the reservation's date
            // and the creation time is at or after the start time, mark as walkIn.
@@ -206,53 +217,9 @@ extension Reservation {
     }
 }
 
-extension Reservation {
-    /// Checks if the reservation is active at the given date and time.
-    func isActive(on date: Date, at time: Date) -> Bool {
-        guard let reservationDate = self.date,
-              reservationDate.isSameDay(as: date),
-              let start = self.startDate,
-              let end = self.endDate else {
-            return false
-        }
 
-        return TimeHelpers.timeRangesOverlap(start1: start, end1: end, start2: time, end2: time)
-    }
-}
 
-extension Reservation {
-    /// Combines `dateString` and `startTime` to generate a `Date` object for the reservation's start.
-    var startDate: Date? {
-        guard let reservationDate = date,
-                let startTimeDate = DateHelper.parseTime(startTime) else {
-              return nil
-          }
 
-          let calendar = Calendar.current
-          let timeComponents = calendar.dateComponents([.hour, .minute], from: startTimeDate)
-
-          return calendar.date(bySettingHour: timeComponents.hour ?? 0,
-                               minute: timeComponents.minute ?? 0,
-                               second: 0,
-                               of: reservationDate)
-      }
-
-      /// Parse and normalize the end date-time of the reservation.
-      var endDate: Date? {
-          guard let reservationDate = date,
-                let endTimeDate = DateHelper.parseTime(endTime) else {
-              return nil
-          }
-
-          let calendar = Calendar.current
-          let timeComponents = calendar.dateComponents([.hour, .minute], from: endTimeDate)
-
-          return calendar.date(bySettingHour: timeComponents.hour ?? 0,
-                               minute: timeComponents.minute ?? 0,
-                               second: 0,
-                               of: reservationDate)
-      }
-}
 
 extension Reservation.ReservationCategory: Codable {}
 extension Reservation.Acceptance: Codable {}

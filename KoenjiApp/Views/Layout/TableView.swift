@@ -1,4 +1,5 @@
 import SwiftUI
+import EmojiPalette
 
 struct TableView: View {
     let table: TableModel
@@ -9,7 +10,7 @@ struct TableView: View {
     let activeReservations: [Reservation]
     @Binding var changedReservation: Reservation?
     @Binding var isEditing: Bool
-
+    @EnvironmentObject var stateCache: ReservationStateCache
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var tableStore: TableStore
@@ -43,12 +44,23 @@ struct TableView: View {
 
     @State private var statusChanged: Int = 0
     @State private var showEmojiPicker: Bool = false
+    @State private var showFullEmojiPicker: Bool = false
     @State private var isContextMenuActive = false
-    @State private var selectedEmoji: String? = nil
+    @State private var selectedEmoji: String = ""
+
 
     @State private var tapTimer: Timer?
     @State private var isDoubleTap = false
+    
 
+    @State private var currentActiveReservation: Reservation? = nil
+    
+    private let normalizedTimeCache = NormalizedTimeCache()
+
+    @State private var timesUp: Bool = false
+    @State private var isLate: Bool = false
+    @State private var showedUp: Bool = false
+    
     private var cellSize: CGFloat { return gridData.cellSize }
 
     private var tableFrame: CGRect {
@@ -58,13 +70,14 @@ struct TableView: View {
         let yPos = CGFloat(table.row) * cellSize + height / 2
         return CGRect(x: xPos, y: yPos, width: width, height: height)
     }
+    
+
 
     var body: some View {
         // Determine if the table is highlighted
         let isHighlighted = layoutServices.tableAnimationState[table.id] ?? false
 
         // Get active reservation
-        var activeReservation = filterActiveReservation(for: table) ?? nil
 
         let isDragging = {
             if case .dragging = dragState { return true }
@@ -79,7 +92,7 @@ struct TableView: View {
         let (fillColor, idSuffix): (Color, String) = {
             if isDragging {
                 return (Color(hex: "#AEAB7D").opacity(0.2), "dragging")
-            } else if activeReservation != nil {
+            } else if currentActiveReservation != nil {
                 return (isLunch ? Color.active_table_lunch : Color.active_table_dinner, "reserved")
             } else if isLayoutLocked {
                 return (Color(hex: "#A3B7D2"), "locked")
@@ -88,39 +101,11 @@ struct TableView: View {
             }
         }()
 
-        let timesUp = {
-            guard let activeReservation = activeReservation else { return false }
-            if let endTime = DateHelper.parseTime(activeReservation.endTime),
-                let currentTimeComponents = DateHelper.extractTime(time: currentTime),
-                let newTime = DateHelper.normalizedInputTime(
-                    time: currentTimeComponents, date: endTime),
-                endTime.timeIntervalSince(newTime) <= 60 * 30
-            {
-                return true
-            }
-            return false
-        }()
+       
 
-        let showedUp = {
-            if let activeReservation = activeReservation, activeReservation.status == .showedUp {
-                return true
-            }
-            return false
-        }()
+        
 
-        let isLate = {
-            if let activeReservation = activeReservation,
-                activeReservation.status != .showedUp, !isContextMenuActive,
-                let startTime = DateHelper.parseTime(activeReservation.startTime),
-                let currentTimeComponents = DateHelper.extractTime(time: currentTime),
-                let newtime = DateHelper.normalizedInputTime(
-                    time: currentTimeComponents, date: startTime),
-                newtime.timeIntervalSince(startTime) >= 15 * 60
-            {
-                return true
-            }
-            return false
-        }()
+       
 
         ZStack {
             // Parent ZStack for interaction
@@ -172,7 +157,7 @@ struct TableView: View {
 
                 // Reservation information or table name
                 Group {
-                    if let reservation = activeReservation {
+                    if let reservation = currentActiveReservation {
                         // Active reservation exists: display reservation details.
                         reservationInfo(
                             status: timesUp,
@@ -213,7 +198,7 @@ struct TableView: View {
                         .zIndex(2)
                 }
 
-                if let reservation = activeReservation, let emoji = reservation.assignedEmoji, !isContextMenuActive {
+                if let reservation = currentActiveReservation, let emoji = reservation.assignedEmoji, !isContextMenuActive {
                     Text(emoji)
                         .font(.system(size: 20))  // Match the font size to the frame of the Image
                         .frame(maxWidth: 23, maxHeight: 23)  // Same dimensions as the Image
@@ -221,7 +206,7 @@ struct TableView: View {
                         .zIndex(2)
                 }
 
-                if isLate {
+                if isLate, let reservation = currentActiveReservation, reservation.status == .late {
                     Image(systemName: "clock.badge.exclamationmark.fill")
                         .resizable()
                         .scaledToFit()
@@ -232,8 +217,7 @@ struct TableView: View {
                         .zIndex(2)
                         .onAppear {
                             print("Reservation appeared at \(Date()) - marking as late")
-                            activeReservation = filterActiveReservation(for: table)
-                            if var reservation = activeReservation {
+                            if var reservation = currentActiveReservation {
                                 guard reservation.reservationType != .waitingList else { return }
                                 reservation.status = .late
                                 reservationService.updateReservation(reservation)
@@ -241,8 +225,7 @@ struct TableView: View {
                         }
                         .onDisappear {
                             print("Reservation disappeared at \(Date()) - marking as pending")
-                            activeReservation = filterActiveReservation(for: table)
-                            if var reservation = activeReservation {
+                            if var reservation = currentActiveReservation {
                                 guard reservation.reservationType != .waitingList else { return }
                                 reservation.status = .pending
                                 reservationService.updateReservation(reservation)
@@ -266,21 +249,35 @@ struct TableView: View {
 
                 }
             }
+            
+        }
+        .onAppear {
+            currentActiveReservation = filterActiveReservation(for: table)
+            computeReservationStates()
+        }
+        .onChange(of: currentTime) {
+            currentActiveReservation = filterActiveReservation(for: table)
+            computeReservationStates()
+
+        }
+        .onChange(of: currentActiveReservation) {
+            computeReservationStates()
         }
         .onChange(of: statusChanged) {
-            if let reservation = activeReservation {
+            if let reservation = currentActiveReservation {
                 print("Reservation start time: \(reservation.startTime)")
 
             }
+            computeReservationStates()
             print("Status change triggered!")
             print("Current time: \(currentTime)")
-            activeReservation = filterActiveReservation(for: table) ?? nil
+//            currentActiveReservation = filterActiveReservation(for: table)
         }
         .onChange(of: selectedEmoji) {
-            handleEmojiAssignment(activeReservation, selectedEmoji ?? "")
+            handleEmojiAssignment(currentActiveReservation, selectedEmoji)
         }
         .onChange(of: changedReservation) {
-            activeReservation = filterActiveReservation(for: table) ?? nil
+            currentActiveReservation = filterActiveReservation(for: table)
         }
         .contextMenu {
 
@@ -293,20 +290,25 @@ struct TableView: View {
             Divider()
 
             Button("Cancellazione") {
-                if let reservation = activeReservation {
+                if let reservation = currentActiveReservation {
                     handleCancelled(reservation)
                 }
             }
         }
-        .popover(isPresented: $showEmojiPicker, arrowEdge: .top) {
-            EmojiPickerView { emoji in
+        .popover(isPresented: $showFullEmojiPicker) {
+            EmojiPaletteView(selectedEmoji: $selectedEmoji)
+        }
+        .popover(isPresented: $showEmojiPicker) {
+            EmojiSmallPicker(onEmojiSelected: { emoji in
                 if selectedEmoji != emoji {
                     selectedEmoji = emoji
                 } else {
                     selectedEmoji = ""
                 }
                 showEmojiPicker = false  // Dismiss the popover
-            }
+            },
+            showFullEmojiPicker: $showFullEmojiPicker,
+            selectedEmoji: $selectedEmoji)
         }
         .position(x: tableFrame.minX, y: tableFrame.minY)
         .offset(dragOffset)
@@ -353,7 +355,7 @@ struct TableView: View {
                 tapTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
                     if !isDoubleTap {
                         // Process single-tap only if no double-tap occurred
-                        handleTap(activeReservation)
+                        handleTap(currentActiveReservation)
                     }
                 }
             }
@@ -473,6 +475,57 @@ struct TableView: View {
 
     }
 
+    private func computeReservationStates() {
+        guard let activeReservation = currentActiveReservation else {
+            timesUp = false
+            isLate = false
+            showedUp = false
+            return
+        }
+
+        // Check if the reservation states are already cached
+        if let cachedState = stateCache.cache[activeReservation.id],
+           cachedState.time == systemTime {
+            timesUp = cachedState.timesUp
+            isLate = cachedState.isLate
+            showedUp = cachedState.showedUp
+            return
+        }
+
+        // Compute `timesUp`
+        let calendar = Calendar.current
+        let timesUpComputed: Bool
+        if let endTime = activeReservation.endTimeDate,
+           let reservationDate = activeReservation.date,
+           calendar.isDate(reservationDate, inSameDayAs: systemTime),
+           let currentTimeComponents = DateHelper.extractTime(time: systemTime),
+           let normalizedTime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: endTime) {
+            timesUpComputed = endTime.timeIntervalSince(normalizedTime) <= 60 * 30
+        } else {
+            timesUpComputed = false
+        }
+
+        // Compute `isLate`
+        let isLateComputed = activeReservation.status != .showedUp &&
+                             activeReservation.startTimeDate?.timeIntervalSince(systemTime) ?? 0 <= -15 * 60
+
+        // Compute `showedUp`
+        let showedUpComputed = activeReservation.status == .showedUp
+
+        // Update states
+        timesUp = timesUpComputed
+        isLate = isLateComputed
+        showedUp = showedUpComputed
+
+        // Cache the computed values
+        stateCache.cache[activeReservation.id] = ReservationState(
+            time: systemTime,
+            timesUp: timesUpComputed,
+            showedUp: showedUpComputed,
+            isLate: isLateComputed
+        )
+    }
+    
     // MARK: - Gestures
     private func dragGesture(
         cellSize: CGFloat, tableWidth: CGFloat, tableHeight: CGFloat, xPos: CGFloat, yPos: CGFloat
@@ -523,10 +576,12 @@ struct TableView: View {
             }
     }
 
+    
     // MARK: - Actions
     private func handleTap(_ activeReservation: Reservation?) {
         if let index = activeReservations.firstIndex(where: { $0.id == activeReservation?.id }) {
             var currentReservation = activeReservations[index]
+            print("Reservation status: \(currentReservation.status)")
             if currentReservation.status == .pending || currentReservation.status == .late {
 
                 currentReservation.status = .showedUp
@@ -535,7 +590,7 @@ struct TableView: View {
                 onStatusChange()
 
             } else {
-                if let reservationStart = DateHelper.parseTime(currentReservation.startTime),
+                if let reservationStart = currentReservation.startTimeDate,
                     currentTime.timeIntervalSince(reservationStart) >= 60 * 15
                 {
                     currentReservation.status = .late
@@ -546,6 +601,7 @@ struct TableView: View {
                 statusChanged += 1
                 onStatusChange()
             }
+            print("Reservation status after tap: \(currentReservation.status)")
         }
     }
     private func handleDoubleTap(_ activeReservations: [Reservation]) {
@@ -559,8 +615,7 @@ struct TableView: View {
             }
 
             // Ensure the reservation is active (i.e., overlaps with the current time).
-            let resStart = DateHelper.combineDateAndTimeStrings(
-                dateString: reservation.dateString, timeString: reservation.startTime)
+            guard let resStart = reservation.startTimeDate else { return false }
 
             return resStart <= DateHelper.combineDateAndTime(
                 date: selectedDate, timeString: startTimeString) ?? Date()
@@ -643,50 +698,80 @@ struct TableView: View {
         layoutServices.currentlyDraggedTableID = nil
 
     }
+    
+    
 
     private func filterActiveReservation(for table: TableModel) -> Reservation? {
         let calendar = Calendar.current
 
-        return store.reservations.first { reservation in
-            // Check if the table is assigned to this reservation
-            reservation.tables.contains(where: { $0.id == table.id })
-
-                && reservation.status != .canceled
-                && reservation.reservationType != .waitingList
-                // Check if the reservation date matches the selected date
-                && reservation.dateString == DateHelper.formatDate(selectedDate)
-
-                // Check if the current time falls within the reservation's time range
-                && {
-                    let timeFormatter = DateFormatter()
-                    timeFormatter.dateFormat = "HH:mm"
-                    timeFormatter.timeZone = TimeZone.current
-
-                    guard let startTime = timeFormatter.date(from: reservation.startTime),
-                        let endTime = timeFormatter.date(from: reservation.endTime),
-                        let normalizedStartTime = calendar.date(
-                            bySettingHour: calendar.component(.hour, from: startTime),
-                            minute: calendar.component(.minute, from: startTime),
-                            second: 0,
-                            of: calendar.startOfDay(for: selectedDate)),
-                        let normalizedEndTime = calendar.date(
-                            bySettingHour: calendar.component(.hour, from: endTime),
-                            minute: calendar.component(.minute, from: endTime),
-                            second: 0,
-                            of: calendar.startOfDay(for: selectedDate)),
-                        let normalizedCurrentTime = calendar.date(
-                            bySettingHour: calendar.component(.hour, from: currentTime),
-                            minute: calendar.component(.minute, from: currentTime),
-                            second: 0,
-                            of: calendar.startOfDay(for: selectedDate))
-                    else {
-                        return false
-                    }
-
-                    return normalizedCurrentTime >= normalizedStartTime
-                        && normalizedCurrentTime < normalizedEndTime
-                }()
+        guard let normalizedCurrentTime = calendar.date(
+            bySettingHour: calendar.component(.hour, from: currentTime),
+            minute: calendar.component(.minute, from: currentTime),
+            second: 0,
+            of: calendar.startOfDay(for: selectedDate)
+        ) else {
+            return nil
         }
+
+        return store.reservations.first { reservation in
+            guard reservation.status != .canceled,
+                  reservation.reservationType != .waitingList,
+                  reservation.dateString == DateHelper.formatDate(selectedDate) else {
+                return false
+            }
+
+            let cacheKey = "\(reservation.id)-\(selectedDate)"
+            if let cached = normalizedTimeCache.get(key: cacheKey) {
+                return isReservationMatching(
+                    reservation,
+                    table: table,
+                    normalizedStartTime: cached.startTime,
+                    normalizedEndTime: cached.endTime,
+                    normalizedCurrentTime: normalizedCurrentTime
+                )
+            }
+
+            guard let startTime = DateHelper.timeFormatter.date(from: reservation.startTime),
+                  let endTime = DateHelper.timeFormatter.date(from: reservation.endTime),
+                  let normalizedStartTime = calendar.date(
+                      bySettingHour: calendar.component(.hour, from: startTime),
+                      minute: calendar.component(.minute, from: startTime),
+                      second: 0,
+                      of: calendar.startOfDay(for: selectedDate)),
+                  let normalizedEndTime = calendar.date(
+                      bySettingHour: calendar.component(.hour, from: endTime),
+                      minute: calendar.component(.minute, from: endTime),
+                      second: 0,
+                      of: calendar.startOfDay(for: selectedDate)) else {
+                return false
+            }
+
+            normalizedTimeCache.set(key: cacheKey, value: (startTime: normalizedStartTime, endTime: normalizedEndTime))
+
+            return isReservationMatching(
+                reservation,
+                table: table,
+                normalizedStartTime: normalizedStartTime,
+                normalizedEndTime: normalizedEndTime,
+                normalizedCurrentTime: normalizedCurrentTime
+            )
+        }
+    }
+
+    private func isReservationMatching(
+        _ reservation: Reservation,
+        table: TableModel,
+        normalizedStartTime: Date,
+        normalizedEndTime: Date,
+        normalizedCurrentTime: Date
+    ) -> Bool {
+        // Check if the table is assigned to this reservation
+        guard reservation.tables.contains(where: { $0.id == table.id }) else {
+            return false
+        }
+
+        // Check if the current time falls within the reservation's time range
+        return normalizedCurrentTime >= normalizedStartTime && normalizedCurrentTime < normalizedEndTime
     }
 }
 
@@ -787,7 +872,7 @@ func upcomingReservation(
             return false
         }
 
-        let reservationDate = DateHelper.parseDate(reservation.dateString) ?? selectedDate
+        let reservationDate = reservation.date ?? selectedDate
         guard Calendar.current.isDate(selectedDate, inSameDayAs: reservationDate) else {
             return false
         }
@@ -814,8 +899,10 @@ func upcomingReservation(
     return sortedReservations.first
 }
 
-struct EmojiPickerView: View {
+struct EmojiSmallPicker: View {
     let onEmojiSelected: (String) -> Void
+    @Binding var showFullEmojiPicker: Bool
+    @Binding var selectedEmoji: String
     private let emojis = ["❤️", "😂", "😮", "😢", "🙏", "❗️"]
 
     var body: some View {
@@ -826,6 +913,20 @@ struct EmojiPickerView: View {
                 } label: {
                     Text(emoji)
                         .font(.title)
+                }
+            }
+            
+            
+            Button {
+                onEmojiSelected("")
+                showFullEmojiPicker = true
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 30, height: 30)
+                    Image(systemName: "plus")
+                        .foregroundStyle(Color.gray.opacity(0.5))
                 }
             }
         }
@@ -853,5 +954,6 @@ struct EmojiButton: View {
             }
 
     }
+
 
 }

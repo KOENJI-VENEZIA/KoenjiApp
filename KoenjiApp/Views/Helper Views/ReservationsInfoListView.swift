@@ -170,7 +170,7 @@ struct ReservationsInfoListView: View {
     
     func reservations(at date: Date) -> [Reservation] {
         store.reservations.filter { reservation in
-            guard let reservationDate = DateHelper.parseDate(reservation.dateString) else { return false }// Skip reservations with invalid times
+            guard let reservationDate = reservation.date else { return false }// Skip reservations with invalid times
             return reservationDate.isSameDay(as: date)
         }
     }
@@ -201,7 +201,7 @@ struct ReservationsInfoListView: View {
     
     
     private func showReservationInTime(_ reservation: Reservation) {
-        if let reservationStart = DateHelper.parseTime(reservation.startTime) {
+        if let reservationStart = reservation.startTimeDate {
             let combinedDate = DateHelper.combine(date: currentTime, time: reservationStart)
             
             currentTime = combinedDate
@@ -213,7 +213,7 @@ struct ReservationsInfoListView: View {
         if updatedReservation.status == .pending || updatedReservation.status == .late {
                 updatedReservation.status = .showedUp
             }
-            else if let reservationStart = DateHelper.parseTime(updatedReservation.startTime),
+            else if let reservationStart = updatedReservation.startTimeDate,
                     currentTime.timeIntervalSince(reservationStart) >= 60 * 15, updatedReservation.status == .showedUp {
                 updatedReservation.status = .late
                  } else {

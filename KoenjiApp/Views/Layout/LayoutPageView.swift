@@ -72,6 +72,7 @@ struct LayoutPageView: View {
     @State private var catchedImage: UIImage?
 
     @State private var debounceWorkItem: DispatchWorkItem?
+    @StateObject private var stateCache = ReservationStateCache()
 
     // MARK: - Computed Properties
     private var isCompact: Bool {
@@ -233,6 +234,7 @@ struct LayoutPageView: View {
                             .environmentObject(clusterServices)
                             .environmentObject(layoutServices)
                             .environmentObject(gridData)
+                            .environmentObject(stateCache)
                             .transition(.opacity)  // Fade in/out transition
 
                             if clusterManager.clusters.isEmpty && !isLoadingClusters {
@@ -251,6 +253,7 @@ struct LayoutPageView: View {
                                         isLayoutLocked: $isLayoutLocked,
                                         isLunch: isLunch
                                     )
+                                    .environmentObject(stateCache)
                                 }
                             }
                         }
@@ -263,6 +266,7 @@ struct LayoutPageView: View {
                                         handleTap(activeReservations, cluster.reservationID)
                                     }
                                 )
+                                .environmentObject(stateCache)
                         }
                         
                         PencilKitCanvas(
@@ -410,7 +414,7 @@ struct LayoutPageView: View {
     // MARK: - Helper Views
 
 
-    private func debounce(action: @escaping () -> Void, delay: TimeInterval = 0.3) {
+    private func debounce(action: @escaping () -> Void, delay: TimeInterval = 0.1) {
         debounceWorkItem?.cancel()
         let newWorkItem = DispatchWorkItem {
             action()
@@ -451,7 +455,7 @@ struct LayoutPageView: View {
                 statusChanged += 1
 
             } else {
-                if let reservationStart = DateHelper.parseTime(currentReservation.startTime),
+                if let reservationStart = currentReservation.startTimeDate,
                     currentTime.timeIntervalSince(reservationStart) >= 60 * 15
                 {
                     currentReservation.status = .late
@@ -473,30 +477,94 @@ struct LayoutPageView: View {
     // MARK: - UI Update Methods
 
     private func reloadLayout(
-        _ selectedCategory: Reservation.ReservationCategory, _ activeReservations: [Reservation]
+        _ selectedCategory: Reservation.ReservationCategory,
+        _ activeReservations: [Reservation]
     ) {
         Task {
             DispatchQueue.main.async {
-                
-                layoutUI.tables = layoutServices.loadTables(for: combinedDate, category: selectedCategory)
-                //        let newDrawingModel = scribbleService.reloadDrawings(
-                //            for: combinedDate, category: selectedCategory)
-                //
-                //        currentDrawing.layer1 = newDrawingModel.layer1
-                //        currentDrawing.layer2 = newDrawingModel.layer2
-                //        currentDrawing.layer3 = newDrawingModel.layer3
-                
-                print("Layer 1: \(currentDrawing.layer1.strokes.count) strokes")
-                print("Layer 2: \(currentDrawing.layer2.strokes.count) strokes")
-                print("Layer 3: \(currentDrawing.layer3.strokes.count) strokes")
-                
-                clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
-                    oldCategory: selectedCategory,
-                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+                // Update only the necessary parts of the layout
+                updateTablesIfNeeded(for: selectedCategory)
+                updateClustersIfNeeded(for: activeReservations)
+                updateDrawingLayersIfNeeded(for: selectedCategory)
             }
         }
     }
+    
+    private func updateTablesIfNeeded(for selectedCategory: Reservation.ReservationCategory) {
+        // Check if a reload is required
+        let currentTables = layoutUI.tables
+        let newTables = layoutServices.loadTables(for: combinedDate, category: selectedCategory)
+        
+        guard currentTables != newTables else {
+            print("No table updates required.")
+            return
+        }
+        
+        layoutUI.tables = newTables
+        print("Tables updated for category: \(selectedCategory).")
+    }
+    
+    private func updateClustersIfNeeded(for activeReservations: [Reservation]) {
+        let clustersBeforeUpdate = clusterManager.clusters
+        
+        clusterManager.recalculateClustersIfNeeded(
+            for: activeReservations,
+            tables: layoutUI.tables,
+            combinedDate: combinedDate,
+            oldCategory: selectedCategory,
+            selectedCategory: selectedCategory,
+            cellSize: gridData.cellSize
+        )
+        
+        if clustersBeforeUpdate == clusterManager.clusters {
+            print("No cluster updates required.")
+        } else {
+            print("Clusters updated successfully.")
+        }
+    }
+    
+    private func updateDrawingLayersIfNeeded(for selectedCategory: Reservation.ReservationCategory) {
+        let currentDrawingModel = scribbleService.reloadDrawings(for: combinedDate, category: selectedCategory)
+        
+        // Only update the layers if they are different
+        if currentDrawing.layer1 != currentDrawingModel.layer1 {
+            currentDrawing.layer1 = currentDrawingModel.layer1
+        }
+        if currentDrawing.layer2 != currentDrawingModel.layer2 {
+            currentDrawing.layer2 = currentDrawingModel.layer2
+        }
+        if currentDrawing.layer3 != currentDrawingModel.layer3 {
+            currentDrawing.layer3 = currentDrawingModel.layer3
+        }
+        
+        print("Drawing layers updated for category: \(selectedCategory).")
+    }
+    
+//    private func reloadLayout(
+//        _ selectedCategory: Reservation.ReservationCategory, _ activeReservations: [Reservation]
+//    ) {
+//        Task {
+//            DispatchQueue.main.async {
+//                
+//                layoutUI.tables = layoutServices.loadTables(for: combinedDate, category: selectedCategory)
+//                //        let newDrawingModel = scribbleService.reloadDrawings(
+//                //            for: combinedDate, category: selectedCategory)
+//                //
+//                //        currentDrawing.layer1 = newDrawingModel.layer1
+//                //        currentDrawing.layer2 = newDrawingModel.layer2
+//                //        currentDrawing.layer3 = newDrawingModel.layer3
+//                
+//                print("Layer 1: \(currentDrawing.layer1.strokes.count) strokes")
+//                print("Layer 2: \(currentDrawing.layer2.strokes.count) strokes")
+//                print("Layer 3: \(currentDrawing.layer3.strokes.count) strokes")
+//                
+//                clusterManager.recalculateClustersIfNeeded(
+//                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+//                    oldCategory: selectedCategory,
+//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+//            }
+//        }
+//    }
 
     private func onTableUpdated(_ updatedTable: TableModel) {
 
@@ -779,7 +847,7 @@ struct ShareModal: View {
     private func shareCapturedImage(_ image: UIImage?) {
 
         let activityController = UIActivityViewController(
-            activityItems: [image], applicationActivities: nil)
+            activityItems: [image as Any], applicationActivities: nil)
 
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
             let rootViewController = windowScene.windows.first?.rootViewController

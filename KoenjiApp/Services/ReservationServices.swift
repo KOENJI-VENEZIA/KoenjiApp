@@ -115,28 +115,22 @@ class ReservationService: ObservableObject {
    
     
     func removeReservationFromActiveCache(_ reservation: Reservation) {
-        let start = DateHelper.combineDateAndTimeStrings(
-            dateString: reservation.dateString,
-            timeString: reservation.startTime
-        )
-        let end   = DateHelper.combineDateAndTimeStrings(
-            dateString: reservation.dateString,
-            timeString: reservation.endTime
-        )
+        guard let start = reservation.startTimeDate, let end = reservation.endTimeDate else { return }
 
-        var current = start
-        while current < end {
-            for table in reservation.tables {
-                let cacheKey = ActiveReservationCacheKey(
-                    tableID: table.id,
-                    date: Calendar.current.startOfDay(for: current),
-                    time: current
-                )
-                store.activeReservationCache.removeValue(forKey: cacheKey)
+            var current = start
+            while current < end {
+                for table in reservation.tables {
+                    let cacheKey = ActiveReservationCacheKey(
+                        tableID: table.id,
+                        date: Calendar.current.startOfDay(for: current),
+                        time: current
+                    )
+                    store.activeReservationCache.removeValue(forKey: cacheKey)
+                }
+                current.addTimeInterval(60) // next minute
             }
-            current.addTimeInterval(60) // next minute
         }
-    }
+    
     
     func clearAllData() {
         store.reservations.removeAll() // Clear in-memory reservations
@@ -163,8 +157,8 @@ class ReservationService: ObservableObject {
 
        /// Invalidates the cluster cache for the given reservation.
        private func invalidateClusterCache(for reservation: Reservation) {
-           guard let reservationDate = DateHelper.parseDate(reservation.dateString) else {
-               print("Failed to parse dateString \(reservation.dateString). Cache invalidation skipped.")
+           guard let reservationDate = reservation.date else {
+               print("Failed to parse dateString \(reservation.date). Cache invalidation skipped.")
                return
            }
            self.clusterStore.invalidateClusterCache(for: reservationDate, category: reservation.category)
@@ -220,8 +214,8 @@ class ReservationService: ObservableObject {
 
             guard reservation.reservationType != .waitingList else { continue }
             // Parse startTime and endTime of the reservation
-            guard let startTime = DateHelper.parseTime(reservation.startTime),
-                  let endTime = DateHelper.parseTime(reservation.endTime),
+            guard let startTime = reservation.startTimeDate,
+                  let endTime = reservation.endTimeDate,
                   let normalizedStartTime = DateHelper.normalizedTime(time: startTime, date: requestedDate),
                   let normalizedEndTime = DateHelper.normalizedTime(time: endTime, date: requestedDate),
                   let normalizedInputTime = DateHelper.normalizedInputTime(time: inputTimeComponents, date: requestedDate) else {
@@ -286,9 +280,40 @@ class ReservationService: ObservableObject {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601 // Ensure ISO 8601 consistency
             
-            let decodedReservations = try decoder.decode([Reservation].self, from: data)
-            store.setReservations(decodedReservations) // Update store
-            print("Reservations loaded successfully.")
+            // Decode reservations
+            var decodedReservations = try decoder.decode([Reservation].self, from: data)
+            
+            // Normalize start and end times
+            let calendar = Calendar.current
+            let today = Date()
+            let todayStartOfDay = calendar.startOfDay(for: today)
+            
+            for index in decodedReservations.indices {
+                let reservation = decodedReservations[index]
+                
+                // Parse the times
+                if let startTime = DateHelper.timeFormatter.date(from: reservation.startTime),
+                   let endTime = DateHelper.timeFormatter.date(from: reservation.endTime) {
+                    // Normalize the times for today
+                    decodedReservations[index].normalizedStartTime = calendar.date(
+                        bySettingHour: calendar.component(.hour, from: startTime),
+                        minute: calendar.component(.minute, from: startTime),
+                        second: 0,
+                        of: todayStartOfDay
+                    )
+                    
+                    decodedReservations[index].normalizedEndTime = calendar.date(
+                        bySettingHour: calendar.component(.hour, from: endTime),
+                        minute: calendar.component(.minute, from: endTime),
+                        second: 0,
+                        of: todayStartOfDay
+                    )
+                }
+            }
+            
+            // Save normalized reservations to the store
+            store.setReservations(decodedReservations)
+            print("Reservations loaded and normalized successfully.")
         } catch {
             print("Error loading reservations from disk: \(error)")
         }
@@ -309,6 +334,55 @@ class ReservationService: ObservableObject {
             print("Reservations saved successfully.")
         } catch {
             print("Error saving reservations to disk: \(error)")
+        }
+    }
+    
+    func exportReservations(completion: @escaping (URL?) -> Void) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601 // Ensure ISO 8601 consistency
+
+        do {
+            // Encode the reservations to JSON
+            let data = try encoder.encode(store.reservations)
+            
+            // Create a temporary file URL
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("ReservationsBackup.json")
+            
+            // Write the JSON data to the file
+            try data.write(to: tempURL, options: .atomic)
+            print("Reservations exported successfully to \(tempURL).")
+            
+            // Pass the file URL to the completion handler
+            completion(tempURL)
+        } catch {
+            print("Error exporting reservations: \(error)")
+            completion(nil)
+        }
+    }
+    
+    /// Imports reservations from a JSON file.
+    func importReservations(from url: URL, completion: @escaping (Bool) -> Void) {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601 // Ensure ISO 8601 consistency
+
+        do {
+            // Read the data from the selected file
+            let data = try Data(contentsOf: url)
+            
+            // Decode the JSON data into an array of reservations
+            let importedReservations = try decoder.decode([Reservation].self, from: data)
+            
+            // Replace the current reservations with the imported ones
+            store.reservations = importedReservations
+            
+            // Save the imported reservations to disk
+            saveReservationsToDisk()
+            
+            print("Reservations imported successfully.")
+            completion(true)
+        } catch {
+            print("Error importing reservations: \(error)")
+            completion(false)
         }
     }
     
@@ -378,21 +452,13 @@ extension ReservationService {
 
         if startFromLastSaved {
             if let maxReservation = self.store.reservations.max(by: { lhs, rhs in
-                let lhsDate = DateHelper.combineDateAndTimeStrings(
-                    dateString: lhs.dateString,
-                    timeString: lhs.startTime
-                )
-                let rhsDate = DateHelper.combineDateAndTimeStrings(
-                    dateString: rhs.dateString,
-                    timeString: rhs.startTime
-                )
+                guard let lhsDate = lhs.startTimeDate, let rhsDate = rhs.startTimeDate else {
+                    return false
+                }
                 return lhsDate < rhsDate
             }) {
-                let lastReservationDate = DateHelper.combineDateAndTimeStrings(
-                    dateString: maxReservation.dateString,
-                    timeString: maxReservation.startTime
-                )
-                if let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: lastReservationDate) {
+                if let lastReservationDate = maxReservation.startTimeDate,
+                   let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: lastReservationDate) {
                     startDate = nextDay
                 }
             }
@@ -426,10 +492,8 @@ extension ReservationService {
         }
 
         // 4. Save data to disk after all tasks complete
-        DispatchQueue.main.async {
             self.layoutServices.saveToDisk()
             print("Finished generating reservations.")
-        }
     }
 
     private func generateReservationsForDay(
@@ -513,14 +577,8 @@ extension ReservationService {
                     if self.layoutServices.cachedLayouts[key] == nil {
                         self.layoutServices.cachedLayouts[key] = self.tableStore.baseTables
                     }
-                        let reservationStart = DateHelper.combineDateAndTimeStrings(
-                            dateString: reservation.dateString,
-                            timeString: reservation.startTime
-                        )
-                        let reservationEnd = DateHelper.combineDateAndTimeStrings(
-                            dateString: reservation.dateString,
-                            timeString: reservation.endTime
-                        )
+                        guard let reservationStart = reservation.startTimeDate,
+                              let reservationEnd = reservation.endTimeDate else { break }
                         
                         assignedTables.forEach { self.layoutServices.unlockTable(tableID: $0.id, start: reservationStart, end: reservationEnd) }
                         self.store.finalizeReservation(updatedReservation)
@@ -677,7 +735,7 @@ extension ReservationService {
                 continue
             }
             
-            let reservationsByDate = Dictionary(grouping: store.reservations) { DateHelper.parseDate($0.dateString) }
+            let reservationsByDate = Dictionary(grouping: store.reservations) { $0.date }
             
             guard let dateReservations = reservationsByDate[preloadDate] else {
                 print("DEBUG: No reservations found for date: \(preloadDate).")
@@ -705,8 +763,8 @@ extension ReservationService {
     }
     
     func updateActiveReservationAdjacencyCounts(for reservation: Reservation) {
-        guard let reservationDate = DateHelper.parseDate(reservation.dateString),
-              let combinedDateTime = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime) else {
+        guard let reservationDate = reservation.date,
+              let combinedDateTime = reservation.startTimeDate else {
             print("Invalid reservation date or time for updating adjacency counts.")
             return
         }

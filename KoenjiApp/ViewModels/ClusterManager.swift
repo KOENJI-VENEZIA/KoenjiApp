@@ -159,8 +159,8 @@ class ClusterManager: ObservableObject {
             print("\nDEBUG: Checking reservation: \(reservation.name)")
 
             // Parse startTime and endTime of the reservation
-            guard let startTime = DateHelper.parseTime(reservation.startTime),
-                  let endTime = DateHelper.parseTime(reservation.endTime),
+            guard let startTime = reservation.startTimeDate,
+                  let endTime = reservation.endTimeDate,
                   let normalizedStartTime = DateHelper.normalizedTime(time: startTime, date: combinedDate),
                   let normalizedEndTime = DateHelper.normalizedTime(time: endTime, date: combinedDate)
                 else {

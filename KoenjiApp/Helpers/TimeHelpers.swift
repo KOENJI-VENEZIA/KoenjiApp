@@ -115,14 +115,5 @@ struct TimeHelpers {
                                      of: date)
     }
 
-    /// Checks if a query time conflicts with a reservation.
-    static func isTimeConflict(queryDate: Date, queryTime: Date, reservation: Reservation) -> Bool {
-        guard let reservationStart = reservation.startDate,
-              let reservationEnd = reservation.endDate else {
-            return false
-        }
 
-        return queryDate.isSameDay(as: reservation.date ?? Date()) &&
-               queryTime.isWithinTimeRange(start: reservationStart, end: reservationEnd)
-    }
 }

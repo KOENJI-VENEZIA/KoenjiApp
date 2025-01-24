@@ -71,7 +71,7 @@ struct PencilKitCanvas: UIViewRepresentable {
             guard !isUpdatingFromModel else { return } // Prevent loops
 
             DispatchQueue.main.async {
-                var newDrawing = canvasView.drawing
+                let newDrawing = canvasView.drawing
 
                 // Update the drawing model only if there are changes
                 switch self.parent.layer {

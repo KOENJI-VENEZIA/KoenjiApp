@@ -7,9 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A07F1E1C2D3C150E005B2581 /* Zoomable in Frameworks */ = {isa = PBXBuildFile; productRef = A07F1E1B2D3C150E005B2581 /* Zoomable */; };
-		A07F1E1F2D3C168E005B2581 /* Zoomable in Frameworks */ = {isa = PBXBuildFile; productRef = A07F1E1E2D3C168E005B2581 /* Zoomable */; };
-		A07F1E222D3C1896005B2581 /* LazyPager in Frameworks */ = {isa = PBXBuildFile; productRef = A07F1E212D3C1896005B2581 /* LazyPager */; };
+		A0C598AA2D427F43004A3423 /* EmojiPalette in Frameworks */ = {isa = PBXBuildFile; productRef = A0C598A92D427F43004A3423 /* EmojiPalette */; };
+		A0C599D82D42B0FD004A3423 /* Launchscreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */; };
 		A0FBB6942D41743700A5783E /* ScreenshotSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = A0FBB6932D41743700A5783E /* ScreenshotSwiftUI */; };
 /* End PBXBuildFile section */
 
@@ -28,11 +27,25 @@
 
 /* Begin PBXFileReference section */
 		A0775E242D1CAA1F00068B00 /* KoenjiApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KoenjiApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Launchscreen.storyboard; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A0C599DB2D42B84E004A3423 /* Exceptions for "KoenjiApp" folder in "KoenjiApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				info.plist,
+			);
+			target = A0775E232D1CAA1F00068B00 /* KoenjiApp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A03E7C192D316538000A38AC /* KoenjiApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A0C599DB2D42B84E004A3423 /* Exceptions for "KoenjiApp" folder in "KoenjiApp" target */,
+			);
 			path = KoenjiApp;
 			sourceTree = "<group>";
 		};
@@ -43,10 +56,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A07F1E222D3C1896005B2581 /* LazyPager in Frameworks */,
-				A07F1E1C2D3C150E005B2581 /* Zoomable in Frameworks */,
 				A0FBB6942D41743700A5783E /* ScreenshotSwiftUI in Frameworks */,
-				A07F1E1F2D3C168E005B2581 /* Zoomable in Frameworks */,
+				A0C598AA2D427F43004A3423 /* EmojiPalette in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -56,6 +67,7 @@
 		A0775E1B2D1CAA1F00068B00 = {
 			isa = PBXGroup;
 			children = (
+				A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */,
 				A03E7C192D316538000A38AC /* KoenjiApp */,
 				A0775E252D1CAA1F00068B00 /* Products */,
 			);
@@ -90,10 +102,8 @@
 			);
 			name = KoenjiApp;
 			packageProductDependencies = (
-				A07F1E1B2D3C150E005B2581 /* Zoomable */,
-				A07F1E1E2D3C168E005B2581 /* Zoomable */,
-				A07F1E212D3C1896005B2581 /* LazyPager */,
 				A0FBB6932D41743700A5783E /* ScreenshotSwiftUI */,
+				A0C598A92D427F43004A3423 /* EmojiPalette */,
 			);
 			productName = KoenjiApp;
 			productReference = A0775E242D1CAA1F00068B00 /* KoenjiApp.app */;
@@ -124,9 +134,8 @@
 			mainGroup = A0775E1B2D1CAA1F00068B00;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				A07F1E1D2D3C168E005B2581 /* XCLocalSwiftPackageReference "../Downloads/Zoomable-0.5.0" */,
-				A07F1E202D3C1896005B2581 /* XCRemoteSwiftPackageReference "LazyPager" */,
 				A0FBB6922D41743700A5783E /* XCRemoteSwiftPackageReference "ScreenshotSwiftUI" */,
+				A0C598A82D427F43004A3423 /* XCRemoteSwiftPackageReference "EmojiPalette" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A0775E252D1CAA1F00068B00 /* Products */;
@@ -143,6 +152,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A0C599D82D42B0FD004A3423 /* Launchscreen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -193,7 +203,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DONT_GENERATE_INFOPLIST_FILE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -211,6 +223,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = /Users/matteonassini/KoenjiApp/KoenjiApp/info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -256,7 +270,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DONT_GENERATE_INFOPLIST_FILE = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -268,6 +284,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -284,7 +301,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"KoenjiApp/Preview Content\"";
 				DEVELOPMENT_TEAM = BVRFYCSRU7;
@@ -292,19 +309,23 @@
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
 				"FRAMEWORK_SEARCH_PATHS[arch=*]" = "$(BUILD_DIR)/PackageFrameworks";
-				GENERATE_INFOPLIST_FILE = YES;
-				GENERATE_PKGINFO_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				GENERATE_PKGINFO_FILE = NO;
+				INFOPLIST_FILE = /Users/matteonassini/KoenjiApp/KoenjiApp/info.plist;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				NEW_SETTING = "";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.koenji-venezia.KoenjiApp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -319,26 +340,30 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"KoenjiApp/Preview Content\"";
 				DEVELOPMENT_TEAM = BVRFYCSRU7;
 				DONT_GENERATE_INFOPLIST_FILE = NO;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
-				GENERATE_INFOPLIST_FILE = YES;
-				GENERATE_PKGINFO_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				GENERATE_PKGINFO_FILE = NO;
+				INFOPLIST_FILE = /Users/matteonassini/KoenjiApp/KoenjiApp/info.plist;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				NEW_SETTING = "";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.koenji-venezia.KoenjiApp";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -370,20 +395,13 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		A07F1E1D2D3C168E005B2581 /* XCLocalSwiftPackageReference "../Downloads/Zoomable-0.5.0" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "../Downloads/Zoomable-0.5.0";
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCRemoteSwiftPackageReference section */
-		A07F1E202D3C1896005B2581 /* XCRemoteSwiftPackageReference "LazyPager" */ = {
+		A0C598A82D427F43004A3423 /* XCRemoteSwiftPackageReference "EmojiPalette" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/gh123man/LazyPager";
+			repositoryURL = "https://github.com/Kyome22/EmojiPalette.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 1.1.7;
+				minimumVersion = 1.0.0;
 			};
 		};
 		A0FBB6922D41743700A5783E /* XCRemoteSwiftPackageReference "ScreenshotSwiftUI" */ = {
@@ -397,18 +415,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A07F1E1B2D3C150E005B2581 /* Zoomable */ = {
+		A0C598A92D427F43004A3423 /* EmojiPalette */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = Zoomable;
-		};
-		A07F1E1E2D3C168E005B2581 /* Zoomable */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Zoomable;
-		};
-		A07F1E212D3C1896005B2581 /* LazyPager */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A07F1E202D3C1896005B2581 /* XCRemoteSwiftPackageReference "LazyPager" */;
-			productName = LazyPager;
+			package = A0C598A82D427F43004A3423 /* XCRemoteSwiftPackageReference "EmojiPalette" */;
+			productName = EmojiPalette;
 		};
 		A0FBB6932D41743700A5783E /* ScreenshotSwiftUI */ = {
 			isa = XCSwiftPackageProductDependency;

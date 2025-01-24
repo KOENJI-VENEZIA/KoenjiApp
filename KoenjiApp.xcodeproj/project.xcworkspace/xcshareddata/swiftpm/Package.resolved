@@ -1,13 +1,13 @@
 {
-  "originHash" : "91ff1d5036b01bf569c017bc01aacf89a1ff5f9fcbf86e1eb0b1cba6591f0b0a",
+  "originHash" : "0e6793c788c3f8572308490d95ffc5d4d6de8e18cde2f2bf7bcd5741bd08f13d",
   "pins" : [
     {
-      "identity" : "lazypager",
+      "identity" : "emojipalette",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/gh123man/LazyPager",
+      "location" : "https://github.com/Kyome22/EmojiPalette.git",
       "state" : {
-        "revision" : "3601245191ffb0aa237ca408d7b4dd03b4d9d7eb",
-        "version" : "1.1.7"
+        "revision" : "f3dce58595b0c351a7536864b57245299bf02e88",
+        "version" : "1.0.0"
       }
     },
     {
@@ -17,24 +17,6 @@
       "state" : {
         "revision" : "5ce615b99effcf41c17a4357d17ccb1308f281a9",
         "version" : "0.3.0"
-      }
-    },
-    {
-      "identity" : "sdwebimage",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/SDWebImage/SDWebImage.git",
-      "state" : {
-        "branch" : "master",
-        "revision" : "15f6675966dafc3228e061b8e7e4f450286d274a"
-      }
-    },
-    {
-      "identity" : "sdwebimageswiftui",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/SDWebImage/SDWebImageSwiftUI.git",
-      "state" : {
-        "branch" : "master",
-        "revision" : "451c6dfd5ecec2cf626d1d9ca81c2d4a60355172"
       }
     }
   ],

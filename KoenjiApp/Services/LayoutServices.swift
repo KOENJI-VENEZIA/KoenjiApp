@@ -182,8 +182,8 @@ class LayoutServices: ObservableObject {
             dateString: reservation.dateString,
             timeString: reservation.startTime
         )
-        let reservationStart = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.startTime)
-        let reservationEnd = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.endTime)
+        guard let reservationStart = reservation.startTimeDate,
+            let reservationEnd = reservation.endTimeDate else { return .failure(.unknown)}
         
         let layoutKey = keyFor(date: reservationDate, category: reservation.category)
         guard let tables = cachedLayouts[layoutKey]

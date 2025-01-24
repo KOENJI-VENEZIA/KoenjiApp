@@ -14,7 +14,7 @@ class TableAssignmentService {
         reservations: [Reservation],
         startingFrom selectedTable: TableModel
     ) -> [TableModel]? {
-        guard let reservationDate = DateHelper.parseDate(reservation.dateString) else { return nil }
+        guard let reservationDate = reservation.date else { return nil }
 
         // Check if the forced table is available
         if isTableOccupied(
@@ -49,7 +49,7 @@ class TableAssignmentService {
         reservations: [Reservation],
         tables: [TableModel]
     ) -> [TableModel]? {
-        guard let reservationDate = DateHelper.parseDate(reservation.dateString) else { return nil }
+        guard let reservationDate = reservation.date else { return nil }
         return assignTablesInOrder(for: reservation, reservations: reservations, tables: tables, reservationDate: reservationDate)
     }
 
@@ -59,8 +59,8 @@ class TableAssignmentService {
         reservations: [Reservation],
         tables: [TableModel]
     ) -> [TableModel]? {
-        guard let reservationDate = DateHelper.parseDate(reservation.dateString) else {
-            print("Failed to parse reservation date string: \(reservation.dateString) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
+        guard let reservationDate = reservation.date else {
+            print("Failed to parse reservation date string: \(reservation.date) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
             return nil
         }
         print("Parsed reservation date: \(reservationDate) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
@@ -129,31 +129,30 @@ class TableAssignmentService {
             // Exclude current reservation if editing
             if reservation.id == reservationID { return false }
 
-            guard let reservationDate = DateHelper.parseDate(reservation.dateString),
-                  let reservationStart = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.startTime),
-                  let reservationEnd = DateHelper.combineDateAndTime(date: reservationDate, timeString: reservation.endTime),
+            guard let reservationDate = reservation.date,
+                  let reservationStart = reservation.startTimeDate,
+                  let reservationEnd = reservation.endTimeDate,
                   reservation.tables.contains(where: { $0.id == table.id }) else {
                 print("Failed to parse reservation: \(reservation.name)")
                 return false
             }
-
+            
+            guard reservationDate.isSameDay(as: date) else { return false }
             // Check if the reservation ends within 5 minutes before the new reservation's start
-            let reservationEndsCloseToNewStart = reservationEnd.addingTimeInterval(gracePeriod) > start &&
-                                                 reservationEnd <= start
+            
 
             // Adjust reservation times for buffer
-            let adjustedReservationStart = reservationStart
             let adjustedReservationEnd = reservationEnd.addingTimeInterval(gracePeriod)
+            let reservationEndsCloseToNewStart = adjustedReservationEnd > start && reservationEnd <= start
 
             let overlaps = TimeHelpers.timeRangesOverlap(
-                start1: adjustedReservationStart,
+                start1: reservationStart,
                 end1: adjustedReservationEnd,
                 start2: start,
                 end2: end
             )
 
-            return reservationDate.isSameDay(as: date) &&
-                   (overlaps || reservationEndsCloseToNewStart)
+            return overlaps || reservationEndsCloseToNewStart
         }
     }
     

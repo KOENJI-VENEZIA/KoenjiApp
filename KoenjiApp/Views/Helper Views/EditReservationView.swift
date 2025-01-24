@@ -49,7 +49,7 @@ struct EditReservationView: View {
                     }
                     .onAppear {
                         // Initialize selectedDate based on reservation.dateString
-                        if let reservationDate = DateHelper.parseDate(reservation.dateString) {
+                        if let reservationDate = reservation.date {
                             selectedDate = reservationDate
                         }
                         print("Selected date: \(selectedDate)")
@@ -342,14 +342,8 @@ struct EditReservationView: View {
     private func saveChanges() {
         guard validateInputs() else { return }
 
-        let reservationStart = DateHelper.combineDateAndTimeStrings(
-            dateString: reservation.dateString,
-            timeString: reservation.startTime
-        )
-        let reservationEnd = DateHelper.combineDateAndTimeStrings(
-            dateString: reservation.dateString,
-            timeString: reservation.endTime
-        )
+        guard let reservationStart = reservation.startTimeDate,
+            let reservationEnd = reservation.endTimeDate else { return }
 
         for table in reservation.tables {
             layoutServices.unlockTable(
@@ -480,7 +474,7 @@ struct EditReservationView: View {
     }
 
     private func loadInitialDate() {
-        selectedDate = DateHelper.parseDate(reservation.dateString) ?? Date()
+        selectedDate = reservation.date ?? Date()
         print("Selected date: \(selectedDate)")
 
     }

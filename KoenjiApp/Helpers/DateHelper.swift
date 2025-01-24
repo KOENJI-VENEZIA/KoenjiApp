@@ -9,6 +9,9 @@
 import Foundation
 
 struct DateHelper {
+    
+    private static var combineDateAndTimeCache = NSCache<NSString, NSDate>()
+
     // Singleton DateFormatter instances
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -64,15 +67,28 @@ struct DateHelper {
     }
     
     static func combineDateAndTime(date: Date, timeString: String) -> Date? {
-        // Parse the time string into a Date object (only time components)
-        guard let time = parseTime(timeString) else { return nil }
-        
-        // Extract the time components from the parsed time
-        guard let timeComponents = extractTime(time: time) else { return nil }
-        
-        // Combine the date and time components
-        return normalizedInputTime(time: timeComponents, date: date)
-    }
+           // Create a cache key based on the date and time string
+           let cacheKey = "\(date.timeIntervalSince1970)-\(timeString)" as NSString
+
+           // Check if the result is already cached
+           if let cachedDate = combineDateAndTimeCache.object(forKey: cacheKey) {
+               return cachedDate as Date
+           }
+
+           // Parse the time string into a Date object (only time components)
+           guard let time = parseTime(timeString) else { return nil }
+
+           // Extract the time components from the parsed time
+           guard let timeComponents = extractTime(time: time) else { return nil }
+
+           // Combine the date and time components
+           guard let combinedDate = normalizedInputTime(time: timeComponents, date: date) else { return nil }
+
+           // Cache the result for future use
+           combineDateAndTimeCache.setObject(combinedDate as NSDate, forKey: cacheKey)
+
+           return combinedDate
+       }
     
     static func extractTime(time: Date) -> DateComponents? {
         let calendar = Calendar.current

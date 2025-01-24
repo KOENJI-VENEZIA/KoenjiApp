@@ -7,9 +7,12 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     @Binding private var scale: CGFloat
     @Binding private var category: Reservation.ReservationCategory
 
+
+    
     init(
         state: ZoomableScrollViewState, category: Binding<Reservation.ReservationCategory>,
-        scale: Binding<CGFloat>, @ViewBuilder content: () -> Content
+        scale: Binding<CGFloat>,
+        @ViewBuilder content: () -> Content
     ) {
         self.state = state
         self._category = category
@@ -33,6 +36,13 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         hostedView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         hostedView.backgroundColor = .clear  // Set background to clear
 
+        DispatchQueue.main.async {
+                if let parentVC = scrollView.findParentViewController() {
+                    parentVC.addChild(context.coordinator.hostingController)
+                    context.coordinator.hostingController.didMove(toParent: parentVC)
+                }
+            }
+        
         hostedView.frame = scrollView.bounds
         scrollView.addSubview(hostedView)
 
@@ -52,6 +62,9 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         // update the hosting controller's SwiftUI content
         context.coordinator.hostingController.rootView = self.content
         assert(context.coordinator.hostingController.view.superview == uiView)
+//        context.coordinator.hostingController.willMove(toParent: nil)
+//        context.coordinator.hostingController.removeFromParent()
+//        context.coordinator.hostingController.view.removeFromSuperview()
 
     }
 
@@ -112,4 +125,17 @@ class ZoomableScrollViewState: ObservableObject {
     @Published var contentOffset: CGPoint = .zero
     @Published var contentSize: CGSize = .zero  // Add contentSize to track the scrollable area
     @Published var visibleBounds: CGRect = .zero  // Add visible bounds of the scroll view
+}
+
+extension UIView {
+    func findParentViewController() -> UIViewController? {
+        var nextResponder: UIResponder? = self
+        while let responder = nextResponder {
+            if let viewController = responder as? UIViewController {
+                return viewController
+            }
+            nextResponder = responder.next
+        }
+        return nil
+    }
 }

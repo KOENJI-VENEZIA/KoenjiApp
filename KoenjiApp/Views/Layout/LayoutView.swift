@@ -253,7 +253,7 @@ struct LayoutView: View {
             .navigationTitle("Layout Tavoli")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarLeading) {
                     
                     Button(action: {
                         withAnimation {
@@ -264,7 +264,7 @@ struct LayoutView: View {
                     }
                     .id(refreshID)
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button(action: {
                         withAnimation {
                             scribbleService.deleteAllScribbles()
@@ -278,7 +278,7 @@ struct LayoutView: View {
                     }
                     .id(refreshID)
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button(action: {
                         withAnimation {
                             isScribbleModeEnabled.toggle()
@@ -292,7 +292,7 @@ struct LayoutView: View {
                     }
                     .id(refreshID)
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     // Lock/Unlock Layout Button
                     Button(action: {
                         isLayoutLocked.toggle()
@@ -302,7 +302,7 @@ struct LayoutView: View {
                     }
                     .id(refreshID)
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     // Reset Layout Button
                     Button(action: {
                         resetLayout()
@@ -311,11 +311,11 @@ struct LayoutView: View {
                     }
                     .id(refreshID)
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     addReservationButton
                         .id(refreshID)
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
                         withAnimation {
                             showInspector.toggle()

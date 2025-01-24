@@ -48,7 +48,7 @@ struct ReservationInfoCard: View {
                         Text("Data:")
                             .fontWeight(.semibold)
                         Spacer()
-                        Text("\(DateHelper.dayOfWeek(for: DateHelper.parseDate(reservation.dateString) ?? Calendar.current.startOfDay(for: Date())))\n\(DateHelper.formatFullDate(DateHelper.parseDate(reservation.dateString) ?? Date()))")
+                        Text("\(DateHelper.dayOfWeek(for: reservation.date ?? Calendar.current.startOfDay(for: Date())))\n\(DateHelper.formatFullDate(reservation.date ?? Date()))")
                             .multilineTextAlignment(.trailing)
                     }
                     .padding(.horizontal)

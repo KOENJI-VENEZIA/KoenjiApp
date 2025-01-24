@@ -58,6 +58,8 @@ struct ReservationListView: View {
 
     @State private var groupOption: GroupOption = .none
 
+
+
     // MARK: - Body
     var body: some View {
 
@@ -390,6 +392,9 @@ struct ReservationListView: View {
                     parseReservations()
                 }
             )
+            .environmentObject(reservationService)
+            .environmentObject(store)
+
         }
         .onAppear {
             sidebarDefault = appState.sidebarColor
@@ -442,7 +447,7 @@ struct ReservationListView: View {
     
     func reservationsCount(for reservations: [Reservation], within startTime: String, and endTime: String) -> Int {
         reservations.filter { reservation in
-            guard let reservationTime = DateHelper.parseTime(reservation.startTime),
+            guard let reservationTime = reservation.startTimeDate,
                   let startTime = DateHelper.parseTime(startTime),
                   let endTime = DateHelper.parseTime(endTime) else {
                 return false // Skip reservations with invalid times
@@ -481,6 +486,13 @@ struct ReservationListView: View {
         var onFlushCaches: () -> Void
         var onParse: () -> Void
 
+        @State private var isExporting = false
+        @State private var document: ReservationsDocument?
+        @State private var isImporting = false
+        @State private var importedDocument: ReservationsDocument?
+
+        @EnvironmentObject var store: ReservationStore
+        @EnvironmentObject var reservationService: ReservationService
         var body: some View {
             NavigationView {
                 Form {
@@ -526,6 +538,53 @@ struct ReservationListView: View {
                                 "Log Prenotazioni Salvate",
                                 systemImage: "arrow.triangle.2.circlepath")
                         }
+                        
+                        Button("Export Reservations") {
+                                        prepareExport()
+
+                                        isExporting = true
+                                    }.fileExporter(
+                                        isPresented: $isExporting,
+                                        document: document,
+                                        contentType: .json,
+                                        defaultFilename: "ReservationsBackup"
+                                    ) { result in
+                                        switch result {
+                                        case .success(let url):
+                                            print("File exported successfully to \(url).")
+                                        case .failure(let error):
+                                            print(error.localizedDescription)
+                                        }
+                                    }
+
+                        Button("Import Reservations") {
+                            isImporting = true
+                        }.fileImporter(
+                            isPresented: $isImporting,
+                            allowedContentTypes: [.json],
+                            allowsMultipleSelection: false
+                        ) { result in
+                            switch result {
+                            case .success(let urls):
+                                if let url = urls.first {
+                                    importReservations(from: url)
+                                } else {
+                                    print("No file selected.")
+                                }
+                            case .failure(let error):
+                                print("Import failed: \(error.localizedDescription)")
+                            }
+                        }
+                    }
+                }
+//                .sheet(isPresented: $isExporting) {
+//                    if let exportURL = exportURL {
+//                        ExportReservationsView(fileURL: exportURL)
+//                    }
+//                }
+                .sheet(isPresented: $isImporting) {
+                    ImportReservationsView { selectedURL in
+                        importReservations(from: selectedURL)
                     }
                 }
                 .navigationBarTitle("Debug Config", displayMode: .inline)
@@ -545,6 +604,61 @@ struct ReservationListView: View {
             windowScene.windows.first?.rootViewController?.dismiss(
                 animated: true)
         }
+        
+        private func prepareExport() {
+            do {
+                // Generate the ReservationsDocument with current reservations
+                let reservations = getReservations() // Replace with your actual reservations
+                document = try ReservationsDocument(reservations: reservations)
+                isExporting = true
+            } catch {
+                print("Failed to prepare export: \(error.localizedDescription)")
+            }
+        }
+        
+        private func getReservations() -> [Reservation] {
+            // Replace this with your actual reservations from ReservationService
+            return store.reservations
+            
+        }
+        
+        private func importReservations(from url: URL) {
+            print("Attempting to import file at URL: \(url)")
+            
+            // Start accessing the security-scoped resource
+            guard url.startAccessingSecurityScopedResource() else {
+                print("Failed to access the security-scoped resource.")
+                return
+            }
+            
+            defer { url.stopAccessingSecurityScopedResource() }
+            
+            do {
+                // Read the file's data
+                let data = try Data(contentsOf: url)
+                print("File data loaded successfully.")
+                
+                // Decode the JSON data
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                let reservations = try decoder.decode([Reservation].self, from: data)
+                print("Reservations decoded successfully.")
+                
+                // Handle the imported reservations
+                handleImportedReservations(reservations)
+            } catch {
+                print("Failed to import reservations: \(error.localizedDescription)")
+            }
+        }
+            
+            private func handleImportedReservations(_ reservations: [Reservation]) {
+                // Integrate the imported reservations into your app's data
+                print("Imported \(reservations.count) reservations:")
+                reservations.forEach { print($0) }
+                
+                // Example: Save them to your ReservationService
+                store.reservations.append(contentsOf: reservations)
+            }
 
     }
 
@@ -596,7 +710,7 @@ struct ReservationListView: View {
         var grouped: [String: [Reservation]] = [:]
 
         for reservation in reservations {
-            guard let date = DateHelper.parseDate(reservation.dateString) else {
+            guard let date = reservation.date else {
                 // If parsing fails, optionally group under "Invalid Date"
                 grouped["Data Non Valida", default: []].append(reservation)
                 continue
@@ -615,7 +729,7 @@ struct ReservationListView: View {
         var grouped: [String: [Reservation]] = [:]
 
         for reservation in reservations {
-            guard let date = DateHelper.parseDate(reservation.dateString) else {
+            guard let date = reservation.date else {
                 grouped["Data Non Valida", default: []].append(reservation)
                 continue
             }
@@ -632,7 +746,7 @@ struct ReservationListView: View {
         var grouped: [String: [Reservation]] = [:]
 
         for reservation in reservations {
-            guard let date = DateHelper.parseDate(reservation.dateString) else {
+            guard let date = reservation.date else {
                 grouped["Invalid Date", default: []].append(reservation)
                 continue
             }
@@ -737,8 +851,7 @@ struct ReservationListView: View {
 
             if let start = filterStartDate, let end = filterEndDate {
                 guard
-                    let reservationDate = DateHelper.parseDate(
-                        reservation.dateString)
+                    let reservationDate = reservation.date
                 else {
                     return false
                 }
@@ -771,14 +884,8 @@ struct ReservationListView: View {
             return reservations.sorted { $0.name < $1.name }
         case .chronologically:
             return reservations.sorted {
-                DateHelper.combineDateAndTimeStrings(
-                    dateString: $0.dateString,
-                    timeString: $0.startTime
-                )
-                    < DateHelper.combineDateAndTimeStrings(
-                        dateString: $1.dateString,
-                        timeString: $1.startTime
-                    )
+                $0.startTimeDate ?? Date()
+                < $1.endTimeDate ?? Date()
             }
         case .byNumberOfPeople:
             return reservations.sorted {
@@ -816,6 +923,9 @@ struct ReservationListView: View {
         reservationService.flushAllCaches()
         print("Debug: Cache flush triggered.")
     }
+    
+
+
 
 }
 

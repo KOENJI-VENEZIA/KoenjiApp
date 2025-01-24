@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UIRequiresFullScreen</key>
+	<true/>
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict/>
+		<key>CFBundleIconFiles</key>
+		<array>
+			<string>AppIcon</string>
+		</array>
+	</dict>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0</string>
+	<key>UILaunchStoryboardName</key>
+	<string>Launchscreen</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleDisplayName</key>
+	<string>KoenjiApp</string>
+	<key>CFBundleName</key>
+	<string>KoenjiApp</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.koenji-venezia.KoenjiApp</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>LastAccessedDate</key>
+	<date>2025-01-23T16:59:29Z</date>
+	<key>WorkspacePath</key>
+	<string>/Users/matteonassini/KoenjiApp/KoenjiApp.xcodeproj</string>
+</dict>
+</plist>

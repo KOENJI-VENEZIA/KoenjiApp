@@ -170,8 +170,8 @@ extension ReservationStore {
     }
     
     func populateActiveCache(for reservation: Reservation) {
-        let start = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.startTime)
-        let end   = DateHelper.combineDateAndTimeStrings(dateString: reservation.dateString, timeString: reservation.endTime)
+        guard let start = reservation.startTimeDate,
+            let end = reservation.endTimeDate else { return }
 
         print("Populating active reservation cache with: \(reservation.name)...")
         
