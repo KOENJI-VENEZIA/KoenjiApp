@@ -85,6 +85,8 @@ struct ClusterOverlayView: View {
             return
         }
 
+        let calendar = Calendar.current
+
         // Compute "showed up" status
         let showedUpComputed = reservation.status == .showedUp
 
@@ -92,23 +94,28 @@ struct ClusterOverlayView: View {
         let isLateComputed: Bool
         if reservation.status != .showedUp,
            let startTime = reservation.startTimeDate,
-           let reservationDate = reservation.date,
-           let currentTimeComponents = DateHelper.extractTime(time: systemTime),
-           let newTime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: startTime) {
-            isLateComputed = newTime.timeIntervalSince(startTime) >= 15 * 60 &&
-                             reservationDate.isSameDay(as: systemTime)
+           let endTime = reservation.endTimeDate {
+            let isSameDay = calendar.isDate(systemTime, inSameDayAs: startTime)
+            let elapsedTime = systemTime.timeIntervalSince(startTime)
+            let reservationDuration = endTime.timeIntervalSince(startTime)
+
+            // Late if elapsed time is >= 15 minutes but within the reservation duration
+            isLateComputed = isSameDay && elapsedTime >= 15 * 60 && elapsedTime <= reservationDuration
         } else {
             isLateComputed = false
         }
 
         // Compute "time's up" status
         let timesUpComputed: Bool
-        if let endTime = reservation.endTimeDate,
-           let reservationDate = reservation.date,
-           let currentTimeComponents = DateHelper.extractTime(time: systemTime),
-           let newTime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: endTime) {
-            timesUpComputed = endTime.timeIntervalSince(newTime) <= 60 * 30 &&
-                              reservationDate.isSameDay(as: systemTime)
+        if let startTime = reservation.startTimeDate,
+           let endTime = reservation.endTimeDate {
+            let isSameDay = calendar.isDate(systemTime, inSameDayAs: startTime)
+            let elapsedTime = systemTime.timeIntervalSince(startTime)
+            let reservationDuration = endTime.timeIntervalSince(startTime)
+            let isWithinEndWindow = endTime.timeIntervalSince(systemTime) <= 30 * 60
+
+            // Time's up if within 30 minutes of the reservation's end and within its duration
+            timesUpComputed = isSameDay && elapsedTime <= reservationDuration && isWithinEndWindow
         } else {
             timesUpComputed = false
         }

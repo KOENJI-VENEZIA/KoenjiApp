@@ -104,7 +104,6 @@ class LayoutUIManager: ObservableObject {
             print("attemptMove: Successfully moved \(table.name) to (\(newPosition.row), \(newPosition.col))")
         } else {
             print("attemptMove: Move failed for \(table.name) to (\(newPosition.row), \(newPosition.col))")
-            showInvalidMoveFeedback()
         }
     }
 

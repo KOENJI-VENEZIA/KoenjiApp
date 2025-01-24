@@ -12,7 +12,7 @@ struct ReservationsInfoListView: View {
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var layoutServices: LayoutServices
     @State private var selection = Set<UUID>()  // Multi-select
-
+    @Environment(\.colorScheme) var colorScheme
     let activeReservations: [Reservation]
     @Binding var currentTime: Date
     var selectedCategory: Reservation.ReservationCategory
@@ -34,8 +34,10 @@ struct ReservationsInfoListView: View {
                             header: HStack(spacing: 10) {
                                 Text(groupKey)
                                     .font(.title2)
+                                    .foregroundStyle(colorScheme == .dark ? .white : .black)
                                 Text("\(grouped[groupKey]?.count ?? 0) prenotazioni")
                                     .font(.title2)
+                                    .foregroundStyle(colorScheme == .dark ? .white : .black)
                                     .frame(maxWidth: .infinity, alignment: .trailing)
                             }
                                 .background(.clear)
@@ -111,7 +113,7 @@ struct ReservationsInfoListView: View {
                 
             }
             .scrollContentBackground(.hidden) // Removes the List's default background (iOS 16+)
-            .listStyle(.plain)
+            .listStyle(GroupedListStyle())
             
             Button(action: onClose) {
                 Text("Chiudi")
@@ -213,10 +215,7 @@ struct ReservationsInfoListView: View {
         if updatedReservation.status == .pending || updatedReservation.status == .late {
                 updatedReservation.status = .showedUp
             }
-            else if let reservationStart = updatedReservation.startTimeDate,
-                    currentTime.timeIntervalSince(reservationStart) >= 60 * 15, updatedReservation.status == .showedUp {
-                updatedReservation.status = .late
-                 } else {
+        else if let reservationStart = updatedReservation.startTimeDate {
                      updatedReservation.status = .pending
                  }
             reservationService.updateReservation(updatedReservation)

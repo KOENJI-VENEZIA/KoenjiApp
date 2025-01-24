@@ -7,6 +7,9 @@
 
 import Foundation
 import UIKit
+import FirebaseFirestore
+import FirebaseStorage
+import SwiftUI
 
 /// A service class responsible for high-level operations on reservations.
 /// This class interacts with the `ReservationStore` for managing reservation data.
@@ -18,18 +21,21 @@ class ReservationService: ObservableObject {
     private let tableStore: TableStore
     private let layoutServices: LayoutServices
     private let tableAssignmentService: TableAssignmentService
+    private let backupService = FirebaseBackupService()
     
     private var imageCache: [UUID: UIImage] = [:]
 
+    @ObservedObject private var appState: AppState // Use the shared AppState
 
     // MARK: - Initializer
-    init(store: ReservationStore, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService) {
+    init(store: ReservationStore, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, appState: AppState) {
         self.store = store
         self.clusterStore = clusterStore
         self.clusterServices = clusterServices
         self.tableStore = tableStore
         self.layoutServices = layoutServices
         self.tableAssignmentService = tableAssignmentService
+        self.appState = appState
 
         self.layoutServices.loadFromDisk()
         self.clusterServices.loadClustersFromDisk()
@@ -87,7 +93,11 @@ class ReservationService: ObservableObject {
            
            store.finalizeReservation(updatedReservation)
            saveReservationsToDisk()
+           automaticBackup()
+
        }
+    
+
     
     /// Deletes reservations and invalidates the associated cluster cache.
     func deleteReservations(at offsets: IndexSet) {
@@ -112,6 +122,7 @@ class ReservationService: ObservableObject {
         }
     }
     
+
    
     
     func removeReservationFromActiveCache(_ reservation: Reservation) {
@@ -268,6 +279,9 @@ class ReservationService: ObservableObject {
     
     /// Loads reservations from persistent storage.
     func loadReservationsFromDisk() {
+        withAnimation {
+            appState.isWritingToFirebase = true
+        }
         let fileURL = getReservationsFileURL()
         
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
@@ -317,9 +331,17 @@ class ReservationService: ObservableObject {
         } catch {
             print("Error loading reservations from disk: \(error)")
         }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation {
+                self.appState.isWritingToFirebase = false
+            }
+        }
     }
 
     func saveReservationsToDisk(includeMock: Bool = false) {
+        withAnimation {
+            appState.isWritingToFirebase = true
+        }
         let fileURL = getReservationsFileURL()
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601 // Ensure ISO 8601 consistency
@@ -335,28 +357,45 @@ class ReservationService: ObservableObject {
         } catch {
             print("Error saving reservations to disk: \(error)")
         }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation {
+                self.appState.isWritingToFirebase = false
+            }
+        }
     }
     
     func exportReservations(completion: @escaping (URL?) -> Void) {
+        withAnimation {
+            appState.isWritingToFirebase = true
+        }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601 // Ensure ISO 8601 consistency
 
+        // Map reservations to their lightweight versions
+        let lightweightReservations = store.reservations.map { $0.toLightweight() }
+
         do {
-            // Encode the reservations to JSON
-            let data = try encoder.encode(store.reservations)
-            
+            // Encode the lightweight reservations to JSON
+            let data = try encoder.encode(lightweightReservations)
+
             // Create a temporary file URL
             let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("ReservationsBackup.json")
-            
+
             // Write the JSON data to the file
             try data.write(to: tempURL, options: .atomic)
             print("Reservations exported successfully to \(tempURL).")
-            
+
             // Pass the file URL to the completion handler
             completion(tempURL)
         } catch {
             print("Error exporting reservations: \(error)")
             completion(nil)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation {
+                self.appState.isWritingToFirebase = false
+            }
         }
     }
     
@@ -493,6 +532,7 @@ extension ReservationService {
 
         // 4. Save data to disk after all tasks complete
             self.layoutServices.saveToDisk()
+            self.saveReservationsToDisk(includeMock: true)
             print("Finished generating reservations.")
     }
 
@@ -812,6 +852,50 @@ extension ReservationService {
             self.store.activeReservationCache.removeAll()
 
             print("All caches flushed successfully.")
+        }
+    }
+}
+
+// MARK: - Automatic Firebase Backup Service
+extension ReservationService {
+    
+    func automaticBackup() {
+            // Export reservations to a local file
+            exportReservations { fileURL in
+                guard let fileURL = fileURL else {
+                    print("Failed to export reservations for backup.")
+                    return
+                }
+
+                // Upload the file to Firebase Storage
+                self.backupService.uploadBackup(fileURL: fileURL) { result in
+                    switch result {
+                    case .success:
+                        print("Automatic backup successful.")
+                    case .failure(let error):
+                        print("Automatic backup failed: \(error)")
+                    }
+                }
+            }
+        }
+
+    func restoreBackup(completion: @escaping (Bool) -> Void) {
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("ReservationsBackup.json")
+        self.backupService.downloadLatestBackup(to: tempURL) { result in
+            switch result {
+            case .success:
+                self.importReservations(from: tempURL, completion: completion)
+            case .failure(let error):
+                print("Restore backup failed: \(error)")
+                completion(false)
+            }
+        }
+    }
+    
+    func scheduleAutomaticBackup() {
+        // Backup once a day
+        Timer.scheduledTimer(withTimeInterval: 86400, repeats: true) { _ in
+            self.automaticBackup()
         }
     }
 }

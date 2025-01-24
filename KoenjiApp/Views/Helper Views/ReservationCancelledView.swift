@@ -12,6 +12,7 @@ struct ReservationCancelledView: View {
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var layoutServices: LayoutServices
     @State private var selection = Set<UUID>()  // Multi-select
+    @Environment(\.colorScheme) var colorScheme
 
     let activeReservations: [Reservation]
     var currentTime: Date
@@ -33,8 +34,10 @@ struct ReservationCancelledView: View {
                             header: HStack(spacing: 10) {
                                 Text(groupKey)
                                     .font(.title2)
+                                    .foregroundStyle(colorScheme == .dark ? .white : .black)
                                 Text("\(grouped[groupKey]?.count ?? 0) cancellazioni")
                                     .font(.title2)
+                                    .foregroundStyle(colorScheme == .dark ? .white : .black)
                                     .frame(maxWidth: .infinity, alignment: .trailing)
 
                             }
@@ -50,14 +53,6 @@ struct ReservationCancelledView: View {
                                     }
                                 )
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button {
-                                        handleDelete(reservation)
-                                    } label: {
-                                        Label("Elimina", systemImage: "trash")
-                                    }
-                                    .tint(.red)
-                                }
-                                .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                     Button {
                                         handleRestore(reservation)
                                         onRestore(reservation)
@@ -97,8 +92,8 @@ struct ReservationCancelledView: View {
                 
             }
             .scrollContentBackground(.hidden) // Removes the List's default background (iOS 16+)
-            .listStyle(.plain)
-            
+            .listStyle(GroupedListStyle())
+
             Button(action: onClose) {
                 Text("Chiudi")
                     .font(.headline)

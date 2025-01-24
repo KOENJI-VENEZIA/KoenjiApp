@@ -1,5 +1,7 @@
 import UIKit
 import SwiftUI
+import Firebase
+import FirebaseAuth
 
 @main
 struct MyReservationApp: App {
@@ -18,8 +20,10 @@ struct MyReservationApp: App {
 
 
     init() {
-        //Use this if NavigationBarTitle is with Large Font
-          
+        
+        
+        FirebaseApp.configure()
+        
         
         // 1) Create a *local* store first
         let localStore = ReservationStore(tableAssignmentService: TableAssignmentService())
@@ -38,7 +42,8 @@ struct MyReservationApp: App {
         
         _clusterServices = StateObject(wrappedValue: clusterService)
         
-
+        let appState = AppState()
+        _appState = StateObject(wrappedValue: appState)
         
         // 3) Now you can safely pass `localStore` into your service
         let service = ReservationService(
@@ -47,9 +52,12 @@ struct MyReservationApp: App {
             clusterServices: clusterService,
             tableStore: localTableStore,
             layoutServices: layoutServices,
-            tableAssignmentService: localStore.tableAssignmentService
+            tableAssignmentService: localStore.tableAssignmentService,
+            appState: appState
         )
         _reservationService = StateObject(wrappedValue: service)
+        
+        authenticateUser()
 
     }
 
@@ -71,7 +79,15 @@ struct MyReservationApp: App {
         
     }
     
-
+    func authenticateUser() {
+        Auth.auth().signInAnonymously { authResult, error in
+            if let error = error {
+                print("Authentication failed: \(error)")
+            } else {
+                print("User authenticated: \(authResult?.user.uid ?? "No UID")")
+            }
+        }
+    }
 
 }
 

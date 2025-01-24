@@ -185,7 +185,7 @@ struct EditReservationView: View {
 
                             Group {
                                 if showImageField {
-                                    if let reservationImage = reservation.image, reservationImageData != nil {
+                                    if let reservationImage = reservation.image {
                                         ZStack {
                                             PhotosPicker(
                                                 selection: $selectedPhotoItem,
@@ -368,6 +368,7 @@ struct EditReservationView: View {
 
             reservationService.updateReservation(reservation)
             reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
+            
 
             print("Updated tables of \(reservation.name): \(reservation.tables)")
             print("Updated status of \(reservation.name): \(reservation.status)")

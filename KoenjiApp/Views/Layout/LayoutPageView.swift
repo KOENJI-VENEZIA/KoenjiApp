@@ -73,6 +73,7 @@ struct LayoutPageView: View {
 
     @State private var debounceWorkItem: DispatchWorkItem?
     @StateObject private var stateCache = ReservationStateCache()
+    @StateObject private var currentReservationsCache = CurrentReservationsCache()
 
     // MARK: - Computed Properties
     private var isCompact: Bool {
@@ -226,7 +227,8 @@ struct LayoutPageView: View {
                                 animationNamespace: animationNamespace,
                                 onTableUpdated: { updatedTable in
                                     self.onTableUpdated(updatedTable)
-                                }
+                                },
+                                statusChanged: $statusChanged
                             )
                             .environmentObject(store)
                             .environmentObject(tableStore)
@@ -264,6 +266,7 @@ struct LayoutPageView: View {
                                 .gesture(
                                     TapGesture(count: 1).onEnded {
                                         handleTap(activeReservations, cluster.reservationID)
+
                                     }
                                 )
                                 .environmentObject(stateCache)
@@ -363,6 +366,10 @@ struct LayoutPageView: View {
             debounce {
                     let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
                     reloadLayout(selectedCategory, activeReservations)
+                clusterManager.recalculateClustersIfNeeded(
+                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+                    oldCategory: selectedCategory,
+                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
         }
         .onChange(of: currentTime) { old, newTime in
@@ -389,6 +396,10 @@ struct LayoutPageView: View {
                     let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
                     print("Detected cancelled Reservation [LayoutPageView]")
                     reloadLayout(selectedCategory, activeReservations)
+                clusterManager.recalculateClustersIfNeeded(
+                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+                    oldCategory: selectedCategory,
+                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
         }
         .onChange(of: statusChanged) {
@@ -396,6 +407,10 @@ struct LayoutPageView: View {
                     let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
                     onFetchedReservations(activeReservations)
                     reloadLayout(selectedCategory, activeReservations)
+                clusterManager.recalculateClustersIfNeeded(
+                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+                    oldCategory: selectedCategory,
+                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
             //            capturedImage = captureView()
         }
@@ -673,15 +688,14 @@ struct LayoutPageView: View {
 
     // MARK: - Cache and UI Update Methods
     private func fetchActiveReservationsIfNeeded(forceTrigger: Bool = false) -> [Reservation] {
-        // Check if the fetch is redundant
-        if lastFetchedCount == store.reservations.count && forceTrigger == false {
-            if let lastDate = lastFetchedDate,
-                let lastTime = lastFetchedTime,
-                Calendar.current.isDate(selectedDate, inSameDayAs: lastDate),
-                abs(currentTime.timeIntervalSince(lastTime)) < 60
-            {
-                return cachedActiveReservations
-            }
+        // Check the cache
+        if !forceTrigger,
+           let cachedReservations = currentReservationsCache.getCachedReservations(
+               for: selectedDate,
+               currentTime: currentTime,
+               reservationsCount: store.reservations.count
+           ) {
+            return cachedReservations
         }
 
         print("Called fetchActiveReservations!")
@@ -693,11 +707,9 @@ struct LayoutPageView: View {
         let preloadDate = calendar.startOfDay(for: selectedDate)
 
         for (key, reservation) in store.activeReservationCache {
-
             guard key.date == preloadDate,
-
-                key.time >= currentTime,
-                key.time < currentTime.addingTimeInterval(14400)
+                  key.time >= currentTime,
+                  key.time < currentTime.addingTimeInterval(14400)
             else {
                 continue
             }
@@ -714,13 +726,13 @@ struct LayoutPageView: View {
 
         print("DEBUG: Found \(activeReservations.count) unique active reservations.")
 
-        // Cache them for next call
-        DispatchQueue.main.async {
-            cachedActiveReservations = activeReservations
-            lastFetchedCount = store.reservations.count
-            lastFetchedDate = selectedDate
-            lastFetchedTime = currentTime
-        }
+        // Update the cache
+        currentReservationsCache.updateCache(
+            for: selectedDate,
+            reservations: activeReservations,
+            currentTime: currentTime,
+            reservationsCount: store.reservations.count
+        )
 
         return activeReservations
     }

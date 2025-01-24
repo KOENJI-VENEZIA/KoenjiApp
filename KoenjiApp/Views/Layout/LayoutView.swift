@@ -88,6 +88,9 @@ struct LayoutView: View {
     @State var refreshID = UUID()
 
     @State private var scale: CGFloat = 1
+    
+    @State private var isShowingFullImage = false
+
 
     var body: some View {
         
@@ -247,6 +250,11 @@ struct LayoutView: View {
 
                 }
 
+                LoadingOverlay()
+                        .opacity(appState.isWritingToFirebase ? 1.0 : 0.0) // Smoothly fade in and out
+                        .animation(.easeInOut(duration: 0.3), value: appState.isWritingToFirebase)
+                        .allowsHitTesting(appState.isWritingToFirebase) // Disable interaction when invisible
+                
             }
             .environmentObject(sharedToolPicker)
             .ignoresSafeArea(edges: .bottom)  // Ignore only the bottom safe area
@@ -334,6 +342,7 @@ struct LayoutView: View {
                     showingEditReservation: $showingEditReservation,
                     sidebarColor: $appState.sidebarColor,
                     changedReservation: $changedReservation,
+                    isShowingFullImage: $isShowingFullImage,
                     activeReservations: activeReservations,
                     currentTime: $currentTime,
                     selectedCategory: selectedCategory ?? .lunch
@@ -415,6 +424,7 @@ struct LayoutView: View {
 
                     let combinedTime = DateHelper.combine(date: currentTime, time: newTime)
                     currentTime = combinedTime
+                    systemTime = newTime
                 }
             }
             .toolbarBackground(Material.ultraThin, for: .navigationBar)

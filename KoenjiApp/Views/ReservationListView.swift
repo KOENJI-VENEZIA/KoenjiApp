@@ -4,13 +4,14 @@ struct ReservationListView: View {
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var layoutServices: LayoutServices
-    @EnvironmentObject var appState: AppState // Access AppState
+    @EnvironmentObject var appState: AppState  // Access AppState
 
     // MARK: - State
     @State private var searchDate = Date()
-    @State private var filterPeople: Int? = nil
-    @State private var filterStartDate: Date? = nil
-    @State private var filterEndDate: Date? = nil
+    @State private var filterPeople: Int = 1
+    @State private var filterStartDate: Date = Date()
+    @State private var filterEndDate: Date = Date()
+    @State private var filterCancelled: Reservation.ReservationStatus = .canceled
     @State private var selection = Set<UUID>()  // Multi-select
     @State private var showingAddReservation = false
     @State private var showingNotesAlert = false  // Controls visibility
@@ -33,6 +34,7 @@ struct ReservationListView: View {
 
     @State private var showInspector: Bool = false  // Controls Inspector visibility
     @State private var showingFilters = false
+    @State private var activeAlert: AddReservationAlertType? = nil
 
     @State private var sidebarDefault: Color = Color.sidebar_dinner  // Default color
 
@@ -40,6 +42,7 @@ struct ReservationListView: View {
     private var isSorted: Bool {
         sortOption != .removeSorting
     }
+    @State private var isShowingFullImage = false
 
     enum SortOption: String, CaseIterable {
         case alphabetically = "A-Z"
@@ -56,91 +59,111 @@ struct ReservationListView: View {
         case month = "Per mese"
     }
 
+    enum FilterOption: String, CaseIterable {
+        case none = "Nessuno"
+        case people = "Per numero ospiti"
+        case date = "Per data"
+        case canceled = "Cancellazioni"
+    }
+
+    @State private var selectedFilters: Set<FilterOption> = [.none]  // Default to .none
     @State private var groupOption: GroupOption = .none
 
-
+    @State private var showPeoplePopover: Bool = false
+    @State private var showStartDatePopover: Bool = false
+    @State private var showEndDatePopover: Bool = false
+    @State private var hasSelectedPeople: Bool = false
+    @State private var hasSelectedStartDate: Bool = false
+    @State private var hasSelectedEndDate: Bool = false
 
     // MARK: - Body
     var body: some View {
 
         // Reservation List
-
-        List(selection: $selection) {
-            let filtered = getFilteredReservations()
-            // Then group
-            let grouped = groupReservations(filtered)
+        ZStack {
+            Color.clear
             
-            ForEach(grouped.keys.sorted(), id: \.self) { groupKey in
-                Section(
-                    header: HStack(spacing: 25) {
-                        Text(groupKey)
+            List(selection: $selection) {
+                let filtered = filterReservationsBy(selectedFilters)
+                // Then group
+                let grouped = groupReservations(filtered)
+                
+                ForEach(grouped.keys.sorted(), id: \.self) { groupKey in
+                    Section(
+                        header: HStack(spacing: 25) {
+                            Text(groupKey)
+                                .font(.headline)
+                            let reservationsLunch = filterForCategory(grouped[groupKey] ?? [], .lunch)
+                            let reservationsDinner = filterForCategory(grouped[groupKey] ?? [], .dinner)
+                            Text(
+                                "\(grouped[groupKey]?.count ?? 0) prenotazioni (\(reservationsLunch.count) per pranzo, \(reservationsDinner.count) per cena)"
+                            )
                             .font(.headline)
-                        let reservationsLunch = reservationsCount(for: grouped[groupKey] ?? [], within: "12:00", and: "15:00")
-                        let reservationsDinner = reservationsCount(for: grouped[groupKey] ?? [], within: "18:00", and: "23:00")
-                        Text("\(grouped[groupKey]?.count ?? 0) prenotazioni (\(reservationsLunch) per pranzo, \(reservationsDinner) per cena)")
-                            .font(.headline)
-                    }
-
-                    .padding(.vertical, 4)
-                ) {
-                    ForEach(grouped[groupKey] ?? []) { reservation in
-                        ReservationRowView(
-                            reservation: reservation,
-                            notesAlertShown: $showingNotesAlert,
-                            notesToShow: $notesToShow,
-                            selectedReservationID: $selectedReservationID,
-                            currentReservation: $currentReservation,
-                            onTap: {
-                                handleEditTap(reservation)
-                            },
-                            onDelete: {
-                                handleDelete(reservation)
-                            },
-                            onEdit: {
-                                currentReservation = reservation
-                            },
-                            onInfoTap: {
+                        }
+                        
+                            .padding(.vertical, 4)
+                    ) {
+                        ForEach(grouped[groupKey] ?? []) { reservation in
+                            ReservationRowView(
+                                reservation: reservation,
+                                notesAlertShown: $showingNotesAlert,
+                                notesToShow: $notesToShow,
+                                selectedReservationID: $selectedReservationID,
+                                currentReservation: $currentReservation,
+                                onTap: {
+                                    handleEditTap(reservation)
+                                },
+                                onDelete: {
+                                    handleDelete(reservation)
+                                },
+                                onRecover: {
+                                    handleRecover(reservation)
+                                },
+                                onEdit: {
+                                    currentReservation = reservation
+                                },
+                                onInfoTap: {
+                                    selectedReservationID = reservation.id
+                                    withAnimation {
+                                        isAnimating = true
+                                        showInspector = true
+                                    }
+                                }
+                            )
+                            .frame(maxWidth: .infinity, alignment: .leading)  // Make the row fill the width
+                            .contentShape(Rectangle())  // Make the entire row tappable
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)  // Add a rounded rectangle
+                                    .fill(
+                                        selectedReservationID == reservation.id && showInspector
+                                        ? Color.accentColor.opacity(0.4)  // Highlight for selected row
+                                        : Color.clear  // Default transparent background
+                                    )
+                            )
+                            .onTapGesture {
                                 selectedReservationID = reservation.id
                                 withAnimation {
                                     isAnimating = true
                                     showInspector = true
                                 }
                             }
-                        )
-                        .frame(maxWidth: .infinity, alignment: .leading)  // Make the row fill the width
-                        .contentShape(Rectangle())  // Make the entire row tappable
-                        .background(
-                                RoundedRectangle(cornerRadius: 12) // Add a rounded rectangle
-                                    .fill(
-                                        selectedReservationID == reservation.id && showInspector
-                                        ? Color.accentColor.opacity(0.4) // Highlight for selected row
-                                            : Color.clear             // Default transparent background
-                                    )
-                            )
-                        .onTapGesture {
-                            selectedReservationID = reservation.id
-                            withAnimation {
-                                isAnimating = true
-                                showInspector = true
-                            }
+                            //                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .listRowSeparator(.visible)
                         }
-                        //                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                        .listRowSeparator(.visible)
-                    }
-                    .onDelete { offsets in
-                        handleDeleteFromGroup(
-                            groupKey: groupKey, offsets: offsets)
+                        .onDelete { offsets in
+                            handleDeleteFromGroup(
+                                groupKey: groupKey, offsets: offsets)
+                        }
                     }
                 }
             }
+            
+            LoadingOverlay()
+                    .opacity(appState.isWritingToFirebase ? 1.0 : 0.0) // Smoothly fade in and out
+                    .animation(.easeInOut(duration: 0.3), value: appState.isWritingToFirebase)
+                    .allowsHitTesting(appState.isWritingToFirebase) // Disable interaction when invisible
         }
         .listStyle(.plain)
-        //                .safeAreaInset(edge: .top) {
-        //                    Color.clear.frame(height: 16) // Adds scrolling padding at the top
-        //                }
-
-        // .frame(maxWidth: selectedReservation == nil ? .infinity : UIScreen.main.bounds.width * 0.6) // Resize list dynamically
-
         .inspector(isPresented: $showInspector) {  // Show Inspector if a reservation is selected
             if let selectedID = selectedReservationID {
 
@@ -160,7 +183,8 @@ struct ReservationListView: View {
                             {
                                 handleEditTap(reservation)
                             }
-                        }
+                        },
+                        isShowingFullImage: $isShowingFullImage
                     )
                     .environmentObject(store)  // So inside InfoCard, we can access the updated reservations
                     .padding()
@@ -168,7 +192,18 @@ struct ReservationListView: View {
             }
 
         }
-
+        .alert(item: $activeAlert) { alertType in
+            switch alertType {
+            case .mondayConfirmation:
+                return Alert(title: Text("Nothing"), message: Text("Nothing"), dismissButton: .default(Text("OK"))) // to modify in the future
+            case .error(let message):
+                return Alert(
+                    title: Text("Errore:"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK"))
+                )
+            }
+        }
         .navigationTitle("Tutte le prenotazioni")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -213,128 +248,86 @@ struct ReservationListView: View {
                 .id(UUID())
             }
             ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Text("Filtra per...")
+                        .font(.headline)
+                        .padding(.bottom, 4)
 
-                Button(action: {
-                    showingFilters = true
-                }) {
+                    // Simple buttons for .none and .canceled
+                    ForEach([FilterOption.none, FilterOption.canceled], id: \.self) { option in
+                        Button(action: {
+                            toggleFilter(option)  // Toggles these options
+                        }) {
+                            HStack {
+                                Text(option.rawValue)
+                                if selectedFilters.contains(option) {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+
+                    // Submenu for .people
+                    Button(action: {
+                        showPeoplePopover = true
+                    }) {
+                        HStack {
+                            Text("Numero di persone")
+                            if selectedFilters.contains(.people) {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+
+                    Button(action: {
+                        showStartDatePopover = true
+                    }) {
+                        HStack {
+                            if !selectedFilters.contains(.date) {
+                                Text("Da data...")
+                            }
+                            else {
+                                Text("Dal '\(DateHelper.formatFullDate(filterStartDate))'...")
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+
+                    Button(action: {
+                        showEndDatePopover = true
+                    }) {
+                        HStack {
+                            
+                            if !selectedFilters.contains(.date) {
+                                Text("A data...")
+                            }
+                            else {
+                                Text("Al '\(DateHelper.formatFullDate(filterEndDate))'...")
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+
+                } label: {
                     Image(
-                        systemName: isFiltered
+                        systemName: !selectedFilters.isEmpty && selectedFilters != [.none]
                             ? "line.3.horizontal.decrease.circle.fill"
                             : "line.3.horizontal.decrease.circle"
                     )
-                    .id(UUID())
-                    .imageScale(.large)
                 }
-                .sheet(isPresented: $showingFilters) {
-                    VStack(spacing: 16) {
-                        Text("Filters")
-                            .font(.title2)
-                            .bold()
-                            .padding(.top)
-
-                        // Guest Number Filter
-                        if let unwrappedFilterPeople = filterPeople {
-                            Stepper(
-                                value: Binding(
-                                    get: { unwrappedFilterPeople },
-                                    set: { newValue in
-                                        filterPeople = newValue
-                                    }
-                                ), in: 1...14, step: 1
-                            ) {
-                                let label =
-                                    (unwrappedFilterPeople < 14)
-                                    ? "Numero Ospiti: da \(unwrappedFilterPeople) in su"
-                                    : "Numero Ospiti: \(unwrappedFilterPeople)"
-                                Text(label)
-                                    .font(.headline)
-                            }
-
-                            Button("Rimuovi Filtro Numero Ospiti") {
-                                withAnimation {
-                                    filterPeople = nil
-                                    if filterStartDate == nil
-                                        && filterEndDate == nil
-                                    {
-                                        isFiltered = false
-                                    }
-                                }
-                            }
-                            .foregroundStyle(.red)
-                        } else {
-                            Button("Filtra per Numero Ospiti...") {
-                                withAnimation {
-                                    filterPeople = 1
-                                    isFiltered = true
-                                }
-                            }
-                            .font(.headline)
-                        }
-
-                        Divider()
-                            .padding(.vertical)
-
-                        // Date Interval Filter
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text("Da data:")
-                                    .font(.headline)
-                                DatePicker(
-                                    "",
-                                    selection: Binding(
-                                        get: { filterStartDate ?? Date() },
-                                        set: { newValue in
-                                            filterStartDate = newValue
-                                        }
-                                    ),
-                                    displayedComponents: .date
-                                )
-                                .labelsHidden()
-                                .datePickerStyle(.compact)
-                            }
-
-                            VStack(alignment: .leading) {
-                                Text("A data:")
-                                    .font(.headline)
-                                DatePicker(
-                                    "",
-                                    selection: Binding(
-                                        get: { filterEndDate ?? Date() },
-                                        set: { newValue in
-                                            filterEndDate = newValue
-                                        }
-                                    ),
-                                    displayedComponents: .date
-                                )
-                                .labelsHidden()
-                                .datePickerStyle(.compact)
-                            }
-                        }
-
-                        if filterStartDate != nil && filterEndDate != nil {
-                            Button("Rimuovi Filtro Data") {
-                                withAnimation {
-                                    filterStartDate = nil
-                                    filterEndDate = nil
-                                    if filterPeople == nil {
-                                        isFiltered = false
-                                    }
-                                }
-                            }
-                            .foregroundStyle(.red)
-                        }
-
-                        Button("Applica") {
-                            showingFilters = false
-                            isFiltered = true
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .padding(.bottom)
-
-                    }
-                    .padding(.horizontal)
-                    .presentationDetents([.medium, .large])  // Medium and large detents for flexibility
-                    .presentationDragIndicator(.visible)
+                .popover(isPresented: $showPeoplePopover) {
+                    PeoplePickerView(
+                        filterPeople: $filterPeople, hasSelectedPeople: $hasSelectedPeople)
+                }
+                .popover(isPresented: $showStartDatePopover) {
+                    DatePickerView(
+                        selectedDate: $filterStartDate, hasSelectedStartDate: $hasSelectedStartDate)
+                    .frame(width: 300)
+                }
+                .popover(isPresented: $showEndDatePopover) {
+                    DatePickerView(
+                        selectedDate: $filterEndDate, hasSelectedEndDate: $hasSelectedEndDate)
+                    .frame(width: 300)
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -398,7 +391,7 @@ struct ReservationListView: View {
         }
         .onAppear {
             sidebarDefault = appState.sidebarColor
-            
+
             NotificationCenter.default.addObserver(
                 forName: .buttonPositionChanged,
                 object: nil,
@@ -408,6 +401,17 @@ struct ReservationListView: View {
                     self.popoverPosition = frame
                 }
             }
+        }
+        .onChange(of: hasSelectedPeople) {
+            if hasSelectedPeople {
+                updatePeopleFilter()
+            }
+        }
+        .onChange(of: hasSelectedStartDate) {
+                updateDateFilter()
+        }
+        .onChange(of: hasSelectedEndDate) {
+                updateDateFilter()
         }
         .onDisappear {
             NotificationCenter.default.removeObserver(
@@ -436,6 +440,12 @@ struct ReservationListView: View {
         .toolbarBackground(.visible, for: .navigationBar)
     }
 
+    func formattedDateRange() -> String {
+        let start = DateHelper.formatFullDate(filterStartDate)
+        let end = DateHelper.formatFullDate(filterEndDate)
+        return "\(start) - \(end)"
+    }
+
     func dismissInfoCard() {
         withAnimation {
             isAnimating = false
@@ -444,21 +454,25 @@ struct ReservationListView: View {
             selectedReservation = nil
         }
     }
-    
-    func reservationsCount(for reservations: [Reservation], within startTime: String, and endTime: String) -> Int {
+
+    func reservationsCount(
+        for reservations: [Reservation], within startTime: String, and endTime: String
+    ) -> Int {
         reservations.filter { reservation in
-            guard let reservationTime = reservation.startTimeDate,
-                  let startTime = DateHelper.parseTime(startTime),
-                  let endTime = DateHelper.parseTime(endTime) else {
-                return false // Skip reservations with invalid times
+            guard let reservationTime = DateHelper.parseDate(reservation.startTime),
+                let startTime = DateHelper.parseTime(startTime),
+                let endTime = DateHelper.parseTime(endTime)
+            else {
+                return false  // Skip reservations with invalid times
             }
             return reservationTime >= startTime && reservationTime <= endTime
         }.count
     }
 
     private func handleDeleteFromGroup(groupKey: String, offsets: IndexSet) {
+
         // 1) Access the grouped reservations
-        var grouped = groupReservations(getFilteredReservations())
+        var grouped = groupReservations(filterReservationsBy(selectedFilters))
         // 2) The reservations in this group
         if var reservationsInGroup = grouped[groupKey] {
             // 3) Get the items to delete
@@ -467,15 +481,18 @@ struct ReservationListView: View {
             for reservation in toDelete {
                 if let idx = store.reservations.firstIndex(where: {
                     $0.id == reservation.id
-                }) {
-                    reservationService.deleteReservations(
-                        at: IndexSet(integer: idx))
+                }), var reservation = store.reservations.first(where: { $0.id == reservation.id}) {
+                    reservation.status = .canceled
+                    reservation.tables = []
+                    reservationService.updateReservation(reservation,
+                        at: idx)
                 }
             }
             // 5) Optionally remove them from `grouped[groupKey]` if you want to keep a local copy
             offsets.forEach { reservationsInGroup.remove(at: $0) }
             grouped[groupKey] = reservationsInGroup
         }
+ 
     }
 
     struct DebugConfigView: View {
@@ -538,24 +555,24 @@ struct ReservationListView: View {
                                 "Log Prenotazioni Salvate",
                                 systemImage: "arrow.triangle.2.circlepath")
                         }
-                        
-                        Button("Export Reservations") {
-                                        prepareExport()
 
-                                        isExporting = true
-                                    }.fileExporter(
-                                        isPresented: $isExporting,
-                                        document: document,
-                                        contentType: .json,
-                                        defaultFilename: "ReservationsBackup"
-                                    ) { result in
-                                        switch result {
-                                        case .success(let url):
-                                            print("File exported successfully to \(url).")
-                                        case .failure(let error):
-                                            print(error.localizedDescription)
-                                        }
-                                    }
+                        Button("Export Reservations") {
+                            prepareExport()
+
+                            isExporting = true
+                        }.fileExporter(
+                            isPresented: $isExporting,
+                            document: document,
+                            contentType: .json,
+                            defaultFilename: "ReservationsBackup"
+                        ) { result in
+                            switch result {
+                            case .success(let url):
+                                print("File exported successfully to \(url).")
+                            case .failure(let error):
+                                print(error.localizedDescription)
+                            }
+                        }
 
                         Button("Import Reservations") {
                             isImporting = true
@@ -577,11 +594,11 @@ struct ReservationListView: View {
                         }
                     }
                 }
-//                .sheet(isPresented: $isExporting) {
-//                    if let exportURL = exportURL {
-//                        ExportReservationsView(fileURL: exportURL)
-//                    }
-//                }
+                //                .sheet(isPresented: $isExporting) {
+                //                    if let exportURL = exportURL {
+                //                        ExportReservationsView(fileURL: exportURL)
+                //                    }
+                //                }
                 .sheet(isPresented: $isImporting) {
                     ImportReservationsView { selectedURL in
                         importReservations(from: selectedURL)
@@ -604,61 +621,61 @@ struct ReservationListView: View {
             windowScene.windows.first?.rootViewController?.dismiss(
                 animated: true)
         }
-        
+
         private func prepareExport() {
             do {
                 // Generate the ReservationsDocument with current reservations
-                let reservations = getReservations() // Replace with your actual reservations
+                let reservations = getReservations()  // Replace with your actual reservations
                 document = try ReservationsDocument(reservations: reservations)
                 isExporting = true
             } catch {
                 print("Failed to prepare export: \(error.localizedDescription)")
             }
         }
-        
+
         private func getReservations() -> [Reservation] {
             // Replace this with your actual reservations from ReservationService
             return store.reservations
-            
+
         }
-        
+
         private func importReservations(from url: URL) {
             print("Attempting to import file at URL: \(url)")
-            
+
             // Start accessing the security-scoped resource
             guard url.startAccessingSecurityScopedResource() else {
                 print("Failed to access the security-scoped resource.")
                 return
             }
-            
+
             defer { url.stopAccessingSecurityScopedResource() }
-            
+
             do {
                 // Read the file's data
                 let data = try Data(contentsOf: url)
                 print("File data loaded successfully.")
-                
+
                 // Decode the JSON data
                 let decoder = JSONDecoder()
                 decoder.dateDecodingStrategy = .iso8601
                 let reservations = try decoder.decode([Reservation].self, from: data)
                 print("Reservations decoded successfully.")
-                
+
                 // Handle the imported reservations
                 handleImportedReservations(reservations)
             } catch {
                 print("Failed to import reservations: \(error.localizedDescription)")
             }
         }
-            
-            private func handleImportedReservations(_ reservations: [Reservation]) {
-                // Integrate the imported reservations into your app's data
-                print("Imported \(reservations.count) reservations:")
-                reservations.forEach { print($0) }
-                
-                // Example: Save them to your ReservationService
-                store.reservations.append(contentsOf: reservations)
-            }
+
+        private func handleImportedReservations(_ reservations: [Reservation]) {
+            // Integrate the imported reservations into your app's data
+            print("Imported \(reservations.count) reservations:")
+            reservations.forEach { print($0) }
+
+            // Example: Save them to your ReservationService
+            store.reservations.append(contentsOf: reservations)
+        }
 
     }
 
@@ -678,6 +695,70 @@ struct ReservationListView: View {
             return groupByWeek(reservations)
         case .month:
             return groupByMonth(reservations)
+        }
+    }
+
+    func toggleFilter(_ option: FilterOption) {
+        switch option {
+        case .none, .canceled:
+            // If selecting .none or .canceled, clear all and only add the selected one
+            selectedFilters = [option]
+        case .people, .date:
+            // Allow multiselect for .people and .date
+            selectedFilters.remove(.none)
+            selectedFilters.remove(.canceled)
+            if selectedFilters.contains(option) {
+                selectedFilters.remove(option)
+            } else {
+                selectedFilters.insert(option)
+            }
+        }
+    }
+
+    func updatePeopleFilter() {
+        selectedFilters.insert(.people)
+        selectedFilters.remove(.none)  // Ensure `.none` is deselected
+        selectedFilters.remove(.canceled)  // Ensure `.canceled` is deselected
+    }
+
+    func updateDateFilter() {
+        selectedFilters.insert(.date)
+        selectedFilters.remove(.none)  // Ensure `.none` is deselected
+        selectedFilters.remove(.canceled)  // Ensure `.canceled` is deselected
+    }
+
+    private func filterReservationsBy(_ selectedFilters: Set<FilterOption>) -> [Reservation] {
+        let reservations = store.reservations
+
+        // If no filters are applied or only `.none` is selected, return all reservations
+        if selectedFilters.isEmpty || selectedFilters == [.none] {
+
+            return reservations.filter { reservation in
+                reservation.status != .canceled
+            }
+        }
+
+        // Apply filters dynamically
+        return reservations.filter { reservation in
+            var matches = true
+
+            // Check for each selected filter
+            if selectedFilters.contains(.canceled) {
+                matches = matches && (reservation.status == .canceled)
+            }
+
+            if selectedFilters.contains(.people) {
+                matches = matches && reservation.numberOfPersons == filterPeople  // Use the selectedPeople variable
+            }
+
+            if selectedFilters.contains(.date) {
+                matches =
+                    matches
+                    && (reservation.date ?? Date() >= filterStartDate
+                        && reservation.date ?? Date() <= filterEndDate)
+            }
+
+            return matches
         }
     }
 
@@ -817,6 +898,7 @@ struct ReservationListView: View {
 
     // MARK: - Generate Debug Data
     private func generateDebugData(force: Bool = false) {
+
         Task {
             await reservationService.generateReservations(
                 daysToSimulate: daysToSimulate
@@ -849,26 +931,33 @@ struct ReservationListView: View {
         let filtered = store.getReservations().filter { reservation in
             var matchesFilter = true
 
-            if let start = filterStartDate, let end = filterEndDate {
-                guard
-                    let reservationDate = reservation.date
-                else {
-                    return false
-                }
-                matchesFilter =
-                    matchesFilter
-                    && (reservationDate >= start && reservationDate <= end)
-            }
+            matchesFilter = matchesFilter && (reservation.status != filterCancelled)
 
-            if let filterP = filterPeople {
-                matchesFilter =
-                    matchesFilter && (reservation.numberOfPersons == filterP)
+            let start = filterStartDate
+            let end = filterEndDate
+            guard
+                let reservationDate = reservation.date
+            else {
+                return false
             }
+            matchesFilter =
+                matchesFilter
+                && (reservationDate >= start && reservationDate <= end)
+
+            let filterP = filterPeople
+            matchesFilter =
+                matchesFilter && (reservation.numberOfPersons == filterP)
 
             return matchesFilter
         }
 
         return sortReservations(filtered)
+    }
+
+    private func filterForCategory(
+        _ reservations: [Reservation], _ category: Reservation.ReservationCategory
+    ) -> [Reservation] {
+        reservations.filter { $0.category == category }
     }
 
     private func sortReservations(_ reservations: [Reservation])
@@ -885,7 +974,7 @@ struct ReservationListView: View {
         case .chronologically:
             return reservations.sorted {
                 $0.startTimeDate ?? Date()
-                < $1.endTimeDate ?? Date()
+                    < $1.endTimeDate ?? Date()
             }
         case .byNumberOfPeople:
             return reservations.sorted {
@@ -897,10 +986,6 @@ struct ReservationListView: View {
         }
     }
 
-    // MARK: - Delete
-    private func delete(at offsets: IndexSet) {
-        reservationService.deleteReservations(at: offsets)
-    }
 
     // MARK: - Row Tap Handler
     private func handleEditTap(_ reservation: Reservation) {
@@ -911,21 +996,59 @@ struct ReservationListView: View {
 
     // MARK: - Delete Handler from Context Menu
     private func handleDelete(_ reservation: Reservation) {
+
         if let idx = store.reservations.firstIndex(where: {
             $0.id == reservation.id
-        }) {
-            reservationService.deleteReservations(at: IndexSet(integer: idx))
+        }), var reservation = store.reservations.first(where: { $0.id == reservation.id}) {
+            reservation.status = .canceled
+            reservation.tables = []
+            reservationService.updateReservation(reservation,
+                at: idx)
         }
+    }
+    
+    private func handleRecover(_ reservation: Reservation) {
+
+        if let idx = store.reservations.firstIndex(where: {
+            $0.id == reservation.id
+        }), var reservation = store.reservations.first(where: { $0.id == reservation.id}) {
+            reservation.status = .pending
+            let assignmentResult = layoutServices.assignTables(
+                for: reservation, selectedTableID: nil)
+            switch assignmentResult {
+            case .success(let assignedTables):
+                DispatchQueue.main.async {
+                    // do actual saving logic here
+                    reservation.tables = assignedTables
+                }
+            case .failure(let error):
+                switch error {
+                case .noTablesLeft:
+                    activeAlert = .error("Non ci sono tavoli disponibili.")
+                case .insufficientTables:
+                    activeAlert = .error("Non ci sono abbastanza tavoli per la prenotazione.")
+                case .tableNotFound:
+                    activeAlert = .error("Tavolo selezionato non trovato.")
+                case .tableLocked:
+                    activeAlert = .error("Il tavolo scelto è occupato o bloccato.")
+                case .unknown:
+                    activeAlert = .error("Errore sconosciuto.")
+                }
+                return
+            }
+            reservationService.updateReservation(reservation,
+                at: idx)
+        }
+
     }
 
     // MARK: - Flush Caches
     private func flushCaches() {
+
         reservationService.flushAllCaches()
         print("Debug: Cache flush triggered.")
+
     }
-    
-
-
 
 }
 
@@ -941,6 +1064,7 @@ struct ReservationRowView: View {
 
     var onTap: () -> Void
     var onDelete: () -> Void
+    var onRecover: () -> Void
     var onEdit: () -> Void
     var onInfoTap: () -> Void  // Added here
 
@@ -960,35 +1084,7 @@ struct ReservationRowView: View {
                 .font(.subheadline)
                 .foregroundStyle(.blue)
         }
-
-        //            GeometryReader { geo in
-        //                Button {
-        //                    // Trigger onInfoTap and post button position
-        //                    onInfoTap()
-        //                    DispatchQueue.main.async {
-        //                        NotificationCenter.default.post(
-        //                            name: .buttonPositionChanged,
-        //                            object: nil,
-        //                            userInfo: ["frame": geo.frame(in: .global)] // Pass the button's global frame
-        //                        )
-        //                    }
-        //                } label: {
-        //                    Image(systemName: "info.circle")
-        //                        .resizable()
-        //                        .scaledToFit()
-        //                        .frame(width: 25, height: 25)
-        //                        .padding(8)
-        //                }
-        //                .buttonStyle(.plain)
-        //            }
-        //            .frame(width: 40, height: 40) // Add a frame to ensure GeometryReader works as intended
         .padding()
-        //        .background(Color.gray.opacity(0.3))
-        //        .cornerRadius(8)
-        //
-        //        .onTapGesture(count: 1) {
-        //            onTap()
-        //        }
         .contextMenu {
             Button("Modifica") {
                 onEdit()
@@ -996,6 +1092,38 @@ struct ReservationRowView: View {
             Button("Elimina", role: .destructive) {
                 onDelete()
             }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if reservation.status != .canceled {
+                Button{
+                    onDelete()
+                } label: {
+                    Label("Cancella", systemImage: "x.circle.fill")
+                }
+                .tint(Color(hex: "#5c140f"))
+                
+            } else {
+                Button {
+                    onRecover()
+                } label: {
+                    Label("Ripristina", systemImage: "arrowshape.turn.up.backward.2.circle.fill")
+                }
+                .tint(.blue)
+            }
+        
+            Button {
+                onEdit()
+            } label: {
+                Label("Modifica", systemImage: "square.and.pencil")
+            }
+            .tint(.orange)
+
+            Button {
+                onInfoTap()
+            } label: {
+                Label("Info", systemImage: "info.circle")
+            }
+            .tint(.green)
         }
     }
 
@@ -1012,4 +1140,3 @@ extension Notification.Name {
     static let buttonPositionChanged = Notification.Name(
         "buttonPositionChanged")
 }
-

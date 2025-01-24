@@ -112,12 +112,19 @@ struct ClusterView: View {
             return
         }
 
+        let calendar = Calendar.current
+
         // Compute `timesUp`
         let timesUpComputed: Bool
-        if let endTime = activeReservation.endTimeDate,
-           let currentTimeComponents = DateHelper.extractTime(time: systemTime),
-           let newTime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: endTime) {
-            timesUpComputed = endTime.timeIntervalSince(newTime) <= 60 * 30
+        if let startTime = activeReservation.startTimeDate,
+           let endTime = activeReservation.endTimeDate {
+            // Check if systemTime is within 30 minutes of the reservation end time
+            let elapsedTime = systemTime.timeIntervalSince(startTime)
+            let reservationDuration = endTime.timeIntervalSince(startTime)
+            let isWithinEndWindow = endTime.timeIntervalSince(systemTime) <= 30 * 60
+            let isSameDay = calendar.isDate(systemTime, inSameDayAs: startTime)
+
+            timesUpComputed = isSameDay && elapsedTime <= reservationDuration && isWithinEndWindow
         } else {
             timesUpComputed = false
         }
@@ -129,11 +136,13 @@ struct ClusterView: View {
         let isLateComputed: Bool
         if activeReservation.status != .showedUp,
            let startTime = activeReservation.startTimeDate,
-           let reservationDate = activeReservation.date,
-           let currentTimeComponents = DateHelper.extractTime(time: systemTime),
-           let newTime = DateHelper.normalizedInputTime(time: currentTimeComponents, date: startTime) {
-            isLateComputed = newTime.timeIntervalSince(startTime) >= 15 * 60 &&
-                             reservationDate.isSameDay(as: systemTime)
+           let endTime = activeReservation.endTimeDate {
+            let elapsedTime = systemTime.timeIntervalSince(startTime)
+            let reservationDuration = endTime.timeIntervalSince(startTime)
+            let isSameDay = calendar.isDate(systemTime, inSameDayAs: startTime)
+
+            // Reservation is late if elapsed time >= 15 minutes but within the reservation duration
+            isLateComputed = isSameDay && elapsedTime >= 15 * 60 && elapsedTime <= reservationDuration
         } else {
             isLateComputed = false
         }

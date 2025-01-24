@@ -304,3 +304,30 @@ extension Reservation.ReservationStatus {
     }
 }
 
+struct LightweightReservation: Codable {
+    var id: UUID
+    var name: String
+    var phone: String
+    var numberOfPersons: Int
+    var dateString: String  // "yyyy-mm-dd"
+    var category: Reservation.ReservationCategory
+    var startTime: String   // "HH:MM"
+    var endTime: String     // computed but editable by user
+    var acceptance: Reservation.Acceptance
+    var status: Reservation.ReservationStatus
+    var reservationType: Reservation.ReservationType
+    var group: Bool
+    var notes: String?
+    var tables: [TableModel]
+    let creationDate: Date
+    var assignedEmoji: String?
+    
+    // Exclude the image data here
+}
+
+extension Reservation {
+    // Helper to create a lightweight version of the reservation
+    func toLightweight() -> LightweightReservation {
+        return LightweightReservation(id: id, name: name, phone: phone, numberOfPersons: numberOfPersons, dateString: dateString, category: category, startTime: startTime, endTime: endTime, acceptance: acceptance, status: status, reservationType: reservationType, group: group, tables: tables, creationDate: creationDate)
+    }
+}

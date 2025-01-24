@@ -11,4 +11,6 @@ import Combine
 
 class AppState: ObservableObject {
     @Published var sidebarColor: Color = Color.sidebar_generic // Replace with your default color
+    @Published var isWritingToFirebase = false
+    
 }

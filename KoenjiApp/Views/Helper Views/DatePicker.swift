@@ -9,6 +9,14 @@ import SwiftUI
 
 struct DatePickerView: View {
     @Binding var selectedDate: Date
+    @Binding var hasSelectedStartDate: Bool
+    @Binding var hasSelectedEndDate: Bool
+    
+    init(selectedDate: Binding<Date>, hasSelectedStartDate: Binding<Bool> = Binding.constant(false), hasSelectedEndDate: Binding<Bool> = Binding.constant(false)) {
+        self._selectedDate = selectedDate
+        self._hasSelectedStartDate = hasSelectedStartDate
+        self._hasSelectedEndDate = hasSelectedEndDate
+    }
     
     var body: some View {
         
@@ -20,6 +28,10 @@ struct DatePickerView: View {
                 )
                 .datePickerStyle(GraphicalDatePickerStyle())
                 .labelsHidden()
+                .onChange(of: selectedDate) {
+                    hasSelectedStartDate = true
+                    hasSelectedEndDate = true
+                }
                 
     }
 }

@@ -166,7 +166,7 @@ struct AddReservationView: View {
                                                 .clipped()
                                                 .transition(
                                                     .move(edge: .bottom).combined(with: .opacity))  // Add transition
-                                            
+
                                         }
                                     } else {
                                         Image(systemName: "photo.badge.plus")  // Placeholder image
@@ -179,10 +179,8 @@ struct AddReservationView: View {
                                                 .move(edge: .bottom).combined(with: .opacity))  // Add transition
                                     }
                                 }
-                            }
-
-                            Group {
-                                if showImageField {
+                            } else {
+                                Group {
                                     if let selectedImage {
                                         ZStack {
                                             PhotosPicker(
@@ -203,25 +201,26 @@ struct AddReservationView: View {
                                                     .padding(5)
                                             }
                                             .buttonStyle(BorderlessButtonStyle())
-                                            .transition(.move(edge: .bottom).combined(with: .opacity))  // Add transition
-                                            
+                                            .transition(
+                                                .move(edge: .bottom).combined(with: .opacity))  // Add transition
+
                                             Button(action: {
                                                 withAnimation {
-                                                    selectedPhotoItem = nil // Clear the image data
+                                                    selectedPhotoItem = nil  // Clear the image data
                                                 }
                                             }) {
                                                 Image(systemName: "minus.circle.fill")
                                                     .resizable()
-                                                    .foregroundColor(.red) // Destructive color
+                                                    .foregroundColor(.red)  // Destructive color
                                                     .frame(width: 30, height: 30)
                                                     .overlay(
                                                         Circle()
                                                             .stroke(Color.gray, lineWidth: 1)
-                                                        )
+                                                    )
                                             }
                                             .buttonStyle(BorderlessButtonStyle())
                                             .offset(x: 130, y: -130)
-                                            .padding(5) // Add padding to position the button inside the corner
+                                            .padding(5)  // Add padding to position the button inside the corner
                                             .zIndex(2)
                                         }
                                     } else {
@@ -242,8 +241,8 @@ struct AddReservationView: View {
                                         .transition(.move(edge: .bottom).combined(with: .opacity))  // Add transition
                                     }
                                 }
-
                             }
+
                         }
                         .listRowBackground(Color.clear)  // Removes background
                         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -336,8 +335,9 @@ struct AddReservationView: View {
                     Task {
                         do {
                             if let data = try await newItem.loadTransferable(type: Data.self),
-                               let uiImage = UIImage(data: data) {
-                                selectedImage = Image(uiImage: uiImage) // Update the displayed image
+                                let uiImage = UIImage(data: data)
+                            {
+                                selectedImage = Image(uiImage: uiImage)  // Update the displayed image
                             }
                         } catch {
                             print("Error loading image: \(error)")
@@ -490,6 +490,7 @@ struct AddReservationView: View {
                     newReservation.tables = assignedTables
                     store.finalizeReservation(newReservation)
                     reservationService.saveReservationsToDisk(includeMock: true)
+                    reservationService.automaticBackup()
                 }
                 isSaving = false
                 dismiss()

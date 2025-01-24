@@ -76,13 +76,20 @@ struct SidebarView: View {
 
                 Spacer()
                 
+                AppVersionView()
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .bottomLeading)
+                    .opacity(0.8)
+                
                 Image("logo_image") // Replace "YourImageName" with the actual image asset name
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 200, height: 200) // Adjust size as needed
+                    .frame(width: 200, height: 120) // Adjust size as needed
                     .frame(maxWidth: .infinity, alignment: .bottomLeading)
                     .padding(.horizontal)
                     .drawingGroup() // Ensures antialiasing and higher-quality rendering
+                
+                
                 
             }
             .ignoresSafeArea(.keyboard)

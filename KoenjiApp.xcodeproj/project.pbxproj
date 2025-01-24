@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A03B7B652D43B00000FF8FF7 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B642D43B00000FF8FF7 /* FirebaseAnalytics */; };
+		A03B7B672D43B00000FF8FF7 /* FirebaseAnalyticsOnDeviceConversion in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B662D43B00000FF8FF7 /* FirebaseAnalyticsOnDeviceConversion */; };
+		A03B7B692D43B00000FF8FF7 /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B682D43B00000FF8FF7 /* FirebaseAnalyticsWithoutAdIdSupport */; };
+		A03B7B712D43B18200FF8FF7 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B702D43B18200FF8FF7 /* FirebaseFirestore */; };
+		A03B7B732D43B18900FF8FF7 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B722D43B18900FF8FF7 /* FirebaseStorage */; };
+		A03B7B792D43B93D00FF8FF7 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B782D43B93D00FF8FF7 /* FirebaseAuth */; };
 		A0C598AA2D427F43004A3423 /* EmojiPalette in Frameworks */ = {isa = PBXBuildFile; productRef = A0C598A92D427F43004A3423 /* EmojiPalette */; };
 		A0C599D82D42B0FD004A3423 /* Launchscreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */; };
 		A0FBB6942D41743700A5783E /* ScreenshotSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = A0FBB6932D41743700A5783E /* ScreenshotSwiftUI */; };
@@ -57,18 +63,32 @@
 			buildActionMask = 2147483647;
 			files = (
 				A0FBB6942D41743700A5783E /* ScreenshotSwiftUI in Frameworks */,
+				A03B7B692D43B00000FF8FF7 /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */,
 				A0C598AA2D427F43004A3423 /* EmojiPalette in Frameworks */,
+				A03B7B652D43B00000FF8FF7 /* FirebaseAnalytics in Frameworks */,
+				A03B7B732D43B18900FF8FF7 /* FirebaseStorage in Frameworks */,
+				A03B7B672D43B00000FF8FF7 /* FirebaseAnalyticsOnDeviceConversion in Frameworks */,
+				A03B7B712D43B18200FF8FF7 /* FirebaseFirestore in Frameworks */,
+				A03B7B792D43B93D00FF8FF7 /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A03B7B6F2D43B18200FF8FF7 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		A0775E1B2D1CAA1F00068B00 = {
 			isa = PBXGroup;
 			children = (
 				A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */,
 				A03E7C192D316538000A38AC /* KoenjiApp */,
+				A03B7B6F2D43B18200FF8FF7 /* Frameworks */,
 				A0775E252D1CAA1F00068B00 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -104,6 +124,12 @@
 			packageProductDependencies = (
 				A0FBB6932D41743700A5783E /* ScreenshotSwiftUI */,
 				A0C598A92D427F43004A3423 /* EmojiPalette */,
+				A03B7B642D43B00000FF8FF7 /* FirebaseAnalytics */,
+				A03B7B662D43B00000FF8FF7 /* FirebaseAnalyticsOnDeviceConversion */,
+				A03B7B682D43B00000FF8FF7 /* FirebaseAnalyticsWithoutAdIdSupport */,
+				A03B7B702D43B18200FF8FF7 /* FirebaseFirestore */,
+				A03B7B722D43B18900FF8FF7 /* FirebaseStorage */,
+				A03B7B782D43B93D00FF8FF7 /* FirebaseAuth */,
 			);
 			productName = KoenjiApp;
 			productReference = A0775E242D1CAA1F00068B00 /* KoenjiApp.app */;
@@ -136,6 +162,7 @@
 			packageReferences = (
 				A0FBB6922D41743700A5783E /* XCRemoteSwiftPackageReference "ScreenshotSwiftUI" */,
 				A0C598A82D427F43004A3423 /* XCRemoteSwiftPackageReference "EmojiPalette" */,
+				A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A0775E252D1CAA1F00068B00 /* Products */;
@@ -396,6 +423,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.7.0;
+			};
+		};
 		A0C598A82D427F43004A3423 /* XCRemoteSwiftPackageReference "EmojiPalette" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Kyome22/EmojiPalette.git";
@@ -415,6 +450,36 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A03B7B642D43B00000FF8FF7 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		A03B7B662D43B00000FF8FF7 /* FirebaseAnalyticsOnDeviceConversion */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsOnDeviceConversion;
+		};
+		A03B7B682D43B00000FF8FF7 /* FirebaseAnalyticsWithoutAdIdSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsWithoutAdIdSupport;
+		};
+		A03B7B702D43B18200FF8FF7 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		A03B7B722D43B18900FF8FF7 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		A03B7B782D43B93D00FF8FF7 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
 		A0C598A92D427F43004A3423 /* EmojiPalette */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A0C598A82D427F43004A3423 /* XCRemoteSwiftPackageReference "EmojiPalette" */;

@@ -14,6 +14,7 @@ struct InspectorSideView: View {
     @Binding var showingEditReservation: Bool
     @Binding var sidebarColor: Color // Default
     @Binding var changedReservation: Reservation?
+    @Binding var isShowingFullImage: Bool
     @State private var selectedView: SelectedView = .info
     var activeReservations: [Reservation]
     @Binding var currentTime: Date
@@ -45,24 +46,24 @@ struct InspectorSideView: View {
                     Text("Waiting List").tag(SelectedView.waiting)
                 }
                 .pickerStyle(.segmented)
-                .frame(height: 80)
-                .padding()
+                .padding(.top)
                 
                 switch selectedView {
                 case .info:
                     
                     if let reservation = selectedReservation {
-                    ReservationInfoCard(
-                        reservationID: reservation.id,
-                        onClose: {
-                            dismissInfoCard()
-                        },
-                        onEdit: {
-                            currentReservation = reservation
-                            showingEditReservation = true
-                        }
-                    )
-                    .background(.clear)
+                            ReservationInfoCard(
+                                reservationID: reservation.id,
+                                onClose: {
+                                    dismissInfoCard()
+                                },
+                                onEdit: {
+                                    currentReservation = reservation
+                                    showingEditReservation = true
+                                },
+                                isShowingFullImage: $isShowingFullImage
+                            )
+                            .background(.clear)
                     
                 } else {
                     

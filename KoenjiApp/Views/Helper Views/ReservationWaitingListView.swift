@@ -14,6 +14,7 @@ struct ReservationWaitingListView: View {
     @State private var selection = Set<UUID>()  // Multi-select
     @State private var showAlert: Bool = false
     @State private var alertMessage: String = ""
+    @Environment(\.colorScheme) var colorScheme
 
 
     let activeReservations: [Reservation]
@@ -36,8 +37,10 @@ struct ReservationWaitingListView: View {
                             header: HStack(spacing: 10) {
                                 Text(groupKey)
                                     .font(.title2)
+                                    .foregroundStyle(colorScheme == .dark ? .white : .black)
                                 Text("\(grouped[groupKey]?.count ?? 0) in lista d'attesa")
                                     .font(.title2)
+                                    .foregroundStyle(colorScheme == .dark ? .white : .black)
                                     .frame(maxWidth: .infinity, alignment: .trailing)
 
                             }
@@ -56,9 +59,9 @@ struct ReservationWaitingListView: View {
                                     Button {
                                         handleDelete(reservation)
                                     } label: {
-                                        Label("Elimina", systemImage: "trash")
+                                        Label("Cancella", systemImage: "x.circle.fill")
                                     }
-                                    .tint(.red)
+                                    .tint(Color(hex: "#5c140f"))
                                     Button {
                                         handleConfirm(reservation)
                                         onConfirm(reservation)
@@ -98,8 +101,8 @@ struct ReservationWaitingListView: View {
                 
             }
             .scrollContentBackground(.hidden) // Removes the List's default background (iOS 16+)
-            .listStyle(.plain)
-            
+            .listStyle(GroupedListStyle())
+
             Button(action: onClose) {
                 Text("Chiudi")
                     .font(.headline)
@@ -131,9 +134,11 @@ struct ReservationWaitingListView: View {
             for reservation in toDelete {
                 if let idx = store.reservations.firstIndex(where: {
                     $0.id == reservation.id
-                }) {
-                    reservationService.deleteReservations(
-                        at: IndexSet(integer: idx))
+                }), var reservation = store.reservations.first(where: { $0.id == reservation.id}) {
+                    reservation.status = .canceled
+                    reservation.tables = []
+                    reservationService.updateReservation(reservation,
+                        at: idx)
                 }
             }
             // 5) Optionally remove them from `grouped[groupKey]` if you want to keep a local copy

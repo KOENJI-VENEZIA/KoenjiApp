@@ -65,6 +65,24 @@ struct DateHelper {
     static func parseFullDate(_ dateString: String) -> Date? {
         return fullDateFormatter.date(from: dateString)
     }
+
+    static func calculateTimeDifference(startTime: String, endTime: String, dateFormat: String = "HH:mm") -> TimeInterval? {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = dateFormat
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX") // Use a fixed locale for time parsing
+
+        // Convert strings to Date objects
+        guard let startDate = dateFormatter.date(from: startTime),
+              let endDate = dateFormatter.date(from: endTime) else {
+            print("Invalid time format")
+            return nil
+        }
+
+        // Calculate the difference in seconds
+        let difference = endDate.timeIntervalSince(startDate)
+
+        return difference
+    }
     
     static func combineDateAndTime(date: Date, timeString: String) -> Date? {
            // Create a cache key based on the date and time string
