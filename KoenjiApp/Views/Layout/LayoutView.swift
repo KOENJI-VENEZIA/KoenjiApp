@@ -5,6 +5,7 @@ import ScreenshotSwiftUI
 
 struct LayoutView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var clusterStore: ClusterStore
@@ -22,7 +23,6 @@ struct LayoutView: View {
     @State private var dates: [Date] = []
     @State private var selectedIndex: Int = 15  // Start in the middle of the dates array
     @State private var selectedDate: Date = Date()
-    @State var activeReservations: [Reservation] = []
 
     // Filters
     @Binding var selectedCategory: Reservation.ReservationCategory?
@@ -119,12 +119,10 @@ struct LayoutView: View {
                         toolPickerShows: $toolPickerShows,
                         isSharing: $isSharing,
                         isPresented: $isPresented,
-                        cachedScreenshot: $cachedScreenshot,
-                        onFetchedReservations: { newActiveReservations in
-                            activeReservations = newActiveReservations
-                        }
+                        cachedScreenshot: $cachedScreenshot
                     )
                     .environmentObject(store)
+                    .environmentObject(resCache)
                     .environmentObject(tableStore)
                     .environmentObject(reservationService)  // For the new service
                     .environmentObject(clusterServices)
@@ -343,10 +341,10 @@ struct LayoutView: View {
                     sidebarColor: $appState.sidebarColor,
                     changedReservation: $changedReservation,
                     isShowingFullImage: $isShowingFullImage,
-                    activeReservations: activeReservations,
                     currentTime: $currentTime,
                     selectedCategory: selectedCategory ?? .lunch
                 )
+                .environmentObject(resCache)
             }
             .sheet(item: $currentReservation) { reservation in
                 EditReservationView(
@@ -356,6 +354,7 @@ struct LayoutView: View {
                     }
                 )
                 .environmentObject(store)
+                .environmentObject(resCache)
                 .environmentObject(reservationService)  // For the new service
                 .environmentObject(layoutServices)
             }
@@ -376,6 +375,7 @@ struct LayoutView: View {
                     passedTable: tableForNewReservation
                 )
                 .environmentObject(store)
+                .environmentObject(resCache)
                 .environmentObject(reservationService)  // For the new service
                 .environmentObject(layoutServices)
             }
@@ -784,6 +784,7 @@ struct LayoutView: View {
 
         handleCurrentTimeChange(currentTime)
 
+        resCache.startMonitoring(for: currentTime)
     }
 
     private func handleSelectedIndexChange() {
@@ -1048,7 +1049,7 @@ struct LayoutView: View {
                     return
                 }  // Extract time components
                 currentTime =
-                    DateHelper.normalizedInputTime(time: currentTimeOnly, date: today) ?? Date()
+                DateHelper.combinedInputTime(time: currentTimeOnly, date: today) ?? Date()
                 updateDatesAroundSelectedDate(currentTime)
                 isManuallyOverridden = false
             }

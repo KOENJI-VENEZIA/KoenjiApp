@@ -1,5 +1,5 @@
-import SwiftUI
 import EmojiPalette
+import SwiftUI
 
 struct TableView: View {
     let table: TableModel
@@ -7,10 +7,10 @@ struct TableView: View {
     let selectedCategory: Reservation.ReservationCategory
     let currentTime: Date
     @State private var systemTime: Date = Date()
-    let activeReservations: [Reservation]
     @Binding var changedReservation: Reservation?
     @Binding var isEditing: Bool
     @EnvironmentObject var stateCache: ReservationStateCache
+    @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var tableStore: TableStore
@@ -48,22 +48,18 @@ struct TableView: View {
     @State private var isContextMenuActive = false
     @State private var selectedEmoji: String = ""
 
-
     @State private var tapTimer: Timer?
     @State private var isDoubleTap = false
-    
 
-    private var currentActiveReservation: Reservation? {
-        filterActiveReservation(for: table)
-    }
-    
+    @State private var currentActiveReservation: Reservation?
+
     private let normalizedTimeCache = NormalizedTimeCache()
 
     @State private var timesUp: Bool = false
     @State private var isLate: Bool = false
     @State private var showedUp: Bool = false
     @State private var isManuallyOverridden: Bool = false
-    
+
     private var cellSize: CGFloat { return gridData.cellSize }
 
     private var tableFrame: CGRect {
@@ -73,8 +69,6 @@ struct TableView: View {
         let yPos = CGFloat(table.row) * cellSize + height / 2
         return CGRect(x: xPos, y: yPos, width: width, height: height)
     }
-    
-
 
     var body: some View {
         // Determine if the table is highlighted
@@ -104,18 +98,7 @@ struct TableView: View {
             }
         }()
 
-       
-
-        
-
-       
-
         ZStack {
-            // Parent ZStack for interaction
-            //            Color.clear  // Makes the area outside the rectangle tappable
-            //                .contentShape(RoundedRectangle(cornerRadius: 8.0))  // Expands the tappable area
-            //                .frame(width: tableFrame.width + 10, height: tableFrame.height + 10)  // Adjust size to include badge
-            // Main ZStack with rectangle and badge
 
             ZStack {
 
@@ -140,17 +123,18 @@ struct TableView: View {
                     RoundedRectangle(cornerRadius: 12.0)
                         .stroke(
                             isDragging
-                            ? Color.yellow.opacity(0.5)
-                            : (isHighlighted
-                               ? Color(hex: "#9DA3D0")
-                               : (timesUp
-                                  ? .red
-                                  : (reservation.status == .late
-                                     ? Color(hex: "#f78457") : (reservation.status == .showedUp ? .green : .white)))),
+                                ? Color.yellow.opacity(0.5)
+                                : (isHighlighted
+                                    ? Color(hex: "#9DA3D0")
+                                    : (timesUp
+                                        ? .red
+                                        : (reservation.status == .late
+                                            ? Color(hex: "#f78457")
+                                            : (reservation.status == .showedUp ? .green : .white)))),
                             style: isDragging
-                            ? StrokeStyle(
-                                lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 3])  // Dashed when dragging
-                            : StrokeStyle(lineWidth: 3)  // Solid for other states
+                                ? StrokeStyle(
+                                    lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 3])  // Dashed when dragging
+                                : StrokeStyle(lineWidth: 3)  // Solid for other states
                         )
                         .frame(
                             width: tableFrame.width,
@@ -160,14 +144,14 @@ struct TableView: View {
                     RoundedRectangle(cornerRadius: 12.0)
                         .stroke(
                             isDragging
-                            ? Color.yellow.opacity(0.5)
-                            : (isHighlighted
-                               ? Color(hex: "#9DA3D0")
-                               : .white),
+                                ? Color.yellow.opacity(0.5)
+                                : (isHighlighted
+                                    ? Color(hex: "#9DA3D0")
+                                    : .white),
                             style: isDragging
-                            ? StrokeStyle(
-                                lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 3])  // Dashed when dragging
-                            : StrokeStyle(lineWidth: 3)  // Solid for other states
+                                ? StrokeStyle(
+                                    lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 3])  // Dashed when dragging
+                                : StrokeStyle(lineWidth: 3)  // Solid for other states
                         )
                         .frame(
                             width: tableFrame.width,
@@ -186,12 +170,10 @@ struct TableView: View {
                             tableWidth: tableFrame.width,
                             tableHeight: tableFrame.height
                         )
-                    } else if let upcomingRes = upcomingReservation(
-                        for: table,
-                        from: activeReservations,
-                        selectedDate: selectedDate,
-                        selectedCategory: selectedCategory,
-                        currentTime: currentTime)
+
+                    } else if let upcomingRes = resCache.firstUpcomingReservation(
+                        forTable: table.id, date: selectedDate, time: currentTime,
+                        category: selectedCategory)
                     {
                         // No active reservation, but there is an upcoming reservation.
                         upcomingReservationPlaceholder(
@@ -200,7 +182,6 @@ struct TableView: View {
                             tableHeight: tableFrame.height
                         )
                     } else {
-                        // Otherwise, just display the table name.
                         tableName(
                             name: table.name,
                             tableWidth: tableFrame.width,
@@ -219,7 +200,9 @@ struct TableView: View {
                         .zIndex(2)
                 }
 
-                if let reservation = currentActiveReservation, let emoji = reservation.assignedEmoji, !isContextMenuActive {
+                if let reservation = currentActiveReservation,
+                    let emoji = reservation.assignedEmoji, !isContextMenuActive
+                {
                     Text(emoji)
                         .font(.system(size: 20))  // Match the font size to the frame of the Image
                         .frame(maxWidth: 23, maxHeight: 23)  // Same dimensions as the Image
@@ -227,7 +210,9 @@ struct TableView: View {
                         .zIndex(2)
                 }
 
-                if let reservation = currentActiveReservation, reservation.status == .late {
+                if let reservation = currentActiveReservation, resCache.lateReservations(currentTime: currentTime).contains(where: {
+                    $0.id == reservation.id
+                }) {
                     Image(systemName: "clock.badge.exclamationmark.fill")
                         .resizable()
                         .scaledToFit()
@@ -236,26 +221,11 @@ struct TableView: View {
                         .symbolRenderingMode(.multicolor)
                         .offset(x: -tableFrame.width / 2 + 15, y: -tableFrame.height / 2 + 15)  // Position in the top-left corner
                         .zIndex(2)
-//                        .onAppear {
-//                            print("Reservation appeared at \(Date()) - marking as late")
-//                            if var reservation = currentActiveReservation {
-//                                guard reservation.reservationType != .waitingList else { return }
-//                                reservation.status = .late
-//                                reservationService.updateReservation(reservation)
-//                            }
-//                        }
-//                        .onDisappear {
-//                            print("Reservation disappeared at \(Date()) - marking as pending")
-//                            if var reservation = currentActiveReservation {
-//                                guard reservation.reservationType != .waitingList else { return }
-//                                reservation.status = .pending
-//                                reservationService.updateReservation(reservation)
-//
-//                            }
-//                        }
                 }
 
-                if timesUp {
+                if let reservation = currentActiveReservation, resCache.nearingEndReservations(currentTime: currentTime).contains(where: {
+                    $0.id == reservation.id
+                }) {
                     Image(systemName: "figure.walk.motion.trianglebadge.exclamationmark")
                         .resizable()
                         .scaledToFit()
@@ -267,28 +237,49 @@ struct TableView: View {
                         .symbolRenderingMode(.palette)  // Enable multicolor rendering
                         .offset(x: tableFrame.width / 2 - 15, y: tableFrame.height / 2 - 15)  // Position in the top-left corner
                         .zIndex(2)
-
+                        .onAppear {
+                            timesUp = true
+                        }
+                        .onDisappear {
+                            timesUp = false
+                        }
                 }
             }
-            
         }
         .onAppear {
-            computeReservationStates()
+            updateCachedReservation()
+            if let reservation = currentActiveReservation {
+                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found: \(reservation.name)")
+            } else {
+                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found.")
+            }
         }
-        .onChange(of: currentTime) {
-            computeReservationStates()
-        }
-        .onChange(of: currentActiveReservation) {
-
+        .onChange(of: selectedDate) {
+            updateCachedReservation()
+            if let reservation = currentActiveReservation {
+                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found: \(reservation.name)")
+            } else {
+                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found.")
+            }
         }
         .onChange(of: statusChanged) {
-            computeReservationStates()
+            updateCachedReservation()
+        }
+        .onChange(of: currentTime) {
+            updateCachedReservation()
+            if let reservation = currentActiveReservation {
+                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found: \(reservation.name)")
+            } else {
+                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found.")
+            }
         }
         .onChange(of: selectedEmoji) {
-            handleEmojiAssignment(currentActiveReservation, selectedEmoji)
-        }
-        .onChange(of: changedReservation) {
-            computeReservationStates()
+            if let reservation = currentActiveReservation {
+                handleEmojiAssignment(reservation, selectedEmoji)
+                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found: \(reservation.name)")
+            } else {
+                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found.")
+            }
         }
         .contextMenu {
 
@@ -310,16 +301,17 @@ struct TableView: View {
             EmojiPaletteView(selectedEmoji: $selectedEmoji)
         }
         .popover(isPresented: $showEmojiPicker) {
-            EmojiSmallPicker(onEmojiSelected: { emoji in
-                if selectedEmoji != emoji {
-                    selectedEmoji = emoji
-                } else {
-                    selectedEmoji = ""
-                }
-                showEmojiPicker = false  // Dismiss the popover
-            },
-            showFullEmojiPicker: $showFullEmojiPicker,
-            selectedEmoji: $selectedEmoji)
+            EmojiSmallPicker(
+                onEmojiSelected: { emoji in
+                    if selectedEmoji != emoji {
+                        selectedEmoji = emoji
+                    } else {
+                        selectedEmoji = ""
+                    }
+                    showEmojiPicker = false  // Dismiss the popover
+                },
+                showFullEmojiPicker: $showFullEmojiPicker,
+                selectedEmoji: $selectedEmoji)
         }
         .position(x: tableFrame.minX, y: tableFrame.minY)
         .offset(dragOffset)
@@ -351,7 +343,8 @@ struct TableView: View {
                 tapTimer?.invalidate()
                 isDoubleTap = true  // Prevent single-tap action
                 dragState = .idle
-                handleDoubleTap(activeReservations)
+                if let reservation = currentActiveReservation {
+                    handleDoubleTap(reservation) }
 
                 // Reset double-tap state shortly after handling
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -366,16 +359,21 @@ struct TableView: View {
                 tapTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
                     if !isDoubleTap {
                         // Process single-tap only if no double-tap occurred
-                        handleTap(activeReservations, currentActiveReservation)
                         if let reservation = currentActiveReservation {
-                            print("UI status: showedUp: \(showedUp), isLate: \(isLate)")
-                        }
+                            handleTap(reservation) }
+                        //                        if let reservation = currentActiveReservation {
+                        //                            print("UI status: showedUp: \(showedUp), isLate: \(isLate)")
+                        //                        }
                     }
                 }
             }
         )
     }
 
+    private func updateCachedReservation() {
+        currentActiveReservation = resCache.reservation(forTable: table.id, datetime: currentTime, category: selectedCategory)
+    }
+    
     // MARK: - Subviews
     private func handleCancelled(_ reservation: Reservation) {
         var updatedReservation = reservation
@@ -489,62 +487,6 @@ struct TableView: View {
 
     }
 
-    private func computeReservationStates() {
-        guard let activeReservation = currentActiveReservation else {
-            timesUp = false
-            return
-        }
-
-        // Check if the reservation states are already cached
-        if let cachedState = stateCache.cache[activeReservation.id],
-           cachedState.time == systemTime {
-            timesUp = cachedState.timesUp
-            return
-        }
-//
-        guard  let lunchStartTime = DateHelper.parseTime("12:00"),
-               let lunchEndTime = DateHelper.parseTime("15:00"),
-               let dinnerStartTime = DateHelper.parseTime("18:00"),
-               let dinnerEndTime = DateHelper.parseTime("23:45"),
-               let currentReservationStart = DateHelper.parseTime(activeReservation.startTime) else { return }
-        
-        // Compute "time's up" status
-        let timesUpComputed: Bool
-        if let startTime = activeReservation.startTimeDate,
-           let endTime = activeReservation.endTimeDate,
-           let reservationDate = activeReservation.date {
-            let calendar = Calendar.current
-
-            // Check if the reservation is for the same day
-            let isSameDay = calendar.isDate(reservationDate, inSameDayAs: systemTime)
-
-            // Calculate the total duration of the reservation
-            let reservationDuration = endTime.timeIntervalSince(startTime)
-
-            // Calculate the elapsed time since the reservation started
-            let elapsedTime = systemTime.timeIntervalSince(startTime)
-
-            // Check if the current time is within 30 minutes of the reservation's end time
-            let isWithinEndWindow = endTime.timeIntervalSince(systemTime) <= 30 * 60
-
-            // Determine if "time's up" applies
-            timesUpComputed = isSameDay && elapsedTime <= reservationDuration && isWithinEndWindow
-        } else {
-            timesUpComputed = false
-        }
-
-        // Update states
-        timesUp = timesUpComputed
-
-        // Cache the computed values
-        stateCache.cache[activeReservation.id] = ReservationState(
-            time: systemTime,
-            timesUp: timesUpComputed,
-            showedUp: showedUp,
-            isLate: isLate
-        )
-    }
-    
     // MARK: - Gestures
     private func dragGesture(
         cellSize: CGFloat, tableWidth: CGFloat, tableHeight: CGFloat, xPos: CGFloat, yPos: CGFloat
@@ -595,79 +537,79 @@ struct TableView: View {
             }
     }
 
-    
     // MARK: - Actions
-    private func handleTap(_ activeReservations: [Reservation], _ activeReservation: Reservation?) {
+    private func handleTap(_ activeReservation: Reservation?) {
         guard let activeReservation = activeReservation else { return }
 
-        if let index = activeReservations.firstIndex(where: { $0.id == activeReservation.id }) {
-            var currentReservation = activeReservations[index]
+        var currentReservation = activeReservation
 
-            print("1 - Status in HandleTap: \(currentReservation.status)")
+        print("1 - Status in HandleTap: \(currentReservation.status)")
 
-            if currentReservation.status == .pending || currentReservation.status == .late {
-                // Case 1: Update to .showedUp
-                currentReservation.status = .showedUp
-                showedUp = true
-                isLate = false
+        if currentReservation.status == .pending || currentReservation.status == .late {
+            // Case 1: Update to .showedUp
+            currentReservation.status = .showedUp
+            showedUp = true
+            isLate = false
+
+            print("2 - Status in HandleTap: \(currentReservation.status)")
+            reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
+            statusChanged += 1
+        } else {
+            // Case 2: Determine if the reservation is late or pending
+            if let reservationStart = currentReservation.startTimeDate,
+                let reservationEnd = currentReservation.endTimeDate
+            {
+                let calendar = Calendar.current
+                let isSameDay = calendar.isDate(systemTime, inSameDayAs: reservationStart)
+
+                // Calculate elapsed time since reservation started
+                let elapsedTime = systemTime.timeIntervalSince(reservationStart)
+
+                // Calculate the total duration of the reservation
+                let reservationDuration = reservationEnd.timeIntervalSince(reservationStart)
+
+                if isSameDay && elapsedTime >= 15 * 60 && elapsedTime <= reservationDuration {
+                    // Mark as .late if the elapsed time is within bounds
+                    currentReservation.status = .late
+                    isLate = true
+                    showedUp = false
+                } else {
+                    // Otherwise, mark as .pending
+                    currentReservation.status = .pending
+                    isLate = false
+                    showedUp = false
+                }
 
                 print("2 - Status in HandleTap: \(currentReservation.status)")
-                reservationService.updateReservation(currentReservation) // Ensure the data store is updated
+                reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
                 statusChanged += 1
-            } else {
-                // Case 2: Determine if the reservation is late or pending
-                if let reservationStart = currentReservation.startTimeDate,
-                   let reservationEnd = currentReservation.endTimeDate {
-                    let calendar = Calendar.current
-                    let isSameDay = calendar.isDate(systemTime, inSameDayAs: reservationStart)
-
-                    // Calculate elapsed time since reservation started
-                    let elapsedTime = systemTime.timeIntervalSince(reservationStart)
-
-                    // Calculate the total duration of the reservation
-                    let reservationDuration = reservationEnd.timeIntervalSince(reservationStart)
-
-                    if isSameDay && elapsedTime >= 15 * 60 && elapsedTime <= reservationDuration {
-                        // Mark as .late if the elapsed time is within bounds
-                        currentReservation.status = .late
-                        isLate = true
-                        showedUp = false
-                    } else {
-                        // Otherwise, mark as .pending
-                        currentReservation.status = .pending
-                        isLate = false
-                        showedUp = false
-                    }
-
-                    print("2 - Status in HandleTap: \(currentReservation.status)")
-                    reservationService.updateReservation(currentReservation) // Ensure the data store is updated
-                    statusChanged += 1
-                }
             }
         }
     }
-    
-    private func handleDoubleTap(_ activeReservations: [Reservation]) {
+
+    private func handleDoubleTap(_ activeReservation: Reservation) {
         let startTimeString = DateHelper.formatTime(currentTime)
-
+        var isOccupied = true
         // Check if the table is occupied by filtering active reservations.
-        let isOccupied = activeReservations.contains { (reservation: Reservation) in
-            // The reservation must "own" the table.
-            guard reservation.tables.contains(where: { $0.id == table.id }) else {
-                return false
-            }
-
-            // Ensure the reservation is active (i.e., overlaps with the current time).
-            guard let resStart = reservation.startTimeDate else { return false }
-
-            return resStart <= DateHelper.combineDateAndTime(
-                date: selectedDate, timeString: startTimeString) ?? Date()
+        let reservation = activeReservation
+        // The reservation must "own" the table.
+        if reservation.tables.contains(where: { $0.id == table.id }) {
+             isOccupied = true
+        } else {
+            isOccupied = false
         }
+
+        // Ensure the reservation is active (i.e., overlaps with the current time).
+        if let resStart = reservation.startTimeDate {
+            isOccupied = resStart <= DateHelper.combineDateAndTime(date: selectedDate, timeString: startTimeString) ?? Date()
+        } else { isOccupied = false }
+
+        
 
         if !isOccupied {
             // Table is not occupied: handle as empty.
             onTapEmpty(table)
-        } else if let reservation = filterActiveReservation(for: table) {
+        } else {
             // Table is occupied: handle as an active reservation.
             showInspector = true
             onEditReservation(reservation)
@@ -741,65 +683,35 @@ struct TableView: View {
         layoutServices.currentlyDraggedTableID = nil
 
     }
-    
-    
 
-    private func filterActiveReservation(for table: TableModel) -> Reservation? {
-        let calendar = Calendar.current
-
-        guard let normalizedCurrentTime = calendar.date(
-            bySettingHour: calendar.component(.hour, from: currentTime),
-            minute: calendar.component(.minute, from: currentTime),
-            second: 0,
-            of: calendar.startOfDay(for: selectedDate)
-        ) else {
-            return nil
-        }
-
-        return store.reservations.first { reservation in
-            guard reservation.status != .canceled,
-                  reservation.reservationType != .waitingList,
-                  reservation.dateString == DateHelper.formatDate(selectedDate) else {
-                return false
-            }
-
-            let cacheKey = "\(reservation.id)-\(selectedDate)"
-            if let cached = normalizedTimeCache.get(key: cacheKey) {
-                return isReservationMatching(
-                    reservation,
-                    table: table,
-                    normalizedStartTime: cached.startTime,
-                    normalizedEndTime: cached.endTime,
-                    normalizedCurrentTime: normalizedCurrentTime
-                )
-            }
-
-            guard let startTime = DateHelper.timeFormatter.date(from: reservation.startTime),
-                  let endTime = DateHelper.timeFormatter.date(from: reservation.endTime),
-                  let normalizedStartTime = calendar.date(
-                      bySettingHour: calendar.component(.hour, from: startTime),
-                      minute: calendar.component(.minute, from: startTime),
-                      second: 0,
-                      of: calendar.startOfDay(for: selectedDate)),
-                  let normalizedEndTime = calendar.date(
-                      bySettingHour: calendar.component(.hour, from: endTime),
-                      minute: calendar.component(.minute, from: endTime),
-                      second: 0,
-                      of: calendar.startOfDay(for: selectedDate)) else {
-                return false
-            }
-
-            normalizedTimeCache.set(key: cacheKey, value: (startTime: normalizedStartTime, endTime: normalizedEndTime))
-
-            return isReservationMatching(
-                reservation,
-                table: table,
-                normalizedStartTime: normalizedStartTime,
-                normalizedEndTime: normalizedEndTime,
-                normalizedCurrentTime: normalizedCurrentTime
-            )
-        }
-    }
+    //    private func filterActiveReservation(for table: TableModel, in activeReservations: [Reservation]) -> Reservation? {
+    //        let calendar = Calendar.current
+    //
+    //        // Normalize the current time for the selected date
+    //        guard let normalizedCurrentTime = calendar.date(
+    //            bySettingHour: calendar.component(.hour, from: currentTime),
+    //            minute: calendar.component(.minute, from: currentTime),
+    //            second: 0,
+    //            of: calendar.startOfDay(for: selectedDate)
+    //        ) else {
+    //            return nil
+    //        }
+    //
+    //        // Search in the activeReservations array
+    //        return activeReservations.first { reservation in
+    //            guard let startTime = reservation.startTimeDate,
+    //                  let endTime = reservation.endTimeDate else {
+    //                return false
+    //            }
+    //
+    //            // Check if the table is part of the reservation
+    //            return reservation.tables.contains(where: { $0.id == table.id }) &&
+    //                // Check if the current time falls within the reservation's time range
+    //                startTime <= normalizedCurrentTime && normalizedCurrentTime < endTime &&
+    //                // Ensure the reservation matches the selected date
+    //                calendar.isDate(reservation.startTimeDate ?? Date(), inSameDayAs: selectedDate)
+    //        }
+    //    }
 
     private func isReservationMatching(
         _ reservation: Reservation,
@@ -814,133 +726,12 @@ struct TableView: View {
         }
 
         // Check if the current time falls within the reservation's time range
-        return normalizedCurrentTime >= normalizedStartTime && normalizedCurrentTime < normalizedEndTime
+        return normalizedCurrentTime >= normalizedStartTime
+            && normalizedCurrentTime < normalizedEndTime
     }
 }
 
-//activeReservations.filter { reservation in
-//    let filteredReservations = reservation.status != .canceled
 
-/// Returns a Date object that represents the reservation's start date and time.
-/// Adjust date formats as needed.
-func reservationStartDate(for reservation: Reservation) -> Date? {
-    let calendar = Calendar.current
-
-    // Assuming reservation.dateString is something like "2025-01-18"
-    // and reservation.startTime is something like "18:00"
-    let dateFormatter = DateFormatter()
-    dateFormatter.dateFormat = "yyyy-MM-dd"
-    dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-
-    let timeFormatter = DateFormatter()
-    timeFormatter.dateFormat = "HH:mm"
-    timeFormatter.locale = Locale(identifier: "en_US_POSIX")
-
-    guard let baseDate = dateFormatter.date(from: reservation.dateString),
-        let timeDate = timeFormatter.date(from: reservation.startTime)
-    else {
-        return nil
-    }
-
-    let timeComponents = calendar.dateComponents([.hour, .minute], from: timeDate)
-    var fullComponents = calendar.dateComponents([.year, .month, .day], from: baseDate)
-    fullComponents.hour = timeComponents.hour
-    fullComponents.minute = timeComponents.minute
-
-    return calendar.date(from: fullComponents)
-}
-
-/// Returns the time window for the given reservation category on the provided date.
-func timeWindow(for category: Reservation.ReservationCategory, on date: Date) -> (
-    start: Date, end: Date
-)? {
-    let calendar = Calendar.current
-    switch category {
-    case .lunch:
-        guard let start = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date),
-            let end = calendar.date(bySettingHour: 15, minute: 0, second: 0, of: date)
-        else {
-            return nil
-        }
-        return (start, end)
-    case .dinner:
-        guard let start = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: date),
-            let end = calendar.date(bySettingHour: 23, minute: 45, second: 0, of: date)
-        else {
-            return nil
-        }
-        return (start, end)
-    case .noBookingZone:
-        return nil
-    }
-}
-
-/// Returns the first upcoming reservation for the given table that:
-/// 1. Is on the selected date and in the selected category.
-/// 2. Has a start time in the future (relative to currentTime).
-/// 3. Has a start time that falls within the category's time window.
-func upcomingReservation(
-    for table: TableModel,
-    from activeReservations: [Reservation],
-    selectedDate: Date,
-    selectedCategory: Reservation.ReservationCategory,
-    currentTime: Date
-) -> Reservation? {
-
-    // Get the time window for the category on the selected date.
-    guard let window = timeWindow(for: selectedCategory, on: selectedDate) else {
-        return nil
-    }
-
-    // Filter reservations that:
-    // - "Own" the table.
-    // - Are in the selected category.
-    // - Are on the selected date.
-    // - Have a start time within the time window (window.start <= resStart <= window.end).
-    // - Have a start time in the future relative to `currentTime`.
-    let filteredReservations = activeReservations.filter { reservation in
-        guard reservation.tables.contains(where: { $0.id == table.id }) else {
-            return false
-        }
-
-        guard reservation.status != .canceled else {
-            return false
-        }
-
-        guard reservation.reservationType != .waitingList else {
-            return false
-        }
-
-        guard reservation.category == selectedCategory else {
-            return false
-        }
-
-        let reservationDate = reservation.date ?? selectedDate
-        guard Calendar.current.isDate(selectedDate, inSameDayAs: reservationDate) else {
-            return false
-        }
-
-        guard let resStart = reservationStartDate(for: reservation) else {
-            return false
-        }
-
-        if !(resStart >= currentTime && resStart <= window.end) {
-            return false
-        }
-
-        return true
-    }
-
-    // Sort by start time (soonest first)
-    let sortedReservations = filteredReservations.sorted {
-        let start1 = reservationStartDate(for: $0) ?? Date.distantFuture
-        let start2 = reservationStartDate(for: $1) ?? Date.distantFuture
-        return start1 < start2
-    }
-
-    // Return the soonest upcoming reservation, if any.
-    return sortedReservations.first
-}
 
 struct EmojiSmallPicker: View {
     let onEmojiSelected: (String) -> Void
@@ -958,8 +749,7 @@ struct EmojiSmallPicker: View {
                         .font(.title)
                 }
             }
-            
-            
+
             Button {
                 onEmojiSelected("")
                 showFullEmojiPicker = true
@@ -997,6 +787,5 @@ struct EmojiButton: View {
             }
 
     }
-
 
 }

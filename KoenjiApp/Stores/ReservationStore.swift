@@ -12,8 +12,7 @@ class ReservationStore: ObservableObject {
     static let shared = ReservationStore(tableAssignmentService: TableAssignmentService())
        
        // MARK: - Properties
-       
-       let tableAssignmentService: TableAssignmentService
+    let tableAssignmentService: TableAssignmentService
     // Constants
     let reservationsFileName = "reservations.json"
     
@@ -165,50 +164,10 @@ extension ReservationStore {
             reservations.append(reservation)
         }
         
-        populateActiveCache(for: reservation)
-
     }
     
-    func populateActiveCache(for reservation: Reservation) {
-        guard let start = reservation.startTimeDate,
-            let end = reservation.endTimeDate else { return }
-
-        print("Populating active reservation cache with: \(reservation.name)...")
-        
-        var current = start
-        while current < end {
-            for table in reservation.tables {
-                let cacheKey = ActiveReservationCacheKey(
-                    tableID: table.id,
-                    date: Calendar.current.startOfDay(for: current),
-                    time: current
-                )
-                
-                activeReservationCache[cacheKey] = reservation
-            }
-            current.addTimeInterval(60) // next minute
-        }
-    }
+   
   
-}
-
-
-struct ActiveReservationCacheKey: Hashable, Codable {
-    let tableID: Int
-    let date: Date
-    let time: Date
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(tableID)
-        hasher.combine(date)
-        hasher.combine(time)
-    }
-
-    static func == (lhs: ActiveReservationCacheKey, rhs: ActiveReservationCacheKey) -> Bool {
-        return lhs.tableID == rhs.tableID &&
-               lhs.date == rhs.date &&
-               lhs.time == rhs.time
-    }
 }
 
 

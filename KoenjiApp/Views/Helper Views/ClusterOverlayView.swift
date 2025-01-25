@@ -16,6 +16,7 @@ struct ClusterOverlayView: View {
     @State private var isLate: Bool = false
     @State private var timesUp: Bool = false
 
+    @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var stateCache: ReservationStateCache
 
     

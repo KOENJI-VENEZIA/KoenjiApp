@@ -16,10 +16,13 @@ struct InspectorSideView: View {
     @Binding var changedReservation: Reservation?
     @Binding var isShowingFullImage: Bool
     @State private var selectedView: SelectedView = .info
-    var activeReservations: [Reservation]
     @Binding var currentTime: Date
     var selectedCategory: Reservation.ReservationCategory
+    @EnvironmentObject var resCache: CurrentReservationsCache
     
+    var activeReservations: [Reservation] {
+        resCache.reservations(for: currentTime)
+    }
     
     enum SelectedView {
         case info

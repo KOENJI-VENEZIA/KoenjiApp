@@ -3,6 +3,7 @@ import SwiftUI
 
 struct EditReservationView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var clusterStore: ClusterStore
@@ -49,7 +50,7 @@ struct EditReservationView: View {
                     }
                     .onAppear {
                         // Initialize selectedDate based on reservation.dateString
-                        if let reservationDate = reservation.date {
+                        if let reservationDate = reservation.cachedNormalizedDate {
                             selectedDate = reservationDate
                         }
                         print("Selected date: \(selectedDate)")
@@ -266,7 +267,7 @@ struct EditReservationView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Annulla") {
-                        store.populateActiveCache(for: reservation)
+                        resCache.addOrUpdateReservation(reservation)
                         onClose()
                         dismiss()
                     }
@@ -475,7 +476,7 @@ struct EditReservationView: View {
     }
 
     private func loadInitialDate() {
-        selectedDate = reservation.date ?? Date()
+        selectedDate = reservation.cachedNormalizedDate ?? Date()
         print("Selected date: \(selectedDate)")
 
     }

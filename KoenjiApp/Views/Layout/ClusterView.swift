@@ -7,6 +7,7 @@
 import SwiftUI
 
 class ReservationStateCache: ObservableObject {
+    @EnvironmentObject var resCache: CurrentReservationsCache
     @Published var cache: [UUID: ReservationState] = [:]
 }
 

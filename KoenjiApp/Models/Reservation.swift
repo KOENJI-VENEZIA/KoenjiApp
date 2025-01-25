@@ -28,6 +28,9 @@ struct Reservation: Identifiable, Hashable, Codable {
     var isMock: Bool = false // Distinguish mock data
     var assignedEmoji: String?
     var imageData: Data? // Store image data for the reservation
+    var cachedStartTimeDate: Date?
+    var cachedEndTimeDate: Date?
+    var cachedNormalizedDate: Date?
     
     var image: Image? {
         if let imageData, let uiImage = UIImage(data: imageData) {
@@ -36,25 +39,9 @@ struct Reservation: Identifiable, Hashable, Codable {
         return nil
     }
     
-    var normalizedStartTime: Date?
-    var normalizedEndTime: Date?
+
     
 
-    /// A convenience accessor for converting `dateString` into a Foundation.Date.
-    /// (You will want better date/time conversion in a real app!)
-    var date: Date? {
-        return DateHelper.parseDate(dateString)
-    }
-
-    var startTimeDate: Date? {
-        let parsed = DateHelper.parseTime(startTime)
-        return DateHelper.combine(date: date ?? Date(), time: parsed ?? Date())
-    }
-    
-    var endTimeDate: Date? {
-        let parsed = DateHelper.parseTime(endTime)
-        return DateHelper.combine(date: date ?? Date(), time: parsed ?? Date())
-    }
     
     enum CodingKeys: String, CodingKey {
             case id
@@ -144,9 +131,23 @@ struct Reservation: Identifiable, Hashable, Codable {
         self.assignedEmoji = assignedEmoji
         self.imageData = imageData
         
+
+        
+        self.cachedStartTimeDate = DateHelper.normalizeTime(time: DateHelper.combine(
+            date: DateHelper.parseDate(dateString) ?? Date(),
+            time: DateHelper.parseTime(startTime) ?? Date()
+        ))
+        self.cachedEndTimeDate = DateHelper.normalizeTime(time: DateHelper.combine(
+            date: DateHelper.parseDate(dateString) ?? Date(),
+            time: DateHelper.parseTime(endTime) ?? Date()
+        ))
+        let date = DateHelper.parseDate(dateString) ?? Date()
+        self.cachedNormalizedDate = DateHelper.normalizedInputTime(date: date)
+        
         
                // Using DateHelper to combine date and time strings
-        if let reservationDate = date, let combinedStartDate = startTimeDate {
+        let reservationDate = date
+        if let combinedStartDate = startTimeDate {
                        
            let calendar = Calendar.current
            // If the creation date is the same day as the reservation's date
@@ -162,35 +163,75 @@ struct Reservation: Identifiable, Hashable, Codable {
            self.reservationType = .inAdvance
        }
     }
+    
+    var startTimeDate: Date? {
+        cachedStartTimeDate
+    }
+
+    var endTimeDate: Date? {
+        cachedEndTimeDate
+    }
+    
+    var normalizedDate: Date? {
+        cachedNormalizedDate
+    }
 }
 
 // Add the custom decoding logic here
 extension Reservation {
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
+            let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        // Decode required properties
-        id = try container.decode(UUID.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-        phone = try container.decode(String.self, forKey: .phone)
-        numberOfPersons = try container.decode(Int.self, forKey: .numberOfPersons)
-        dateString = try container.decode(String.self, forKey: .dateString)
-        category = try container.decode(ReservationCategory.self, forKey: .category)
-        startTime = try container.decode(String.self, forKey: .startTime)
-        endTime = try container.decode(String.self, forKey: .endTime)
-        acceptance = try container.decode(Acceptance.self, forKey: .acceptance)
-        status = try container.decode(ReservationStatus.self, forKey: .status)
-        reservationType = try container.decode(ReservationType.self, forKey: .reservationType)
-        group = try container.decode(Bool.self, forKey: .group)
-        notes = try container.decodeIfPresent(String.self, forKey: .notes)
-        tables = try container.decode([TableModel].self, forKey: .tables)
-        creationDate = try container.decode(Date.self, forKey: .creationDate)
+            // Decode required properties
+            id = try container.decode(UUID.self, forKey: .id)
+            name = try container.decode(String.self, forKey: .name)
+            phone = try container.decode(String.self, forKey: .phone)
+            numberOfPersons = try container.decode(Int.self, forKey: .numberOfPersons)
+            dateString = try container.decode(String.self, forKey: .dateString)
+            category = try container.decode(ReservationCategory.self, forKey: .category)
+            startTime = try container.decode(String.self, forKey: .startTime)
+            endTime = try container.decode(String.self, forKey: .endTime)
+            acceptance = try container.decode(Acceptance.self, forKey: .acceptance)
+            status = try container.decode(ReservationStatus.self, forKey: .status)
+            reservationType = try container.decode(ReservationType.self, forKey: .reservationType)
+            group = try container.decode(Bool.self, forKey: .group)
+            notes = try container.decodeIfPresent(String.self, forKey: .notes)
+            tables = try container.decode([TableModel].self, forKey: .tables)
+            creationDate = try container.decode(Date.self, forKey: .creationDate)
 
-        // Provide a default value for `isMock` if the key is missing
-        isMock = try container.decodeIfPresent(Bool.self, forKey: .isMock) ?? false
-        assignedEmoji = try container.decodeIfPresent(String.self, forKey: .assignedEmoji)
-        imageData = try container.decodeIfPresent(Data.self, forKey: .imageData)
-    }
+            // Provide a default value for `isMock` if the key is missing
+            isMock = try container.decodeIfPresent(Bool.self, forKey: .isMock) ?? false
+            assignedEmoji = try container.decodeIfPresent(String.self, forKey: .assignedEmoji)
+            imageData = try container.decodeIfPresent(Data.self, forKey: .imageData)
+
+            // **Compute Cached Dates After Decoding**
+        self.cachedStartTimeDate = DateHelper.normalizeTime(time: DateHelper.combine(
+                date: DateHelper.parseDate(dateString) ?? Date(),
+                time: DateHelper.parseTime(startTime) ?? Date()
+            ))
+        self.cachedEndTimeDate = DateHelper.normalizeTime(time: DateHelper.combine(
+                date: DateHelper.parseDate(dateString) ?? Date(),
+                time: DateHelper.parseTime(endTime) ?? Date()
+            ))
+        
+            let date = DateHelper.parseDate(dateString) ?? Date()
+            self.cachedNormalizedDate = DateHelper.normalizedInputTime(date: date)
+
+            // **Additional Initialization Logic (if any)**
+            let reservationDate = date
+            if let combinedStartDate = startTimeDate {
+                let calendar = Calendar.current
+                if calendar.isDate(creationDate, inSameDayAs: reservationDate) &&
+                    creationDate >= combinedStartDate {
+                    self.reservationType = .walkIn
+                } else {
+                    self.reservationType = .inAdvance
+                }
+            } else {
+                // Fallback if date parsing fails.
+                self.reservationType = .inAdvance
+            }
+        }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)

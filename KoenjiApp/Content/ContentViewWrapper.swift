@@ -10,6 +10,7 @@ import SwiftUI
 
 struct ContentViewWrapper: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var clusterStore: ClusterStore
@@ -21,6 +22,7 @@ struct ContentViewWrapper: View {
     var body: some View {
         ContentView()
             .environmentObject(store)
+            .environmentObject(resCache)
             .environmentObject(tableStore)
             .environmentObject(reservationService) // For the new service
             .environmentObject(clusterServices)

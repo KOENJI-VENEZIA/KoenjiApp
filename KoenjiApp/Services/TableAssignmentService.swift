@@ -14,7 +14,7 @@ class TableAssignmentService {
         reservations: [Reservation],
         startingFrom selectedTable: TableModel
     ) -> [TableModel]? {
-        guard let reservationDate = reservation.date else { return nil }
+        guard let reservationDate = reservation.cachedNormalizedDate else { return nil }
 
         // Check if the forced table is available
         if isTableOccupied(
@@ -49,7 +49,7 @@ class TableAssignmentService {
         reservations: [Reservation],
         tables: [TableModel]
     ) -> [TableModel]? {
-        guard let reservationDate = reservation.date else { return nil }
+        guard let reservationDate = reservation.cachedNormalizedDate else { return nil }
         return assignTablesInOrder(for: reservation, reservations: reservations, tables: tables, reservationDate: reservationDate)
     }
 
@@ -59,8 +59,8 @@ class TableAssignmentService {
         reservations: [Reservation],
         tables: [TableModel]
     ) -> [TableModel]? {
-        guard let reservationDate = reservation.date else {
-            print("Failed to parse reservation date string: \(reservation.date) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
+        guard let reservationDate = reservation.cachedNormalizedDate else {
+            print("Failed to parse reservation date string: \(reservation.cachedNormalizedDate) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
             return nil
         }
         print("Parsed reservation date: \(reservationDate) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
@@ -88,7 +88,7 @@ class TableAssignmentService {
         tables: [TableModel]
     ) -> [(table: TableModel, isCurrentlyAssigned: Bool)] {
         let reservationID = reservation?.id
-        let reservationDate = reservation?.date ?? Date()
+        let reservationDate = reservation?.cachedNormalizedDate ?? Date()
         let startTime = reservation?.startTime ?? ""
         let endTime = reservation?.endTime ?? ""
 
@@ -129,7 +129,7 @@ class TableAssignmentService {
             // Exclude current reservation if editing
             if reservation.id == reservationID { return false }
 
-            guard let reservationDate = reservation.date,
+            guard let reservationDate = reservation.cachedNormalizedDate,
                   let reservationStart = reservation.startTimeDate,
                   let reservationEnd = reservation.endTimeDate,
                   reservation.tables.contains(where: { $0.id == table.id }) else {

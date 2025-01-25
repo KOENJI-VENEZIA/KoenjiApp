@@ -3,6 +3,7 @@ import SwiftUI
 
 struct AddReservationView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var clusterStore: ClusterStore
@@ -475,6 +476,7 @@ struct AddReservationView: View {
         if newReservation.reservationType == .waitingList {
             DispatchQueue.main.async {
                 newReservation.tables = []
+                resCache.addOrUpdateReservation(newReservation)
                 store.finalizeReservation(newReservation)
                 reservationService.saveReservationsToDisk(includeMock: true)
             }
@@ -488,6 +490,7 @@ struct AddReservationView: View {
                 DispatchQueue.main.async {
                     // do actual saving logic here
                     newReservation.tables = assignedTables
+                    resCache.addOrUpdateReservation(newReservation)
                     store.finalizeReservation(newReservation)
                     reservationService.saveReservationsToDisk(includeMock: true)
                     reservationService.automaticBackup()

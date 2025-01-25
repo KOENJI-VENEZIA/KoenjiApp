@@ -84,7 +84,7 @@ class ClusterManager: ObservableObject {
                 id: UUID(),
                 reservationID: reservation,
                 tableIDs: component.map { $0.id },
-                date: reservation.date ?? Date(),
+                date: reservation.cachedNormalizedDate ?? Date(),
                 category: reservation.category,
                 frame: calculateClusterFrame(component, cellSize: cellSize)
             )
@@ -151,12 +151,14 @@ class ClusterManager: ObservableObject {
     }
     
     private func calculateClusters(for activeReservations: [Reservation], tables: [TableModel], combinedDate: Date, cellSize: CGFloat) -> [CachedCluster] {
-        print("Calculating clusters...")
+        print("Calculating clusters at \(combinedDate)...")
         var allClusters: [CachedCluster] = []
 
         // Filter out reservations that ended or haven't started
         let validReservations = activeReservations.filter { reservation in
             print("\nDEBUG: Checking reservation: \(reservation.name)")
+            print("Start Time: \(String(describing: reservation.startTimeDate))")
+            print("End Time: \(String(describing: reservation.endTimeDate))")
 
             // Parse startTime and endTime of the reservation
             guard let startTime = reservation.startTimeDate,
@@ -168,15 +170,23 @@ class ClusterManager: ObservableObject {
                 return false
             }
             
-            return combinedDate >= normalizedStartTime && combinedDate < normalizedEndTime
+            print("Normalized Start Time: \(normalizedStartTime)")
+            print("Normalized End Time: \(normalizedEndTime)")
+            let isValid = combinedDate >= normalizedStartTime && combinedDate < normalizedEndTime
+            print("Is Valid: \(isValid)")
+            return isValid
         }
 
+        print("Valid Reservations Count: \(validReservations.count)")
+
         for reservation in validReservations {
+            print("Processing reservation: \(reservation.name)")
             // For each reservation, gather the clusters
             let resClusters = clusters(for: reservation, tables: tables, cellSize: cellSize)
             allClusters.append(contentsOf: resClusters)
         }
 
+        print("Total Clusters Calculated: \(allClusters.count)")
         return allClusters
     }
     

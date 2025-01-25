@@ -13,6 +13,7 @@ import SwiftUI
 struct LayoutPageView: View {
     // MARK: - Dependencies
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var clusterStore: ClusterStore
@@ -55,7 +56,6 @@ struct LayoutPageView: View {
     @Binding var isSharing: Bool
     @Binding var isPresented: Bool
     @Binding var cachedScreenshot: ScreenshotMaker?
-    var onFetchedReservations: ([Reservation]) -> Void
 
     // MARK: - States
     @State private var isLoadingClusters: Bool = true
@@ -74,6 +74,10 @@ struct LayoutPageView: View {
     @State private var debounceWorkItem: DispatchWorkItem?
     @StateObject private var stateCache = ReservationStateCache()
     @StateObject private var currentReservationsCache = CurrentReservationsCache()
+    
+    private var activeReservations: [Reservation] {
+        resCache.reservations(for: combinedDate)
+    }
 
     // MARK: - Computed Properties
     private var isCompact: Bool {
@@ -94,10 +98,6 @@ struct LayoutPageView: View {
 
     private var backgroundColor: Color {
         selectedCategory.backgroundColor
-    }
-
-    private var activeReservations: [Reservation] {
-        fetchActiveReservationsIfNeeded()
     }
 
     private var combinedDate: Date {
@@ -127,8 +127,7 @@ struct LayoutPageView: View {
         toolPickerShows: Binding<Bool>,
         isSharing: Binding<Bool>,
         isPresented: Binding<Bool>,
-        cachedScreenshot: Binding<ScreenshotMaker?>,
-        onFetchedReservations: @escaping ([Reservation]) -> Void
+        cachedScreenshot: Binding<ScreenshotMaker?>
     ) {
         // Assign parameters to properties
         self._scale = scale
@@ -149,7 +148,6 @@ struct LayoutPageView: View {
         self._isSharing = isSharing
         self._isPresented = isPresented
         self._cachedScreenshot = cachedScreenshot
-        self.onFetchedReservations = onFetchedReservations
 
         // Initialize StateObjects
         _layoutUI = StateObject(
@@ -208,7 +206,6 @@ struct LayoutPageView: View {
                                 selectedDate: selectedDate,
                                 selectedCategory: selectedCategory,
                                 currentTime: currentTime,
-                                activeReservations: activeReservations,
                                 changedReservation: $changedReservation,
                                 isEditing: $showingEditReservation,
                                 layoutUI: layoutUI,
@@ -230,7 +227,11 @@ struct LayoutPageView: View {
                                 },
                                 statusChanged: $statusChanged
                             )
+                            .onAppear {
+                                print("DEBUG: loading \(layoutUI.tables.count) tables...")
+                            }
                             .environmentObject(store)
+                            .environmentObject(resCache)
                             .environmentObject(tableStore)
                             .environmentObject(reservationService)  // For the new service
                             .environmentObject(clusterServices)
@@ -255,6 +256,7 @@ struct LayoutPageView: View {
                                         isLayoutLocked: $isLayoutLocked,
                                         isLunch: isLunch
                                     )
+                                    .environmentObject(resCache)
                                     .environmentObject(stateCache)
                                 }
                             }
@@ -262,16 +264,20 @@ struct LayoutPageView: View {
 
                         ForEach(clusterManager.clusters) { cluster in
                             ClusterOverlayView(cluster: cluster, currentTime: currentTime)
+                                .environmentObject(resCache)
+                                .environmentObject(stateCache)
                                 .zIndex(2)
                                 .gesture(
                                     TapGesture(count: 1).onEnded {
-                                        handleTap(activeReservations, cluster.reservationID)
+                                        handleTap(
+                                            activeReservations, cluster.reservationID
+                                        )
 
                                     }
                                 )
-                                .environmentObject(stateCache)
+
                         }
-                        
+
                         PencilKitCanvas(
                             zoomableState: zoomableState,
                             toolPickerShows: $toolPickerShows,
@@ -289,7 +295,6 @@ struct LayoutPageView: View {
                         .frame(width: gridWidth, height: gridHeight)
                     }
 
-                   
                     //                            .frame(width: gridWidth, height: gridHeight)
                 }
                 .screenshotMaker { screenshotMaker in
@@ -313,6 +318,7 @@ struct LayoutPageView: View {
                 DispatchQueue.main.async {
 
                     loadCurrentLayout()
+                    
                     //                    capturedImage = captureView()
                     print("Current time as LayoutPageView appears: \(currentTime)")
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -339,33 +345,34 @@ struct LayoutPageView: View {
         .onChange(of: selectedCategory) { old, newCategory in
             // Load tables for the new category and date
             debounce {
-                    reloadLayout(newCategory, activeReservations)
-                    let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
-                    clusterManager.recalculateClustersIfNeeded(
-                        for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
-                        oldCategory: old,
-                        selectedCategory: selectedCategory, cellSize: gridData.cellSize)
-                    //            capturedImage = captureView()
+
+               
+                reloadLayout(newCategory, activeReservations)
+                clusterManager.recalculateClustersIfNeeded(
+                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+                    oldCategory: old,
+                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+                //            capturedImage = captureView()
             }
 
         }
         .onChange(of: selectedDate) { old, newDate in
             debounce {
-                    reloadLayout(selectedCategory, activeReservations)
-                    let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
-                    clusterManager.recalculateClustersIfNeeded(
-                        for: activeReservations, tables: layoutUI.tables, combinedDate: newDate,
-                        oldCategory: selectedCategory,
-                        selectedCategory: selectedCategory, cellSize: gridData.cellSize)
-                    //            capturedImage = captureView()
+                resCache.preloadDates(around: newDate, range: 5, reservations: store.reservations)
+                resCache.startMonitoring(for: newDate)
+                reloadLayout(selectedCategory, activeReservations)
+                clusterManager.recalculateClustersIfNeeded(
+                    for: activeReservations, tables: layoutUI.tables, combinedDate: newDate,
+                    oldCategory: selectedCategory,
+                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+                //            capturedImage = captureView()
             }
 
         }
         .onChange(of: showingEditReservation) { old, newValue in
             print("Triggered onChange of showingEditReservation")
             debounce {
-                    let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
-                    reloadLayout(selectedCategory, activeReservations)
+                reloadLayout(selectedCategory, activeReservations)
                 clusterManager.recalculateClustersIfNeeded(
                     for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
                     oldCategory: selectedCategory,
@@ -375,27 +382,27 @@ struct LayoutPageView: View {
         .onChange(of: currentTime) { old, newTime in
             print("New current time: \(newTime)")
             debounce {
-                    let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
-                    clusterManager.recalculateClustersIfNeeded(
-                        for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
-                        oldCategory: selectedCategory,
-                        selectedCategory: selectedCategory, cellSize: gridData.cellSize)
-                    //            capturedImage = captureView()
+                reloadLayout(selectedCategory, activeReservations)
+                clusterManager.recalculateClustersIfNeeded(
+                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+                    oldCategory: selectedCategory,
+                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+                
             }
+            
 
         }
         .onChange(of: store.reservations) { oldValue, newValue in
             print("reservations changed from \(oldValue.count) to \(newValue.count)")
             // Force the active-reservations fetch (since store.reservations changed)
             debounce {
-                    reloadLayout(selectedCategory, activeReservations)
+                reloadLayout(selectedCategory, activeReservations)
             }
         }
         .onChange(of: changedReservation) {
             debounce {
-                    let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
-                    print("Detected cancelled Reservation [LayoutPageView]")
-                    reloadLayout(selectedCategory, activeReservations)
+                print("Detected cancelled Reservation [LayoutPageView]")
+                reloadLayout(selectedCategory, activeReservations)
                 clusterManager.recalculateClustersIfNeeded(
                     for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
                     oldCategory: selectedCategory,
@@ -404,9 +411,7 @@ struct LayoutPageView: View {
         }
         .onChange(of: statusChanged) {
             debounce {
-                    let activeReservations = fetchActiveReservationsIfNeeded(forceTrigger: true)
-                    onFetchedReservations(activeReservations)
-                    reloadLayout(selectedCategory, activeReservations)
+                reloadLayout(selectedCategory, activeReservations)
                 clusterManager.recalculateClustersIfNeeded(
                     for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
                     oldCategory: selectedCategory,
@@ -427,7 +432,6 @@ struct LayoutPageView: View {
     }
 
     // MARK: - Helper Views
-
 
     private func debounce(action: @escaping () -> Void, delay: TimeInterval = 0.1) {
         debounceWorkItem?.cancel()
@@ -504,24 +508,24 @@ struct LayoutPageView: View {
             }
         }
     }
-    
+
     private func updateTablesIfNeeded(for selectedCategory: Reservation.ReservationCategory) {
         // Check if a reload is required
         let currentTables = layoutUI.tables
         let newTables = layoutServices.loadTables(for: combinedDate, category: selectedCategory)
-        
+
         guard currentTables != newTables else {
             print("No table updates required.")
             return
         }
-        
+
         layoutUI.tables = newTables
         print("Tables updated for category: \(selectedCategory).")
     }
-    
+
     private func updateClustersIfNeeded(for activeReservations: [Reservation]) {
         let clustersBeforeUpdate = clusterManager.clusters
-        
+
         clusterManager.recalculateClustersIfNeeded(
             for: activeReservations,
             tables: layoutUI.tables,
@@ -530,17 +534,19 @@ struct LayoutPageView: View {
             selectedCategory: selectedCategory,
             cellSize: gridData.cellSize
         )
-        
+
         if clustersBeforeUpdate == clusterManager.clusters {
             print("No cluster updates required.")
         } else {
             print("Clusters updated successfully.")
         }
     }
-    
-    private func updateDrawingLayersIfNeeded(for selectedCategory: Reservation.ReservationCategory) {
-        let currentDrawingModel = scribbleService.reloadDrawings(for: combinedDate, category: selectedCategory)
-        
+
+    private func updateDrawingLayersIfNeeded(for selectedCategory: Reservation.ReservationCategory)
+    {
+        let currentDrawingModel = scribbleService.reloadDrawings(
+            for: combinedDate, category: selectedCategory)
+
         // Only update the layers if they are different
         if currentDrawing.layer1 != currentDrawingModel.layer1 {
             currentDrawing.layer1 = currentDrawingModel.layer1
@@ -551,35 +557,9 @@ struct LayoutPageView: View {
         if currentDrawing.layer3 != currentDrawingModel.layer3 {
             currentDrawing.layer3 = currentDrawingModel.layer3
         }
-        
+
         print("Drawing layers updated for category: \(selectedCategory).")
     }
-    
-//    private func reloadLayout(
-//        _ selectedCategory: Reservation.ReservationCategory, _ activeReservations: [Reservation]
-//    ) {
-//        Task {
-//            DispatchQueue.main.async {
-//                
-//                layoutUI.tables = layoutServices.loadTables(for: combinedDate, category: selectedCategory)
-//                //        let newDrawingModel = scribbleService.reloadDrawings(
-//                //            for: combinedDate, category: selectedCategory)
-//                //
-//                //        currentDrawing.layer1 = newDrawingModel.layer1
-//                //        currentDrawing.layer2 = newDrawingModel.layer2
-//                //        currentDrawing.layer3 = newDrawingModel.layer3
-//                
-//                print("Layer 1: \(currentDrawing.layer1.strokes.count) strokes")
-//                print("Layer 2: \(currentDrawing.layer2.strokes.count) strokes")
-//                print("Layer 3: \(currentDrawing.layer3.strokes.count) strokes")
-//                
-//                clusterManager.recalculateClustersIfNeeded(
-//                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
-//                    oldCategory: selectedCategory,
-//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
-//            }
-//        }
-//    }
 
     private func onTableUpdated(_ updatedTable: TableModel) {
 
@@ -648,7 +628,7 @@ struct LayoutPageView: View {
                 for: combinedDate, category: determinedCategory)
         }
 
-        onFetchedReservations(activeReservations)
+
 
         clusterManager.recalculateClustersIfNeeded(
             for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
@@ -687,55 +667,6 @@ struct LayoutPageView: View {
     }
 
     // MARK: - Cache and UI Update Methods
-    private func fetchActiveReservationsIfNeeded(forceTrigger: Bool = false) -> [Reservation] {
-        // Check the cache
-        if !forceTrigger,
-           let cachedReservations = currentReservationsCache.getCachedReservations(
-               for: selectedDate,
-               currentTime: currentTime,
-               reservationsCount: store.reservations.count
-           ) {
-            return cachedReservations
-        }
-
-        print("Called fetchActiveReservations!")
-
-        // Use a set to avoid duplicates
-        var uniqueReservations = Set<Reservation>()
-
-        let calendar = Calendar.current
-        let preloadDate = calendar.startOfDay(for: selectedDate)
-
-        for (key, reservation) in store.activeReservationCache {
-            guard key.date == preloadDate,
-                  key.time >= currentTime,
-                  key.time < currentTime.addingTimeInterval(14400)
-            else {
-                continue
-            }
-
-            guard reservation.reservationType != .waitingList else {
-                print("Skipped \(reservation.name) since is in waiting list")
-                continue
-            }
-
-            uniqueReservations.insert(reservation)
-        }
-
-        let activeReservations = Array(uniqueReservations)
-
-        print("DEBUG: Found \(activeReservations.count) unique active reservations.")
-
-        // Update the cache
-        currentReservationsCache.updateCache(
-            for: selectedDate,
-            reservations: activeReservations,
-            currentTime: currentTime,
-            reservationsCount: store.reservations.count
-        )
-
-        return activeReservations
-    }
 
     private func updateAdjacencyCountsForLayout(_ updatedTable: TableModel) {
         // Identify tables with adjacentCount > 0 before the move

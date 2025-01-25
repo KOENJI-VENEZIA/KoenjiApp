@@ -100,7 +100,7 @@ struct DateHelper {
            guard let timeComponents = extractTime(time: time) else { return nil }
 
            // Combine the date and time components
-           guard let combinedDate = normalizedInputTime(time: timeComponents, date: date) else { return nil }
+           guard let combinedDate = combinedInputTime(time: timeComponents, date: date) else { return nil }
 
            // Cache the result for future use
            combineDateAndTimeCache.setObject(combinedDate as NSDate, forKey: cacheKey)
@@ -132,7 +132,28 @@ struct DateHelper {
         }
     }
     
-    static func normalizedInputTime(time: DateComponents, date: Date) -> Date? {
+    static func normalizedInputTime(date: Date) -> Date? {
+        let calendar = Calendar.current
+        return calendar.date(
+            bySettingHour: 0,
+            minute: 0,
+            second: 0,
+            of: date)
+    }
+    
+    static func normalizeTime(time: Date) -> Date? {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.hour, .minute], from: time)
+        
+        return calendar.date(
+            bySettingHour: components.hour ?? 0,
+            minute: components.minute ?? 0,
+            second: 0,
+            of: time
+        )
+    }
+    
+    static func combinedInputTime(time: DateComponents, date: Date) -> Date? {
         let calendar = Calendar.current
         return calendar.date(
             bySettingHour: time.hour ?? 0,

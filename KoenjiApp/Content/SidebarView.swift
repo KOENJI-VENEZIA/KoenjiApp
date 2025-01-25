@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SidebarView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var clusterStore: ClusterStore
@@ -34,6 +35,7 @@ struct SidebarView: View {
                     List {
                         NavigationLink(destination: ReservationListView()
                             .environmentObject(store)
+                            .environmentObject(resCache)
                             .environmentObject(tableStore)
                             .environmentObject(reservationService) // For the new service
                             .environmentObject(clusterServices)
@@ -45,6 +47,7 @@ struct SidebarView: View {
                             }
                         NavigationLink(destination: CalendarView()
                             .environmentObject(store)
+                            .environmentObject(resCache)
                             .environmentObject(tableStore)
                             .environmentObject(reservationService) // For the new service
                             .environmentObject(clusterServices)
@@ -56,6 +59,7 @@ struct SidebarView: View {
                             }
                         NavigationLink(destination: LayoutView(selectedCategory: $selectedCategory, selectedReservation: $selectedReservation, currentReservation: $currentReservation)
                             .environmentObject(store)
+                            .environmentObject(resCache)
                             .environmentObject(tableStore)
                             .environmentObject(reservationService) // For the new service
                             .environmentObject(clusterServices)

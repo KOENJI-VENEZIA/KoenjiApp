@@ -15,7 +15,8 @@ import SwiftUI
 /// This class interacts with the `ReservationStore` for managing reservation data.
 class ReservationService: ObservableObject {
     // MARK: - Dependencies
-    private let store: ReservationStore         
+    private let store: ReservationStore
+    private let resCache: CurrentReservationsCache
     private let clusterStore: ClusterStore
     private let clusterServices: ClusterServices
     private let tableStore: TableStore
@@ -28,8 +29,9 @@ class ReservationService: ObservableObject {
     @ObservedObject private var appState: AppState // Use the shared AppState
 
     // MARK: - Initializer
-    init(store: ReservationStore, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, appState: AppState) {
+    init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, appState: AppState) {
         self.store = store
+        self.resCache = resCache
         self.clusterStore = clusterStore
         self.clusterServices = clusterServices
         self.tableStore = tableStore
@@ -42,8 +44,8 @@ class ReservationService: ObservableObject {
         self.loadReservationsFromDisk()
         
         let today = Calendar.current.startOfDay(for: Date())
-        self.store.cachePreloadedFrom = today
-        self.preloadActiveReservationCache(around: today, forDaysBefore: 5, afterDays: 5)
+        self.resCache.preloadDates(around: today, range: 5, reservations: self.store.reservations)
+//        self.preloadActiveReservationCache(around: today, forDaysBefore: 5, afterDays: 5)
     }
     
     // MARK: - Placeholder Methods for CRUD Operations
@@ -64,38 +66,43 @@ class ReservationService: ObservableObject {
        }
     
     /// Updates an existing reservation, refreshes the cache, and reassigns tables if needed.
-       func updateReservation(_ updatedReservation: Reservation, at index: Int? = nil) {
-           removeReservationFromActiveCache(updatedReservation)
-           invalidateActiveReservationCache(for: updatedReservation)
+    func updateReservation(_ updatedReservation: Reservation, at index: Int? = nil) {
+        // Remove from active cache
+//        removeReservationFromActiveCache(updatedReservation)
+        resCache.removeReservation(updatedReservation)
 
-           DispatchQueue.main.async {
-               let reservationIndex = index ?? self.store.reservations.firstIndex(where: { $0.id == updatedReservation.id })
+        // Update reservation in the store
+        DispatchQueue.main.async {
+            let reservationIndex = index ?? self.store.reservations.firstIndex(where: { $0.id == updatedReservation.id })
 
-               guard let reservationIndex else {
-                   print("Error: Reservation with ID \(updatedReservation.id) not found.")
-                   return
-               }
+            guard let reservationIndex else {
+                print("Error: Reservation with ID \(updatedReservation.id) not found.")
+                return
+            }
 
-               let oldReservation = self.store.reservations[reservationIndex]
-               oldReservation.tables.forEach { self.layoutServices.unmarkTable($0) }
+            let oldReservation = self.store.reservations[reservationIndex]
 
-               self.store.reservations[reservationIndex] = updatedReservation
-               if updatedReservation.tables != [] {
-                   updatedReservation.tables.forEach { self.layoutServices.markTable($0, occupied: true) }
-               }
-               self.invalidateClusterCache(for: updatedReservation)
-               self.store.reservations = self.store.reservations
+            // Unmark old tables
+            oldReservation.tables.forEach { self.layoutServices.unmarkTable($0) }
 
-               
-               
-               print("Updated reservation \(updatedReservation.id).")
-           }
-           
-           store.finalizeReservation(updatedReservation)
-           saveReservationsToDisk()
-           automaticBackup()
+            // Update the reservation
+            self.store.reservations[reservationIndex] = updatedReservation
 
-       }
+            // Mark new tables as occupied
+            updatedReservation.tables.forEach { self.layoutServices.markTable($0, occupied: true) }
+
+            // Invalidate cluster cache
+            self.invalidateClusterCache(for: updatedReservation)
+
+            print("Updated reservation \(updatedReservation.id).")
+        }
+
+        // Finalize and save
+        resCache.addOrUpdateReservation(updatedReservation)
+        store.finalizeReservation(updatedReservation)
+        saveReservationsToDisk()
+        automaticBackup()
+    }
     
 
     
@@ -106,8 +113,7 @@ class ReservationService: ObservableObject {
                 let reservation = self.store.reservations[index]
 
                 // 1) Remove from activeReservationCache
-                self.removeReservationFromActiveCache(reservation)
-                self.invalidateActiveReservationCache(for: reservation)
+                self.resCache.removeReservation(reservation)
 
                 // 2) Unlock the tables, invalidate cluster cache, etc.
                 reservation.tables.forEach { self.layoutServices.unmarkTable($0) }
@@ -123,24 +129,9 @@ class ReservationService: ObservableObject {
     }
     
 
-   
-    
-    func removeReservationFromActiveCache(_ reservation: Reservation) {
-        guard let start = reservation.startTimeDate, let end = reservation.endTimeDate else { return }
 
-            var current = start
-            while current < end {
-                for table in reservation.tables {
-                    let cacheKey = ActiveReservationCacheKey(
-                        tableID: table.id,
-                        date: Calendar.current.startOfDay(for: current),
-                        time: current
-                    )
-                    store.activeReservationCache.removeValue(forKey: cacheKey)
-                }
-                current.addTimeInterval(60) // next minute
-            }
-        }
+    
+
     
     
     func clearAllData() {
@@ -168,8 +159,8 @@ class ReservationService: ObservableObject {
 
        /// Invalidates the cluster cache for the given reservation.
        private func invalidateClusterCache(for reservation: Reservation) {
-           guard let reservationDate = reservation.date else {
-               print("Failed to parse dateString \(reservation.date). Cache invalidation skipped.")
+           guard let reservationDate = reservation.normalizedDate else {
+               print("Failed to parse dateString \(reservation.normalizedDate). Cache invalidation skipped.")
                return
            }
            self.clusterStore.invalidateClusterCache(for: reservationDate, category: reservation.category)
@@ -178,88 +169,7 @@ class ReservationService: ObservableObject {
     
     // MARK: - Methods for Queries
     
-    /// Finds an active reservation for a specific table and time.
-    /// - Parameters:
-    ///   - table: The table model.
-    ///   - date: The date to check for reservations.
-    ///   - time: The time to check for reservations.
-    /// - Returns: The active reservation if found, else nil.
-    func findActiveReservation(for table: TableModel, date: Date, time: Date) -> Reservation? {
-        print("Called findActiveReservation!")
-        let calendar = Calendar.current
-
-        // Create cache key
-        let cacheKey = ActiveReservationCacheKey(tableID: table.id, date: calendar.startOfDay(for: date), time: time)
-
-        // Check the cache in the store
-        if let cachedReservation = store.activeReservationCache[cacheKey] {
-            print("DEBUG: Cache hit for \(cacheKey). Returning cached reservation.")
-            return cachedReservation
-        }
-
-        print("DEBUG: Cache miss for \(cacheKey). Searching store reservations.")
-
-        // Ensure cache is preloaded for the requested date
-        let requestedDate = calendar.startOfDay(for: date)
-        if let cachePreloadedFrom = store.cachePreloadedFrom, requestedDate > cachePreloadedFrom {
-            print("DEBUG: Cache is missing data for date \(requestedDate). Preloading one more day.")
-            preloadActiveReservationCache(around: cachePreloadedFrom.addingTimeInterval(86400), forDaysBefore: 2, afterDays: 2)
-        }
-
-        // Fetch reservations for the specific date
-        let reservationsForDate = fetchReservations(on: date)
-        print("DEBUG: Fetched \(reservationsForDate.count) reservations for date \(date).")
-
-        // Extract hour and minute from the input time
-        
-        guard let inputTimeComponents = DateHelper.extractTime(time: time)
-            else {
-            print("DEBUG: Failed to extract time components")
-            return nil
-        }
-        
-        print("DEBUG: Input time components: \(inputTimeComponents)")
-              
-        for reservation in reservationsForDate {
-            print("\nDEBUG: Checking reservation: \(reservation.name)")
-
-            guard reservation.reservationType != .waitingList else { continue }
-            // Parse startTime and endTime of the reservation
-            guard let startTime = reservation.startTimeDate,
-                  let endTime = reservation.endTimeDate,
-                  let normalizedStartTime = DateHelper.normalizedTime(time: startTime, date: requestedDate),
-                  let normalizedEndTime = DateHelper.normalizedTime(time: endTime, date: requestedDate),
-                  let normalizedInputTime = DateHelper.normalizedInputTime(time: inputTimeComponents, date: requestedDate) else {
-                print("DEBUG: Failed to parse and normalize startTime, endTime, or input time.")
-                continue
-            }
-
-            print("DEBUG: Normalized startTime: \(normalizedStartTime), endTime: \(normalizedEndTime)")
-            print("DEBUG: Normalized input time: \(normalizedInputTime)")
-
-            // Check if the input time falls within the reservation's time range
-            if normalizedInputTime >= normalizedStartTime && normalizedInputTime < normalizedEndTime {
-                print("DEBUG: Time matches the reservation's time interval.")
-
-                // Check if the table is assigned to this reservation
-                if reservation.tables.contains(where: { $0.id == table.id }) {
-                    print("DEBUG: Table \(table.id) is assigned to this reservation.")
-                    print("DEBUG: Found matching reservation: \(reservation)")
-
-                    // Cache the result in the store's cache
-                    store.activeReservationCache[cacheKey] = reservation
-                    return reservation
-                } else {
-                    print("DEBUG: Table \(table.id) is NOT assigned to this reservation.")
-                }
-            } else {
-                print("DEBUG: Time \(normalizedInputTime) is not within the range \(normalizedStartTime) to \(normalizedEndTime).")
-            }
-        }
-
-        print("DEBUG: No matching reservation found.")
-        return nil
-    }
+    
     
     /// Retrieves reservations by category.
     /// - Parameter category: The reservation category.
@@ -297,33 +207,6 @@ class ReservationService: ObservableObject {
             // Decode reservations
             var decodedReservations = try decoder.decode([Reservation].self, from: data)
             
-            // Normalize start and end times
-            let calendar = Calendar.current
-            let today = Date()
-            let todayStartOfDay = calendar.startOfDay(for: today)
-            
-            for index in decodedReservations.indices {
-                let reservation = decodedReservations[index]
-                
-                // Parse the times
-                if let startTime = DateHelper.timeFormatter.date(from: reservation.startTime),
-                   let endTime = DateHelper.timeFormatter.date(from: reservation.endTime) {
-                    // Normalize the times for today
-                    decodedReservations[index].normalizedStartTime = calendar.date(
-                        bySettingHour: calendar.component(.hour, from: startTime),
-                        minute: calendar.component(.minute, from: startTime),
-                        second: 0,
-                        of: todayStartOfDay
-                    )
-                    
-                    decodedReservations[index].normalizedEndTime = calendar.date(
-                        bySettingHour: calendar.component(.hour, from: endTime),
-                        minute: calendar.component(.minute, from: endTime),
-                        second: 0,
-                        of: todayStartOfDay
-                    )
-                }
-            }
             
             // Save normalized reservations to the store
             store.setReservations(decodedReservations)
@@ -722,88 +605,9 @@ extension ReservationService {
         }
     }
     
-    func invalidateActiveReservationCache(for reservation: Reservation) {
-        // Reconstruct the full date range for this reservation
-        let start = DateHelper.combineDateAndTimeStrings(
-            dateString: reservation.dateString,
-            timeString: reservation.startTime
-        )
-        let end   = DateHelper.combineDateAndTimeStrings(
-            dateString: reservation.dateString,
-            timeString: reservation.endTime
-        )
-        
-        // Bail out if times are invalid or reversed
-        guard start < end else {
-            print("Cannot invalidate active cache: start >= end for reservation \(reservation.id)")
-            return
-        }
-
-        var current = start
-        while current < end {
-            for table in reservation.tables {
-                // Each minute + each table -> remove from cache
-                let cacheKey = ActiveReservationCacheKey(
-                    tableID: table.id,
-                    date: Calendar.current.startOfDay(for: current),
-                    time: current
-                )
-                store.activeReservationCache.removeValue(forKey: cacheKey)
-            }
-            current.addTimeInterval(60) // Move to next minute
-        }
-
-        print("Invalidated active reservation cache for reservation \(reservation.id).")
-    }
-    
-    func preloadActiveReservationCache(around date: Date, forDaysBefore beforeDays: Int, afterDays: Int) {
-        let calendar = Calendar.current
-
-        // Calculate start and end dates based on the provided date
-        let startDate = calendar.date(byAdding: .day, value: -beforeDays, to: date) ?? date
-        let endDate = calendar.date(byAdding: .day, value: afterDays, to: date) ?? date
-
-        print("DEBUG: Preloading active reservation cache from \(startDate) to \(endDate)")
-
-        // Iterate through the date range
-        for preloadDate in stride(from: startDate, through: endDate, by: 86400) { // 86400 seconds in a day
-            
-            // Check if any keys for the date already exist in the cache
-            let existingKeys = store.activeReservationCache.keys.contains { $0.date == preloadDate }
-            guard !existingKeys else {
-                print("DEBUG: Cache already contains keys for date: \(preloadDate). Skipping.")
-                continue
-            }
-            
-            let reservationsByDate = Dictionary(grouping: store.reservations) { $0.date }
-            
-            guard let dateReservations = reservationsByDate[preloadDate] else {
-                print("DEBUG: No reservations found for date: \(preloadDate).")
-                continue
-            }
-            
-            for reservation in dateReservations {
-                for table in reservation.tables {
-                    guard let startTime = DateHelper.combineDateAndTime(date: preloadDate, timeString: reservation.startTime),
-                          let endTime = DateHelper.combineDateAndTime(date: preloadDate, timeString: reservation.endTime) else {
-                        print("DEBUG: Failed to combine date and time for reservation \(reservation).")
-                        continue
-                    }
-                    
-                    for currentTime in stride(from: startTime, to: endTime, by: 60) { // Increment by 1 minute
-                        let cacheKey = ActiveReservationCacheKey(tableID: table.id, date: preloadDate, time: currentTime)
-                        store.activeReservationCache[cacheKey] = reservation
-                    }
-                }
-            }
-        }
-
-        store.cachePreloadedFrom = max(store.cachePreloadedFrom ?? startDate, endDate)
-        print("DEBUG: Active reservation cache preloaded until \(store.cachePreloadedFrom!).")
-    }
-    
+   
     func updateActiveReservationAdjacencyCounts(for reservation: Reservation) {
-        guard let reservationDate = reservation.date,
+        guard let reservationDate = reservation.cachedNormalizedDate,
               let combinedDateTime = reservation.startTimeDate else {
             print("Invalid reservation date or time for updating adjacency counts.")
             return
@@ -905,5 +709,11 @@ extension Date {
     func startOfNextMinute() -> Date {
         let nextMinute = Calendar.current.date(byAdding: .minute, value: 1, to: self)!
         return Calendar.current.date(from: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: nextMinute))!
+    }
+}
+
+extension Date {
+    func normalizedToDayStart() -> Date {
+        return Calendar.current.startOfDay(for: self)
     }
 }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ReservationListView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var appState: AppState  // Access AppState
@@ -355,12 +356,14 @@ struct ReservationListView: View {
                 startTime: $currentTime
             )
             .environmentObject(store)
+            .environmentObject(resCache)
             .environmentObject(reservationService)  // For the new service
             .environmentObject(layoutServices)
         }
         .sheet(item: $currentReservation) { reservation in
             EditReservationView(reservation: reservation, onClose: {})
                 .environmentObject(store)
+                .environmentObject(resCache)
                 .environmentObject(reservationService)  // For the new service
                 .environmentObject(layoutServices)
         }
@@ -754,8 +757,8 @@ struct ReservationListView: View {
             if selectedFilters.contains(.date) {
                 matches =
                     matches
-                    && (reservation.date ?? Date() >= filterStartDate
-                        && reservation.date ?? Date() <= filterEndDate)
+                && (reservation.cachedNormalizedDate ?? Date() >= filterStartDate
+                        && reservation.cachedNormalizedDate ?? Date() <= filterEndDate)
             }
 
             return matches
@@ -791,7 +794,7 @@ struct ReservationListView: View {
         var grouped: [String: [Reservation]] = [:]
 
         for reservation in reservations {
-            guard let date = reservation.date else {
+            guard let date = reservation.cachedNormalizedDate else {
                 // If parsing fails, optionally group under "Invalid Date"
                 grouped["Data Non Valida", default: []].append(reservation)
                 continue
@@ -810,7 +813,7 @@ struct ReservationListView: View {
         var grouped: [String: [Reservation]] = [:]
 
         for reservation in reservations {
-            guard let date = reservation.date else {
+            guard let date = reservation.cachedNormalizedDate else {
                 grouped["Data Non Valida", default: []].append(reservation)
                 continue
             }
@@ -827,7 +830,7 @@ struct ReservationListView: View {
         var grouped: [String: [Reservation]] = [:]
 
         for reservation in reservations {
-            guard let date = reservation.date else {
+            guard let date = reservation.cachedNormalizedDate else {
                 grouped["Invalid Date", default: []].append(reservation)
                 continue
             }
@@ -936,7 +939,7 @@ struct ReservationListView: View {
             let start = filterStartDate
             let end = filterEndDate
             guard
-                let reservationDate = reservation.date
+                let reservationDate = reservation.cachedNormalizedDate
             else {
                 return false
             }

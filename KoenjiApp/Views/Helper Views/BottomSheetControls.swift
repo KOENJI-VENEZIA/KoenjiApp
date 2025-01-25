@@ -81,7 +81,7 @@ struct BottomSheetControls: View {
                         let today = Calendar.current.startOfDay(for: systemTime) // Get today's date with no time component
                         print("Today: \(today)")
                         guard let currentTimeOnly = DateHelper.extractTime(time: currentTime) else { return } // Extract time components
-                        currentTime = DateHelper.normalizedInputTime(time: currentTimeOnly, date: today) ?? Date()
+                        currentTime = DateHelper.combinedInputTime(time: currentTimeOnly, date: today) ?? Date()
                         updateDatesAroundSelectedDate(currentTime)
                         print("New currentTime: \(currentTime)")
                         isManuallyOverridden = false

@@ -169,7 +169,7 @@ struct ReservationWaitingListView: View {
     
     func reservations(at date: Date) -> [Reservation] {
         store.reservations.filter { reservation in
-            guard let reservationDate = reservation.date else { return false }// Skip reservations with invalid times
+            guard let reservationDate = reservation.cachedNormalizedDate else { return false }// Skip reservations with invalid times
             return reservationDate.isSameDay(as: date)
         }
     }
@@ -181,10 +181,14 @@ struct ReservationWaitingListView: View {
     }
     
     private func handleDelete(_ reservation: Reservation) {
+
         if let idx = store.reservations.firstIndex(where: {
             $0.id == reservation.id
-        }) {
-            reservationService.deleteReservations(at: IndexSet(integer: idx))
+        }), var reservation = store.reservations.first(where: { $0.id == reservation.id}) {
+            reservation.status = .canceled
+            reservation.tables = []
+            reservationService.updateReservation(reservation,
+                at: idx)
         }
     }
     
