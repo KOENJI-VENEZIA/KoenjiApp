@@ -9,6 +9,7 @@ import SwiftUI
 struct ClusterOverlayView: View {
     let cluster: CachedCluster
     let currentTime: Date
+    let selectedCategory: Reservation.ReservationCategory
     @State private var systemTime: Date = Date()
     
     // Precomputed states
@@ -23,7 +24,7 @@ struct ClusterOverlayView: View {
     var body: some View {
         ZStack {
             // Checkmark overlay for "showed up" status
-            if showedUp {
+            if cluster.reservationID.status == .showedUp {
                 Image(systemName: "checkmark.circle.fill")
                     .resizable()
                     .foregroundColor(.green)
@@ -41,7 +42,7 @@ struct ClusterOverlayView: View {
             }
 
             // Warning overlay for reservations running late
-            if isLate {
+            if cluster.reservationID.status == .late {
                 Image(systemName: "clock.badge.exclamationmark.fill")
                     .resizable()
                     .scaledToFit()
@@ -52,7 +53,7 @@ struct ClusterOverlayView: View {
             }
 
             // Warning overlay for "time's up"
-            if timesUp {
+            if resCache.nearingEndReservations(currentTime: currentTime).contains(where: {$0.id == cluster.reservationID.id }) {
                 Image(systemName: "figure.walk.motion.trianglebadge.exclamationmark")
                     .resizable()
                     .scaledToFit()
@@ -64,7 +65,7 @@ struct ClusterOverlayView: View {
             }
         }
         .onAppear {
-            computeReservationStates()
+//            cluster.reservationID = resCache.reservation(forTable: cluster.tableIDs.first!, datetime: currentTime, category: selectedCategory)
         }
         .onChange(of: currentTime) { 
             computeReservationStates()

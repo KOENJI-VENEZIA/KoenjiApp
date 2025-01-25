@@ -155,9 +155,8 @@ class CurrentReservationsCache: ObservableObject {
 
     /// Retrieves all reservations for a specific date
     func reservations(for date: Date) -> [Reservation] {
-        let newEntries = cache[date] ?? []
-        print("DEBUG: retrieved \(newEntries.count) reservations for date \(date)")
-        return newEntries
+        let normalizedDate = calendar.startOfDay(for: date)  // Normalize to start of the day
+        return cache[normalizedDate] ?? []
     }
 
     /// Retrieves reservations for a specific table, date, and time

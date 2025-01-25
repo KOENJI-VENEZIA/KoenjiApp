@@ -263,7 +263,7 @@ struct LayoutPageView: View {
                         }
 
                         ForEach(clusterManager.clusters) { cluster in
-                            ClusterOverlayView(cluster: cluster, currentTime: currentTime)
+                            ClusterOverlayView(cluster: cluster, currentTime: currentTime, selectedCategory: selectedCategory)
                                 .environmentObject(resCache)
                                 .environmentObject(stateCache)
                                 .zIndex(2)
@@ -349,7 +349,7 @@ struct LayoutPageView: View {
                
                 reloadLayout(newCategory, activeReservations)
                 clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
                     oldCategory: old,
                     selectedCategory: selectedCategory, cellSize: gridData.cellSize)
                 //            capturedImage = captureView()
@@ -374,7 +374,7 @@ struct LayoutPageView: View {
             debounce {
                 reloadLayout(selectedCategory, activeReservations)
                 clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
                     oldCategory: selectedCategory,
                     selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
@@ -404,7 +404,7 @@ struct LayoutPageView: View {
                 print("Detected cancelled Reservation [LayoutPageView]")
                 reloadLayout(selectedCategory, activeReservations)
                 clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
                     oldCategory: selectedCategory,
                     selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
@@ -413,7 +413,7 @@ struct LayoutPageView: View {
             debounce {
                 reloadLayout(selectedCategory, activeReservations)
                 clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
                     oldCategory: selectedCategory,
                     selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
@@ -524,7 +524,6 @@ struct LayoutPageView: View {
     }
 
     private func updateClustersIfNeeded(for activeReservations: [Reservation]) {
-        let clustersBeforeUpdate = clusterManager.clusters
 
         clusterManager.recalculateClustersIfNeeded(
             for: activeReservations,
@@ -535,11 +534,7 @@ struct LayoutPageView: View {
             cellSize: gridData.cellSize
         )
 
-        if clustersBeforeUpdate == clusterManager.clusters {
-            print("No cluster updates required.")
-        } else {
-            print("Clusters updated successfully.")
-        }
+
     }
 
     private func updateDrawingLayersIfNeeded(for selectedCategory: Reservation.ReservationCategory)
@@ -563,9 +558,9 @@ struct LayoutPageView: View {
 
     private func onTableUpdated(_ updatedTable: TableModel) {
 
-        self.updateAdjacencyCountsForLayout(updatedTable)
+//        self.updateAdjacencyCountsForLayout(updatedTable)
         clusterManager.recalculateClustersIfNeeded(
-            for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+            for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
             oldCategory: selectedCategory,
             selectedCategory: selectedCategory, cellSize: gridData.cellSize)
         clusterServices.saveClusters(
@@ -631,7 +626,7 @@ struct LayoutPageView: View {
 
 
         clusterManager.recalculateClustersIfNeeded(
-            for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+            for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
             oldCategory: determinedCategory,
             selectedCategory: determinedCategory, cellSize: gridData.cellSize)
 
@@ -668,45 +663,45 @@ struct LayoutPageView: View {
 
     // MARK: - Cache and UI Update Methods
 
-    private func updateAdjacencyCountsForLayout(_ updatedTable: TableModel) {
-        // Identify tables with adjacentCount > 0 before the move
-        let previousAdjacentTables = layoutUI.tables.filter { $0.adjacentCount > 0 }.map { $0.id }
-
-        // Identify affected tables (dragged table + neighbors)
-        var affectedTableIDs = Set<Int>()
-        affectedTableIDs.insert(updatedTable.id)
-
-        let adjacencyResult = layoutServices.isTableAdjacent(
-            updatedTable, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
-        for neighbor in adjacencyResult.adjacentDetails.values {
-            affectedTableIDs.insert(neighbor.id)
-        }
-
-        // Include all previously adjacent tables in the affected list
-        affectedTableIDs.formUnion(previousAdjacentTables)
-
-        // Recalculate adjacency counts for affected tables only
-        for tableID in affectedTableIDs {
-            if let index = layoutUI.tables.firstIndex(where: { $0.id == tableID }) {
-                let table = layoutUI.tables[index]
-                let adjacency = layoutServices.isTableAdjacent(
-                    table, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
-                layoutUI.tables[index].adjacentCount = adjacency.adjacentCount
-
-                layoutUI.tables[index].activeReservationAdjacentCount =
-                    layoutServices.isAdjacentWithSameReservation(
-                        for: table,
-                        combinedDateTime: combinedDate,
-                        activeTables: layoutUI.tables
-                    ).count
-            }
-        }
-
-        // Update cached layout and save
-        let layoutKey = layoutServices.keyFor(date: combinedDate, category: selectedCategory)
-        layoutServices.cachedLayouts[layoutKey] = layoutUI.tables
-        layoutServices.saveToDisk()
-    }
+//    private func updateAdjacencyCountsForLayout(_ updatedTable: TableModel) {
+//        // Identify tables with adjacentCount > 0 before the move
+//        let previousAdjacentTables = layoutUI.tables.filter { $0.adjacentCount > 0 }.map { $0.id }
+//
+//        // Identify affected tables (dragged table + neighbors)
+//        var affectedTableIDs = Set<Int>()
+//        affectedTableIDs.insert(updatedTable.id)
+//
+//        let adjacencyResult = layoutServices.isTableAdjacent(
+//            updatedTable, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
+//        for neighbor in adjacencyResult.adjacentDetails.values {
+//            affectedTableIDs.insert(neighbor.id)
+//        }
+//
+//        // Include all previously adjacent tables in the affected list
+//        affectedTableIDs.formUnion(previousAdjacentTables)
+//
+//        // Recalculate adjacency counts for affected tables only
+//        for tableID in affectedTableIDs {
+//            if let index = layoutUI.tables.firstIndex(where: { $0.id == tableID }) {
+//                let table = layoutUI.tables[index]
+//                let adjacency = layoutServices.isTableAdjacent(
+//                    table, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
+//                layoutUI.tables[index].adjacentCount = adjacency.adjacentCount
+//
+//                layoutUI.tables[index].activeReservationAdjacentCount =
+//                    layoutServices.isAdjacentWithSameReservation(
+//                        for: table,
+//                        combinedDateTime: combinedDate,
+//                        activeTables: layoutUI.tables
+//                    ).count
+//            }
+//        }
+//
+//        // Update cached layout and save
+//        let layoutKey = layoutServices.keyFor(date: combinedDate, category: selectedCategory)
+//        layoutServices.cachedLayouts[layoutKey] = layoutUI.tables
+//        layoutServices.saveToDisk()
+//    }
 
 }
 

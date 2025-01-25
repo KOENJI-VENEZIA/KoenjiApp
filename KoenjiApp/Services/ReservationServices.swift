@@ -414,6 +414,7 @@ extension ReservationService {
         }
 
         // 4. Save data to disk after all tasks complete
+        self.resCache.preloadDates(around: startDate, range: daysToSimulate, reservations: store.reservations)
             self.layoutServices.saveToDisk()
             self.saveReservationsToDisk(includeMock: true)
             print("Finished generating reservations.")
@@ -507,6 +508,7 @@ extension ReservationService {
                         self.store.finalizeReservation(updatedReservation)
 
                         if !self.store.reservations.contains(where: { $0.id == updatedReservation.id }) {
+                            self.resCache.addOrUpdateReservation(updatedReservation)
                             self.store.reservations.append(updatedReservation)
                             print("Generated reservation: \(updatedReservation)")
                         }
@@ -618,6 +620,10 @@ extension ReservationService {
 
         // Iterate over all tables in the reservation
         for table in reservation.tables {
+            let adjacentTables = layoutServices.isTableAdjacent(table, combinedDateTime: combinedDateTime, activeTables: activeTables)
+            if let index = layoutServices.tables.firstIndex(where: { $0.id == table.id}) {
+                layoutServices.tables[index].adjacentCount = adjacentTables.adjacentCount
+            }
             // Calculate adjacent tables with shared reservations
             let sharedTables = layoutServices.isAdjacentWithSameReservation(for: table, combinedDateTime: combinedDateTime, activeTables: activeTables)
 

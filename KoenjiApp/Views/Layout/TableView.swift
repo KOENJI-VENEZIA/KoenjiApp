@@ -674,6 +674,9 @@ struct TableView: View {
             }
         }
 
+        if let reservation = currentActiveReservation {
+            reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
+        }
         let layoutKey = layoutServices.keyFor(date: combinedDate, category: selectedCategory)
         layoutServices.cachedLayouts[layoutKey] = layoutUI.tables
         layoutServices.saveToDisk()

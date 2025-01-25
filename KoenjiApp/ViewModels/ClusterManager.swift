@@ -160,19 +160,8 @@ class ClusterManager: ObservableObject {
             print("Start Time: \(String(describing: reservation.startTimeDate))")
             print("End Time: \(String(describing: reservation.endTimeDate))")
 
-            // Parse startTime and endTime of the reservation
-            guard let startTime = reservation.startTimeDate,
-                  let endTime = reservation.endTimeDate,
-                  let normalizedStartTime = DateHelper.normalizedTime(time: startTime, date: combinedDate),
-                  let normalizedEndTime = DateHelper.normalizedTime(time: endTime, date: combinedDate)
-                else {
-                print("DEBUG: Failed to parse and normalize startTime, endTime, or input time.")
-                return false
-            }
             
-            print("Normalized Start Time: \(normalizedStartTime)")
-            print("Normalized End Time: \(normalizedEndTime)")
-            let isValid = combinedDate >= normalizedStartTime && combinedDate < normalizedEndTime
+            let isValid = combinedDate >= reservation.startTimeDate ?? Date() && combinedDate < reservation.endTimeDate ?? Date()
             print("Is Valid: \(isValid)")
             return isValid
         }
@@ -233,21 +222,21 @@ class ClusterManager: ObservableObject {
         let currentTables = tables
         
         // 1) Early-exit if no adjacency changes
-        if oldCategory == selectedCategory {
-            guard shouldRecalculateClusters(for: activeReservations, tables: currentTables) else {
-                print("Skipping recalc: no physical adjacency change or no active reservations.")
-                return
-            }
-        }
+//        if oldCategory == selectedCategory {
+//            guard shouldRecalculateClusters(for: activeReservations, tables: currentTables) else {
+//                print("Skipping recalc: no physical adjacency change or no active reservations.")
+//                return
+//            }
+//        }
 
-        let cachedClusters = clusterServices.loadClusters(for: date, category: category)
+//        let cachedClusters = clusterServices.loadClusters(for: date, category: category)
 
         // 2) Attempt to load cached clusters for the date+time
         
-        if !cachedClusters.isEmpty && lastLayoutSignature == layoutServices.computeLayoutSignature(tables: currentTables) {
-                self.clusters = cachedClusters
-                return
-            }
+//        if !cachedClusters.isEmpty && lastLayoutSignature == layoutServices.computeLayoutSignature(tables: currentTables) {
+//                self.clusters = cachedClusters
+//                return
+//            }
 
         // 3) Not in cache => recalc clusters
         Task {
