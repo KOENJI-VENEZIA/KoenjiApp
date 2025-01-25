@@ -14,10 +14,25 @@ struct Reservation: Identifiable, Hashable, Codable {
     var name: String
     var phone: String
     var numberOfPersons: Int
-    var dateString: String  // "yyyy-mm-dd"
+    var dateString: String {
+        didSet {
+            updateCachedDates()
+        }
+    }
+    
     var category: ReservationCategory
-    var startTime: String   // "HH:MM"
-    var endTime: String     // computed but editable by user
+    
+    var startTime: String {
+        didSet {
+            updateCachedDates()
+        }
+    }
+    
+    var endTime: String {
+        didSet {
+            updateCachedDates()
+        }
+    }
     var acceptance: Acceptance
     var status: ReservationStatus
     var reservationType: ReservationType
@@ -28,9 +43,9 @@ struct Reservation: Identifiable, Hashable, Codable {
     var isMock: Bool = false // Distinguish mock data
     var assignedEmoji: String?
     var imageData: Data? // Store image data for the reservation
-    var cachedStartTimeDate: Date?
-    var cachedEndTimeDate: Date?
-    var cachedNormalizedDate: Date?
+    private var cachedStartTimeDate: Date?
+    private var cachedEndTimeDate: Date?
+    private var cachedNormalizedDate: Date?
     
     var image: Image? {
         if let imageData, let uiImage = UIImage(data: imageData) {
@@ -133,47 +148,23 @@ struct Reservation: Identifiable, Hashable, Codable {
         
 
         
-        self.cachedStartTimeDate = DateHelper.normalizeTime(time: DateHelper.combine(
-            date: DateHelper.parseDate(dateString) ?? Date(),
-            time: DateHelper.parseTime(startTime) ?? Date()
-        ))
-        self.cachedEndTimeDate = DateHelper.normalizeTime(time: DateHelper.combine(
-            date: DateHelper.parseDate(dateString) ?? Date(),
-            time: DateHelper.parseTime(endTime) ?? Date()
-        ))
-        let date = DateHelper.parseDate(dateString) ?? Date()
-        self.cachedNormalizedDate = DateHelper.normalizedInputTime(date: date)
-        
-        
-               // Using DateHelper to combine date and time strings
-        let reservationDate = date
-        if let combinedStartDate = startTimeDate {
-                       
-           let calendar = Calendar.current
-           // If the creation date is the same day as the reservation's date
-           // and the creation time is at or after the start time, mark as walkIn.
-           if calendar.isDate(creationDate, inSameDayAs: reservationDate) &&
-               creationDate >= combinedStartDate {
-               self.reservationType = .walkIn
-           } else {
-               self.reservationType = .inAdvance
-           }
-       } else {
-           // Fallback if date parsing fails.
-           self.reservationType = .inAdvance
-       }
+        // Initialize cached dates
+                self.updateCachedDates()
+                
+                // Additional Initialization Logic
+                self.determineReservationType()
     }
     
     var startTimeDate: Date? {
-        cachedStartTimeDate
+        return cachedStartTimeDate
     }
-
+    
     var endTimeDate: Date? {
-        cachedEndTimeDate
+        return cachedEndTimeDate
     }
     
     var normalizedDate: Date? {
-        cachedNormalizedDate
+        return cachedNormalizedDate
     }
 }
 
@@ -204,33 +195,11 @@ extension Reservation {
             assignedEmoji = try container.decodeIfPresent(String.self, forKey: .assignedEmoji)
             imageData = try container.decodeIfPresent(Data.self, forKey: .imageData)
 
-            // **Compute Cached Dates After Decoding**
-        self.cachedStartTimeDate = DateHelper.normalizeTime(time: DateHelper.combine(
-                date: DateHelper.parseDate(dateString) ?? Date(),
-                time: DateHelper.parseTime(startTime) ?? Date()
-            ))
-        self.cachedEndTimeDate = DateHelper.normalizeTime(time: DateHelper.combine(
-                date: DateHelper.parseDate(dateString) ?? Date(),
-                time: DateHelper.parseTime(endTime) ?? Date()
-            ))
-        
-            let date = DateHelper.parseDate(dateString) ?? Date()
-            self.cachedNormalizedDate = DateHelper.normalizedInputTime(date: date)
-
-            // **Additional Initialization Logic (if any)**
-            let reservationDate = date
-            if let combinedStartDate = startTimeDate {
-                let calendar = Calendar.current
-                if calendar.isDate(creationDate, inSameDayAs: reservationDate) &&
-                    creationDate >= combinedStartDate {
-                    self.reservationType = .walkIn
-                } else {
-                    self.reservationType = .inAdvance
-                }
-            } else {
-                // Fallback if date parsing fails.
-                self.reservationType = .inAdvance
-            }
+        // Initialize cached dates
+              self.updateCachedDates()
+              
+              // Additional Initialization Logic
+              self.determineReservationType()
         }
 
     func encode(to encoder: Encoder) throws {
@@ -256,6 +225,44 @@ extension Reservation {
         try container.encode(assignedEmoji, forKey: .assignedEmoji)
         try container.encode(imageData, forKey: .imageData)
     }
+    
+    /// Updates the cached date properties based on the current date and time strings.
+       mutating private func updateCachedDates() {
+           // Combine date and time strings into Date objects
+           let combinedStart = DateHelper.combine(date: DateHelper.parseDate(dateString) ?? Date(),
+                                                 time: DateHelper.parseTime(startTime) ?? Date())
+           let combinedEnd = DateHelper.combine(date: DateHelper.parseDate(dateString) ?? Date(),
+                                               time: DateHelper.parseTime(endTime) ?? Date())
+           
+           // Normalize the combined dates (e.g., set seconds to zero)
+           cachedStartTimeDate = DateHelper.normalizeTime(time: combinedStart)
+           cachedEndTimeDate = DateHelper.normalizeTime(time: combinedEnd)
+           cachedNormalizedDate = DateHelper.normalizedInputTime(date: DateHelper.parseDate(dateString) ?? Date())
+       }
+       
+       /// Determines the reservation type based on creation date and reservation date.
+       mutating private func determineReservationType() {
+           guard let reservationDate = DateHelper.parseDate(dateString),
+                 let combinedStartDate = startTimeDate else {
+               self.reservationType = .inAdvance
+               return
+           }
+           
+           let calendar = Calendar.current
+           if calendar.isDate(creationDate, inSameDayAs: reservationDate) &&
+               creationDate >= combinedStartDate {
+               self.reservationType = .walkIn
+           } else {
+               self.reservationType = .inAdvance
+           }
+       }
+       
+       /// Updates cached dates externally if needed.
+       /// Call this method whenever you modify dateString, startTime, or endTime programmatically.
+       mutating func externallyUpdateCachedDates() {
+           updateCachedDates()
+           determineReservationType()
+       }
 }
 
 

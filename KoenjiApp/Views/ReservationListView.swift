@@ -1,5 +1,13 @@
 import SwiftUI
 
+struct GroupedReservations: Identifiable {
+    let id = UUID()
+    let label: String
+    let reservations: [Reservation]
+    let sortDate: Date?      // Used for date-based groupings
+    let sortString: String?  // Used for non-date-based groupings (e.g., table names)
+}
+
 struct ReservationListView: View {
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var resCache: CurrentReservationsCache
@@ -69,6 +77,8 @@ struct ReservationListView: View {
 
     @State private var selectedFilters: Set<FilterOption> = [.none]  // Default to .none
     @State private var groupOption: GroupOption = .none
+    
+    @State private var searchText: String = ""
 
     @State private var showPeoplePopover: Bool = false
     @State private var showStartDatePopover: Bool = false
@@ -85,26 +95,26 @@ struct ReservationListView: View {
             Color.clear
             
             List(selection: $selection) {
-                let filtered = filterReservationsBy(selectedFilters)
+                let filtered = filterReservationsBy(selectedFilters, searchText: searchText)
                 // Then group
-                let grouped = groupReservations(filtered)
+                let grouped = groupReservations(filtered, by: groupOption)
                 
-                ForEach(grouped.keys.sorted(), id: \.self) { groupKey in
+                ForEach(grouped.sorted(by: groupSortingFunction), id: \.id) { group in
                     Section(
                         header: HStack(spacing: 25) {
-                            Text(groupKey)
+                            Text(group.label)
                                 .font(.headline)
-                            let reservationsLunch = filterForCategory(grouped[groupKey] ?? [], .lunch)
-                            let reservationsDinner = filterForCategory(grouped[groupKey] ?? [], .dinner)
+                            let reservationsLunch = filterForCategory(group.reservations, .lunch)
+                            let reservationsDinner = filterForCategory(group.reservations, .dinner)
                             Text(
-                                "\(grouped[groupKey]?.count ?? 0) prenotazioni (\(reservationsLunch.count) per pranzo, \(reservationsDinner.count) per cena)"
+                                "\(group.reservations.count) prenotazioni (\(reservationsLunch.count) per pranzo, \(reservationsDinner.count) per cena)"
                             )
                             .font(.headline)
                         }
                         
                             .padding(.vertical, 4)
                     ) {
-                        ForEach(grouped[groupKey] ?? []) { reservation in
+                        ForEach(group.reservations) { reservation in
                             ReservationRowView(
                                 reservation: reservation,
                                 notesAlertShown: $showingNotesAlert,
@@ -129,7 +139,8 @@ struct ReservationListView: View {
                                         isAnimating = true
                                         showInspector = true
                                     }
-                                }
+                                },
+                                searchText: searchText
                             )
                             .frame(maxWidth: .infinity, alignment: .leading)  // Make the row fill the width
                             .contentShape(Rectangle())  // Make the entire row tappable
@@ -151,13 +162,16 @@ struct ReservationListView: View {
                             //                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             .listRowSeparator(.visible)
                         }
-                        .onDelete { offsets in
-                            handleDeleteFromGroup(
-                                groupKey: groupKey, offsets: offsets)
-                        }
+//                        .onDelete { offsets in
+//                            handleDeleteFromGroup(
+//                                groupKey: groupKey, offsets: offsets)
+//                        }
                     }
                 }
             }
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Cerca prenotazioni")
+            .autocapitalization(.none)
+            .disableAutocorrection(true)
             
             LoadingOverlay()
                     .opacity(appState.isWritingToFirebase ? 1.0 : 0.0) // Smoothly fade in and out
@@ -416,6 +430,7 @@ struct ReservationListView: View {
         .onChange(of: hasSelectedEndDate) {
                 updateDateFilter()
         }
+        
         .onDisappear {
             NotificationCenter.default.removeObserver(
                 self, name: .buttonPositionChanged, object: nil)
@@ -472,31 +487,6 @@ struct ReservationListView: View {
         }.count
     }
 
-    private func handleDeleteFromGroup(groupKey: String, offsets: IndexSet) {
-
-        // 1) Access the grouped reservations
-        var grouped = groupReservations(filterReservationsBy(selectedFilters))
-        // 2) The reservations in this group
-        if var reservationsInGroup = grouped[groupKey] {
-            // 3) Get the items to delete
-            let toDelete = offsets.map { reservationsInGroup[$0] }
-            // 4) Actually remove them from your store
-            for reservation in toDelete {
-                if let idx = store.reservations.firstIndex(where: {
-                    $0.id == reservation.id
-                }), var reservation = store.reservations.first(where: { $0.id == reservation.id}) {
-                    reservation.status = .canceled
-                    reservation.tables = []
-                    reservationService.updateReservation(reservation,
-                        at: idx)
-                }
-            }
-            // 5) Optionally remove them from `grouped[groupKey]` if you want to keep a local copy
-            offsets.forEach { reservationsInGroup.remove(at: $0) }
-            grouped[groupKey] = reservationsInGroup
-        }
- 
-    }
 
     struct DebugConfigView: View {
         @Binding var daysToSimulate: Int
@@ -684,12 +674,17 @@ struct ReservationListView: View {
 
     // MARK: - Grouping
 
-    private func groupReservations(_ reservations: [Reservation]) -> [String:
-        [Reservation]]
-    {
-        switch groupOption {
+    func groupReservations(_ reservations: [Reservation], by option: GroupOption) -> [GroupedReservations] {
+        switch option {
         case .none:
-            return ["Tutte": reservations]
+            // All reservations in a single group with sorting
+            let sortedReservations = sortReservations(reservations)
+            return [GroupedReservations(
+                label: "Tutte",
+                reservations: sortedReservations,
+                sortDate: nil,
+                sortString: "Tutte"
+            )]
         case .table:
             return groupByTable(reservations)
         case .day:
@@ -701,6 +696,25 @@ struct ReservationListView: View {
         }
     }
 
+    private func groupSortingFunction(lhs: GroupedReservations, rhs: GroupedReservations) -> Bool {
+        switch groupOption {
+        case .day, .week, .month:
+            // Date-based sorting
+            if let lhsDate = lhs.sortDate, let rhsDate = rhs.sortDate {
+                return lhsDate < rhsDate
+            } else if lhs.sortDate != nil {
+                return true
+            } else if rhs.sortDate != nil {
+                return false
+            } else {
+                return lhs.label < rhs.label // Fallback to alphabetical
+            }
+        case .table, .none:
+            // String-based sorting
+            return (lhs.sortString ?? lhs.label) < (rhs.sortString ?? rhs.label)
+        }
+    }
+    
     func toggleFilter(_ option: FilterOption) {
         switch option {
         case .none, .canceled:
@@ -730,118 +744,264 @@ struct ReservationListView: View {
         selectedFilters.remove(.canceled)  // Ensure `.canceled` is deselected
     }
 
-    private func filterReservationsBy(_ selectedFilters: Set<FilterOption>) -> [Reservation] {
-        let reservations = store.reservations
-
-        // If no filters are applied or only `.none` is selected, return all reservations
-        if selectedFilters.isEmpty || selectedFilters == [.none] {
-
-            return reservations.filter { reservation in
+    private func filterReservationsBy(_ selectedFilters: Set<FilterOption>, searchText: String) -> [Reservation] {
+        var filtered = store.reservations
+        
+        // Apply existing filters
+        if !selectedFilters.isEmpty && !selectedFilters.contains(.none) {
+            filtered = filtered.filter { reservation in
+                var matches = true
+                
+                // Check for each selected filter
+                if selectedFilters.contains(.canceled) {
+                    matches = matches && (reservation.status == .canceled)
+                }
+                
+                if selectedFilters.contains(.people) {
+                    matches = matches && (reservation.numberOfPersons == filterPeople) // Use the selectedPeople variable
+                }
+                
+                if selectedFilters.contains(.date) {
+                    if let date = reservation.normalizedDate {
+                        matches = matches && (date >= filterStartDate && date <= filterEndDate)
+                    } else {
+                        matches = false
+                    }
+                }
+                
+                return matches
+            }
+        } else {
+            // If only `.none` is selected, exclude canceled reservations
+            filtered = filtered.filter { reservation in
                 reservation.status != .canceled
             }
         }
-
-        // Apply filters dynamically
-        return reservations.filter { reservation in
-            var matches = true
-
-            // Check for each selected filter
-            if selectedFilters.contains(.canceled) {
-                matches = matches && (reservation.status == .canceled)
+        
+        // Apply search filtering
+        if !searchText.isEmpty {
+            let lowercasedSearchText = searchText.lowercased()
+            filtered = filtered.filter { reservation in
+                // Define what fields you want to search. For example:
+                let nameMatch = reservation.name.lowercased().contains(lowercasedSearchText)
+                let tableMatch = reservation.tables.contains { table in
+                    table.name.lowercased().contains(lowercasedSearchText) ||
+                    String(table.id).contains(lowercasedSearchText)
+                }
+                let notesMatch = reservation.notes?.lowercased().contains(lowercasedSearchText) ?? false
+                // Add other fields as necessary
+        
+                return nameMatch || tableMatch || notesMatch
             }
-
-            if selectedFilters.contains(.people) {
-                matches = matches && reservation.numberOfPersons == filterPeople  // Use the selectedPeople variable
-            }
-
-            if selectedFilters.contains(.date) {
-                matches =
-                    matches
-                && (reservation.cachedNormalizedDate ?? Date() >= filterStartDate
-                        && reservation.cachedNormalizedDate ?? Date() <= filterEndDate)
-            }
-
-            return matches
         }
+        
+        return filtered
     }
 
-    private func groupByTable(_ reservations: [Reservation]) -> [String:
-        [Reservation]]
-    {
+    private func groupByTable(_ reservations: [Reservation]) -> [GroupedReservations] {
         var grouped: [String: [Reservation]] = [:]
+
         for reservation in reservations {
-            // Suppose reservation.tables is an array of Table objects
-            // that each have an .id or .name property
             let assignedTables = reservation.tables
 
-            // If no tables assigned, put in a "No Table" group
             if assignedTables.isEmpty {
-                grouped["(Nessun tavolo assegnato)", default: []].append(reservation)
+                grouped["Nessun tavolo assegnato", default: []].append(reservation)
             } else {
-                // For each table, add the reservation to that section
                 for table in assignedTables {
-                    let key = "Tavolo \(table.id)"
+                    let key = "Tavolo \(table.id)" // Assuming `table.id` uniquely identifies a table
                     grouped[key, default: []].append(reservation)
                 }
             }
         }
-        return grouped
-    }
 
-    private func groupByDay(_ reservations: [Reservation]) -> [String:
-        [Reservation]]
-    {
-        var grouped: [String: [Reservation]] = [:]
-
-        for reservation in reservations {
-            guard let date = reservation.cachedNormalizedDate else {
-                // If parsing fails, optionally group under "Invalid Date"
-                grouped["Data Non Valida", default: []].append(reservation)
-                continue
-            }
-
-            let dayKey = localizedDayLabel(for: date)
-            grouped[dayKey, default: []].append(reservation)
-
+        // Sort the table keys numerically if possible
+        let sortedKeys = grouped.keys.sorted { key1, key2 in
+            // Extract table numbers assuming format "Tavolo X"
+            let num1 = Int(key1.components(separatedBy: " ").last ?? "") ?? 0
+            let num2 = Int(key2.components(separatedBy: " ").last ?? "") ?? 0
+            return num1 < num2
         }
-        return grouped
+
+        // Create GroupedReservations
+        var groupedReservations: [GroupedReservations] = sortedKeys.map { key in
+            let reservations = grouped[key] ?? []
+            return GroupedReservations(label: key, reservations: reservations, sortDate: nil, sortString: key)
+        }
+
+        // Handle "Nessun tavolo assegnato" group if present
+        if let noTableReservations = grouped["Nessun tavolo assegnato"], !noTableReservations.isEmpty {
+            let noTableGroup = GroupedReservations(
+                label: "Nessun tavolo assegnato",
+                reservations: noTableReservations,
+                sortDate: nil,
+                sortString: "Nessun tavolo assegnato"
+            )
+            groupedReservations.append(noTableGroup) // Append at the end or desired position
+        }
+
+        return groupedReservations
     }
 
-    private func groupByWeek(_ reservations: [Reservation]) -> [String:
-        [Reservation]]
-    {
-        var grouped: [String: [Reservation]] = [:]
+    private func groupByDay(_ reservations: [Reservation]) -> [GroupedReservations] {
+        var grouped: [Date: [Reservation]] = [:]
+        let calendar = Calendar.current
 
         for reservation in reservations {
-            guard let date = reservation.cachedNormalizedDate else {
-                grouped["Data Non Valida", default: []].append(reservation)
+            guard let date = reservation.normalizedDate else {
+                // Group invalid dates under a special key
+                grouped[Date.distantFuture, default: []].append(reservation)
                 continue
             }
 
+            // Normalize to start of day for consistent grouping
+            let startOfDay = calendar.startOfDay(for: date)
+            grouped[startOfDay, default: []].append(reservation)
+        }
+
+        // Sort the valid dates chronologically
+        let sortedDates = grouped.keys
+            .filter { $0 != Date.distantFuture }
+            .sorted()
+
+        // Create the grouped reservations with labels and sorted reservations
+        var groupedReservations: [GroupedReservations] = sortedDates.map { date in
+            let label = localizedDayLabel(for: date)
+            let unsortedReservations = grouped[date] ?? []
+            let sortedGroupReservations = sortReservations(unsortedReservations) // Apply sorting
+            return GroupedReservations(
+                label: label,
+                reservations: sortedGroupReservations,
+                sortDate: date,
+                sortString: nil
+            )
+        }
+
+        // Handle invalid dates, if any
+        if let invalidReservations = grouped[Date.distantFuture], !invalidReservations.isEmpty {
+            let sortedInvalidReservations = sortReservations(invalidReservations) // Optionally sort invalid reservations
+            let invalidGroup = GroupedReservations(
+                label: "Data Non Valida",
+                reservations: sortedInvalidReservations,
+                sortDate: nil,
+                sortString: "Data Non Valida"
+            )
+            groupedReservations.append(invalidGroup) // Append invalid dates at the end
+        }
+
+        return groupedReservations
+    }
+    
+    private func groupByWeek(_ reservations: [Reservation]) -> [GroupedReservations] {
+        var grouped: [Date: [Reservation]] = [:]
+        let calendar = Calendar.current
+
+        for reservation in reservations {
+            guard let date = reservation.normalizedDate else {
+                // Group invalid dates under a special key
+                grouped[Date.distantFuture, default: []].append(reservation)
+                continue
+            }
+
+            // Determine the start of the partial week (Tuesday)
+            let weekday = calendar.component(.weekday, from: date)
+            let offsetToTuesday = ((weekday - 3) + 7) % 7
+            guard let startOfPartialWeek = calendar.date(byAdding: .day, value: -offsetToTuesday, to: date) else {
+                grouped[Date.distantFuture, default: []].append(reservation)
+                continue
+            }
+
+            // Normalize to start of day for consistent grouping
+            let normalizedStart = calendar.startOfDay(for: startOfPartialWeek)
+            grouped[normalizedStart, default: []].append(reservation)
+        }
+
+        // Sort the valid dates chronologically
+        let sortedDates = grouped.keys
+            .filter { $0 != Date.distantFuture }
+            .sorted()
+
+        // Create the grouped reservations with labels and sorted reservations
+        var groupedReservations: [GroupedReservations] = sortedDates.map { date in
             let label = partialWeekLabelSkippingMonday(for: date)
-            grouped[label, default: []].append(reservation)
+            let unsortedReservations = grouped[date] ?? []
+            let sortedGroupReservations = sortReservations(unsortedReservations) // Apply sorting
+            return GroupedReservations(
+                label: label,
+                reservations: sortedGroupReservations,
+                sortDate: date,
+                sortString: nil
+            )
         }
-        return grouped
-    }
 
-    private func groupByMonth(_ reservations: [Reservation]) -> [String:
-        [Reservation]]
-    {
-        var grouped: [String: [Reservation]] = [:]
+        // Handle invalid dates, if any
+        if let invalidReservations = grouped[Date.distantFuture], !invalidReservations.isEmpty {
+            let sortedInvalidReservations = sortReservations(invalidReservations) // Optionally sort invalid reservations
+            let invalidGroup = GroupedReservations(
+                label: "Data Non Valida",
+                reservations: sortedInvalidReservations,
+                sortDate: nil,
+                sortString: "Data Non Valida"
+            )
+            groupedReservations.append(invalidGroup) // Append invalid dates at the end
+        }
+
+        return groupedReservations
+    }
+    private func groupByMonth(_ reservations: [Reservation]) -> [GroupedReservations] {
+        var grouped: [Date: [Reservation]] = [:]
+        let calendar = Calendar.current
 
         for reservation in reservations {
-            guard let date = reservation.cachedNormalizedDate else {
-                grouped["Invalid Date", default: []].append(reservation)
+            guard let date = reservation.normalizedDate else {
+                // Group invalid dates under a special key
+                grouped[Date.distantFuture, default: []].append(reservation)
                 continue
             }
 
-            let key = monthLabel(for: date)
-            grouped[key, default: []].append(reservation)
+            // Normalize to the start of the month
+            let components = calendar.dateComponents([.year, .month], from: date)
+            guard let startOfMonth = calendar.date(from: components) else {
+                grouped[Date.distantFuture, default: []].append(reservation)
+                continue
+            }
 
+            // Normalize to start of day for consistent grouping
+            let normalizedStart = calendar.startOfDay(for: startOfMonth)
+            grouped[normalizedStart, default: []].append(reservation)
         }
-        return grouped
-    }
 
+        // Sort the valid dates chronologically
+        let sortedDates = grouped.keys
+            .filter { $0 != Date.distantFuture }
+            .sorted()
+
+        // Create the grouped reservations with labels and sorted reservations
+        var groupedReservations: [GroupedReservations] = sortedDates.map { date in
+            let label = monthLabel(for: date)
+            let unsortedReservations = grouped[date] ?? []
+            let sortedGroupReservations = sortReservations(unsortedReservations) // Apply sorting
+            return GroupedReservations(
+                label: label,
+                reservations: sortedGroupReservations,
+                sortDate: date,
+                sortString: nil
+            )
+        }
+
+        // Handle invalid dates, if any
+        if let invalidReservations = grouped[Date.distantFuture], !invalidReservations.isEmpty {
+            let sortedInvalidReservations = sortReservations(invalidReservations) // Optionally sort invalid reservations
+            let invalidGroup = GroupedReservations(
+                label: "Data Non Valida",
+                reservations: sortedInvalidReservations,
+                sortDate: nil,
+                sortString: "Data Non Valida"
+            )
+            groupedReservations.append(invalidGroup) // Append invalid dates at the end
+        }
+
+        return groupedReservations
+    }
     func monthLabel(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale.current
@@ -939,7 +1099,7 @@ struct ReservationListView: View {
             let start = filterStartDate
             let end = filterEndDate
             guard
-                let reservationDate = reservation.cachedNormalizedDate
+                let reservationDate = reservation.normalizedDate
             else {
                 return false
             }
@@ -1071,21 +1231,49 @@ struct ReservationRowView: View {
     var onEdit: () -> Void
     var onInfoTap: () -> Void  // Added here
 
+    var searchText: String
+
+
     var body: some View {
         // Make a local variable for table names
         let duration = TimeHelpers.availableTimeString(
             endTime: reservation.endTime, startTime: reservation.startTime)
 
-        VStack(alignment: .leading) {
-            Text("\(reservation.name) - \(reservation.numberOfPersons) p.")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 4) { // Added spacing for better layout
+            // Name and Number of People
+            if searchText.isEmpty {
+                Text("\(reservation.name) - \(reservation.numberOfPersons) p.")
+                    .font(.headline)
+            } else {
+                highlightedText(for: reservation.name, with: searchText) +
+                Text(" - \(reservation.numberOfPersons) p.")
+                    .font(.headline)
+            }
+            
+            // Date
             Text("Data: \(reservation.dateString)")
                 .font(.subheadline)
+            
+            // Time
             Text("Orario: \(reservation.startTime) - \(reservation.endTime)")
                 .font(.subheadline)
-            Text("Durata: \(duration ?? "Errore")")
-                .font(.subheadline)
-                .foregroundStyle(.blue)
+            
+            if !searchText.isEmpty {
+                // Notes Section
+                if let notes = reservation.notes, !notes.isEmpty {
+                    Text("Note:")
+                        .font(.subheadline)
+                        .bold()
+                    highlightedText(for: notes, with: searchText)
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                }
+            } else {
+                // Duration
+                Text("Durata: \(duration ?? "Errore")")
+                    .font(.subheadline)
+                    .foregroundStyle(.blue)
+            }
         }
         .padding()
         .contextMenu {
@@ -1098,7 +1286,7 @@ struct ReservationRowView: View {
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if reservation.status != .canceled {
-                Button{
+                Button {
                     onDelete()
                 } label: {
                     Label("Cancella", systemImage: "x.circle.fill")
@@ -1129,9 +1317,43 @@ struct ReservationRowView: View {
             .tint(.green)
         }
     }
+    
+    /// Function to highlight matched text
+    private func highlightedText(for text: String, with searchText: String) -> Text {
+        // Ensure searchText is not empty to avoid unnecessary processing
+        guard !searchText.isEmpty else { return Text(text) }
+        
+        let lowercasedText = text.lowercased()
+        let lowercasedSearchText = searchText.lowercased()
+        
+        var highlighted = Text("")
+        var currentIndex = lowercasedText.startIndex
+        
+        while let range = lowercasedText.range(of: lowercasedSearchText, range: currentIndex..<lowercasedText.endIndex) {
+            // Append the text before the match
+            let prefixRange = currentIndex..<range.lowerBound
+            let prefix = String(text[prefixRange])
+            highlighted = highlighted + Text(prefix)
+            
+            // Append the matched text with highlight
+            let matchRange = range.lowerBound..<range.upperBound
+            let match = String(text[matchRange])
+            highlighted = highlighted + Text(match)
+                .foregroundColor(.yellow)
+            
+            // Update the current index to continue searching
+            currentIndex = range.upperBound
+        }
+        
+        // Append the remaining text after the last match
+        let suffixRange = currentIndex..<lowercasedText.endIndex
+        let suffix = String(text[suffixRange])
+        highlighted = highlighted + Text(suffix)
+        
+        return highlighted
+    }
 
 }
-
 struct ButtonPositionPreferenceKey: PreferenceKey {
     static var defaultValue: CGRect = .zero
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {

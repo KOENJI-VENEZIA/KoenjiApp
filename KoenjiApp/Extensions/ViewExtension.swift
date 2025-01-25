@@ -252,6 +252,21 @@ extension Color {
     }
 }
 
+extension Color {
+    static var inspector_generic: Color {
+        Color("inspector_generic")
+    }
+}
+extension Color {
+    static var inspector_lunch: Color {
+        Color("inspector_lunch")
+    }
+}
+extension Color {
+    static var inspector_dinner: Color {
+        Color("inspector_dinner")
+    }
+}
 
 
 

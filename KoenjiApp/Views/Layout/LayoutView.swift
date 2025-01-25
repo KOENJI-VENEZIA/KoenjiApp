@@ -132,6 +132,9 @@ struct LayoutView: View {
                     .environmentObject(currentDrawing)
                     .environmentObject(sharedToolPicker)
                     .id(selectedIndex)  // Force view refresh on index change
+                    .transition(.opacity)
+                    .animation(.easeInOut, value: selectedIndex)
+                    
                 }
                 
                 if scale <= 1 {
@@ -234,19 +237,20 @@ struct LayoutView: View {
                     }
                 }
                 
-                if isPresented && !isSharing {
-                    VisualEffectView(effect: UIBlurEffect(style: .dark))
-                        .edgesIgnoringSafeArea(.all)
-                        .transition(.opacity)  // Fade in/out transition
+               
+                VisualEffectView(effect: UIBlurEffect(style: .dark))
+                    .opacity(isPresented ? (isSharing ? 0.0 : 1.0) : 0.0)
+                    .animation(.easeInOut(duration: 0.3), value: isPresented)
+                    .edgesIgnoringSafeArea(.all)
+                    .transition(.opacity)  // Fade in/out transition
 
-                }
                 
-                if isSharing {
-                    VisualEffectView(effect: UIBlurEffect(style: .dark))
-                        .edgesIgnoringSafeArea(.all)
-                        .transition(.opacity)  // Fade in/out transition
+                VisualEffectView(effect: UIBlurEffect(style: .dark))
+                    .opacity(isSharing ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.3), value: isSharing)
+                    .edgesIgnoringSafeArea(.all)
+                    .transition(.opacity)  // Fade in/out transition
 
-                }
 
                 LoadingOverlay()
                         .opacity(appState.isWritingToFirebase ? 1.0 : 0.0) // Smoothly fade in and out
@@ -259,6 +263,14 @@ struct LayoutView: View {
             .navigationTitle("Layout Tavoli")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: {
+                        debugCache()
+                    }) {
+                        Label("Debug Cache", systemImage: "ladybug.slash.fill")
+                    }
+                    .id(refreshID)
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     
                     Button(action: {
@@ -338,13 +350,13 @@ struct LayoutView: View {
                     currentReservation: $currentReservation,
                     showInspector: $showInspector,
                     showingEditReservation: $showingEditReservation,
-                    sidebarColor: $appState.sidebarColor,
                     changedReservation: $changedReservation,
                     isShowingFullImage: $isShowingFullImage,
                     currentTime: $currentTime,
                     selectedCategory: selectedCategory ?? .lunch
                 )
                 .environmentObject(resCache)
+                .environmentObject(appState)
             }
             .sheet(item: $currentReservation) { reservation in
                 EditReservationView(
@@ -400,6 +412,7 @@ struct LayoutView: View {
                 )
                 if let category = newCategory {
                     appState.sidebarColor = category.sidebarColor
+                    appState.inspectorColor = category.inspectorColor
                 }
             }
             .onChange(of: currentTime) { oldTime, newTime in
@@ -442,6 +455,16 @@ struct LayoutView: View {
             }
         } label: {
             Label("share", systemImage: "square.and.arrow.up")
+        }
+    }
+    
+    func debugCache() {
+        if let currentCachedRes = resCache.cache[selectedDate] {
+            for res in currentCachedRes {
+                print("DEBUG: reservation in cache \(res.name), start time: \(res.startTime), end time: \(res.endTime)")
+            }
+        } else {
+            print("DEBUG: reservations in cache at \(selectedDate): 0")
         }
     }
     
@@ -500,30 +523,60 @@ struct LayoutView: View {
         switch toolbarState {
         case .pinnedLeft, .pinnedRight:
             // Vertical layout:
-            VStack(spacing: 25) {
+            VStack {
+                
                 resetDate
-                timeBackward
+                    .padding(.bottom, 2)
+                    .padding(.top, 2)
+                
                 dateBackward
-                lunchButton
-                datePicker(selectedDate: selectedDate)
-                dinnerButton
+                    .padding(.bottom, 2)
+
                 dateForward
-                timeForward
+                    .padding(.bottom, 2)
+
+                datePicker(selectedDate: selectedDate)
+                    .padding(.bottom, 2)
+
                 resetTime
+                    .padding(.bottom, 2)
+
+                timeBackward
+                    .padding(.bottom, 2)
+
+                timeForward
+                    .padding(.bottom, 2)
+
+                lunchButton
+                    .padding(.bottom, 2)
+
+                dinnerButton
+                    .padding(.bottom, 2)
+
             }
 
         case .pinnedBottom:
             // Horizontal layout:
             HStack(spacing: 25) {
+               
                 resetDate
-                timeBackward
+                
                 dateBackward
-                lunchButton
-                datePicker(selectedDate: selectedDate)
-                dinnerButton
+                
                 dateForward
-                timeForward
+                
+                datePicker(selectedDate: selectedDate)
+                
                 resetTime
+                
+                timeBackward
+                
+                timeForward
+                
+                lunchButton
+                
+                dinnerButton
+                
 
             }
 
@@ -780,6 +833,7 @@ struct LayoutView: View {
         // Set initial sidebar color based on selectedCategory
         if let initialCategory = selectedCategory {
             appState.sidebarColor = initialCategory.sidebarColor
+            appState.inspectorColor = initialCategory.inspectorColor
         }
 
         handleCurrentTimeChange(currentTime)
@@ -834,6 +888,7 @@ struct LayoutView: View {
 
         // Update sidebar color
         appState.sidebarColor = newCategory.sidebarColor
+        appState.inspectorColor = newCategory.inspectorColor
     }
 
     private func handleCurrentTimeChange(_ newTime: Date) {
@@ -875,41 +930,57 @@ struct LayoutView: View {
     // MARK: - Helper Methods
 
     private var dateBackward: some View {
-
-        Button(action: {
-
-            navigateToPreviousDate()
-
-        }) {
-            Image(systemName: "chevron.left.circle.fill")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 40, height: 40)
-                .symbolRenderingMode(.hierarchical)  // Enable multicolor rendering
-                .foregroundColor(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "364468"))
-                .shadow(radius: 2)
+        VStack {
+            Text("-1 gg.")
+                .font(.caption)
+                .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+            
+            Button(action: {
+                
+                navigateToPreviousDate()
+                
+            }) {
+                Image(systemName: "chevron.left.circle.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+                    .symbolRenderingMode(.hierarchical)  // Enable multicolor rendering
+                    .foregroundColor(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "364468"))
+                    .shadow(radius: 2)
+            }
         }
     }
 
     private var dateForward: some View {
+        VStack
+        {
+            Text("+1 gg.")
+                .font(.caption)
+                .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+            
+            Button(action: {
+                navigateToNextDate()
 
-        Button(action: {
-            navigateToNextDate()
-
-        }) {
-            Image(systemName: "chevron.right.circle.fill")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 40, height: 40)
-                .symbolRenderingMode(.hierarchical)  // Enable multicolor rendering
-                .foregroundColor(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "364468"))
-                .shadow(radius: 2)
+            }) {
+                Image(systemName: "chevron.right.circle.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+                    .symbolRenderingMode(.hierarchical)  // Enable multicolor rendering
+                    .foregroundColor(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "364468"))
+                    .shadow(radius: 2)
+            }
         }
 
     }
 
     private var timeForward: some View {
 
+        VStack {
+        Text("+15 min.")
+            .font(.caption)
+            .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+        
         Button(action: {
             navigateToNextTime()
 
@@ -922,11 +993,16 @@ struct LayoutView: View {
                     colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
                 )
                 .shadow(radius: 2)
-        }
+        }}
     }
 
     private var timeBackward: some View {
 
+        VStack {
+        Text("-15 min.")
+            .font(.caption)
+            .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+        
         Button(action: {
             navigateToPreviousTime()
 
@@ -939,11 +1015,16 @@ struct LayoutView: View {
                     colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
                 )
                 .shadow(radius: 2)
-        }
+        }}
     }
 
     private var lunchButton: some View {
 
+        VStack {
+        Text("Pranzo")
+            .font(.caption)
+            .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+        
         Button(action: {
             isManuallyOverridden = true
             selectedCategory = .lunch
@@ -961,11 +1042,16 @@ struct LayoutView: View {
                     colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
                 )
                 .shadow(radius: 2)
-        }
+        }}
     }
 
     private var dinnerButton: some View {
 
+        VStack {
+        Text("Cena")
+            .font(.caption)
+            .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+        
         Button(action: {
             isManuallyOverridden = true
             selectedCategory = .dinner
@@ -984,11 +1070,15 @@ struct LayoutView: View {
                     colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
                 )
                 .shadow(radius: 2)
-        }
+        }}
     }
 
     private var resetTime: some View {
 
+        VStack {
+        Text("Adesso")
+            .font(.caption)
+            .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
         // Reset to Default or System Time
         Button(action: {
             withAnimation {
@@ -1007,6 +1097,7 @@ struct LayoutView: View {
                     colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
                 )
                 .shadow(radius: 2)
+           }
         }
         .opacity(
             DateHelper.compareTimes(
@@ -1018,18 +1109,23 @@ struct LayoutView: View {
 
     @ViewBuilder
     private func datePicker(selectedDate: Binding<Date>) -> some View {
-
-        Button(action: {
-            showingDatePicker = true
-        }) {
-            Image(systemName: "calendar.circle.fill")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 40, height: 40)
-                .foregroundStyle(
-                    colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
-                )
-                .shadow(radius: 2)
+        VStack {
+            Text("Data")
+                .font(.caption)
+                .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+            
+            Button(action: {
+                showingDatePicker = true
+            }) {
+                Image(systemName: "calendar.circle.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+                    .foregroundStyle(
+                        colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
+                    )
+                    .shadow(radius: 2)
+            }
         }
         .popover(isPresented: $showingDatePicker) {
             DatePickerView(
@@ -1042,26 +1138,34 @@ struct LayoutView: View {
     }
 
     private var resetDate: some View {
-        Button(action: {
-            withAnimation {
-                let today = Calendar.current.startOfDay(for: systemTime)  // Get today's date with no time component
-                guard let currentTimeOnly = DateHelper.extractTime(time: currentTime) else {
-                    return
-                }  // Extract time components
-                currentTime =
-                DateHelper.combinedInputTime(time: currentTimeOnly, date: today) ?? Date()
-                updateDatesAroundSelectedDate(currentTime)
-                isManuallyOverridden = false
+        VStack {
+            Text("Oggi")
+                .font(.caption)
+                .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+                .opacity(Calendar.current.isDate(currentTime, inSameDayAs: systemTime) ? 0 : 1)
+                .animation(.easeInOut, value: currentTime)
+            
+            Button(action: {
+                withAnimation {
+                    let today = Calendar.current.startOfDay(for: systemTime)  // Get today's date with no time component
+                    guard let currentTimeOnly = DateHelper.extractTime(time: currentTime) else {
+                        return
+                    }  // Extract time components
+                    currentTime =
+                    DateHelper.combinedInputTime(time: currentTimeOnly, date: today) ?? Date()
+                    updateDatesAroundSelectedDate(currentTime)
+                    isManuallyOverridden = false
+                }
+            }) {
+                Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90.circle.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+                    .foregroundStyle(
+                        colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
+                    )
+                    .shadow(radius: 2)
             }
-        }) {
-            Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90.circle.fill")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 40, height: 40)
-                .foregroundStyle(
-                    colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
-                )
-                .shadow(radius: 2)
         }
         .opacity(Calendar.current.isDate(currentTime, inSameDayAs: systemTime) ? 0 : 1)
         .animation(.easeInOut, value: currentTime)

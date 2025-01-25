@@ -72,12 +72,8 @@ struct LayoutPageView: View {
     @State private var catchedImage: UIImage?
 
     @State private var debounceWorkItem: DispatchWorkItem?
-    @StateObject private var stateCache = ReservationStateCache()
     @StateObject private var currentReservationsCache = CurrentReservationsCache()
-    
-    private var activeReservations: [Reservation] {
-        resCache.reservations(for: combinedDate)
-    }
+    @State private var activeReservations: [Reservation] = []
 
     // MARK: - Computed Properties
     private var isCompact: Bool {
@@ -183,7 +179,7 @@ struct LayoutPageView: View {
                     RoundedRectangle(cornerRadius: 12.0)
                         .stroke(style: StrokeStyle(lineWidth: 2, dash: [5]))
 
-                    if isLoading {
+                    
                         ZStack {
                             loadingView
 
@@ -196,10 +192,15 @@ struct LayoutPageView: View {
                                 .frame(width: gridWidth / 2, height: gridHeight / 2)
                                 .position(
                                     x: gridWidth / 2, y: gridHeight / 2 - gridData.cellSize)
+                            
                         }
+                        .transition(.opacity)
+                        .opacity(isLoading ? 1 : 0)
+                        .animation(.easeInOut, value: isLoading)
 
-                    } else {
+                    ZStack {
                         // Individual tables
+                        
                         ForEach(layoutUI.tables, id: \.id) { table in
                             TableView(
                                 table: table,
@@ -237,9 +238,10 @@ struct LayoutPageView: View {
                             .environmentObject(clusterServices)
                             .environmentObject(layoutServices)
                             .environmentObject(gridData)
-                            .environmentObject(stateCache)
-                            .transition(.opacity)  // Fade in/out transition
-
+                            .opacity(!isLoading ? 1 : 0)
+                            .animation(.easeInOut(duration: 0.3), value: !isLoading)
+                            .transition(.opacity)
+                            
                             if clusterManager.clusters.isEmpty && !isLoadingClusters {
                             } else if isLoadingClusters {
                                 ProgressView("Loading Clusters...")
@@ -248,7 +250,7 @@ struct LayoutPageView: View {
                                 // Reservation clusters overlay
                                 ForEach(clusterManager.clusters) { cluster in
                                     let overlayFrame = cluster.frame
-
+                                    
                                     ClusterView(
                                         cluster: cluster,
                                         overlayFrame: overlayFrame,
@@ -257,26 +259,37 @@ struct LayoutPageView: View {
                                         isLunch: isLunch
                                     )
                                     .environmentObject(resCache)
-                                    .environmentObject(stateCache)
+                                    .opacity(!isLoading ? 1 : 0)
+                                    .animation(.easeInOut(duration: 0.3), value: !isLoading)
+                                    .transition(.opacity)
                                 }
                             }
                         }
-
+                        .zIndex(1)
+                        
+                        
                         ForEach(clusterManager.clusters) { cluster in
                             ClusterOverlayView(cluster: cluster, currentTime: currentTime, selectedCategory: selectedCategory)
                                 .environmentObject(resCache)
-                                .environmentObject(stateCache)
                                 .zIndex(2)
+                                .transition(.opacity)
+                                .animation(.easeInOut, value: !isLoading)
+                                .opacity(!isLoading ? 1 : 0)
                                 .gesture(
                                     TapGesture(count: 1).onEnded {
                                         handleTap(
                                             activeReservations, cluster.reservationID
                                         )
-
+                                        
                                     }
                                 )
-
+                            
                         }
+                    }
+                    .opacity(!isLoading ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.3), value: !isLoading)
+                    .transition(.opacity)
+                    
 
                         PencilKitCanvas(
                             zoomableState: zoomableState,
@@ -293,7 +306,7 @@ struct LayoutPageView: View {
 
                         .zIndex(2)
                         .frame(width: gridWidth, height: gridHeight)
-                    }
+                        
 
                     //                            .frame(width: gridWidth, height: gridHeight)
                 }
@@ -302,9 +315,8 @@ struct LayoutPageView: View {
                         cachedScreenshot = screenshotMaker
                     }
                 }
-
-                .transition(.opacity)  // Fade in/out transition
-
+                .animation(.easeInOut(duration: 0.3), value: isLoading)
+                .transition(.opacity)
                 .frame(width: gridWidth, height: gridHeight)
             }
         }
@@ -332,7 +344,7 @@ struct LayoutPageView: View {
             if reset {
                 isLoading = true
                 resetCurrentLayout()
-
+                updateCachedReservation()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                     withAnimation(.easeInOut(duration: 0.5)) {
 
@@ -342,16 +354,23 @@ struct LayoutPageView: View {
                 }
             }
         }
+        .onChange(of: showInspector) {
+            updateCachedReservation()
+//            clusterManager.recalculateClustersIfNeeded(
+//                for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
+//                oldCategory: selectedCategory,
+//                selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+        }
         .onChange(of: selectedCategory) { old, newCategory in
             // Load tables for the new category and date
             debounce {
 
-               
+                updateCachedReservation()
                 reloadLayout(newCategory, activeReservations)
-                clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
-                    oldCategory: old,
-                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+//                clusterManager.recalculateClustersIfNeeded(
+//                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
+//                    oldCategory: old,
+//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
                 //            capturedImage = captureView()
             }
 
@@ -359,12 +378,13 @@ struct LayoutPageView: View {
         .onChange(of: selectedDate) { old, newDate in
             debounce {
                 resCache.preloadDates(around: newDate, range: 5, reservations: store.reservations)
+                updateCachedReservation()
                 resCache.startMonitoring(for: newDate)
                 reloadLayout(selectedCategory, activeReservations)
-                clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: newDate,
-                    oldCategory: selectedCategory,
-                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+//                clusterManager.recalculateClustersIfNeeded(
+//                    for: activeReservations, tables: layoutUI.tables, combinedDate: newDate,
+//                    oldCategory: selectedCategory,
+//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
                 //            capturedImage = captureView()
             }
 
@@ -372,21 +392,22 @@ struct LayoutPageView: View {
         .onChange(of: showingEditReservation) { old, newValue in
             print("Triggered onChange of showingEditReservation")
             debounce {
+                updateCachedReservation()
                 reloadLayout(selectedCategory, activeReservations)
-                clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
-                    oldCategory: selectedCategory,
-                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+//                clusterManager.recalculateClustersIfNeeded(
+//                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
+//                    oldCategory: selectedCategory,
+//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
         }
         .onChange(of: currentTime) { old, newTime in
             print("New current time: \(newTime)")
             debounce {
                 reloadLayout(selectedCategory, activeReservations)
-                clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
-                    oldCategory: selectedCategory,
-                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+//                clusterManager.recalculateClustersIfNeeded(
+//                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
+//                    oldCategory: selectedCategory,
+//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
                 
             }
             
@@ -396,26 +417,33 @@ struct LayoutPageView: View {
             print("reservations changed from \(oldValue.count) to \(newValue.count)")
             // Force the active-reservations fetch (since store.reservations changed)
             debounce {
+                updateCachedReservation()
                 reloadLayout(selectedCategory, activeReservations)
+//                clusterManager.recalculateClustersIfNeeded(
+//                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
+//                    oldCategory: selectedCategory,
+//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
         }
         .onChange(of: changedReservation) {
             debounce {
                 print("Detected cancelled Reservation [LayoutPageView]")
+                updateCachedReservation()
                 reloadLayout(selectedCategory, activeReservations)
-                clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
-                    oldCategory: selectedCategory,
-                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+//                clusterManager.recalculateClustersIfNeeded(
+//                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
+//                    oldCategory: selectedCategory,
+//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
         }
         .onChange(of: statusChanged) {
             debounce {
+                updateCachedReservation()
                 reloadLayout(selectedCategory, activeReservations)
-                clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
-                    oldCategory: selectedCategory,
-                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+//                clusterManager.recalculateClustersIfNeeded(
+//                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
+//                    oldCategory: selectedCategory,
+//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
             //            capturedImage = captureView()
         }
@@ -433,6 +461,12 @@ struct LayoutPageView: View {
 
     // MARK: - Helper Views
 
+    private func updateCachedReservation() {
+        activeReservations = resCache.reservations(for: combinedDate).filter { reservation in
+            reservation.status != .showedUp || reservation.reservationType != .waitingList
+        }
+    }
+    
     private func debounce(action: @escaping () -> Void, delay: TimeInterval = 0.1) {
         debounceWorkItem?.cancel()
         let newWorkItem = DispatchWorkItem {
@@ -558,7 +592,9 @@ struct LayoutPageView: View {
 
     private func onTableUpdated(_ updatedTable: TableModel) {
 
-//        self.updateAdjacencyCountsForLayout(updatedTable)
+        
+        
+        updateAdjacencyCountsForLayout(updatedTable)
         clusterManager.recalculateClustersIfNeeded(
             for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
             oldCategory: selectedCategory,
@@ -623,7 +659,7 @@ struct LayoutPageView: View {
                 for: combinedDate, category: determinedCategory)
         }
 
-
+        updateCachedReservation()
 
         clusterManager.recalculateClustersIfNeeded(
             for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
@@ -663,45 +699,45 @@ struct LayoutPageView: View {
 
     // MARK: - Cache and UI Update Methods
 
-//    private func updateAdjacencyCountsForLayout(_ updatedTable: TableModel) {
-//        // Identify tables with adjacentCount > 0 before the move
-//        let previousAdjacentTables = layoutUI.tables.filter { $0.adjacentCount > 0 }.map { $0.id }
-//
-//        // Identify affected tables (dragged table + neighbors)
-//        var affectedTableIDs = Set<Int>()
-//        affectedTableIDs.insert(updatedTable.id)
-//
-//        let adjacencyResult = layoutServices.isTableAdjacent(
-//            updatedTable, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
-//        for neighbor in adjacencyResult.adjacentDetails.values {
-//            affectedTableIDs.insert(neighbor.id)
-//        }
-//
-//        // Include all previously adjacent tables in the affected list
-//        affectedTableIDs.formUnion(previousAdjacentTables)
-//
-//        // Recalculate adjacency counts for affected tables only
-//        for tableID in affectedTableIDs {
-//            if let index = layoutUI.tables.firstIndex(where: { $0.id == tableID }) {
-//                let table = layoutUI.tables[index]
-//                let adjacency = layoutServices.isTableAdjacent(
-//                    table, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
-//                layoutUI.tables[index].adjacentCount = adjacency.adjacentCount
-//
-//                layoutUI.tables[index].activeReservationAdjacentCount =
-//                    layoutServices.isAdjacentWithSameReservation(
-//                        for: table,
-//                        combinedDateTime: combinedDate,
-//                        activeTables: layoutUI.tables
-//                    ).count
-//            }
-//        }
-//
-//        // Update cached layout and save
-//        let layoutKey = layoutServices.keyFor(date: combinedDate, category: selectedCategory)
-//        layoutServices.cachedLayouts[layoutKey] = layoutUI.tables
-//        layoutServices.saveToDisk()
-//    }
+    private func updateAdjacencyCountsForLayout(_ updatedTable: TableModel) {
+        // Identify tables with adjacentCount > 0 before the move
+        let previousAdjacentTables = layoutUI.tables.filter { $0.adjacentCount > 0 }.map { $0.id }
+
+        // Identify affected tables (dragged table + neighbors)
+        var affectedTableIDs = Set<Int>()
+        affectedTableIDs.insert(updatedTable.id)
+
+        let adjacencyResult = layoutServices.isTableAdjacent(
+            updatedTable, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
+        for neighbor in adjacencyResult.adjacentDetails.values {
+            affectedTableIDs.insert(neighbor.id)
+        }
+
+        // Include all previously adjacent tables in the affected list
+        affectedTableIDs.formUnion(previousAdjacentTables)
+
+        // Recalculate adjacency counts for affected tables only
+        for tableID in affectedTableIDs {
+            if let index = layoutUI.tables.firstIndex(where: { $0.id == tableID }) {
+                let table = layoutUI.tables[index]
+                let adjacency = layoutServices.isTableAdjacent(
+                    table, combinedDateTime: combinedDate, activeTables: layoutUI.tables)
+                layoutUI.tables[index].adjacentCount = adjacency.adjacentCount
+
+                layoutUI.tables[index].activeReservationAdjacentCount =
+                    layoutServices.isAdjacentWithSameReservation(
+                        for: table,
+                        combinedDateTime: combinedDate,
+                        activeTables: layoutUI.tables
+                    ).count
+            }
+        }
+
+        // Update cached layout and save
+        let layoutKey = layoutServices.keyFor(date: combinedDate, category: selectedCategory)
+        layoutServices.cachedLayouts[layoutKey] = layoutUI.tables
+        layoutServices.saveToDisk()
+    }
 
 }
 

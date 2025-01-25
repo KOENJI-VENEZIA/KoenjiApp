@@ -50,7 +50,7 @@ struct EditReservationView: View {
                     }
                     .onAppear {
                         // Initialize selectedDate based on reservation.dateString
-                        if let reservationDate = reservation.cachedNormalizedDate {
+                        if let reservationDate = reservation.normalizedDate {
                             selectedDate = reservationDate
                         }
                         print("Selected date: \(selectedDate)")
@@ -476,7 +476,7 @@ struct EditReservationView: View {
     }
 
     private func loadInitialDate() {
-        selectedDate = reservation.cachedNormalizedDate ?? Date()
+        selectedDate = reservation.normalizedDate ?? Date()
         print("Selected date: \(selectedDate)")
 
     }

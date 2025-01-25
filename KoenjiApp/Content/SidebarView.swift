@@ -45,18 +45,18 @@ struct SidebarView: View {
                             ) {
                                 Label("Database", systemImage: "list.bullet")
                             }
-                        NavigationLink(destination: CalendarView()
-                            .environmentObject(store)
-                            .environmentObject(resCache)
-                            .environmentObject(tableStore)
-                            .environmentObject(reservationService) // For the new service
-                            .environmentObject(clusterServices)
-                            .environmentObject(layoutServices)
-                            .environmentObject(gridData)
-                            .environmentObject(appState)
-                            ) {
-                                Label("Calendario", systemImage: "calendar")
-                            }
+//                        NavigationLink(destination: CalendarView()
+//                            .environmentObject(store)
+//                            .environmentObject(resCache)
+//                            .environmentObject(tableStore)
+//                            .environmentObject(reservationService) // For the new service
+//                            .environmentObject(clusterServices)
+//                            .environmentObject(layoutServices)
+//                            .environmentObject(gridData)
+//                            .environmentObject(appState)
+//                            ) {
+//                                Label("Calendario", systemImage: "calendar")
+//                            }
                         NavigationLink(destination: LayoutView(selectedCategory: $selectedCategory, selectedReservation: $selectedReservation, currentReservation: $currentReservation)
                             .environmentObject(store)
                             .environmentObject(resCache)
@@ -108,6 +108,16 @@ extension Reservation.ReservationCategory {
         case .lunch: return Color.sidebar_lunch
         case .dinner: return Color.sidebar_dinner
         case .noBookingZone: return Color.sidebar_generic
+        }
+    }
+}
+
+extension Reservation.ReservationCategory {
+    var inspectorColor: Color {
+        switch self {
+        case .lunch: return Color.inspector_lunch
+        case .dinner: return Color.inspector_dinner
+        case .noBookingZone: return Color.inspector_generic
         }
     }
 }

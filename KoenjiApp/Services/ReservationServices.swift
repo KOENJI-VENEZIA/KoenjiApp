@@ -66,17 +66,19 @@ class ReservationService: ObservableObject {
        }
     
     /// Updates an existing reservation, refreshes the cache, and reassigns tables if needed.
-    func updateReservation(_ updatedReservation: Reservation, at index: Int? = nil) {
+    func updateReservation(_ oldReservation: Reservation, at index: Int? = nil/*, dateString: String? = "", startTime: String? = "", endTime: String? = ""*/) {
         // Remove from active cache
 //        removeReservationFromActiveCache(updatedReservation)
-        resCache.removeReservation(updatedReservation)
-
+        self.invalidateClusterCache(for: oldReservation)
+        resCache.removeReservation(oldReservation)
+        let updatedReservation = oldReservation
+        
         // Update reservation in the store
         DispatchQueue.main.async {
-            let reservationIndex = index ?? self.store.reservations.firstIndex(where: { $0.id == updatedReservation.id })
+            let reservationIndex = index ?? self.store.reservations.firstIndex(where: { $0.id == oldReservation.id })
 
             guard let reservationIndex else {
-                print("Error: Reservation with ID \(updatedReservation.id) not found.")
+                print("Error: Reservation with ID \(oldReservation.id) not found.")
                 return
             }
 
@@ -85,6 +87,9 @@ class ReservationService: ObservableObject {
             // Unmark old tables
             oldReservation.tables.forEach { self.layoutServices.unmarkTable($0) }
 
+            
+
+            
             // Update the reservation
             self.store.reservations[reservationIndex] = updatedReservation
 
@@ -205,7 +210,7 @@ class ReservationService: ObservableObject {
             decoder.dateDecodingStrategy = .iso8601 // Ensure ISO 8601 consistency
             
             // Decode reservations
-            var decodedReservations = try decoder.decode([Reservation].self, from: data)
+            let decodedReservations = try decoder.decode([Reservation].self, from: data)
             
             
             // Save normalized reservations to the store
@@ -440,8 +445,8 @@ extension ReservationService {
         var totalGeneratedReservations = 0
 
         // Available time slots (Lunch and Dinner)
-        var availableTimeSlots = Set(self.generateTimeSlots(for: reservationDate, range: (12, 15)))
-        availableTimeSlots.formUnion(self.generateTimeSlots(for: reservationDate, range: (18, 23)))
+        var availableTimeSlots = Set(self.generateTimeSlots(for: reservationDate, range: (12, 14)))
+        availableTimeSlots.formUnion(self.generateTimeSlots(for: reservationDate, range: (18, 22)))
 
         while totalGeneratedReservations < maxDailyReservations && !availableTimeSlots.isEmpty {
             guard let startTime = availableTimeSlots.min() else { break }
@@ -482,7 +487,7 @@ extension ReservationService {
                 notes: notes.randomElement(),
                 tables: [],
                 creationDate: Date(),
-                isMock: true
+                isMock: false
             )
 
             
@@ -510,6 +515,7 @@ extension ReservationService {
                         if !self.store.reservations.contains(where: { $0.id == updatedReservation.id }) {
                             self.resCache.addOrUpdateReservation(updatedReservation)
                             self.store.reservations.append(updatedReservation)
+                            self.updateReservation(updatedReservation)
                             print("Generated reservation: \(updatedReservation)")
                         }
                     case .failure(let error):
@@ -609,7 +615,7 @@ extension ReservationService {
     
    
     func updateActiveReservationAdjacencyCounts(for reservation: Reservation) {
-        guard let reservationDate = reservation.cachedNormalizedDate,
+        guard let reservationDate = reservation.normalizedDate,
               let combinedDateTime = reservation.startTimeDate else {
             print("Invalid reservation date or time for updating adjacency counts.")
             return

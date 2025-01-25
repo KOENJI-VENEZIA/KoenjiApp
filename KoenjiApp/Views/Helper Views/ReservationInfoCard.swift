@@ -90,7 +90,7 @@ struct ReservationInfoCard: View {
                                     .fontWeight(.semibold)
                                 Spacer()
                                 Text(
-                                    "\(DateHelper.dayOfWeek(for: reservation.cachedNormalizedDate ?? Calendar.current.startOfDay(for: Date())))\n\(DateHelper.formatFullDate(reservation.cachedNormalizedDate ?? Date()))"
+                                    "\(DateHelper.dayOfWeek(for: reservation.normalizedDate ?? Calendar.current.startOfDay(for: Date())))\n\(DateHelper.formatFullDate(reservation.normalizedDate ?? Date()))"
                                 )
                                 .multilineTextAlignment(.trailing)
                             }

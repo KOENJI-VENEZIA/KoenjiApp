@@ -60,6 +60,9 @@ struct ReservationsInfoListView: View {
                                         onEdit(newReservation)
                                     }
                                 )
+                                .onTapGesture(count: 2) {
+                                    onEdit(reservation)
+                                }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                     Button {
                                         handleCancelled(reservation)
@@ -172,7 +175,7 @@ struct ReservationsInfoListView: View {
     
     func reservations(at date: Date) -> [Reservation] {
         store.reservations.filter { reservation in
-            guard let reservationDate = reservation.cachedNormalizedDate else { return false }// Skip reservations with invalid times
+            guard let reservationDate = reservation.normalizedDate else { return false }// Skip reservations with invalid times
             return reservationDate.isSameDay(as: date)
         }
     }

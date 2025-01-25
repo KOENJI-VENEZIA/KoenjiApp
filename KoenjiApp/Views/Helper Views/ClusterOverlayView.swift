@@ -12,13 +12,9 @@ struct ClusterOverlayView: View {
     let selectedCategory: Reservation.ReservationCategory
     @State private var systemTime: Date = Date()
     
-    // Precomputed states
-    @State private var showedUp: Bool = false
-    @State private var isLate: Bool = false
-    @State private var timesUp: Bool = false
-
+    @State private var nearEndReservation: Reservation?
+    
     @EnvironmentObject var resCache: CurrentReservationsCache
-    @EnvironmentObject var stateCache: ReservationStateCache
 
     
     var body: some View {
@@ -53,7 +49,7 @@ struct ClusterOverlayView: View {
             }
 
             // Warning overlay for "time's up"
-            if resCache.nearingEndReservations(currentTime: currentTime).contains(where: {$0.id == cluster.reservationID.id }) {
+            if nearEndReservation != nil {
                 Image(systemName: "figure.walk.motion.trianglebadge.exclamationmark")
                     .resizable()
                     .scaledToFit()
@@ -65,75 +61,19 @@ struct ClusterOverlayView: View {
             }
         }
         .onAppear {
-//            cluster.reservationID = resCache.reservation(forTable: cluster.tableIDs.first!, datetime: currentTime, category: selectedCategory)
+            updateNearEndReservation()
         }
-        .onChange(of: currentTime) { 
-            computeReservationStates()
+        .onChange(of: currentTime) {
+            updateNearEndReservation()
         }
         .animation(.easeInOut, value: cluster.reservationID.status)
     }
 
     // MARK: - Precompute Reservation States
-    private func computeReservationStates() {
-        let reservation = cluster.reservationID
-
-        // Check if the reservation states are already cached
-        if let cachedState = stateCache.cache[reservation.id],
-           cachedState.time == systemTime {
-            // Use cached values
-            timesUp = cachedState.timesUp
-            isLate = cachedState.isLate
-            showedUp = cachedState.showedUp
-            return
+    private func updateNearEndReservation() {
+        if resCache.nearingEndReservations(currentTime: currentTime).contains(where: {$0.id == cluster.reservationID.id }) {
+            nearEndReservation = cluster.reservationID
         }
-
-        let calendar = Calendar.current
-
-        // Compute "showed up" status
-        let showedUpComputed = reservation.status == .showedUp
-
-        // Compute "running late" status
-        let isLateComputed: Bool
-        if reservation.status != .showedUp,
-           let startTime = reservation.startTimeDate,
-           let endTime = reservation.endTimeDate {
-            let isSameDay = calendar.isDate(systemTime, inSameDayAs: startTime)
-            let elapsedTime = systemTime.timeIntervalSince(startTime)
-            let reservationDuration = endTime.timeIntervalSince(startTime)
-
-            // Late if elapsed time is >= 15 minutes but within the reservation duration
-            isLateComputed = isSameDay && elapsedTime >= 15 * 60 && elapsedTime <= reservationDuration
-        } else {
-            isLateComputed = false
-        }
-
-        // Compute "time's up" status
-        let timesUpComputed: Bool
-        if let startTime = reservation.startTimeDate,
-           let endTime = reservation.endTimeDate {
-            let isSameDay = calendar.isDate(systemTime, inSameDayAs: startTime)
-            let elapsedTime = systemTime.timeIntervalSince(startTime)
-            let reservationDuration = endTime.timeIntervalSince(startTime)
-            let isWithinEndWindow = endTime.timeIntervalSince(systemTime) <= 30 * 60
-
-            // Time's up if within 30 minutes of the reservation's end and within its duration
-            timesUpComputed = isSameDay && elapsedTime <= reservationDuration && isWithinEndWindow
-        } else {
-            timesUpComputed = false
-        }
-
-        // Update states
-        timesUp = timesUpComputed
-        isLate = isLateComputed
-        showedUp = showedUpComputed
-
-        // Cache the computed values
-        stateCache.cache[reservation.id] = ReservationState(
-            time: systemTime,
-            timesUp: timesUpComputed,
-            showedUp: showedUpComputed,
-            isLate: isLateComputed
-        )
     }
 }
 

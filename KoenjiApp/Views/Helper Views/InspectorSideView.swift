@@ -12,13 +12,13 @@ struct InspectorSideView: View {
     @Binding var currentReservation: Reservation?
     @Binding var showInspector: Bool
     @Binding var showingEditReservation: Bool
-    @Binding var sidebarColor: Color // Default
     @Binding var changedReservation: Reservation?
     @Binding var isShowingFullImage: Bool
     @State private var selectedView: SelectedView = .info
     @Binding var currentTime: Date
     var selectedCategory: Reservation.ReservationCategory
     @EnvironmentObject var resCache: CurrentReservationsCache
+    @EnvironmentObject var appState: AppState
     
     var activeReservations: [Reservation] {
         resCache.reservations(for: currentTime)
@@ -33,7 +33,7 @@ struct InspectorSideView: View {
     var body: some View {
 
         ZStack {
-            Color(sidebarColor)
+            Color(appState.inspectorColor)
                 .ignoresSafeArea()
 
             VStack {
@@ -76,6 +76,7 @@ struct InspectorSideView: View {
                     },
                                              onEdit: { reservation in
                         currentReservation = reservation
+                        changedReservation = reservation
                         showingEditReservation = true
                     },
                                              onCancelled: { reservation in

@@ -6,17 +6,6 @@
 //
 import SwiftUI
 
-class ReservationStateCache: ObservableObject {
-    @EnvironmentObject var resCache: CurrentReservationsCache
-    @Published var cache: [UUID: ReservationState] = [:]
-}
-
-struct ReservationState {
-    let time: Date
-    let timesUp: Bool
-    let showedUp: Bool
-    let isLate: Bool
-}
 
 struct ClusterView: View {
 
@@ -26,29 +15,48 @@ struct ClusterView: View {
     @State private var systemTime: Date = Date()
     @Binding var isLayoutLocked: Bool
     var isLunch: Bool
+    @State var nearEndReservation: Reservation?
 
     // Precomputed states
-    @State private var timesUp: Bool = false
-    @State private var showedUp: Bool = false
-    @State private var isLate: Bool = false
-    @EnvironmentObject var stateCache: ReservationStateCache
+    private var showedUp: Bool {
+        return cluster.reservationID.status == .showedUp
+    }
+    private var isLate: Bool {
+        return cluster.reservationID.status == .late
+    }
+    @EnvironmentObject var resCache: CurrentReservationsCache
 
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 8.0)
-                .fill(isLunch ? Color.active_table_lunch : Color.active_table_dinner)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8.0)
-                        .stroke(
-                            timesUp ? .red : (isLate ? Color(hex: "#f78457") : (showedUp ? .green : .white)),
-                            lineWidth: 3
-                        )
-                )
-                .frame(width: overlayFrame.width, height: overlayFrame.height)
-                .position(x: overlayFrame.midX, y: overlayFrame.midY)
-                .zIndex(1)
-                .allowsHitTesting(false) // Ignore touch input
+            if nearEndReservation == nil {
+                RoundedRectangle(cornerRadius: 8.0)
+                    .fill(isLunch ? Color.active_table_lunch : Color.active_table_dinner)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8.0)
+                            .stroke(
+                                isLate ? Color(hex: "#f78457") : (showedUp ? .green : .white),
+                                lineWidth: 3
+                            )
+                    )
+                    .frame(width: overlayFrame.width, height: overlayFrame.height)
+                    .position(x: overlayFrame.midX, y: overlayFrame.midY)
+                    .zIndex(1)
+                    .allowsHitTesting(false) // Ignore touch input
+            } else {
+                RoundedRectangle(cornerRadius: 8.0)
+                    .fill(isLunch ? Color.active_table_lunch : Color.active_table_dinner)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8.0)
+                            .stroke(.red,
+                                lineWidth: 3
+                            )
+                    )
+                    .frame(width: overlayFrame.width, height: overlayFrame.height)
+                    .position(x: overlayFrame.midX, y: overlayFrame.midY)
+                    .zIndex(1)
+                    .allowsHitTesting(false) // Ignore touch input
+            }
 
             // Reservation label (centered on the cluster)
             if cluster.tableIDs.first != nil {
@@ -78,12 +86,19 @@ struct ClusterView: View {
                             .multilineTextAlignment(.center)
                             .foregroundColor(.white)
                             .font(.footnote)
-
-                        Text("\(remaining)")
-                            .bold()
-                            .multilineTextAlignment(.center)
-                            .foregroundColor(timesUp ? Color(hex: "#f78457") : .white)
-                            .font(.footnote)
+                        if nearEndReservation == nil {
+                            Text("\(remaining)")
+                                .bold()
+                                .multilineTextAlignment(.center)
+                                .foregroundColor(.white)
+                                .font(.footnote)
+                        } else {
+                            Text("\(remaining)")
+                                .bold()
+                                .multilineTextAlignment(.center)
+                                .foregroundColor(Color(hex: "#f78457"))
+                                .font(.footnote)
+                        }
                     }
                 }
                 .position(x: overlayFrame.midX, y: overlayFrame.midY)
@@ -92,73 +107,19 @@ struct ClusterView: View {
         }
         .allowsHitTesting(false)
         .onAppear {
-            computeReservationStates()
+            updateNearEndReservation()
         }
         .onChange(of: currentTime) {
-            computeReservationStates()
+            updateNearEndReservation()
         }
     }
 
     // MARK: - Precompute Reservation States
-    private func computeReservationStates() {
-        let activeReservation = cluster.reservationID
-
-        // Check the cache first
-        if let cachedState = stateCache.cache[activeReservation.id],
-           cachedState.time == currentTime {
-            // Use cached values if `currentTime` hasn't changed
-            timesUp = cachedState.timesUp
-            showedUp = cachedState.showedUp
-            isLate = cachedState.isLate
-            return
-        }
-
-        let calendar = Calendar.current
-
-        // Compute `timesUp`
-        let timesUpComputed: Bool
-        if let startTime = activeReservation.startTimeDate,
-           let endTime = activeReservation.endTimeDate {
-            // Check if systemTime is within 30 minutes of the reservation end time
-            let elapsedTime = systemTime.timeIntervalSince(startTime)
-            let reservationDuration = endTime.timeIntervalSince(startTime)
-            let isWithinEndWindow = endTime.timeIntervalSince(systemTime) <= 30 * 60
-            let isSameDay = calendar.isDate(systemTime, inSameDayAs: startTime)
-
-            timesUpComputed = isSameDay && elapsedTime <= reservationDuration && isWithinEndWindow
-        } else {
-            timesUpComputed = false
-        }
-
-        // Compute `showedUp`
-        let showedUpComputed = activeReservation.status == .showedUp
-
-        // Compute `isLate`
-        let isLateComputed: Bool
-        if activeReservation.status != .showedUp,
-           let startTime = activeReservation.startTimeDate,
-           let endTime = activeReservation.endTimeDate {
-            let elapsedTime = systemTime.timeIntervalSince(startTime)
-            let reservationDuration = endTime.timeIntervalSince(startTime)
-            let isSameDay = calendar.isDate(systemTime, inSameDayAs: startTime)
-
-            // Reservation is late if elapsed time >= 15 minutes but within the reservation duration
-            isLateComputed = isSameDay && elapsedTime >= 15 * 60 && elapsedTime <= reservationDuration
-        } else {
-            isLateComputed = false
-        }
-
-        // Update states
-        timesUp = timesUpComputed
-        showedUp = showedUpComputed
-        isLate = isLateComputed
-
-        // Cache the computed values
-        stateCache.cache[activeReservation.id] = ReservationState(
-            time: systemTime,
-            timesUp: timesUpComputed,
-            showedUp: showedUpComputed,
-            isLate: isLateComputed
-        )
+    
+    private func updateNearEndReservation() {
+        if resCache.nearingEndReservations(currentTime: currentTime).contains(where: {
+            $0.id == cluster.reservationID.id
+        }) {
+            nearEndReservation = cluster.reservationID }
     }
 }

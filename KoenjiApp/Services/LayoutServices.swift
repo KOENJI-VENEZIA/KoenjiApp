@@ -198,8 +198,9 @@ class LayoutServices: ObservableObject {
             guard let selectedTable = tables.first(where: { $0.id == tableID }) else {
                 return .failure(.tableNotFound)
             }
+            
             // 2) Check lock
-            if isTableLocked(tableID: selectedTable.id, start: reservationStart, end: reservationEnd) {
+            if isTableLocked(tableID: selectedTable.id, start: reservationStart, end: reservationEnd), !reservation.tables.contains(selectedTable) {
                 return .failure(.tableLocked)
             }
             

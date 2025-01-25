@@ -84,7 +84,7 @@ class ClusterManager: ObservableObject {
                 id: UUID(),
                 reservationID: reservation,
                 tableIDs: component.map { $0.id },
-                date: reservation.cachedNormalizedDate ?? Date(),
+                date: reservation.normalizedDate ?? Date(),
                 category: reservation.category,
                 frame: calculateClusterFrame(component, cellSize: cellSize)
             )
@@ -161,7 +161,7 @@ class ClusterManager: ObservableObject {
             print("End Time: \(String(describing: reservation.endTimeDate))")
 
             
-            let isValid = combinedDate >= reservation.startTimeDate ?? Date() && combinedDate < reservation.endTimeDate ?? Date()
+            let isValid = combinedDate >= reservation.startTimeDate ?? Date() && combinedDate < reservation.endTimeDate ?? Date() && reservation.status != .canceled && reservation.reservationType != .waitingList
             print("Is Valid: \(isValid)")
             return isValid
         }
