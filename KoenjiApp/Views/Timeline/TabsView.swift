@@ -26,6 +26,8 @@ struct TabsView: View {
     @State var showingDatePicker: Bool = false
     @State var showingAddReservationSheet: Bool = false
 
+    @State var bindableDate: Date = Date()
+    
     var body: some View {
         // TabView for "Lunch" and "Dinner" selection
         if #available(iOS 18.0, *) {
@@ -143,16 +145,7 @@ struct TabsView: View {
 //            }
             .sheet(isPresented: $showingAddReservationSheet) {
                 AddReservationView(
-                    selectedDate: Binding<Date>(
-                        get: {
-                            // Force-unwrap or handle out-of-range more gracefully
-                            appState.dates[appState.selectedIndex]
-                        },
-                        set: { newVal in
-                            // Update the array in the parent
-                            appState.dates[appState.selectedIndex] = newVal
-                        }
-                    ),
+                    selectedDate: $bindableDate,
                     passedTable: nil
                 )
                 .environmentObject(store)
@@ -173,6 +166,8 @@ struct TabsView: View {
                     && reservation.status != .canceled
                     && reservation.reservationType != .waitingList
                 }
+                
+                bindableDate = appState.selectedDate
                 
             }
             .onChange(of: selectedTab) {
