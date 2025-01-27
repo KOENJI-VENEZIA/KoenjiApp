@@ -8,14 +8,13 @@ import SwiftUI
 
 struct ClusterOverlayView: View {
     let cluster: CachedCluster
-    let currentTime: Date
     let selectedCategory: Reservation.ReservationCategory
     @State private var systemTime: Date = Date()
     
     @State private var nearEndReservation: Reservation?
     
     @EnvironmentObject var resCache: CurrentReservationsCache
-
+    @EnvironmentObject var appState: AppState
     
     var body: some View {
         ZStack {
@@ -60,10 +59,11 @@ struct ClusterOverlayView: View {
                     .zIndex(2)
             }
         }
+        .background(.clear)
         .onAppear {
             updateNearEndReservation()
         }
-        .onChange(of: currentTime) {
+        .onChange(of: appState.selectedDate) {
             updateNearEndReservation()
         }
         .animation(.easeInOut, value: cluster.reservationID.status)
@@ -71,7 +71,7 @@ struct ClusterOverlayView: View {
 
     // MARK: - Precompute Reservation States
     private func updateNearEndReservation() {
-        if resCache.nearingEndReservations(currentTime: currentTime).contains(where: {$0.id == cluster.reservationID.id }) {
+        if resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {$0.id == cluster.reservationID.id }) {
             nearEndReservation = cluster.reservationID
         }
     }

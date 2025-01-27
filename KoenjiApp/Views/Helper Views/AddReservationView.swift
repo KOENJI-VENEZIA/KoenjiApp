@@ -3,6 +3,7 @@ import SwiftUI
 
 struct AddReservationView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var appState: AppState
     @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
@@ -39,9 +40,9 @@ struct AddReservationView: View {
     @State private var showImageField = false
 
     // MARK: - Bindings from parent
-    @Binding var category: Reservation.ReservationCategory?
+    @State var category: Reservation.ReservationCategory = .lunch
     @Binding var selectedDate: Date
-    @Binding var startTime: Date
+    @State var startTime: Date = Date()
     var passedTable: TableModel?
 
     @State private var availableTables: [(table: TableModel, isCurrentlyAssigned: Bool)] = []
@@ -118,19 +119,19 @@ struct AddReservationView: View {
 
                     TimeSelectionView(
                         selectedTime: $startTimeString,
-                        category: category ?? .lunch
+                        category: category
                     )
                     .frame(maxWidth: .infinity, alignment: .center)
                     .onChange(of: startTimeString) { _, newValue in
                         endTimeString = TimeHelpers.calculateEndTime(
                             startTime: newValue,
-                            category: category ?? .lunch
+                            category: category
                         )
                     }
 
                     EndTimeSelectionView(
                         selectedTime: $endTimeString,
-                        category: category ?? .lunch
+                        category: category
                     )
                     .frame(maxWidth: .infinity, alignment: .center)
 
@@ -306,6 +307,7 @@ struct AddReservationView: View {
                 }
             }
             .onAppear {
+                startTime = appState.selectedDate
                 print("Passed value: \(DateHelper.formatTime(startTime))")
                 print("Start time before: \(startTimeString)")
                 print("End time before: \(endTimeString)")
@@ -314,7 +316,7 @@ struct AddReservationView: View {
                 startTimeString = DateHelper.formatTime(startTime)
                 endTimeString = TimeHelpers.calculateEndTime(
                     startTime: startTimeString,
-                    category: category ?? .lunch)
+                    category: category)
 
                 category = categoryForTimeInterval(time: startTime)
                 availableTables = store.tableAssignmentService.availableTables(
@@ -330,6 +332,9 @@ struct AddReservationView: View {
                 print("Start time after: \(startTimeString)")
                 print("End time after: \(endTimeString)")
 
+            }
+            .onChange(of: appState.selectedCategory) { old, new in
+                category = new
             }
             .onChange(of: selectedPhotoItem) { old, newItem in
                 if let newItem {
@@ -349,6 +354,7 @@ struct AddReservationView: View {
                 }
             }
         }
+        
     }
 
     // MARK: - Helpers
@@ -360,7 +366,7 @@ struct AddReservationView: View {
             phone: phone,
             numberOfPersons: numberOfPersons,
             dateString: DateHelper.formatDate(selectedDate),
-            category: category ?? .lunch,
+            category: category,
             startTime: startTimeString,
             endTime: endTimeString,
             acceptance: selectedStatus.asAcceptance,
@@ -374,7 +380,7 @@ struct AddReservationView: View {
     }
 
     private func adjustTimesForCategory() {
-        switch category ?? .lunch {
+        switch category {
         case .lunch:
             startTimeString = "12:00"
         case .dinner:
@@ -384,7 +390,7 @@ struct AddReservationView: View {
         }
         endTimeString = TimeHelpers.calculateEndTime(
             startTime: startTimeString,
-            category: category ?? .lunch
+            category: category
         )
     }
 

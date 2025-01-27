@@ -76,9 +76,6 @@ class CurrentReservationsCache: ObservableObject {
         }
 
         activeReservationsByMinute[date] = activeReservations
-        print(
-            "DEBUG: successfully precomputed reservations for date \(date): \(activeReservationsByMinute[date]?.count) new entries!"
-        )
     }
 
     /// Retrieves active reservations for a specific time
@@ -176,10 +173,6 @@ class CurrentReservationsCache: ObservableObject {
 
         // Retrieve reservations for the given date
         let reservationsForDate = cache[normalizedDate] ?? []
-        for res in reservationsForDate {
-            print("DEBUG: found reservation \(res.name) starting at \(res.startTime) (or \(res.startTimeDate)), ending at \(res.endTime) (or \(res.endTimeDate))")
-        }
-        print("Reservations for date \(normalizedDate): \(reservationsForDate.count)")
 
         // Find the current active reservation with the specified category
         let currentReservation = reservationsForDate.first { reservation in
@@ -321,9 +314,7 @@ class CurrentReservationsCache: ObservableObject {
             .sorted { $0.startTimeDate ?? Date() < $1.startTimeDate ?? Date() }
             .first
         if firstUp != nil {
-            print(
-                "DEBUG: found upcoming reservation \(firstUp?.name) at \(firstUp?.startTime)"
-            )
+
             return firstUp
         } else {
             print("DEBUG: no upcoming reservations found.")

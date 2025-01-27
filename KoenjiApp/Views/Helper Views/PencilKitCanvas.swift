@@ -56,7 +56,7 @@ struct PencilKitCanvas: UIViewRepresentable {
 //            }
 
         func setupToolPicker(for canvasView: PKCanvasView) {
-                    if let window = canvasView.window {
+            if canvasView.window != nil {
                         toolPicker.setVisible(true, forFirstResponder: canvasView)
                         toolPicker.addObserver(canvasView)
                         if toolPickerShows {

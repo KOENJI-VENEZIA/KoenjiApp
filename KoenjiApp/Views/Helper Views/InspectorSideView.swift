@@ -15,8 +15,7 @@ struct InspectorSideView: View {
     @Binding var changedReservation: Reservation?
     @Binding var isShowingFullImage: Bool
     @State private var selectedView: SelectedView = .info
-    @Binding var currentTime: Date
-    var selectedCategory: Reservation.ReservationCategory
+    @State var currentTime: Date = Date()
     @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var appState: AppState
     
@@ -33,7 +32,7 @@ struct InspectorSideView: View {
     var body: some View {
 
         ZStack {
-            Color(appState.inspectorColor)
+            Color(appState.selectedCategory.inspectorColor)
                 .ignoresSafeArea()
 
             VStack {
@@ -70,7 +69,7 @@ struct InspectorSideView: View {
                     
                 } else {
                     
-                    ReservationsInfoListView(activeReservations: activeReservations, currentTime: $currentTime, selectedCategory: selectedCategory,
+                    ReservationsInfoListView(activeReservations: activeReservations, currentTime: $currentTime,
                                              onClose: {
                         dismissInfoCard()
                     },
@@ -82,11 +81,12 @@ struct InspectorSideView: View {
                                              onCancelled: { reservation in
                         changedReservation = reservation
                     })
+                    .environmentObject(appState)
                         .background(.clear)
                 }
                 case .cancelled:
                     
-                    ReservationCancelledView(activeReservations: activeReservations, currentTime: currentTime, selectedCategory: selectedCategory,
+                    ReservationCancelledView(activeReservations: activeReservations, currentTime: currentTime,
                                              onClose: {
                         dismissInfoCard()
                     },
@@ -101,7 +101,7 @@ struct InspectorSideView: View {
                     
                 case .waiting:
                     
-                    ReservationWaitingListView(activeReservations: activeReservations, currentTime: currentTime, selectedCategory: selectedCategory,
+                    ReservationWaitingListView(activeReservations: activeReservations, currentTime: currentTime,
                                                onClose: {
                           dismissInfoCard()
                       },
@@ -118,6 +118,9 @@ struct InspectorSideView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             
+        }
+        .onAppear {
+            currentTime = appState.selectedDate
         }
         
     }

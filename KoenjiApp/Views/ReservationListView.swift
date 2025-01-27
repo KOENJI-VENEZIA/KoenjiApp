@@ -36,7 +36,6 @@ struct ReservationListView: View {
     @State private var shouldReopenDebugConfig = false
     @State private var selectedReservation: Reservation?
     @State private var popoverPosition: CGRect = .zero
-    @State private var currentTime: Date = Date()
     @State private var selectedDate: Date = Date()
     @State private var selectedCategory: Reservation.ReservationCategory? =
         .lunch
@@ -45,7 +44,6 @@ struct ReservationListView: View {
     @State private var showingFilters = false
     @State private var activeAlert: AddReservationAlertType? = nil
 
-    @State private var sidebarDefault: Color = Color.sidebar_dinner  // Default color
 
     @State private var sortOption: SortOption? = .removeSorting  // Default to nil (not sorted)
     private var isSorted: Bool {
@@ -335,13 +333,13 @@ struct ReservationListView: View {
                         filterPeople: $filterPeople, hasSelectedPeople: $hasSelectedPeople)
                 }
                 .popover(isPresented: $showStartDatePopover) {
-                    DatePickerView(
-                        selectedDate: $filterStartDate, hasSelectedStartDate: $hasSelectedStartDate)
+                    DatePickerView(filteredDate: $filterStartDate,hasSelectedStartDate: $hasSelectedStartDate)
+                        .environmentObject(appState)
                     .frame(width: 300)
                 }
                 .popover(isPresented: $showEndDatePopover) {
-                    DatePickerView(
-                        selectedDate: $filterEndDate, hasSelectedEndDate: $hasSelectedEndDate)
+                    DatePickerView(filteredDate: $filterEndDate, hasSelectedEndDate: $hasSelectedEndDate)
+                    .environmentObject(appState)
                     .frame(width: 300)
                 }
             }
@@ -366,9 +364,9 @@ struct ReservationListView: View {
         }
         .sheet(isPresented: $showingAddReservation) {
             AddReservationView(
-                category: $selectedCategory, selectedDate: $selectedDate,
-                startTime: $currentTime
+                selectedDate: $selectedDate
             )
+            .environmentObject(appState)
             .environmentObject(store)
             .environmentObject(resCache)
             .environmentObject(reservationService)  // For the new service
@@ -407,8 +405,8 @@ struct ReservationListView: View {
 
         }
         .onAppear {
-            sidebarDefault = appState.sidebarColor
 
+            appState.selectedCategory = .noBookingZone
             NotificationCenter.default.addObserver(
                 forName: .buttonPositionChanged,
                 object: nil,

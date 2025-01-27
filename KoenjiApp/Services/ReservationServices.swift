@@ -165,7 +165,7 @@ class ReservationService: ObservableObject {
        /// Invalidates the cluster cache for the given reservation.
        private func invalidateClusterCache(for reservation: Reservation) {
            guard let reservationDate = reservation.normalizedDate else {
-               print("Failed to parse dateString \(reservation.normalizedDate). Cache invalidation skipped.")
+               print("Failed to parse dateString \(reservation.normalizedDate ?? Date()). Cache invalidation skipped.")
                return
            }
            self.clusterStore.invalidateClusterCache(for: reservationDate, category: reservation.category)

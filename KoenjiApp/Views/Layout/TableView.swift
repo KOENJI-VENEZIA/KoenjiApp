@@ -5,17 +5,18 @@ struct TableView: View {
     let table: TableModel
     let selectedDate: Date
     let selectedCategory: Reservation.ReservationCategory
-    let currentTime: Date
     @State private var systemTime: Date = Date()
     @Binding var changedReservation: Reservation?
     @Binding var isEditing: Bool
     @EnvironmentObject var resCache: CurrentReservationsCache
+    @EnvironmentObject var appState: AppState
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var tableStore: TableStore
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var layoutServices: LayoutServices
     @ObservedObject var layoutUI: LayoutUIManager
+    @Environment(\.colorScheme) var colorScheme
 
     let onTapEmpty: (TableModel) -> Void
     let onStatusChange: () -> Void
@@ -24,7 +25,7 @@ struct TableView: View {
 
     @GestureState private var dragOffset: CGSize = .zero
 
-    enum DragState {
+    enum DragState: Equatable {
         case idle
         case dragging(offset: CGSize)
         case started(offset: CGSize)
@@ -82,20 +83,18 @@ struct TableView: View {
             return false
         }()
 
-        let isLunch = {
-            if case .lunch = selectedCategory { return true }
-            return false
-        }()
 
         let (fillColor, idSuffix): (Color, String) = {
-            if isDragging {
-                return (Color(hex: "#AEAB7D").opacity(0.2), "dragging")
-            } else if currentActiveReservation != nil {
-                return (isLunch ? Color.active_table_lunch : Color.active_table_dinner, "reserved")
-            } else if isLayoutLocked {
-                return (Color(hex: "#A3B7D2"), "locked")
+            if isDragging, let activeRes = currentActiveReservation {
+                return (activeRes.assignedColor.opacity(0.5), "dragging_1")
+            } else if isDragging, currentActiveReservation == nil {
+                return (Color(hex: "#AEAB7D").opacity(0.5), "dragging_2")
+            } else if let activeRes = currentActiveReservation {
+                return (activeRes.assignedColor.opacity(0.7), "reserved")
+            } else if isLayoutLocked, let activeRes = currentActiveReservation {
+                return (activeRes.assignedColor.opacity(0.7), "locked")
             } else {
-                return (Color(hex: "#A3B7D2"), "default")
+                return (Color(hex: "#A3B7D2").opacity(0.2), "default")
             }
         }()
 
@@ -250,15 +249,16 @@ struct TableView: View {
                 }
             }
         }
+//        .opacity(table.isTapped ? 1 : 0)
         .onAppear {
             updateCachedReservation()
             updateLateReservation()
             updateNearEndReservation()
             updateFirstUpcoming()
             if let reservation = currentActiveReservation {
-                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found: \(reservation.name)")
+                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found: \(reservation.name)")
             } else {
-                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found.")
+                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found.")
             }
         }
         .onChange(of: selectedDate) {
@@ -268,9 +268,9 @@ struct TableView: View {
             updateFirstUpcoming()
 
             if let reservation = currentActiveReservation {
-                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found: \(reservation.name)")
+                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found: \(reservation.name)")
             } else {
-                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found.")
+                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found.")
             }
         }
         .onChange(of: statusChanged) {
@@ -293,37 +293,35 @@ struct TableView: View {
             updateNearEndReservation()
             updateFirstUpcoming()
         }
-        .onChange(of: currentTime) {
+        .onChange(of: appState.selectedDate) {
             updateCachedReservation()
             updateLateReservation()
             updateNearEndReservation()
             updateFirstUpcoming()
 
             if let reservation = currentActiveReservation {
-                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found: \(reservation.name)")
+                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found: \(reservation.name)")
             } else {
-                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found.")
+                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found.")
             }
         }
         .onChange(of: selectedEmoji) {
             if let reservation = currentActiveReservation {
                 handleEmojiAssignment(reservation, selectedEmoji)
-                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found: \(reservation.name)")
+                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found: \(reservation.name)")
             } else {
-                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(currentTime)) found.")
+                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found.")
             }
         }
+//        .onChange(of: dragState) {
+//            if dragState != .idle {
+//                layoutUI.setTableTapped(table)
+//            }
+//        }
         .contextMenu {
-
-            Button {
-                printResStatus()
-            } label: {
-                Label("Debug Print", systemImage: "wrench.adjustable.fill")
-            
-            }
             
             Button {
-                print("DEBUG: FORCED Current active reservation: \(resCache.reservation(forTable: table.id, datetime: currentTime, category: selectedCategory)?.name ?? "none")")
+                print("DEBUG: FORCED Current active reservation: \(resCache.reservation(forTable: table.id, datetime: appState.selectedDate, category: selectedCategory)?.name ?? "none")")
             } label: {
                 Label("Debug Print", systemImage: "ladybug.slash.fill")
             
@@ -420,15 +418,9 @@ struct TableView: View {
         )
     }
     
-    private func printResStatus() {
-        print("DEBUG: Current reservation for table \(table.id): \(currentActiveReservation?.name ?? "none")")
-        print("DEBUG: Upcoming reservation for table \(table.id): \(firstUpcomingReservation?.name ?? "none")")
-        print("DEBUG: Near end reservation for table \(table.id): \(nearEndReservation?.name ?? "none")")
-        print("DEBUG: Late reservation for table \(table.id): \(lateReservation?.name ?? "none")")
-    }
 
     private func updateCachedReservation() {
-        if let reservation = resCache.reservation(forTable: table.id, datetime: currentTime, category: selectedCategory), reservation.status != .canceled, reservation.reservationType != .waitingList {
+        if let reservation = resCache.reservation(forTable: table.id, datetime: appState.selectedDate, category: selectedCategory), reservation.status != .canceled, reservation.reservationType != .waitingList {
             currentActiveReservation = reservation
         } else {
             currentActiveReservation = nil
@@ -436,7 +428,7 @@ struct TableView: View {
     }
     
     private func updateLateReservation() {
-        if let reservation = currentActiveReservation, resCache.lateReservations(currentTime: currentTime).contains(where: { $0.id == reservation.id }) {
+        if let reservation = currentActiveReservation, resCache.lateReservations(currentTime: appState.selectedDate).contains(where: { $0.id == reservation.id }) {
             lateReservation = reservation
         } else {
             lateReservation = nil
@@ -444,7 +436,7 @@ struct TableView: View {
     }
     
     private func updateNearEndReservation() {
-        if let reservation = currentActiveReservation, resCache.nearingEndReservations(currentTime: currentTime).contains(where: {
+        if let reservation = currentActiveReservation, resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {
             $0.id == reservation.id
         }) {
             nearEndReservation = reservation } else {
@@ -454,7 +446,7 @@ struct TableView: View {
     
     private func updateFirstUpcoming() {
         if let reservation = resCache.firstUpcomingReservation(
-            forTable: table.id, date: selectedDate, time: currentTime,
+            forTable: table.id, date: appState.selectedDate, time: appState.selectedDate,
             category: selectedCategory) {
             firstUpcomingReservation = reservation
         } else {
@@ -487,37 +479,44 @@ struct TableView: View {
             Text(reservation.name)
                 .bold()
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
             Text("\(reservation.numberOfPersons) p.")
                 .font(.footnote)
-                .foregroundStyle(.white)
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
                 .opacity(0.8)
 
             Text("\(reservation.phone)")
                 .font(.footnote)
-                .foregroundStyle(.white)
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
                 .opacity(0.8)
 
             if let remaining = TimeHelpers.remainingTimeString(
-                endTime: reservation.endTime, currentTime: currentTime)
+                endTime: reservation.endTime, currentTime: appState.selectedDate)
             {
                 Text("Tempo rimasto:")
                     .bold()
                     .multilineTextAlignment(.center)
-                    .foregroundColor(.white)
+                    .foregroundColor(colorScheme == .dark ? .white : .black)
                     .font(.footnote)
                 
                 if reservation.id == nearEndReservation?.id {
-                    Text("\(remaining)")
-                        .bold()
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(Color(hex: "#f78457"))
-                        .font(.footnote)
+                    
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(.ultraThinMaterial)
+                            .frame(width: tableFrame.width-10, height: 20)
+                        
+                        Text("\(remaining)")
+                            .bold()
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(Color(hex: "#bf5b34"))
+                            .font(.footnote)
+                    }
                 } else {
                     Text("\(remaining)")
                         .bold()
                         .multilineTextAlignment(.center)
-                        .foregroundColor(.white)
+                        .foregroundColor(colorScheme == .dark ? .white : .black)
                         .font(.footnote)
                 }
             }
@@ -534,25 +533,25 @@ struct TableView: View {
             Text(reservation.name)
                 .bold()
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
             Text("\(reservation.numberOfPersons) p.")
                 .font(.footnote)
                 .opacity(0.8)
-                .foregroundStyle(.white)
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
 
             Text("\(reservation.phone)")
                 .font(.footnote)
-                .foregroundStyle(.white)
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
                 .opacity(0.8)
 
             if let upcomingTime = DateHelper.timeUntilReservation(
-                currentTime: currentTime,
+                currentTime: appState.selectedDate,
                 reservationDateString: reservation.dateString,
                 reservationStartTimeString: reservation.startTime)
             {
                 Text("In arrivo tra:\n\(DateHelper.formattedTime(from: upcomingTime) ?? "Errore")")
                     .bold()
-                    .foregroundColor(Color(hex: "#5681ba"))
+                    .foregroundColor(colorScheme == .dark ? .white : .black)
                     .multilineTextAlignment(.center)
                     .font(.footnote)
             }
@@ -573,7 +572,7 @@ struct TableView: View {
                 .cornerRadius(8)
 
             Text("Nessuna prenotazione\nin arrivo")
-                .foregroundColor(Color(hex: "#5681ba"))
+                .foregroundColor(colorScheme == .dark ? .white : .black)
                 .bold()
                 .font(.footnote)
                 .multilineTextAlignment(.center)
@@ -683,8 +682,6 @@ struct TableView: View {
     }
 
     private func handleDoubleTap() {
-        let startTimeString = DateHelper.formatTime(currentTime)
-        var isOccupied = false
         // Check if the table is occupied by filtering active reservations.
         if let reservation = currentActiveReservation {
             showInspector = true
@@ -743,7 +740,7 @@ struct TableView: View {
         }
 
         let tables = layoutUI.tables
-        let combinedDate = DateHelper.combine(date: selectedDate, time: currentTime)
+        let combinedDate = DateHelper.combine(date: selectedDate, time: appState.selectedDate)
         layoutServices.saveTables(tables, for: combinedDate, category: selectedCategory)
         if let updatedLayout = layoutServices.cachedLayouts[
             layoutServices.keyFor(date: combinedDate, category: selectedCategory)]
@@ -754,6 +751,7 @@ struct TableView: View {
             }
         }
 
+        
         if let reservation = currentActiveReservation {
             reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
         }

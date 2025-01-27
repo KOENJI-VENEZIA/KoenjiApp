@@ -22,21 +22,19 @@ struct LayoutView: View {
     // Dynamic Arrays
     @State private var dates: [Date] = []
     @State private var selectedIndex: Int = 15  // Start in the middle of the dates array
-    @State private var selectedDate: Date = Date()
+//    @State private var selectedDate: Date = Date()
 
     // Filters
-    @Binding var selectedCategory: Reservation.ReservationCategory?
 
     // Time
     @State private var systemTime: Date = Date()
     @StateObject private var timerManager = TimerManager()
-    @State private var currentTime: Date = Date()
-    @State private var isManuallyOverridden: Bool = false
 
     // Reservation editing
     @Binding var selectedReservation: Reservation?
     @Binding var currentReservation: Reservation?
 
+    @State private var isManuallyOverridden: Bool = false
     @State private var showingEditReservation: Bool = false
     @State private var showInspector: Bool = false  // Controls Inspector visibility
     @State private var showingDatePicker: Bool = false
@@ -103,9 +101,8 @@ struct LayoutView: View {
                 ) {
                     LayoutPageView(
                         scale: $scale,
-                        selectedDate: selectedDate,
-                        selectedCategory: selectedCategory ?? .lunch,
-                        currentTime: $currentTime,
+                        selectedDate: appState.selectedDate,
+                        selectedCategory: appState.selectedCategory,
                         isManuallyOverridden: $isManuallyOverridden,
                         selectedReservation: $selectedReservation,
                         changedReservation: $changedReservation,
@@ -122,6 +119,7 @@ struct LayoutView: View {
                         cachedScreenshot: $cachedScreenshot
                     )
                     .environmentObject(store)
+                    .environmentObject(appState)
                     .environmentObject(resCache)
                     .environmentObject(tableStore)
                     .environmentObject(reservationService)  // For the new service
@@ -186,7 +184,7 @@ struct LayoutView: View {
                                 .opacity(toolbarState == .overlay ? 0.5 : 1.0)
                             
                             // MARK: Toolbar Content
-                            toolbarContent(in: geometry, selectedDate: $selectedDate)
+                            toolbarContent(in: geometry, selectedDate: appState.selectedDate)
                         }
                         .ignoresSafeArea(.keyboard)
                         .position(
@@ -351,9 +349,7 @@ struct LayoutView: View {
                     showInspector: $showInspector,
                     showingEditReservation: $showingEditReservation,
                     changedReservation: $changedReservation,
-                    isShowingFullImage: $isShowingFullImage,
-                    currentTime: $currentTime,
-                    selectedCategory: selectedCategory ?? .lunch
+                    isShowingFullImage: $isShowingFullImage
                 )
                 .environmentObject(resCache)
                 .environmentObject(appState)
@@ -372,7 +368,6 @@ struct LayoutView: View {
             }
             .sheet(isPresented: $showingAddReservationSheet) {
                 AddReservationView(
-                    category: $selectedCategory,
                     selectedDate: Binding<Date>(
                         get: {
                             // Force-unwrap or handle out-of-range more gracefully
@@ -383,10 +378,10 @@ struct LayoutView: View {
                             dates[selectedIndex] = newVal
                         }
                     ),
-                    startTime: $currentTime,
                     passedTable: tableForNewReservation
                 )
                 .environmentObject(store)
+                .environmentObject(appState)
                 .environmentObject(resCache)
                 .environmentObject(reservationService)  // For the new service
                 .environmentObject(layoutServices)
@@ -397,7 +392,7 @@ struct LayoutView: View {
             }
             .onAppear {
                 initializeView()
-                print("Current time as LayoutView appears: \(currentTime)")
+                print("Current time as LayoutView appears: \(appState.selectedDate)")
             }
             .onChange(of: scenePhase) { _, newPhase in
                 refreshID = UUID()
@@ -405,28 +400,26 @@ struct LayoutView: View {
             .onChange(of: selectedIndex) {
                 handleSelectedIndexChange()
             }
-            .onChange(of: selectedCategory) { oldCategory, newCategory in
+            .onChange(of: appState.selectedCategory) { oldCategory, newCategory in
                 handleSelectedCategoryChange(oldCategory, newCategory)
                 print(
                     "Called handleSelectedCategoryChange() from LayoutView [onChange of selectedCategory]"
                 )
-                if let category = newCategory {
-                    appState.sidebarColor = category.sidebarColor
-                    appState.inspectorColor = category.inspectorColor
-                }
+                
             }
-            .onChange(of: currentTime) { oldTime, newTime in
+            .onChange(of: appState.selectedDate) { oldTime, newTime in
                 handleCurrentTimeChange(newTime)
+                updateDatesAroundSelectedDate(newTime)
             }
             .onChange(of: showInspector) { oldValue, newValue in
                 if !newValue {
                     selectedReservation = nil
                 }
             }
-            .onChange(of: selectedDate) { old, newDate in
-                // This is your existing logic to handle expansions
-                updateDatesAroundSelectedDate(newDate)
-            }
+//            .onChange(of: appState.selectedDate) { old, newDate in
+//                // This is your existing logic to handle expansions
+//                
+//            }
             .onChange(of: isScribbleModeEnabled) {
                 DispatchQueue.main.async {
                     saveScribbleForCurrentLayout()
@@ -435,8 +428,7 @@ struct LayoutView: View {
             .onReceive(timerManager.$currentDate) { newTime in
                 if !isManuallyOverridden {
 
-                    let combinedTime = DateHelper.combine(date: currentTime, time: newTime)
-                    currentTime = combinedTime
+//                    appState.selectedDate = combinedTime
                     systemTime = newTime
                 }
             }
@@ -447,6 +439,37 @@ struct LayoutView: View {
 
     }
 
+    struct CardSwapView<Content: View>: View {
+        @Binding var selectedIndex: Int
+        let navigationDirection: NavigationDirection
+        let content: () -> Content
+
+        @State private var rotationAngle: Double = 0
+
+        var body: some View {
+            ZStack {
+                content()
+                    .id(selectedIndex)  // Ensure content refresh
+                    .flipEffect(
+                        rotation: rotationAngle,
+                        axis: navigationDirection == .backward
+                            ? (x: 0, y: -30, z: 0) : (x: 0, y: 30, z: 0))
+            }
+            .onChange(of: selectedIndex) {
+                // Animate flip out
+                withAnimation(.spring(duration: 0.3)) {
+                    rotationAngle = 15
+                }
+                // Swap content once half-flipped (after animation delay)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.spring(duration: 0.5)) {
+                        rotationAngle = 0
+                    }
+                }
+            }
+        }
+    }
+    
     var customShareLinkButton: some View {
         Button {
             isSharing.toggle()
@@ -459,12 +482,12 @@ struct LayoutView: View {
     }
     
     func debugCache() {
-        if let currentCachedRes = resCache.cache[selectedDate] {
+        if let currentCachedRes = resCache.cache[appState.selectedDate] {
             for res in currentCachedRes {
                 print("DEBUG: reservation in cache \(res.name), start time: \(res.startTime), end time: \(res.endTime)")
             }
         } else {
-            print("DEBUG: reservations in cache at \(selectedDate): 0")
+            print("DEBUG: reservations in cache at \(appState.selectedDate): 0")
         }
     }
     
@@ -479,8 +502,8 @@ struct LayoutView: View {
 
     var currentLayoutKey: String {
         let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
-        let combinedDate = DateHelper.combine(date: currentDate, time: currentTime)
-        return layoutServices.keyFor(date: combinedDate, category: selectedCategory ?? .lunch)
+        let combinedDate = DateHelper.combine(date: currentDate, time: appState.selectedDate)
+        return layoutServices.keyFor(date: combinedDate, category: appState.selectedCategory)
     }
 
     private var gridWidth: CGFloat {
@@ -515,9 +538,121 @@ struct LayoutView: View {
         }
     }
 
+    private func initializeView() {
+        // Initialize default date/time configuration
+//        appState.selectedDate = Date()
+//        appState.selectedDate = systemTime
+//        currentTime = appState.selectedDate
+//        loadScribbleForCurrentLayout()
+        // Generate date array
+        dates = generateInitialDates()
+
+//        if let defaultDate = dates[safe: selectedIndex] {
+//            appState.selectedDate = defaultDate
+//        } else {
+//            appState.selectedDate = Date()
+//        }
+
+        print(
+            "Initialized with appState.selectedDate: \(appState.selectedDate), selectedCategory: \(appState.selectedCategory.localized)"
+        )
+
+        // Set initial sidebar color based on selectedCategory
+    
+
+//        handleCurrentTimeChange(appState.selectedDate)
+
+        resCache.startMonitoring(for: appState.selectedDate)
+    }
+
+    private func handleSelectedIndexChange() {
+
+        // Explicitly set and log current time
+        if let newDate = dates[safe: selectedIndex],
+            let combinedTime = DateHelper.normalizedTime(time: appState.selectedDate, date: newDate)
+        {
+            appState.selectedDate = combinedTime
+//            currentTime = combinedTime
+
+        }
+        
+        handleCurrentTimeChange(appState.selectedDate)
+
+        print(
+            "Selected index changed to \(selectedIndex), date: \(DateHelper.formatFullDate(appState.selectedDate))"
+        )
+
+        // Handle progressive date loading
+        if selectedIndex >= dates.count - 5 { appendMoreDates() }
+        if selectedIndex <= 5 { prependMoreDates() }
+        trimDatesAround(selectedIndex)
+    }
+
+    private func handleSelectedCategoryChange(
+        _ oldCategory: Reservation.ReservationCategory,
+        _ newCategory: Reservation.ReservationCategory
+    ) {
+        guard isManuallyOverridden else { return }
+        guard oldCategory != newCategory else { return }
+        print("Old category: \(oldCategory.rawValue)")
+        print("Category changed to \(newCategory.rawValue)")
+//
+//        // Only adjust time if it's not manually overridden
+//        appState.selectedDate = defaultTimeForCategory(newCategory)
+//        print("Adjusted time for category to: \(appState.selectedDate)")
+//
+//        // Update reservations and layout for the current selected date
+//        let newDate = dates[safe: selectedIndex] ?? Date()
+//        guard let combinedTime = DateHelper.normalizedTime(time: appState.selectedDate, date: newDate) else {
+//            return
+//        }
+//        appState.selectedDate = combinedTime
+////        currentTime = combinedTime
+//
+//        // checkActiveReservations(for: newDate, category: newCategory, from: "handleSelectedCategoryChange() in LayoutView")
+//        print("Loaded tables for \(newCategory.localized) on \(DateHelper.formatFullDate(newDate))")
+
+        // Update sidebar color
+       
+    }
+
+    private func handleCurrentTimeChange(_ newTime: Date) {
+        print("Time updated to \(newTime)")
+
+        appState.selectedDate = newTime
+        // Combine selectedDate with the new time
+        let currentDate = appState.selectedDate
+        
+//        currentTime = combinedTime
+
+        print("Final currentTime after combination: \(appState.selectedDate)")
+
+        // Mark as manually overridden
+
+        // Determine the appropriate category based on time
+        let calendar = Calendar.current
+
+        // Define time ranges
+        let lunchStart = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: currentDate)!
+        let lunchEnd = calendar.date(bySettingHour: 15, minute: 0, second: 0, of: currentDate)!
+        let dinnerStart = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: currentDate)!
+        let dinnerEnd = calendar.date(bySettingHour: 23, minute: 45, second: 0, of: currentDate)!
+
+        // Compare newTime against the ranges
+        let determinedCategory: Reservation.ReservationCategory
+        if appState.selectedDate >= lunchStart && appState.selectedDate <= lunchEnd {
+            determinedCategory = .lunch
+        } else if appState.selectedDate >= dinnerStart && appState.selectedDate <= dinnerEnd {
+            determinedCategory = .dinner
+        } else {
+            determinedCategory = .noBookingZone
+        }
+
+        appState.selectedCategory = determinedCategory
+    }
     // MARK: - Toolbar Content
     @ViewBuilder
-    private func toolbarContent(in geometry: GeometryProxy, selectedDate: Binding<Date>)
+    private func toolbarContent(in geometry: GeometryProxy, selectedDate: Date)
         -> some View
     {
         switch toolbarState {
@@ -711,36 +846,7 @@ struct LayoutView: View {
         }
     }
 
-    struct CardSwapView<Content: View>: View {
-        @Binding var selectedIndex: Int
-        let navigationDirection: NavigationDirection
-        let content: () -> Content
 
-        @State private var rotationAngle: Double = 0
-
-        var body: some View {
-            ZStack {
-                content()
-                    .id(selectedIndex)  // Ensure content refresh
-                    .flipEffect(
-                        rotation: rotationAngle,
-                        axis: navigationDirection == .backward
-                            ? (x: 0, y: -30, z: 0) : (x: 0, y: 30, z: 0))
-            }
-            .onChange(of: selectedIndex) {
-                // Animate flip out
-                withAnimation(.spring(duration: 0.3)) {
-                    rotationAngle = 15
-                }
-                // Swap content once half-flipped (after animation delay)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    withAnimation(.spring(duration: 0.5)) {
-                        rotationAngle = 0
-                    }
-                }
-            }
-        }
-    }
 
     private func navigateToPreviousDate() {
         guard selectedIndex > 0 else { return }
@@ -761,11 +867,12 @@ struct LayoutView: View {
         let calendar = Calendar.current
 
         // 1) Round down to nearest 15-min boundary
-        let roundedDown = calendar.roundedDownToNearest15(currentTime)
+        let roundedDown = calendar.roundedDownToNearest15(appState.selectedDate)
         // 2) From that boundary, add 15 minutes
         let newTime = calendar.date(byAdding: .minute, value: 15, to: roundedDown)!
 
-        currentTime = newTime
+        appState.selectedDate = newTime
+//        currentTime = newTime
         isManuallyOverridden = true
     }
 
@@ -773,36 +880,33 @@ struct LayoutView: View {
         let calendar = Calendar.current
 
         // 1) Round down to nearest 15-min boundary
-        let roundedDown = calendar.roundedDownToNearest15(currentTime)
+        let roundedDown = calendar.roundedDownToNearest15(appState.selectedDate)
         // 2) From that boundary, subtract 15 minutes
         let newTime = calendar.date(byAdding: .minute, value: -15, to: roundedDown)!
 
-        currentTime = newTime
+        appState.selectedDate = newTime
+//        currentTime = newTime
         isManuallyOverridden = true
     }
 
     private func resetLayout() {
         // Ensure the selected date and category are valid
-        guard let currentCategory = selectedCategory else {
-            print("Invalid category for reset.")
-            return
-        }
 
         let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
 
         print(
-            "Resetting layout for date: \(DateHelper.formatFullDate(currentDate)) and category: \(currentCategory.rawValue)"
+            "Resetting layout for date: \(DateHelper.formatFullDate(currentDate)) and category: \(appState.selectedCategory.localized)"
         )
 
         // Perform layout reset
-        let combinedDate = DateHelper.combine(date: currentDate, time: currentTime)
-        layoutServices.resetTables(for: currentDate, category: currentCategory)
+        let combinedDate = DateHelper.combine(date: currentDate, time: appState.selectedDate)
+        layoutServices.resetTables(for: currentDate, category: appState.selectedCategory)
         layoutServices.tables = layoutServices.loadTables(
-            for: combinedDate, category: currentCategory)
+            for: combinedDate, category: appState.selectedCategory)
 
         // Clear clusters
-        clusterServices.resetClusters(for: combinedDate, category: currentCategory)
-        clusterServices.saveClusters([], for: combinedDate, category: currentCategory)
+        clusterServices.resetClusters(for: combinedDate, category: appState.selectedCategory)
+        clusterServices.saveClusters([], for: combinedDate, category: appState.selectedCategory)
 
         // Ensure layout flags are updated after reset completes
         DispatchQueue.main.async {
@@ -812,120 +916,7 @@ struct LayoutView: View {
         }
     }
 
-    private func initializeView() {
-        // Initialize default date/time configuration
-        currentTime = Date()
-
-//        loadScribbleForCurrentLayout()
-        // Generate date array
-        dates = generateInitialDates()
-
-        if let defaultDate = dates[safe: selectedIndex] {
-            selectedDate = defaultDate
-        } else {
-            selectedDate = Date()
-        }
-
-        print(
-            "Initialized with currentTime: \(currentTime), selectedCategory: \(selectedCategory?.rawValue ?? "None")"
-        )
-
-        // Set initial sidebar color based on selectedCategory
-        if let initialCategory = selectedCategory {
-            appState.sidebarColor = initialCategory.sidebarColor
-            appState.inspectorColor = initialCategory.inspectorColor
-        }
-
-        handleCurrentTimeChange(currentTime)
-
-        resCache.startMonitoring(for: currentTime)
-    }
-
-    private func handleSelectedIndexChange() {
-
-        // Explicitly set and log current time
-        if let newDate = dates[safe: selectedIndex],
-            let combinedTime = DateHelper.normalizedTime(time: currentTime, date: newDate)
-        {
-            selectedDate = newDate
-            currentTime = combinedTime
-
-        }
-
-        print(
-            "Selected index changed to \(selectedIndex), date: \(DateHelper.formatFullDate(selectedDate))"
-        )
-
-        // Handle progressive date loading
-        if selectedIndex >= dates.count - 5 { appendMoreDates() }
-        if selectedIndex <= 5 { prependMoreDates() }
-        trimDatesAround(selectedIndex)
-    }
-
-    private func handleSelectedCategoryChange(
-        _ oldCategory: Reservation.ReservationCategory?,
-        _ newCategory: Reservation.ReservationCategory?
-    ) {
-        guard let newCategory = newCategory else { return }
-        guard let oldCategory = oldCategory else { return }
-        guard oldCategory != newCategory else { return }
-        print("Old category: \(oldCategory.rawValue)")
-        print("Category changed to \(newCategory.rawValue)")
-
-        // Only adjust time if it's not manually overridden
-        currentTime = defaultTimeForCategory(newCategory)
-        print("Adjusted time for category to: \(currentTime)")
-
-        // Update reservations and layout for the current selected date
-        let newDate = dates[safe: selectedIndex] ?? Date()
-        guard let combinedTime = DateHelper.normalizedTime(time: currentTime, date: newDate) else {
-            return
-        }
-        currentTime = combinedTime
-
-        // checkActiveReservations(for: newDate, category: newCategory, from: "handleSelectedCategoryChange() in LayoutView")
-        print("Loaded tables for \(newCategory.rawValue) on \(DateHelper.formatFullDate(newDate))")
-
-        // Update sidebar color
-        appState.sidebarColor = newCategory.sidebarColor
-        appState.inspectorColor = newCategory.inspectorColor
-    }
-
-    private func handleCurrentTimeChange(_ newTime: Date) {
-        print("Time updated to \(newTime)")
-
-        // Combine selectedDate with the new time
-        let currentDate = dates[safe: selectedIndex] ?? Date()
-        guard let combinedTime = DateHelper.normalizedTime(time: newTime, date: currentDate) else {
-            return
-        }
-        currentTime = combinedTime
-
-        print("Final currentTime after combination: \(currentTime)")
-
-        // Mark as manually overridden
-
-        // Determine the appropriate category based on time
-        let calendar = Calendar.current
-
-        // Define time ranges
-        let lunchStart = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: currentDate)!
-        let lunchEnd = calendar.date(bySettingHour: 15, minute: 0, second: 0, of: currentDate)!
-        let dinnerStart = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: currentDate)!
-        let dinnerEnd = calendar.date(bySettingHour: 23, minute: 45, second: 0, of: currentDate)!
-
-        // Compare newTime against the ranges
-        let determinedCategory: Reservation.ReservationCategory
-        if currentTime >= lunchStart && currentTime <= lunchEnd {
-            determinedCategory = .lunch
-        } else if currentTime >= dinnerStart && currentTime <= dinnerEnd {
-            determinedCategory = .dinner
-        } else {
-            determinedCategory = .noBookingZone
-        }
-
-        selectedCategory = determinedCategory
-    }
+    
 
     // MARK: - Helper Methods
 
@@ -1027,12 +1018,13 @@ struct LayoutView: View {
         
         Button(action: {
             isManuallyOverridden = true
-            selectedCategory = .lunch
+            appState.selectedCategory = .lunch
             let lunchTime = "12:00"
-            let day = currentTime
+            let day = appState.selectedDate
             guard let combinedTime = DateHelper.combineDateAndTime(date: day, timeString: lunchTime)
             else { return }
-            currentTime = combinedTime
+            appState.selectedDate = combinedTime
+//            currentTime = combinedTime
         }) {
             Image(systemName: "sun.max.circle.fill")
                 .resizable()
@@ -1054,13 +1046,14 @@ struct LayoutView: View {
         
         Button(action: {
             isManuallyOverridden = true
-            selectedCategory = .dinner
+            appState.selectedCategory = .dinner
             let dinnerTime = "18:00"
-            let day = currentTime
+            let day = appState.selectedDate
             guard
                 let combinedTime = DateHelper.combineDateAndTime(date: day, timeString: dinnerTime)
             else { return }
-            currentTime = combinedTime
+            appState.selectedDate = combinedTime
+//            currentTime = combinedTime
         }) {
             Image(systemName: "moon.circle.fill")
                 .resizable()
@@ -1083,8 +1076,9 @@ struct LayoutView: View {
         Button(action: {
             withAnimation {
                 let currentSystemTime = Date()  // Reset to system time
-                currentTime = DateHelper.combine(date: currentTime, time: currentSystemTime)
-                print("Time reset to \(currentTime)")
+                appState.selectedDate = DateHelper.combine(date: appState.selectedDate, time: currentSystemTime)
+//                currentTime = DateHelper.combine(date: currentTime, time: currentSystemTime)
+                print("Time reset to \(appState.selectedDate)")
                 isManuallyOverridden = false
             }
 
@@ -1101,14 +1095,14 @@ struct LayoutView: View {
         }
         .opacity(
             DateHelper.compareTimes(
-                firstTime: currentTime, secondTime: timerManager.currentDate, interval: 60)
+                firstTime: appState.selectedDate, secondTime: timerManager.currentDate, interval: 60)
                 ? 0 : 1
         )
-        .animation(.easeInOut, value: currentTime)
+        .animation(.easeInOut, value: appState.selectedDate)
     }
 
     @ViewBuilder
-    private func datePicker(selectedDate: Binding<Date>) -> some View {
+    private func datePicker(selectedDate: Date) -> some View {
         VStack {
             Text("Data")
                 .font(.caption)
@@ -1128,9 +1122,8 @@ struct LayoutView: View {
             }
         }
         .popover(isPresented: $showingDatePicker) {
-            DatePickerView(
-                selectedDate: selectedDate
-            )
+            DatePickerView()
+                .environmentObject(appState)
             .frame(width: 300, height: 350)  // Adjust as needed
 
         }
@@ -1142,18 +1135,17 @@ struct LayoutView: View {
             Text("Oggi")
                 .font(.caption)
                 .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
-                .opacity(Calendar.current.isDate(currentTime, inSameDayAs: systemTime) ? 0 : 1)
-                .animation(.easeInOut, value: currentTime)
+                .opacity(Calendar.current.isDate(appState.selectedDate, inSameDayAs: systemTime) ? 0 : 1)
+                .animation(.easeInOut, value: appState.selectedDate)
             
             Button(action: {
                 withAnimation {
                     let today = Calendar.current.startOfDay(for: systemTime)  // Get today's date with no time component
-                    guard let currentTimeOnly = DateHelper.extractTime(time: currentTime) else {
+                    guard let currentTimeOnly = DateHelper.extractTime(time: appState.selectedDate) else {
                         return
                     }  // Extract time components
-                    currentTime =
-                    DateHelper.combinedInputTime(time: currentTimeOnly, date: today) ?? Date()
-                    updateDatesAroundSelectedDate(currentTime)
+                    appState.selectedDate = DateHelper.combinedInputTime(time: currentTimeOnly, date: today) ?? Date()
+                    updateDatesAroundSelectedDate(appState.selectedDate)
                     isManuallyOverridden = false
                 }
             }) {
@@ -1167,8 +1159,8 @@ struct LayoutView: View {
                     .shadow(radius: 2)
             }
         }
-        .opacity(Calendar.current.isDate(currentTime, inSameDayAs: systemTime) ? 0 : 1)
-        .animation(.easeInOut, value: currentTime)
+        .opacity(Calendar.current.isDate(appState.selectedDate, inSameDayAs: systemTime) ? 0 : 1)
+        .animation(.easeInOut, value: appState.selectedDate)
     }
 
     private var addReservationButton: some View {
@@ -1179,13 +1171,13 @@ struct LayoutView: View {
             Image(systemName: "plus")
                 .font(.title2)
         }
-        .disabled(selectedCategory == .noBookingZone)
-        .foregroundColor(selectedCategory == .noBookingZone ? .gray : .accentColor)
+        .disabled(appState.selectedCategory == .noBookingZone)
+        .foregroundColor(appState.selectedCategory == .noBookingZone ? .gray : .accentColor)
     }
 
     /// Generates the initial set of dates centered around today.
     private func generateInitialDates() -> [Date] {
-        let today = Calendar.current.startOfDay(for: Date())
+        let today = Calendar.current.startOfDay(for: appState.selectedDate)
         var dates = [Date]()
         let range = -15...14  // 15 days before and 14 days after today
         for offset in range {
@@ -1279,13 +1271,13 @@ struct LayoutView: View {
     private func adjustTime(for category: Reservation.ReservationCategory) {
         switch category {
         case .lunch:
-            currentTime =
+            appState.selectedDate =
                 Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date())
-                ?? currentTime
+                ?? appState.selectedDate
         case .dinner:
-            currentTime =
+            appState.selectedDate =
                 Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date())
-                ?? currentTime
+                ?? appState.selectedDate
         case .noBookingZone:
             break
         }
@@ -1302,21 +1294,21 @@ struct LayoutView: View {
         }
     }
 
-    private func defaultTimeForCategory(_ category: Reservation.ReservationCategory) -> Date {
-        var components = Calendar.current.dateComponents([.year, .month, .day], from: systemTime)
-        switch category {
-        case .lunch:
-            components.hour = 12
-            components.minute = 0
-            return Calendar.current.date(from: components) ?? systemTime
-        case .dinner:
-            components.hour = 18
-            components.minute = 0
-            return Calendar.current.date(from: components) ?? systemTime
-        case .noBookingZone:
-            return systemTime
-        }
-    }
+//    private func defaultTimeForCategory(_ category: Reservation.ReservationCategory) -> Date {
+//        var components = Calendar.current.dateComponents([.year, .month, .day], from: systemTime)
+//        switch category {
+//        case .lunch:
+//            components.hour = 12
+//            components.minute = 0
+//            return Calendar.current.date(from: components) ?? systemTime
+//        case .dinner:
+//            components.hour = 18
+//            components.minute = 0
+//            return Calendar.current.date(from: components) ?? systemTime
+//        case .noBookingZone:
+//            return systemTime
+//        }
+//    }
 
 }
 

@@ -54,6 +54,14 @@ struct Reservation: Identifiable, Hashable, Codable {
         return nil
     }
     
+    private(set) var colorHue: Double
+    
+    // A computed property to convert hue → SwiftUI Color
+    var assignedColor: Color {
+        Color(hue: colorHue, saturation: 0.6, brightness: 0.8)
+    }
+    
+    
 
     
 
@@ -77,6 +85,7 @@ struct Reservation: Identifiable, Hashable, Codable {
             case isMock
             case assignedEmoji
             case imageData
+            case colorHue
         }
     
     
@@ -146,6 +155,7 @@ struct Reservation: Identifiable, Hashable, Codable {
         self.assignedEmoji = assignedEmoji
         self.imageData = imageData
         
+        self.colorHue = Reservation.stableHue(for: id)
 
         
         // Initialize cached dates
@@ -166,6 +176,17 @@ struct Reservation: Identifiable, Hashable, Codable {
     var normalizedDate: Date? {
         return cachedNormalizedDate
     }
+    
+    private static func stableHue(for uuid: UUID) -> Double {
+            let uuidString = uuid.uuidString
+            var hash = 5381
+            for byte in uuidString.utf8 {
+                hash = ((hash << 5) &+ hash) &+ Int(byte)
+            }
+            // Map hash to [0.0, 1.0)
+            let hue = Double(abs(hash) % 360) / 360.0
+            return hue
+        }
 }
 
 // Add the custom decoding logic here
@@ -194,6 +215,7 @@ extension Reservation {
             isMock = try container.decodeIfPresent(Bool.self, forKey: .isMock) ?? false
             assignedEmoji = try container.decodeIfPresent(String.self, forKey: .assignedEmoji)
             imageData = try container.decodeIfPresent(Data.self, forKey: .imageData)
+            colorHue = try container.decode(Double.self, forKey: .colorHue)
 
         // Initialize cached dates
               self.updateCachedDates()
@@ -224,6 +246,8 @@ extension Reservation {
         try container.encode(isMock, forKey: .isMock)
         try container.encode(assignedEmoji, forKey: .assignedEmoji)
         try container.encode(imageData, forKey: .imageData)
+        try container.encode(colorHue, forKey: .colorHue)
+
     }
     
     /// Updates the cached date properties based on the current date and time strings.

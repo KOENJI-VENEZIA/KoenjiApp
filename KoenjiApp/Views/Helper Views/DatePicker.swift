@@ -8,30 +8,42 @@
 import SwiftUI
 
 struct DatePickerView: View {
-    @Binding var selectedDate: Date
+    @Binding var filteredDate: Date
     @Binding var hasSelectedStartDate: Bool
     @Binding var hasSelectedEndDate: Bool
+    @EnvironmentObject var appState: AppState
     
-    init(selectedDate: Binding<Date>, hasSelectedStartDate: Binding<Bool> = Binding.constant(false), hasSelectedEndDate: Binding<Bool> = Binding.constant(false)) {
-        self._selectedDate = selectedDate
+    init(filteredDate: Binding<Date> = Binding.constant(Date()), hasSelectedStartDate: Binding<Bool> = Binding.constant(false), hasSelectedEndDate: Binding<Bool> = Binding.constant(false)) {
+        self._filteredDate = filteredDate
         self._hasSelectedStartDate = hasSelectedStartDate
         self._hasSelectedEndDate = hasSelectedEndDate
     }
     
     var body: some View {
         
-                DatePicker(
-                    "",
-                    selection: $selectedDate,
-                    displayedComponents: .date
-                    
-                )
-                .datePickerStyle(GraphicalDatePickerStyle())
-                .labelsHidden()
-                .onChange(of: selectedDate) {
-                    hasSelectedStartDate = true
-                    hasSelectedEndDate = true
-                }
+        if hasSelectedStartDate || hasSelectedEndDate {
+            DatePicker(
+                "",
+                selection: $filteredDate,
+                displayedComponents: .date
+                
+            )
+            .datePickerStyle(GraphicalDatePickerStyle())
+            .labelsHidden()
+            .onChange(of: filteredDate) {
+                hasSelectedStartDate = true
+                hasSelectedEndDate = true
+            }
+        } else {
+            DatePicker(
+                "",
+                selection: $appState.selectedDate,
+                displayedComponents: .date
+                
+            )
+            .datePickerStyle(GraphicalDatePickerStyle())
+            .labelsHidden()
+        }
                 
     }
 }

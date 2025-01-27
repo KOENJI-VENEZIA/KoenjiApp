@@ -19,7 +19,6 @@ struct ReservationWaitingListView: View {
 
     let activeReservations: [Reservation]
     var currentTime: Date
-    var selectedCategory: Reservation.ReservationCategory
     var onClose: () -> Void
     var onEdit: (Reservation) -> Void
     var onConfirm: (Reservation) -> Void

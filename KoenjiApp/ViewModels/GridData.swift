@@ -196,107 +196,7 @@ class GridData: ObservableObject {
             
 
             ZStack {
-                // Outer Border with Indentations and Corner Indentations
-//                Path { path in
-//                    let borderPoints: [(CGFloat, CGFloat)] = [
-//                        (0, 0), (totalWidth, 0), (totalWidth, totalHeight), (0, totalHeight), (0, 0)
-//                    ]
-//
-//                    for i in 0..<borderPoints.count - 1 {
-//                        let (startX, startY) = borderPoints[i]
-//                        let (endX, endY) = borderPoints[i + 1]
-//
-//                        let isHorizontal = startY == endY
-//                        let isIncreasing = isHorizontal ? (endX > startX) : (endY > startY)
-//
-//                        // Determine the current border side
-//                        let currentSide = self.borderSide(from: i)
-//
-//                        // Extract features for the current segment
-//                        let segmentFeatures = borderFeatures.filter { $0.side == currentSide }
-//
-//                        // Sort features based on position along the segment
-//                        let sortedFeatures = segmentFeatures.sorted { first, second in
-//                            guard let firstPos = first.type.position(),
-//                                  let secondPos = second.type.position() else { return false }
-//
-//                            if isHorizontal {
-//                                return isIncreasing ? firstPos.x < secondPos.x : firstPos.x > secondPos.x
-//                            } else {
-//                                return isIncreasing ? firstPos.y < secondPos.y : firstPos.y > secondPos.y
-//                            }
-//                        }
-//
-//                        var currentX = startX
-//                        var currentY = startY
-//
-//                        for feature in sortedFeatures {
-//                            switch feature.type {
-//                            case .indentation(let indentation):
-//                                let indentSide = feature.side
-//                                let indentStart = indentation.position
-//                                let indentWidth = CGFloat(indentation.horizontalSpan) * self.cellSize
-//                                let indentHeight = CGFloat(indentation.verticalSpan) * self.cellSize
-//                                
-//                                // Draw each specified side independently
-//                                if indentSide == .bottom && indentation.sides.contains(.top) {
-//                                    // Top side
-//                                    path.move(to: CGPoint(x: indentStart.x, y: indentStart.y - indentHeight))
-//                                    path.addLine(to: CGPoint(x: indentStart.x + indentWidth, y: indentStart.y - indentHeight))
-//                                }
-//                                if indentSide == .bottom && indentation.sides.contains(.left) {
-//                                    // Top side
-//                                    path.move(to: CGPoint(x: indentStart.x, y: indentStart.y))
-//                                    path.addLine(to: CGPoint(x: indentStart.x , y: indentStart.y - indentHeight))
-//                                }
-//                                if indentSide == .bottom && indentation.sides.contains(.right) {
-//                                    // Top side
-//                                    path.move(to: CGPoint(x: indentStart.x + indentWidth, y: indentStart.y))
-//                                    path.addLine(to: CGPoint(x: indentStart.x + indentWidth , y: indentStart.y - indentHeight))
-//                                }
-//                                if indentSide == .right && indentation.sides.contains(.top) {
-//                                    // Top side
-//                                    path.move(to: CGPoint(x: indentStart.x, y: indentStart.y))
-//                                    path.addLine(to: CGPoint(x: indentStart.x - indentWidth, y: indentStart.y))
-//                                }
-//                                if indentSide == .right && indentation.sides.contains(.left) {
-//                                    // Left side
-//                                    path.move(to: CGPoint(x: indentStart.x - indentWidth, y: indentStart.y))
-//                                    path.addLine(to: CGPoint(x: indentStart.x - indentWidth, y: indentStart.y + indentHeight))
-//                                }
-//                                
-//                                
-//                                
-//                                
-//                                
-//                                
-//                            case .hole(let hole):
-//                                let holeStart = hole.position
-//                                let holeSpan = CGFloat(hole.span) * self.cellSize
-//                                
-//                                // Draw line up to the hole start
-//                                path.move(to: CGPoint(x: currentX, y: currentY))
-//                                path.addLine(to: holeStart)
-//                                
-//                                // Skip the hole by moving the current position past the hole span
-//                                if isHorizontal {
-//                                    currentX = isIncreasing ? holeStart.x + holeSpan : holeStart.x - holeSpan
-//                                } else {
-//                                    currentY = isIncreasing ? holeStart.y + holeSpan : holeStart.y - holeSpan
-//                                }
-//
-//                            }
-//                        }
-//
-//                        // Draw the remaining segment after all features
-//                        path.move(to: CGPoint(x: currentX, y: currentY))
-//                        path.addLine(to: CGPoint(x: endX, y: endY))
-//                    }
-//                }
-//                .stroke(
-//                    selectedCategory == .lunch ? Color.stroke_color_lunch : Color.stroke_color_dinner,
-//                    style: StrokeStyle(lineWidth: 4, lineJoin: .round)
-//                )
+            
                 
                 let excludedRegions = self.calculateExclusionRegions(
                                 borderFeatures: borderFeatures,
@@ -310,7 +210,7 @@ class GridData: ObservableObject {
                         borderFeatures: borderFeatures,
                         excludedRegions: excludedRegions
                 )
-                .fill(selectedCategory == .lunch ? Color(hex: "#3E3B2E") : Color(hex: "#2D2F43"))
+                .fill(selectedCategory == .lunch ? Color(hex: "#3E3B2E") : Color(hex: "#2D2F43").opacity(0))
                 .stroke(.white, lineWidth: 2)
                 // Background color or pattern
 

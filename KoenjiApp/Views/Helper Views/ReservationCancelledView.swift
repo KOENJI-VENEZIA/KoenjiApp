@@ -16,7 +16,6 @@ struct ReservationCancelledView: View {
 
     let activeReservations: [Reservation]
     var currentTime: Date
-    var selectedCategory: Reservation.ReservationCategory
     var onClose: () -> Void
     var onEdit: (Reservation) -> Void
     var onRestore: (Reservation) -> Void

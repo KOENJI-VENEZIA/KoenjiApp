@@ -11,7 +11,6 @@ struct ClusterView: View {
 
     let cluster: CachedCluster
     let overlayFrame: CGRect
-    @Binding var currentTime: Date
     @State private var systemTime: Date = Date()
     @Binding var isLayoutLocked: Bool
     var isLunch: Bool
@@ -25,15 +24,17 @@ struct ClusterView: View {
         return cluster.reservationID.status == .late
     }
     @EnvironmentObject var resCache: CurrentReservationsCache
+    @EnvironmentObject var appState: AppState
+    @Environment(\.colorScheme) var colorScheme
 
 
     var body: some View {
         ZStack {
             if nearEndReservation == nil {
-                RoundedRectangle(cornerRadius: 8.0)
-                    .fill(isLunch ? Color.active_table_lunch : Color.active_table_dinner)
+                RoundedRectangle(cornerRadius: 12.0)
+                    .fill(cluster.reservationID.assignedColor.opacity(0.7))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8.0)
+                        RoundedRectangle(cornerRadius: 12.0)
                             .stroke(
                                 isLate ? Color(hex: "#f78457") : (showedUp ? .green : .white),
                                 lineWidth: 3
@@ -45,7 +46,7 @@ struct ClusterView: View {
                     .allowsHitTesting(false) // Ignore touch input
             } else {
                 RoundedRectangle(cornerRadius: 8.0)
-                    .fill(isLunch ? Color.active_table_lunch : Color.active_table_dinner)
+                    .fill(cluster.reservationID.assignedColor.opacity(0.7))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8.0)
                             .stroke(.red,
@@ -65,42 +66,49 @@ struct ClusterView: View {
                     Text(cluster.reservationID.name)
                         .bold()
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(colorScheme == .dark ? .white : .black)
 
                     Text("\(cluster.reservationID.numberOfPersons) p.")
                         .font(.footnote)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(colorScheme == .dark ? .white : .black)
                         .opacity(0.8)
 
                     Text(cluster.reservationID.phone)
                         .font(.footnote)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(colorScheme == .dark ? .white : .black)
                         .opacity(0.8)
 
                     if let remaining = TimeHelpers.remainingTimeString(
                         endTime: cluster.reservationID.endTime,
-                        currentTime: currentTime
+                        currentTime: appState.selectedDate
                     ) {
                         Text("Tempo rimasto:")
                             .bold()
                             .multilineTextAlignment(.center)
-                            .foregroundColor(.white)
+                            .foregroundColor(colorScheme == .dark ? .white : .black)
                             .font(.footnote)
                         if nearEndReservation == nil {
                             Text("\(remaining)")
                                 .bold()
                                 .multilineTextAlignment(.center)
-                                .foregroundColor(.white)
+                                .foregroundStyle(colorScheme == .dark ? .white : .black)
                                 .font(.footnote)
                         } else {
-                            Text("\(remaining)")
-                                .bold()
-                                .multilineTextAlignment(.center)
-                                .foregroundColor(Color(hex: "#f78457"))
-                                .font(.footnote)
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(.ultraThinMaterial)
+                                    .frame(width: cluster.frame.width-20, height: 20)
+                                
+                                Text("\(remaining)")
+                                    .bold()
+                                    .multilineTextAlignment(.center)
+                                    .foregroundColor(Color(hex: "#bf5b34"))
+                                    .font(.footnote)
+                            }
                         }
                     }
                 }
+                .background(.clear)
                 .position(x: overlayFrame.midX, y: overlayFrame.midY)
                 .zIndex(2)
             }
@@ -109,7 +117,7 @@ struct ClusterView: View {
         .onAppear {
             updateNearEndReservation()
         }
-        .onChange(of: currentTime) {
+        .onChange(of: appState.selectedDate) {
             updateNearEndReservation()
         }
     }
@@ -117,7 +125,7 @@ struct ClusterView: View {
     // MARK: - Precompute Reservation States
     
     private func updateNearEndReservation() {
-        if resCache.nearingEndReservations(currentTime: currentTime).contains(where: {
+        if resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {
             $0.id == cluster.reservationID.id
         }) {
             nearEndReservation = cluster.reservationID }

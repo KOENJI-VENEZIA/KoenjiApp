@@ -1,12 +1,4 @@
 //
-//  DatePickerView.swift
-//  KoenjiApp
-//
-//  Created by Matteo Nassini on 24/1/25.
-//
-
-
-//
 //  PeoplePickerView.swift
 //  KoenjiApp
 //

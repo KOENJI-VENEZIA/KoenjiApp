@@ -28,7 +28,7 @@ struct SidebarView: View {
         let scribbleService = ScribbleService(layoutServices: layoutServices)
         
         ZStack {
-            appState.sidebarColor
+            appState.selectedCategory.sidebarColor
                 .ignoresSafeArea() // Sidebar background
             VStack {
                    
@@ -45,6 +45,16 @@ struct SidebarView: View {
                             ) {
                                 Label("Database", systemImage: "list.bullet")
                             }
+                        NavigationLink(destination: TabsView()
+                            .environmentObject(store)
+                            .environmentObject(reservationService) // For the new service
+                            .environmentObject(layoutServices)
+                            .environmentObject(appState)
+                            .environmentObject(resCache)
+                            .ignoresSafeArea(.all)
+                        ) {
+                            Label("Timeline", systemImage: "calendar.day.timeline.left")
+                        }
 //                        NavigationLink(destination: CalendarView()
 //                            .environmentObject(store)
 //                            .environmentObject(resCache)
@@ -57,7 +67,7 @@ struct SidebarView: View {
 //                            ) {
 //                                Label("Calendario", systemImage: "calendar")
 //                            }
-                        NavigationLink(destination: LayoutView(selectedCategory: $selectedCategory, selectedReservation: $selectedReservation, currentReservation: $currentReservation)
+                        NavigationLink(destination: LayoutView(selectedReservation: $selectedReservation, currentReservation: $currentReservation)
                             .environmentObject(store)
                             .environmentObject(resCache)
                             .environmentObject(tableStore)
@@ -73,7 +83,7 @@ struct SidebarView: View {
                     }
                     .listStyle(.sidebar)
                     .scrollContentBackground(.hidden) // Remove default background of the list
-                    .background(appState.sidebarColor) // Match the list background to the sidebar color
+                    .background(appState.selectedCategory.sidebarColor) // Match the list background to the sidebar color
                     .navigationTitle("Prenotazioni")
                     .padding(.vertical)
                     .toolbarColorScheme(.dark, for: .navigationBar)

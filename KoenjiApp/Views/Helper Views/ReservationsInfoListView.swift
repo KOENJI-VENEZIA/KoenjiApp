@@ -9,13 +9,13 @@ import SwiftUI
 
 struct ReservationsInfoListView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var appState: AppState
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var layoutServices: LayoutServices
     @State private var selection = Set<UUID>()  // Multi-select
     @Environment(\.colorScheme) var colorScheme
     let activeReservations: [Reservation]
     @Binding var currentTime: Date
-    var selectedCategory: Reservation.ReservationCategory
     var onClose: () -> Void
     var onEdit: (Reservation) -> Void
     var onCancelled: (Reservation) -> Void
@@ -207,9 +207,9 @@ struct ReservationsInfoListView: View {
     
     private func showReservationInTime(_ reservation: Reservation) {
         if let reservationStart = reservation.startTimeDate {
-            let combinedDate = DateHelper.combine(date: currentTime, time: reservationStart)
+            let combinedDate = DateHelper.combine(date: appState.selectedDate, time: reservationStart)
             
-            currentTime = combinedDate
+            appState.selectedDate = combinedDate
         }
     }
     private func markReservationStatus(_ reservation: Reservation) {
@@ -218,7 +218,7 @@ struct ReservationsInfoListView: View {
         if updatedReservation.status == .pending || updatedReservation.status == .late {
                 updatedReservation.status = .showedUp
             }
-        else if let reservationStart = updatedReservation.startTimeDate {
+        else if updatedReservation.startTimeDate != nil {
                      updatedReservation.status = .pending
                  }
             reservationService.updateReservation(updatedReservation)

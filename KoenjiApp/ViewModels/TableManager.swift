@@ -87,6 +87,15 @@ class LayoutUIManager: ObservableObject {
 
     /// Finalizes a drag operation, saving the layout state.
 
+    func setTableTapped(_ table: TableModel) {
+        guard let index = tables.firstIndex(where: { $0.id == table.id }) else { return }
+        tables[index].isTapped = true
+    }
+    
+    func setTableUntapped(_ table: TableModel) {
+        guard let index = tables.firstIndex(where: { $0.id == table.id }) else { return }
+        tables[index].isTapped = false
+    }
 
     /// Attempts to move a table to a new position.
     func attemptMove(table: TableModel, to newPosition: (row: Int, col: Int), for date: Date, activeTables: [TableModel]) {
