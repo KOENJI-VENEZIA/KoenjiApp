@@ -83,7 +83,7 @@ struct TimeHelpers {
         return start1 < end2 && start2 < end1
     }
 
-    private static var dateCache: [String: Date] = [:]
+    nonisolated(unsafe) private static var dateCache: [String: Date] = [:]
     
     static func parseFullDate(from dateString: String) -> Date? {
         if let cachedDate = dateCache[dateString] {

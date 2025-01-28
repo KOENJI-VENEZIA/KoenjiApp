@@ -50,13 +50,12 @@ class ClusterServices: ObservableObject {
     
     func saveClusters(_ clusters: [CachedCluster], for date: Date, category: Reservation.ReservationCategory) {
         let key = layoutServices.keyFor(date: date, category: category)
-        DispatchQueue.main.async {
             self.clusterStore.clusterCache[key] = ClusterStore.ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
             print("Clusters saved for key: \(key)")
             self.propagateClusterChange(from: key, clusters: clusters)
             self.enforceLRUCacheLimit()
             self.saveClustersToDisk()
-        }
+        
         // Propagate changes to future timeslots
         propagateClusterChange(from: key, clusters: clusters)
         enforceLRUCacheLimit()

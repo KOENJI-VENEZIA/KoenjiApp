@@ -239,14 +239,12 @@ class ClusterManager: ObservableObject {
 //            }
 
         // 3) Not in cache => recalc clusters
-        Task {
             let newClusters = calculateClusters(for: activeReservations, tables: currentTables, combinedDate: combinedDate, cellSize: cellSize)
-            await MainActor.run {
+            
                 self.clusters = newClusters
-            }
+
             self.lastLayoutSignature = layoutServices.computeLayoutSignature(tables: currentTables)
             clusterServices.saveClusters(newClusters, for: combinedDate, category: selectedCategory)
-        }
     }
 
 }

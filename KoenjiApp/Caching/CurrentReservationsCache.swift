@@ -120,10 +120,8 @@ class CurrentReservationsCache: ObservableObject {
 
         // Notify the UI if there are changes
         if !reservationsEndingSoon.isEmpty || !reservationsLate.isEmpty {
-            DispatchQueue.main.async {
                 print("DEBUG: significant changes have been detected!")
-                self.objectWillChange.send()
-            }
+                objectWillChange.send()
         }
     }
 

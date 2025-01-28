@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 
 class ClusterStore: ObservableObject {
-    static let shared = ClusterStore(store: ReservationStore.shared, tableStore: TableStore.shared, layoutServices: LayoutServices(store: ReservationStore.shared, tableStore: TableStore.shared, tableAssignmentService: TableAssignmentService()))
+    nonisolated(unsafe) static let shared = ClusterStore(store: ReservationStore.shared, tableStore: TableStore.shared, layoutServices: LayoutServices(store: ReservationStore.shared, tableStore: TableStore.shared, tableAssignmentService: TableAssignmentService()))
     private let store: ReservationStore
     private let tableStore: TableStore
     private let layoutServices: LayoutServices

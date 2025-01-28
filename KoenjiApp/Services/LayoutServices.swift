@@ -57,10 +57,8 @@ class LayoutServices: ObservableObject {
         // Check if the exact layout exists
         if let tables = cachedLayouts[fullKey] {
             // Assign to self.tables *on the main thread*
-            DispatchQueue.main.async {
                 self.tables = tables
                 print("Loaded exact layout for key: \(fullKey)")
-            }
             return tables
         }
 
@@ -70,21 +68,17 @@ class LayoutServices: ObservableObject {
             // Copy the fallback layout for this specific timeslot
             cachedLayouts[fullKey] = fallbackTables
             
-            DispatchQueue.main.async {
                 self.tables = fallbackTables
                 print("Copied fallback layout from key: \(fallbackKey ?? "none") to key: \(fullKey)")
-            }
             return fallbackTables
         }
 
         // Final fallback: Initialize with base tables
 
         
-        DispatchQueue.main.async {
             self.cachedLayouts[fullKey] = self.tableStore.baseTables
             self.tables = self.tableStore.baseTables
             print("Initialized new layout for key: \(fullKey) with base tables")
-        }
         return self.tableStore.baseTables
     }
     
@@ -215,14 +209,12 @@ class LayoutServices: ObservableObject {
             if let assignedTables = assignedTables {
                 // Lock tables, update store, etc.
                 lockTable(tableID: selectedTable.id, start: reservationStart, end: reservationEnd)
-                DispatchQueue.main.async {
                     if let index = self.store.reservations.firstIndex(where: { $0.id == reservation.id }) {
                         self.store.reservations[index].tables = assignedTables
                     } else {
                         var updatedReservation = reservation
                         updatedReservation.tables = assignedTables
                         self.store.reservations.append(updatedReservation)
-                    }
                 }
                 return .success(assignedTables)
             } else {
@@ -244,14 +236,12 @@ class LayoutServices: ObservableObject {
             ) {
                 // Lock each table, update store, etc.
                 assignedTables.forEach { lockTable(tableID: $0.id, start: reservationStart, end: reservationEnd) }
-                DispatchQueue.main.async {
                     if let index = self.store.reservations.firstIndex(where: { $0.id == reservation.id }) {
                         self.store.reservations[index].tables = assignedTables
                     } else {
                         var updatedReservation = reservation
                         updatedReservation.tables = assignedTables
                         self.store.reservations.append(updatedReservation)
-                    }
                 }
                 return .success(assignedTables)
             } else {

@@ -20,23 +20,16 @@ struct TabsView: View {
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var reservationService: ReservationService
+    @State var toolbarManager = ToolbarStateManager()
     
     @Environment(\.colorScheme) var colorScheme
     @State var reservations: [Reservation] = []
-    @State var showingDatePicker: Bool = false
-    @State var showingAddReservationSheet: Bool = false
-
     @State var bindableDate: Date = Date()
+    
     
     var body: some View {
         // TabView for "Lunch" and "Dinner" selection
         if #available(iOS 18.0, *) {
-//            HStack {
-//                Text(
-//                    "\(reservations.count) PRENOTAZIONI"
-//                )
-//                .font(.headline)
-//                .padding(.top)
             GeometryReader { geometry in
                 ZStack {
                     TabView(selection: $selectedTab) {
@@ -55,72 +48,46 @@ struct TabsView: View {
                         
                     }
                     
-                    if appState.isToolbarVisible {
-                        ZStack {
-                            // MARK: Background (RoundedRectangle)
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.thinMaterial)
-                                .frame(
-                                    width: appState.toolbarState != .pinnedBottom
-                                    ? 80  // 20% of the available width (you can tweak the factor)
-                                    : geometry.size.width * 0.4,  // 90% of the available width when pinned bottom
-                                    height: appState.toolbarState != .pinnedBottom
-                                    ? geometry.size.height * 0.4  // 90% of the available height when vertical
-                                    : 80  // 15% of the available height when horizontal
-                                )
-                                .scaleEffect(appState.toolbarState == .overlay ? 1.25 : 1.0, anchor: .center)
-                                .opacity(appState.toolbarState == .overlay ? 0.5 : 1.0)
-                            
-                            // MARK: Toolbar Content
-                            toolbarContent(in: geometry, selectedDate: appState.selectedDate)
-                        }
-                        .ignoresSafeArea(.keyboard)
-                        .position(
-                            appState.isDragging
-                            ? appState.dragAmount ?? calculatePosition(geometry: geometry)
-                            : calculatePosition(geometry: geometry)
-                        )
-                        .animation(appState.isDragging ? .none : .spring(), value: appState.isDragging)
-                        .transition(transitionForCurrentState(geometry: geometry))
-                        .gesture(
-                            toolbarGesture(in: geometry)
-                        )
+                    ZStack {
+                        ToolbarExtended(geometry: geometry, toolbarState: $toolbarManager.toolbarState)
                         
-                    } else {
-                        // 2) Show a handle if hidden, positioned based on the last pinned side
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.thinMaterial)
-                                .frame(width: 90, height: 90)
-                            
-                            Image(systemName: "slider.horizontal.3")
-                                .resizable()
-                                .scaledToFit()
-                                .foregroundStyle(
-                                    colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
-                                )
-                                .frame(width: 50, height: 50)
-                        }
+                        // MARK: Toolbar Content
+                        toolbarContent(in: geometry, selectedDate: appState.selectedDate)
+                    }
+                    .opacity(toolbarManager.isToolbarVisible ? 1 : 0)
+                    .ignoresSafeArea(.keyboard)
+                    .position(
+                        toolbarManager.isDragging
+                        ? toolbarManager.dragAmount
+                        : calculatePosition(geometry: geometry)
+                    )
+                    .animation(toolbarManager.isDragging ? .none : .spring(), value: toolbarManager.isDragging)
+                    .transition(transitionForCurrentState(geometry: geometry))
+                    .gesture(
+                        toolbarManager.toolbarGesture(geometry: geometry)
+                    )
+                    
+                    ToolbarMinimized()
+                        .opacity(!toolbarManager.isToolbarVisible ? 1 : 0)
                         .ignoresSafeArea(.keyboard)
                         .position(
-                            appState.isDragging
-                            ? appState.dragAmount ?? calculatePosition(geometry: geometry)
+                            toolbarManager.isDragging
+                            ? toolbarManager.dragAmount
                             : calculatePosition(geometry: geometry)
                         )  // depends on pinned side
-                        .animation(appState.isDragging ? .none : .spring(), value: appState.isDragging)
+                        .animation(toolbarManager.isDragging ? .none : .spring(), value: toolbarManager.isDragging)
                         .transition(transitionForCurrentState(geometry: geometry))
                         .gesture(
                             TapGesture()
                                 .onEnded {
                                     withAnimation {
-                                        appState.isToolbarVisible = true
+                                        toolbarManager.isToolbarVisible = true
                                     }
                                 }
                         )
                         .simultaneousGesture(
-                            toolbarGesture(in: geometry)
+                            toolbarManager.toolbarGesture(geometry: geometry)
                         )
-                    }
                 }
             }
             .navigationTitle("Timeline tavoli - \(DateHelper.dayOfWeek(for: appState.selectedDate)), \(DateHelper.formatFullDate(appState.selectedDate))")
@@ -143,7 +110,7 @@ struct TabsView: View {
 //                .environmentObject(reservationService)  // For the new service
 //                .environmentObject(layoutServices)
 //            }
-            .sheet(isPresented: $showingAddReservationSheet) {
+            .sheet(isPresented: $appState.showingAddReservationSheet) {
                 AddReservationView(
                     selectedDate: $bindableDate,
                     passedTable: nil
@@ -190,10 +157,8 @@ struct TabsView: View {
     }
     
     private func transitionForCurrentState(geometry: GeometryProxy) -> AnyTransition {
-        switch appState.toolbarState {
-        case .overlay:
-            // No special transition on overlay
-            return .opacity
+        switch toolbarManager.toolbarState {
+
         case .pinnedLeft:
             return .move(edge: .leading)
         case .pinnedRight:
@@ -207,7 +172,7 @@ struct TabsView: View {
     private func toolbarContent(in geometry: GeometryProxy, selectedDate: Date)
         -> some View
     {
-        switch appState.toolbarState {
+        switch toolbarManager.toolbarState {
         case .pinnedLeft, .pinnedRight:
             // Vertical layout:
             VStack {
@@ -245,123 +210,19 @@ struct TabsView: View {
                 
 
             }
-
-        case .overlay:
-            // *Decide* if you want a vertical or horizontal layout
-            // depending on the user’s drag or your thresholds.
-            // If you want to replicate “vertical if near sides, horizontal if near bottom,”
-            // you can do a quick check on overlayOffset.
-            switch appState.overlayOrientation {
-            case .horizontal:
-                // Horizontal
-                HStack(spacing: 25) {
-                   
-                }
-
-            case .vertical:
-                // Vertical
-                VStack(spacing: 25) {
-                   
-                }
-            }
         }
     }
 
-    private func toolbarGesture(in geometry: GeometryProxy) -> some Gesture {
-        DragGesture()
-            .onChanged { value in
-
-                appState.isDragging = true
-
-                var currentLocation = value.location
-                let currentOffset = value.translation
-
-                if appState.toolbarState != .pinnedBottom {
-                    currentLocation.y = (geometry.size.height / 2) + currentOffset.height
-
-                } else {
-                    currentLocation.x = (geometry.size.height / 2) + currentOffset.width
-                }
-
-                appState.dragAmount = currentLocation
-
-            }
-            .onEnded { value in
-                var currentLocation = value.location
-                let currentOffset = value.translation
-
-                if appState.toolbarState == .pinnedBottom {
-                    if currentOffset.height > 0 {
-                        withAnimation {
-                            appState.isToolbarVisible = false
-                        }
-                    }
-                } else if appState.toolbarState == .pinnedLeft {
-                    if currentOffset.width < 0 {
-                        withAnimation {
-                            appState.isToolbarVisible = false
-                        }
-                    }
-                } else if appState.toolbarState == .pinnedRight {
-                    if currentOffset.width > 0 {
-                        withAnimation {
-                            appState.isToolbarVisible = false
-                        }
-                    }
-                }
-
-                if currentLocation.y > geometry.size.height / 2 && currentOffset.height > 0
-                    && (currentLocation.x > geometry.size.width / 2 && currentOffset.width < 0
-                        || currentLocation.x < geometry.size.width / 2 && currentOffset.width > 0)
-                {
-                    withAnimation {
-                        appState.toolbarState = .pinnedBottom
-                    }
-                } else if currentLocation.x < geometry.size.width / 2 && currentOffset.width < 0
-                    && currentOffset.height < 0
-                {
-                    appState.toolbarState = .pinnedLeft
-                } else if currentLocation.x > geometry.size.width / 2 && currentOffset.width > 0
-                    && currentOffset.height < 0
-                {
-                    appState.toolbarState = .pinnedRight
-                }
-
-                print("ToolbarState: \(appState.toolbarState)")
-
-                if appState.toolbarState == .pinnedLeft {
-                    currentLocation.x = 60
-                    currentLocation.y = geometry.size.height / 2
-                    withAnimation {
-                        appState.dragAmount = currentLocation
-                    }
-                } else if appState.toolbarState == .pinnedRight {
-                    currentLocation.x = geometry.size.width - 60
-                    currentLocation.y = geometry.size.height / 2
-                    withAnimation {
-                        appState.dragAmount = currentLocation
-                    }
-                } else if appState.toolbarState == .pinnedBottom {
-                    currentLocation.x = geometry.size.width / 2
-                    currentLocation.y = geometry.size.height - 30
-                    withAnimation {
-                        appState.dragAmount = currentLocation
-                    }
-                }
-
-                appState.isDragging = false
-            }
-    }
 
     private func calculatePosition(geometry: GeometryProxy) -> CGPoint {
-        if appState.toolbarState == .pinnedLeft {
+        if toolbarManager.toolbarState == .pinnedLeft {
             return CGPoint(x: 90, y: geometry.size.height / 2)
-        } else if appState.toolbarState == .pinnedRight {
+        } else if toolbarManager.toolbarState == .pinnedRight {
             return CGPoint(x: geometry.size.width - 90, y: geometry.size.height / 2)
-        } else if appState.toolbarState == .pinnedBottom {
+        } else if toolbarManager.toolbarState == .pinnedBottom {
             return CGPoint(x: geometry.size.width / 2, y: geometry.size.height - 90)
         } else {
-            return appState.lastPinnedPosition
+            return toolbarManager.lastPinnedPosition
         }
     }
 
@@ -506,7 +367,7 @@ struct TabsView: View {
                 .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
             
             Button(action: {
-                showingDatePicker = true
+                appState.showingDatePicker = true
             }) {
                 Image(systemName: "calendar.circle.fill")
                     .resizable()
@@ -518,7 +379,7 @@ struct TabsView: View {
                     .shadow(radius: 2)
             }
         }
-        .popover(isPresented: $showingDatePicker) {
+        .popover(isPresented: $appState.showingDatePicker) {
             DatePickerView()
                 .environmentObject(appState)
             .frame(width: 300, height: 350)  // Adjust as needed
@@ -562,7 +423,7 @@ struct TabsView: View {
 
     private var addReservationButton: some View {
         Button {
-            showingAddReservationSheet = true
+            appState.showingAddReservationSheet = true
         } label: {
             Image(systemName: "plus")
                 .font(.title2)
@@ -572,3 +433,5 @@ struct TabsView: View {
     }
 
 }
+
+

@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 
 class ReservationStore: ObservableObject {
-    static let shared = ReservationStore(tableAssignmentService: TableAssignmentService())
+    nonisolated(unsafe) static let shared = ReservationStore(tableAssignmentService: TableAssignmentService())
        
        // MARK: - Properties
     let tableAssignmentService: TableAssignmentService

@@ -9,7 +9,6 @@ enum ToolbarState {
     case pinnedLeft
     case pinnedRight
     case pinnedBottom
-    case overlay
 }
 
 enum OverlayOrientation {

@@ -12,7 +12,7 @@ struct FlipEffect: AnimatableModifier {
     var rotation: Double
     let axis: (x: CGFloat, y: CGFloat, z: CGFloat)
     
-    var animatableData: Double {
+    nonisolated var animatableData: Double {
         get { rotation }
         set { rotation = newValue }
     }

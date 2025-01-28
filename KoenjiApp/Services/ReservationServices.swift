@@ -26,9 +26,10 @@ class ReservationService: ObservableObject {
     
     private var imageCache: [UUID: UIImage] = [:]
 
-    @ObservedObject private var appState: AppState // Use the shared AppState
+    private let appState: AppState // Use the shared AppState
 
     // MARK: - Initializer
+    @MainActor
     init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, appState: AppState) {
         self.store = store
         self.resCache = resCache
@@ -41,6 +42,7 @@ class ReservationService: ObservableObject {
 
         self.layoutServices.loadFromDisk()
         self.clusterServices.loadClustersFromDisk()
+        
         self.loadReservationsFromDisk()
         
         let today = Calendar.current.startOfDay(for: Date())
@@ -55,6 +57,7 @@ class ReservationService: ObservableObject {
     /// Assumes the reservation's `tables` have already been assigned
     /// (manually or automatically). If not, it will be unassigned.
     /// This method simply appends it and marks its tables as occupied.
+    @MainActor
     func addReservation(_ reservation: Reservation) {
            DispatchQueue.main.async {
                self.store.reservations.append(reservation)
@@ -66,6 +69,7 @@ class ReservationService: ObservableObject {
        }
     
     /// Updates an existing reservation, refreshes the cache, and reassigns tables if needed.
+    @MainActor
     func updateReservation(_ oldReservation: Reservation, at index: Int? = nil/*, dateString: String? = "", startTime: String? = "", endTime: String? = ""*/) {
         // Remove from active cache
 //        removeReservationFromActiveCache(updatedReservation)
@@ -112,6 +116,7 @@ class ReservationService: ObservableObject {
 
     
     /// Deletes reservations and invalidates the associated cluster cache.
+    @MainActor
     func deleteReservations(at offsets: IndexSet) {
         DispatchQueue.main.async {
             offsets.forEach { index in
@@ -139,7 +144,7 @@ class ReservationService: ObservableObject {
 
     
     
-    func clearAllData() {
+    @MainActor func clearAllData() {
         store.reservations.removeAll() // Clear in-memory reservations
         
         saveReservationsToDisk(includeMock: true) // Overwrite stored data
@@ -193,6 +198,7 @@ class ReservationService: ObservableObject {
     // MARK: - Placeholder Methods for Persistence
     
     /// Loads reservations from persistent storage.
+    @MainActor
     func loadReservationsFromDisk() {
         withAnimation {
             appState.isWritingToFirebase = true
@@ -226,6 +232,7 @@ class ReservationService: ObservableObject {
         }
     }
 
+    @MainActor
     func saveReservationsToDisk(includeMock: Bool = false) {
         withAnimation {
             appState.isWritingToFirebase = true
@@ -253,6 +260,7 @@ class ReservationService: ObservableObject {
         }
     }
     
+    @MainActor
     func exportReservations(completion: @escaping (URL?) -> Void) {
         withAnimation {
             appState.isWritingToFirebase = true
@@ -288,7 +296,7 @@ class ReservationService: ObservableObject {
     }
     
     /// Imports reservations from a JSON file.
-    func importReservations(from url: URL, completion: @escaping (Bool) -> Void) {
+    @MainActor func importReservations(from url: URL, completion: @escaping (Bool) -> Void) {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601 // Ensure ISO 8601 consistency
 
@@ -323,6 +331,7 @@ class ReservationService: ObservableObject {
 // MARK: - Mock Data
 extension ReservationService {
     /// Loads two sample reservations for demonstration purposes.
+    @MainActor
     private func mockData() {
         layoutServices.setTables(tableStore.baseTables)
         print("Debug: Tables populated in mockData: \(layoutServices.tables.map { $0.name })")
@@ -362,6 +371,7 @@ extension ReservationService {
         addReservation(mockReservation1)
         addReservation(mockReservation2)
         
+        
         saveReservationsToDisk() // Save after mocking
     }
 }
@@ -369,6 +379,7 @@ extension ReservationService {
 extension ReservationService {
     // MARK: - Test Data
     
+    @MainActor
     func generateReservations(
         daysToSimulate: Int,
         force: Bool = false,
@@ -404,19 +415,15 @@ extension ReservationService {
         print("Generating reservations for \(daysToSimulate) days with realistic variance (closed on Mondays).")
 
         // 3. Perform parallel reservation generation
-        await withTaskGroup(of: Void.self) { group in
-            for dayOffset in 0..<daysToSimulate {
-                group.addTask {
-                    await self.generateReservationsForDay(
-                        dayOffset: dayOffset,
-                        startDate: startDate,
-                        names: names,
-                        phoneNumbers: phoneNumbers,
-                        notes: notes
-                    )
-                }
-            }
-        }
+        for dayOffset in 0..<daysToSimulate {
+               await self.generateReservationsForDay(
+                   dayOffset: dayOffset,
+                   startDate: startDate,
+                   names: names,
+                   phoneNumbers: phoneNumbers,
+                   notes: notes
+               )
+           }
 
         // 4. Save data to disk after all tasks complete
         self.resCache.preloadDates(around: startDate, range: daysToSimulate, reservations: store.reservations)
@@ -425,6 +432,7 @@ extension ReservationService {
             print("Finished generating reservations.")
     }
 
+    @MainActor
     private func generateReservationsForDay(
         dayOffset: Int,
         startDate: Date,
@@ -593,17 +601,20 @@ extension ReservationService {
         }
     }
     
+    @MainActor
     func simulateUserActions(actionCount: Int = 1000) {
         Task {
             do {
                 for _ in 0..<actionCount {
                     try await Task.sleep(nanoseconds: UInt64(10_000_000)) // Small delay to simulate real-world actions
+                    
+                    let randomTable = self.layoutServices.tables.randomElement()!
+                    let newRow = Int.random(in: 0..<self.tableStore.totalRows)
+                    let newColumn = Int.random(in: 0..<self.tableStore.totalColumns)
+                    
+                    let layoutServices = self.layoutServices // Capture layoutServices explicitly
                     Task {
-                        let randomTable = self.layoutServices.tables.randomElement()!
-                        let newRow = Int.random(in: 0..<self.tableStore.totalRows)
-                        let newColumn = Int.random(in: 0..<self.tableStore.totalColumns)
-                        
-                        let result = self.layoutServices.moveTable(randomTable, toRow: newRow, toCol: newColumn)
+                        let result = layoutServices.moveTable(randomTable, toRow: newRow, toCol: newColumn)
                         print("Simulated moving \(randomTable.name) to (\(newRow), \(newColumn)): \(result)")
                     }
                 }
@@ -654,6 +665,7 @@ extension ReservationService {
 
 extension ReservationService {
     /// Clears all caches in the store and resets layouts and clusters.
+    @MainActor
     func flushAllCaches() {
         DispatchQueue.main.async {
             // Clear cached layouts
@@ -675,7 +687,7 @@ extension ReservationService {
 // MARK: - Automatic Firebase Backup Service
 extension ReservationService {
     
-    func automaticBackup() {
+    @MainActor func automaticBackup() {
             // Export reservations to a local file
             exportReservations { fileURL in
                 guard let fileURL = fileURL else {
@@ -695,12 +707,15 @@ extension ReservationService {
             }
         }
 
+    @MainActor
     func restoreBackup(completion: @escaping (Bool) -> Void) {
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("ReservationsBackup.json")
         self.backupService.downloadLatestBackup(to: tempURL) { result in
             switch result {
             case .success:
-                self.importReservations(from: tempURL, completion: completion)
+                
+                    self.importReservations(from: tempURL, completion: completion)
+                
             case .failure(let error):
                 print("Restore backup failed: \(error)")
                 completion(false)
@@ -711,7 +726,9 @@ extension ReservationService {
     func scheduleAutomaticBackup() {
         // Backup once a day
         Timer.scheduledTimer(withTimeInterval: 86400, repeats: true) { _ in
-            self.automaticBackup()
+            Task { @MainActor in
+                self.automaticBackup()
+            }
         }
     }
 }

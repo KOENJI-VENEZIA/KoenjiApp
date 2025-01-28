@@ -19,17 +19,10 @@ class AppState: ObservableObject {
     @Published var systemTime: Date = Date()
     @Published var isManuallyOverridden: Bool = false
 
-    @Published var dates: [Date] = []
-    @Published var selectedIndex: Int = 15
-    @Published var toolbarState: ToolbarState = .pinnedLeft
-    @Published var dragAmount: CGPoint? = nil
-    @Published var isDragging: Bool = false
-    @Published var showingDatePicker: Bool = false
-    @Published var navigationDirection: NavigationDirection = .forward
-    @Published var isToolbarVisible: Bool = true
-    @Published var lastPinnedPosition: CGPoint = .zero
-    @Published var overlayOrientation: OverlayOrientation = .horizontal
-    @Published var showingAddReservationSheet: Bool = false
+    @State var dates: [Date] = []
+    @State var selectedIndex: Int = 15
+    @State var showingDatePicker: Bool = false
+    @State var showingAddReservationSheet: Bool = false
 
     
     init(selectedCategory: Reservation.ReservationCategory = .lunch) {
@@ -53,4 +46,6 @@ class AppState: ObservableObject {
             return .noBookingZone
         }
     }
+    
+    
 }

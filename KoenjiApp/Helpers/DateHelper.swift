@@ -10,7 +10,7 @@ import Foundation
 
 struct DateHelper {
     
-    private static var combineDateAndTimeCache = NSCache<NSString, NSDate>()
+    nonisolated(unsafe) private static var combineDateAndTimeCache = NSCache<NSString, NSDate>()
 
     // Singleton DateFormatter instances
     private static let dateFormatter: DateFormatter = {

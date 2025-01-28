@@ -56,7 +56,7 @@ struct TimelineGantView: View {
                         }
                     }
                     
-                    Divider()
+//                    Divider()
                     
                     ScrollView(.horizontal) {
                         ZStack(alignment: .leading) {
@@ -135,6 +135,7 @@ struct TimelineGantView: View {
                             .padding()
                         }
                     }
+                    .background(.clear)
                 }
                 
                 Text(

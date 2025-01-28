@@ -12,7 +12,7 @@ import Foundation
 import SwiftUI
 
 class TableStore: ObservableObject {
-    static let shared = TableStore(store: ReservationStore.shared)
+    nonisolated(unsafe) static let shared = TableStore(store: ReservationStore.shared)
     private let store: ReservationStore
     
     let baseTables = [

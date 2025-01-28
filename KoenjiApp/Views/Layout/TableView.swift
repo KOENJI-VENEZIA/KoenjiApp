@@ -405,13 +405,15 @@ struct TableView: View {
                 // Start a timer for single-tap action
                 tapTimer?.invalidate()  // Cancel any existing timer
                 tapTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
-                    if !isDoubleTap {
-                        // Process single-tap only if no double-tap occurred
-                        if let reservation = currentActiveReservation {
-                            handleTap(reservation) }
-                        //                        if let reservation = currentActiveReservation {
-                        //                            print("UI status: showedUp: \(showedUp), isLate: \(isLate)")
-                        //                        }
+                    Task { @MainActor in
+                        if !isDoubleTap {
+                            // Process single-tap only if no double-tap occurred
+                            if let reservation = currentActiveReservation {
+                                handleTap(reservation) }
+                            //                        if let reservation = currentActiveReservation {
+                            //                            print("UI status: showedUp: \(showedUp), isLate: \(isLate)")
+                            //                        }
+                        }
                     }
                 }
             }

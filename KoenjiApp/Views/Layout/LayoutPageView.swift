@@ -348,8 +348,6 @@ struct LayoutPageView: View {
                 DispatchQueue.main.async {
 
                     loadCurrentLayout()
-                    
-                    //                    capturedImage = captureView()
                     print("Current time as LayoutPageView appears: \(currentTime)")
                     withAnimation(.easeInOut(duration: 0.2)) {
                         isLoadingClusters = false
@@ -374,10 +372,6 @@ struct LayoutPageView: View {
         }
         .onChange(of: showInspector) {
             updateCachedReservation()
-//            clusterManager.recalculateClustersIfNeeded(
-//                for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
-//                oldCategory: selectedCategory,
-//                selectedCategory: selectedCategory, cellSize: gridData.cellSize)
         }
         .onChange(of: selectedCategory) { old, newCategory in
             // Load tables for the new category and date
@@ -385,11 +379,6 @@ struct LayoutPageView: View {
 
                 updateCachedReservation()
                 reloadLayout(newCategory, activeReservations)
-//                clusterManager.recalculateClustersIfNeeded(
-//                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
-//                    oldCategory: old,
-//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
-                //            capturedImage = captureView()
             }
 
         }
@@ -399,10 +388,6 @@ struct LayoutPageView: View {
                 updateCachedReservation()
                 resCache.startMonitoring(for: newDate)
                 reloadLayout(selectedCategory, activeReservations)
-                clusterManager.recalculateClustersIfNeeded(
-                    for: activeReservations, tables: layoutUI.tables, combinedDate: newDate,
-                    oldCategory: selectedCategory,
-                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
 
         }
@@ -411,21 +396,12 @@ struct LayoutPageView: View {
             debounce {
                 updateCachedReservation()
                 reloadLayout(selectedCategory, activeReservations)
-//                clusterManager.recalculateClustersIfNeeded(
-//                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
-//                    oldCategory: selectedCategory,
-//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
         }
         .onChange(of: currentTime) { old, newTime in
             print("New current time: \(newTime)")
             debounce {
                 reloadLayout(selectedCategory, activeReservations)
-//                clusterManager.recalculateClustersIfNeeded(
-//                    for: activeReservations, tables: layoutUI.tables, combinedDate: combinedDate,
-//                    oldCategory: selectedCategory,
-//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
-                
             }
             
 
@@ -436,10 +412,6 @@ struct LayoutPageView: View {
             debounce {
                 updateCachedReservation()
                 reloadLayout(selectedCategory, activeReservations)
-//                clusterManager.recalculateClustersIfNeeded(
-//                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
-//                    oldCategory: selectedCategory,
-//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
         }
         .onChange(of: changedReservation) {
@@ -447,26 +419,15 @@ struct LayoutPageView: View {
                 print("Detected cancelled Reservation [LayoutPageView]")
                 updateCachedReservation()
                 reloadLayout(selectedCategory, activeReservations)
-//                clusterManager.recalculateClustersIfNeeded(
-//                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
-//                    oldCategory: selectedCategory,
-//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
+
             }
         }
         .onChange(of: statusChanged) {
             debounce {
                 updateCachedReservation()
                 reloadLayout(selectedCategory, activeReservations)
-//                clusterManager.recalculateClustersIfNeeded(
-//                    for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
-//                    oldCategory: selectedCategory,
-//                    selectedCategory: selectedCategory, cellSize: gridData.cellSize)
             }
-            //            capturedImage = captureView()
         }
-        //        .onChange(of: isSharing) {
-        //        }
-
         .alert(isPresented: $layoutUI.showAlert) {
             Alert(
                 title: Text("Posizionamento non valido"),
@@ -634,8 +595,6 @@ struct LayoutPageView: View {
     }
 
     private func loadCurrentLayout() {
-
-//        currentTime = appState.selectedDate
         
         let calendar = Calendar.current
 
@@ -678,14 +637,14 @@ struct LayoutPageView: View {
                 for: combinedDate, category: determinedCategory)
         }
         
-        for table in layoutUI.tables {
-            updateAdjacencyCountsForLayout(table)
-        }
+//        for table in layoutUI.tables {
+//            updateAdjacencyCountsForLayout(table)
+//        }
 
         updateCachedReservation()
 
         clusterManager.recalculateClustersIfNeeded(
-            for: activeReservations, tables: layoutUI.tables, combinedDate: currentTime,
+            for: activeReservations, tables: layoutUI.tables, combinedDate: appState.selectedDate,
             oldCategory: determinedCategory,
             selectedCategory: determinedCategory, cellSize: gridData.cellSize)
 

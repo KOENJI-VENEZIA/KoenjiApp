@@ -30,23 +30,23 @@ extension LayoutServices {
             print("moveTable: Can place table \(table.name) at (\(clampedRow), \(clampedCol))")
 
             // Perform the move
-            DispatchQueue.main.async {
+            
                 withAnimation(.easeInOut(duration: 0.3)) {
                     if let idx = self.tables.firstIndex(where: { $0.id == table.id }) {
                         self.tables[idx] = newTable
                     }
-                }
+                
                 self.markTable(newTable, occupied: true)
             }
             print("moveTable: Moved \(table.name) to (\(clampedRow), \(clampedCol)) successfully.")
             return .move
         } else {
             // Invalid move; re-mark the original table's position
-            DispatchQueue.main.async {
+            
                 withAnimation(.spring) {
                     self.markTable(table, occupied: true)
                 }
-            }
+            
             print("moveTable: Cannot place \(table.name) at (\(clampedRow), \(clampedCol)). Move failed.")
             return .invalid
         }

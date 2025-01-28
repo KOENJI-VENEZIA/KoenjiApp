@@ -97,7 +97,7 @@ struct ReservationListView: View {
                 // Then group
                 let grouped = groupReservations(filtered, by: groupOption)
                 
-                ForEach(grouped.sorted(by: groupSortingFunction), id: \.id) { group in
+                ForEach((try? grouped.sorted(by: groupSortingFunction)) ?? grouped, id: \.id) { group in
                     Section(
                         header: HStack(spacing: 25) {
                             Text(group.label)
@@ -407,15 +407,7 @@ struct ReservationListView: View {
         .onAppear {
 
             appState.selectedCategory = .noBookingZone
-            NotificationCenter.default.addObserver(
-                forName: .buttonPositionChanged,
-                object: nil,
-                queue: .main
-            ) { notification in
-                if let frame = notification.userInfo?["frame"] as? CGRect {
-                    self.popoverPosition = frame
-                }
-            }
+           
         }
         .onChange(of: hasSelectedPeople) {
             if hasSelectedPeople {
@@ -429,10 +421,7 @@ struct ReservationListView: View {
                 updateDateFilter()
         }
         
-        .onDisappear {
-            NotificationCenter.default.removeObserver(
-                self, name: .buttonPositionChanged, object: nil)
-        }
+
         .alert(isPresented: $showingResetConfirmation) {
             Alert(
                 title: Text("Reset di Tutti i Dati"),
@@ -1353,13 +1342,9 @@ struct ReservationRowView: View {
 
 }
 struct ButtonPositionPreferenceKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
+    nonisolated(unsafe) static var defaultValue: CGRect = .zero
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
         value = nextValue()
     }
 }
 
-extension Notification.Name {
-    static let buttonPositionChanged = Notification.Name(
-        "buttonPositionChanged")
-}
