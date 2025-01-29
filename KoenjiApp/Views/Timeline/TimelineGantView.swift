@@ -7,16 +7,19 @@
 import SwiftUI
 
 struct TimelineGantView: View {
-    //    @EnvironmentObject var appState: AppState
+    
+    // MARK: - Dependencies
     @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var appState: AppState
-
-    let tables: Int = 7  // Number of tables
-    let columnsPerHour: Int = 4  // Columns per hour (15-minute intervals)
+    @State var reservations: [Reservation] = []
+    @Binding var columnVisibility: NavigationSplitViewVisibility
+    
+    let tables: Int = 7
+    let columnsPerHour: Int = 4
     let gridRows = Array(repeating: GridItem(.fixed(40), spacing: 30), count: 8)
     let cellSize: Int = 65
-    @State var reservations: [Reservation] = []
-
+    
+    // MARK: - Body
     var body: some View {
         
         let totalHours = {
@@ -43,7 +46,20 @@ struct TimelineGantView: View {
         
         GeometryReader { geometry in
             ZStack {
-                
+                Color.clear
+                    .gesture(
+                    TapGesture(count: 2) // Double-tap to exit full-screen
+                        .onEnded {
+                                withAnimation {
+                                    appState.isFullScreen.toggle()
+                                    if appState.isFullScreen {
+                                        columnVisibility = .detailOnly
+                                    } else {
+                                        columnVisibility = .all
+                                    }
+                            }
+                        }
+                )
                 
                 HStack {
                     LazyHGrid(rows: gridRows, spacing: 30) {
@@ -172,6 +188,7 @@ struct TimelineGantView: View {
 
     }
     
+    // MARK: - View-specific Helper Methods
     func calculateReservations() {
         reservations = resCache.reservations(for: appState.selectedDate).filter { reservation in
             reservation.category == appState.selectedCategory
@@ -225,9 +242,9 @@ struct TimelineGantView: View {
         let columnWidth: CGFloat = CGFloat(cellSize)  // Width of a 15-minute block
         return CGFloat(minutes / 15) * columnWidth
     }
-
 }
 
+// MARK: - Single Reservation View
 struct RectangleReservationBackground: View {
     let reservation: Reservation
     let cellSize: Int = 65
@@ -272,16 +289,15 @@ struct RectangleReservationBackground: View {
         }
         .background(Color.clear)
     }
-    
-
 }
 
 #Preview {
 
     @Previewable @StateObject var resCache = CurrentReservationsCache()
     @Previewable @StateObject var appState = AppState()
-
-    TimelineGantView()
+    @Previewable @State var columnVisibility: NavigationSplitViewVisibility = .all
+    
+    TimelineGantView(columnVisibility: $columnVisibility)
         .environmentObject(resCache)
         .environmentObject(appState)
 }

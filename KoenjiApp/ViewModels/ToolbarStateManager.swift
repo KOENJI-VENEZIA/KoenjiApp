@@ -87,5 +87,30 @@ class ToolbarStateManager {
                 }
             }
     }
+    
+    func calculatePosition(geometry: GeometryProxy) -> CGPoint {
+        if toolbarState == .pinnedLeft {
+            return CGPoint(x: 90, y: geometry.size.height / 2)
+        } else if toolbarState == .pinnedRight {
+            return CGPoint(x: geometry.size.width - 90, y: geometry.size.height / 2)
+        } else if toolbarState == .pinnedBottom {
+            return CGPoint(x: geometry.size.width / 2, y: geometry.size.height - 90)
+        } else {
+            return lastPinnedPosition
+        }
+    }
+    
+    func transitionForCurrentState(geometry: GeometryProxy) -> AnyTransition {
+        switch toolbarState {
+
+        case .pinnedLeft:
+            return .move(edge: .leading)
+        case .pinnedRight:
+            return .move(edge: .trailing)
+        case .pinnedBottom:
+            return .move(edge: .bottom)
+        }
+    }
+
 }
 

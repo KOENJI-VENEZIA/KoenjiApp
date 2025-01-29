@@ -20,20 +20,28 @@ struct SidebarView: View {
     @Binding  var selectedReservation: Reservation?
     @Binding  var currentReservation: Reservation?
     @Binding  var selectedCategory: Reservation.ReservationCategory? 
-
+    @Binding var columnVisibility: NavigationSplitViewVisibility
+    @StateObject private var scribbleService: ScribbleService
     
-    var body: some View {
-        
+    init(layoutServices: LayoutServices, selectedReservation: Binding<Reservation?>, currentReservation: Binding<Reservation?>, selectedCategory: Binding<Reservation.ReservationCategory?>, columnVisibility: Binding<NavigationSplitViewVisibility>) {
 
-        let scribbleService = ScribbleService(layoutServices: layoutServices)
+        self._selectedReservation = selectedReservation
+        self._currentReservation = currentReservation
+        self._selectedCategory = selectedCategory
+        self._columnVisibility = columnVisibility
         
+        _scribbleService = StateObject(wrappedValue: ScribbleService(layoutServices: layoutServices))
+        
+    }
+    var body: some View {
+
         ZStack {
             appState.selectedCategory.sidebarColor
                 .ignoresSafeArea() // Sidebar background
             VStack {
                    
                     List {
-                        NavigationLink(destination: ReservationListView()
+                        NavigationLink(destination: ReservationListView(columnVisibility: $columnVisibility)
                             .environmentObject(store)
                             .environmentObject(resCache)
                             .environmentObject(tableStore)
@@ -45,7 +53,8 @@ struct SidebarView: View {
                             ) {
                                 Label("Database", systemImage: "list.bullet")
                             }
-                        NavigationLink(destination: TabsView()
+                        
+                        NavigationLink(destination: TabsView(columnVisibility: $columnVisibility)
                             .environmentObject(store)
                             .environmentObject(reservationService) // For the new service
                             .environmentObject(layoutServices)
@@ -55,19 +64,16 @@ struct SidebarView: View {
                         ) {
                             Label("Timeline", systemImage: "calendar.day.timeline.left")
                         }
-//                        NavigationLink(destination: CalendarView()
-//                            .environmentObject(store)
-//                            .environmentObject(resCache)
-//                            .environmentObject(tableStore)
-//                            .environmentObject(reservationService) // For the new service
-//                            .environmentObject(clusterServices)
-//                            .environmentObject(layoutServices)
-//                            .environmentObject(gridData)
-//                            .environmentObject(appState)
-//                            ) {
-//                                Label("Calendario", systemImage: "calendar")
-//                            }
-                        NavigationLink(destination: LayoutView(selectedReservation: $selectedReservation, currentReservation: $currentReservation)
+                        NavigationLink(destination:
+                            LayoutView(
+                                appState: appState,
+                                clusterServices: clusterServices,
+                                layoutServices: layoutServices,
+                                resCache: resCache,
+                                selectedReservation: $selectedReservation,
+                                currentReservation: $currentReservation,
+                                columnVisibility: $columnVisibility
+                            )
                             .environmentObject(store)
                             .environmentObject(resCache)
                             .environmentObject(tableStore)

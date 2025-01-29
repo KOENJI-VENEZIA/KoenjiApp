@@ -18,7 +18,7 @@ struct MyReservationApp: App {
     @StateObject private var gridData = GridData(store: ReservationStore.shared)
 
     @StateObject private var appState = AppState()
-    
+        
 
 
     init() {

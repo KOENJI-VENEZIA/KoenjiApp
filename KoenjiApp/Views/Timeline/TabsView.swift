@@ -14,32 +14,38 @@ enum Tabs: Equatable, Hashable, CaseIterable {
 }
 
 struct TabsView: View {
-    @State private var selectedTab: Tabs = .lunch
+    // - MARK: Dependencies
     @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var store: ReservationStore
     @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var reservationService: ReservationService
-    @State var toolbarManager = ToolbarStateManager()
-    
     @Environment(\.colorScheme) var colorScheme
+
+    @State var toolbarManager = ToolbarStateManager()
+    @State private var selectedTab: Tabs = .lunch
     @State var reservations: [Reservation] = []
     @State var bindableDate: Date = Date()
+    @State var showingAddReservationSheet: Bool = false
     
+    @Binding var columnVisibility: NavigationSplitViewVisibility
     
+    // MARK: - Body
     var body: some View {
         // TabView for "Lunch" and "Dinner" selection
         if #available(iOS 18.0, *) {
             GeometryReader { geometry in
                 ZStack {
+                    Color.clear
+                       
                     TabView(selection: $selectedTab) {
                         Tab("Pranzo", systemImage: "sun.max.circle", value: .lunch) {
-                            TimelineGantView()
+                            TimelineGantView(columnVisibility: $columnVisibility)
                                 .environmentObject(appState)
                                 .environmentObject(resCache)
                         }
                         Tab("Cena", systemImage: "moon.circle.fill", value: .dinner) {
-                            TimelineGantView()
+                            TimelineGantView(columnVisibility: $columnVisibility)
                                 .environmentObject(appState)
                                 .environmentObject(resCache)
                         }
@@ -59,10 +65,10 @@ struct TabsView: View {
                     .position(
                         toolbarManager.isDragging
                         ? toolbarManager.dragAmount
-                        : calculatePosition(geometry: geometry)
+                        : toolbarManager.calculatePosition(geometry: geometry)
                     )
                     .animation(toolbarManager.isDragging ? .none : .spring(), value: toolbarManager.isDragging)
-                    .transition(transitionForCurrentState(geometry: geometry))
+                    .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
                     .gesture(
                         toolbarManager.toolbarGesture(geometry: geometry)
                     )
@@ -73,10 +79,10 @@ struct TabsView: View {
                         .position(
                             toolbarManager.isDragging
                             ? toolbarManager.dragAmount
-                            : calculatePosition(geometry: geometry)
+                            : toolbarManager.calculatePosition(geometry: geometry)
                         )  // depends on pinned side
                         .animation(toolbarManager.isDragging ? .none : .spring(), value: toolbarManager.isDragging)
-                        .transition(transitionForCurrentState(geometry: geometry))
+                        .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
                         .gesture(
                             TapGesture()
                                 .onEnded {
@@ -91,8 +97,23 @@ struct TabsView: View {
                 }
             }
             .navigationTitle("Timeline tavoli - \(DateHelper.dayOfWeek(for: appState.selectedDate)), \(DateHelper.formatFullDate(appState.selectedDate))")
+            .navigationBarTitleDisplayMode(.inline)
             .ignoresSafeArea(.all)
             .toolbar{
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: {
+                        withAnimation {
+                            appState.isFullScreen.toggle()
+                            if appState.isFullScreen {
+                               columnVisibility = .detailOnly
+                            } else {
+                                columnVisibility = .all
+                            }
+                        }
+                    }) {
+                        Label("Toggle Full Screen", systemImage: appState.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     addReservationButton
                 }
@@ -110,7 +131,7 @@ struct TabsView: View {
 //                .environmentObject(reservationService)  // For the new service
 //                .environmentObject(layoutServices)
 //            }
-            .sheet(isPresented: $appState.showingAddReservationSheet) {
+            .sheet(isPresented: $showingAddReservationSheet) {
                 AddReservationView(
                     selectedDate: $bindableDate,
                     passedTable: nil
@@ -155,19 +176,8 @@ struct TabsView: View {
             // Fallback on earlier versions
         }
     }
-    
-    private func transitionForCurrentState(geometry: GeometryProxy) -> AnyTransition {
-        switch toolbarManager.toolbarState {
-
-        case .pinnedLeft:
-            return .move(edge: .leading)
-        case .pinnedRight:
-            return .move(edge: .trailing)
-        case .pinnedBottom:
-            return .move(edge: .bottom)
-        }
-    }
-    
+      
+    // MARK: - Subviews
     @ViewBuilder
     private func toolbarContent(in geometry: GeometryProxy, selectedDate: Date)
         -> some View
@@ -212,75 +222,6 @@ struct TabsView: View {
             }
         }
     }
-
-
-    private func calculatePosition(geometry: GeometryProxy) -> CGPoint {
-        if toolbarManager.toolbarState == .pinnedLeft {
-            return CGPoint(x: 90, y: geometry.size.height / 2)
-        } else if toolbarManager.toolbarState == .pinnedRight {
-            return CGPoint(x: geometry.size.width - 90, y: geometry.size.height / 2)
-        } else if toolbarManager.toolbarState == .pinnedBottom {
-            return CGPoint(x: geometry.size.width / 2, y: geometry.size.height - 90)
-        } else {
-            return toolbarManager.lastPinnedPosition
-        }
-    }
-
-
-
-    private func navigateToPreviousDate() {
-        let calendar = Calendar.current
-        if appState.selectedCategory == .lunch {
-            if let newDate = calendar.date(byAdding: .day, value: -1, to: appState.selectedDate) {
-                appState.selectedDate = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: newDate) ?? newDate
-            } else {
-                appState.selectedDate = Date() // Fallback in case of a failure
-            }
-        } else if appState.selectedCategory == .dinner {
-            if let newDate = calendar.date(byAdding: .day, value: -1, to: appState.selectedDate) {
-                appState.selectedDate = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: newDate) ?? newDate
-            } else {
-                appState.selectedDate = Date() // Fallback in case of a failure
-            }
-        }
-    }
-
-    private func navigateToNextDate() {
-        let calendar = Calendar.current
-        if appState.selectedCategory == .lunch {
-            if let newDate = calendar.date(byAdding: .day, value: 1, to: appState.selectedDate) {
-                appState.selectedDate = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: newDate) ?? newDate
-            } else {
-                appState.selectedDate = Date() // Fallback in case of a failure
-            }
-        } else if appState.selectedCategory == .dinner {
-            if let newDate = calendar.date(byAdding: .day, value: 1, to: appState.selectedDate) {
-                appState.selectedDate = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: newDate) ?? newDate
-            } else {
-                appState.selectedDate = Date() // Fallback in case of a failure
-            }
-        }
-    }
-    
-    private func resetDate() {
-        let calendar = Calendar.current
-        if appState.selectedCategory == .lunch {
-            if let newTime = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) {
-                appState.selectedDate = DateHelper.combine(date: Date(), time: newTime)
-            }
-        } else if appState.selectedCategory == .dinner {
-            if let newTime = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) {
-                appState.selectedDate = DateHelper.combine(date: Date(), time: newTime) 
-            }
-        }
-    }
-
-
-
-
-    
-
-    // MARK: - Helper Methods
     
     private var resetDateButton: some View {
 
@@ -358,7 +299,6 @@ struct TabsView: View {
 
     }
 
-
     @ViewBuilder
     private func datePicker(selectedDate: Date) -> some View {
         VStack {
@@ -388,42 +328,9 @@ struct TabsView: View {
 
     }
 
-//    private var resetDate: some View {
-//        VStack {
-//            Text("Oggi")
-//                .font(.caption)
-//                .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
-//                .opacity(Calendar.current.isDate(appState.selectedDate, inSameDayAs: appState.systemTime) ? 0 : 1)
-//                .animation(.easeInOut, value: appState.selectedDate)
-//            
-//            Button(action: {
-//                withAnimation {
-//                    let today = Calendar.current.startOfDay(for: appState.systemTime)  // Get today's date with no time component
-//                    guard let currentTimeOnly = DateHelper.extractTime(time: appState.selectedDate) else {
-//                        return
-//                    }  // Extract time components
-//                    appState.selectedDate = DateHelper.combinedInputTime(time: currentTimeOnly, date: today) ?? Date()
-//                    updateDatesAroundSelectedDate(appState.selectedDate)
-//                    appState.isManuallyOverridden = false
-//                }
-//            }) {
-//                Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90.circle.fill")
-//                    .resizable()
-//                    .scaledToFit()
-//                    .frame(width: 40, height: 40)
-//                    .foregroundStyle(
-//                        colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
-//                    )
-//                    .shadow(radius: 2)
-//            }
-//        }
-//        .opacity(Calendar.current.isDate(appState.selectedDate, inSameDayAs: systemTime) ? 0 : 1)
-//        .animation(.easeInOut, value: appState.selectedDate)
-//    }
-
     private var addReservationButton: some View {
         Button {
-            appState.showingAddReservationSheet = true
+            showingAddReservationSheet = true
         } label: {
             Image(systemName: "plus")
                 .font(.title2)
@@ -431,7 +338,55 @@ struct TabsView: View {
         .disabled(appState.selectedCategory == .noBookingZone)
         .foregroundColor(appState.selectedCategory == .noBookingZone ? .gray : .accentColor)
     }
+    
+    // MARK: - View Specific Methods
+    
+    private func navigateToPreviousDate() {
+        let calendar = Calendar.current
+        if appState.selectedCategory == .lunch {
+            if let newDate = calendar.date(byAdding: .day, value: -1, to: appState.selectedDate) {
+                appState.selectedDate = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: newDate) ?? newDate
+            } else {
+                appState.selectedDate = Date() // Fallback in case of a failure
+            }
+        } else if appState.selectedCategory == .dinner {
+            if let newDate = calendar.date(byAdding: .day, value: -1, to: appState.selectedDate) {
+                appState.selectedDate = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: newDate) ?? newDate
+            } else {
+                appState.selectedDate = Date() // Fallback in case of a failure
+            }
+        }
+    }
 
+    private func navigateToNextDate() {
+        let calendar = Calendar.current
+        if appState.selectedCategory == .lunch {
+            if let newDate = calendar.date(byAdding: .day, value: 1, to: appState.selectedDate) {
+                appState.selectedDate = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: newDate) ?? newDate
+            } else {
+                appState.selectedDate = Date() // Fallback in case of a failure
+            }
+        } else if appState.selectedCategory == .dinner {
+            if let newDate = calendar.date(byAdding: .day, value: 1, to: appState.selectedDate) {
+                appState.selectedDate = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: newDate) ?? newDate
+            } else {
+                appState.selectedDate = Date() // Fallback in case of a failure
+            }
+        }
+    }
+    
+    private func resetDate() {
+        let calendar = Calendar.current
+        if appState.selectedCategory == .lunch {
+            if let newTime = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) {
+                appState.selectedDate = DateHelper.combine(date: Date(), time: newTime)
+            }
+        } else if appState.selectedCategory == .dinner {
+            if let newTime = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) {
+                appState.selectedDate = DateHelper.combine(date: Date(), time: newTime)
+            }
+        }
+    }
 }
 
 

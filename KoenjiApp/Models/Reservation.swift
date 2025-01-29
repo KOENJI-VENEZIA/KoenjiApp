@@ -177,6 +177,11 @@ struct Reservation: Identifiable, Hashable, Codable {
         return cachedNormalizedDate
     }
     
+    var duration: String {
+        TimeHelpers.availableTimeString(
+            endTime: endTime, startTime: startTime) ?? "0.0"
+    }
+    
     private static func stableHue(for uuid: UUID) -> Double {
             let uuidString = uuid.uuidString
             var hash = 5381

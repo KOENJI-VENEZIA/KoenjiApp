@@ -8,14 +8,23 @@ import SwiftUI
 
 
 struct ClusterView: View {
+    @State private var systemTime: Date = Date()
+
+    
+    @State var nearEndReservation: Reservation?
+    @State private var cachedRemainingTime: String?
+    @State private var tapTimer: Timer?
+    @State private var isDoubleTap = false
 
     let cluster: CachedCluster
+    let tables: [TableModel]
     let overlayFrame: CGRect
-    @State private var systemTime: Date = Date()
     @Binding var isLayoutLocked: Bool
+    @Binding var statusChanged: Int
+    @Binding var showInspector: Bool
+    @Binding var selectedReservation: Reservation?
     var isLunch: Bool
-    @State var nearEndReservation: Reservation?
-
+    
     // Precomputed states
     private var showedUp: Bool {
         return cluster.reservationID.status == .showedUp
@@ -25,10 +34,13 @@ struct ClusterView: View {
     }
     @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var reservationService: ReservationService
+    
     @Environment(\.colorScheme) var colorScheme
 
 
     var body: some View {
+        
         ZStack {
             if nearEndReservation == nil {
                 RoundedRectangle(cornerRadius: 12.0)
@@ -43,7 +55,6 @@ struct ClusterView: View {
                     .frame(width: overlayFrame.width, height: overlayFrame.height)
                     .position(x: overlayFrame.midX, y: overlayFrame.midY)
                     .zIndex(1)
-                    .allowsHitTesting(false) // Ignore touch input
             } else {
                 RoundedRectangle(cornerRadius: 8.0)
                     .fill(cluster.reservationID.assignedColor.opacity(0.7))
@@ -56,7 +67,6 @@ struct ClusterView: View {
                     .frame(width: overlayFrame.width, height: overlayFrame.height)
                     .position(x: overlayFrame.midX, y: overlayFrame.midY)
                     .zIndex(1)
-                    .allowsHitTesting(false) // Ignore touch input
             }
 
             // Reservation label (centered on the cluster)
@@ -78,10 +88,7 @@ struct ClusterView: View {
                         .foregroundStyle(colorScheme == .dark ? .white : .black)
                         .opacity(0.8)
 
-                    if let remaining = TimeHelpers.remainingTimeString(
-                        endTime: cluster.reservationID.endTime,
-                        currentTime: appState.selectedDate
-                    ) {
+                    if let remaining = cachedRemainingTime {
                         Text("Tempo rimasto:")
                             .bold()
                             .multilineTextAlignment(.center)
@@ -113,16 +120,97 @@ struct ClusterView: View {
                 .zIndex(2)
             }
         }
-        .allowsHitTesting(false)
+        .highPriorityGesture(tapGesture())
+        .simultaneousGesture(doubleTapGesture())
         .onAppear {
             updateNearEndReservation()
+            updateRemainingTime()
         }
         .onChange(of: appState.selectedDate) {
             updateNearEndReservation()
+            updateRemainingTime()
         }
     }
 
     // MARK: - Precompute Reservation States
+    
+    private func tapGesture() -> some Gesture {
+        TapGesture(count: 1).onEnded {
+            // Start a timer for single-tap action
+            tapTimer?.invalidate()  // Cancel any existing timer
+            tapTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
+                Task { @MainActor in
+                    if !isDoubleTap {
+                        // Process single-tap only if no double-tap occurred
+                        handleTap(cluster.reservationID)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func handleTap(_ activeReservation: Reservation?) {
+        guard let activeReservation = activeReservation else { return }
+
+        var currentReservation = activeReservation
+
+        print("1 - Status in HandleTap: \(currentReservation.status)")
+
+        if currentReservation.status == .pending || currentReservation.status == .late {
+            // Case 1: Update to .showedUp
+            currentReservation.status = .showedUp
+
+            print("2 - Status in HandleTap: \(currentReservation.status)")
+            reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
+            statusChanged += 1
+            
+        } else {
+            // Case 2: Determine if the reservation is late or pending
+            if resCache.lateReservations(currentTime: appState.selectedDate).first(where: {
+                $0.id == currentReservation.id
+            }) != nil {
+                currentReservation.status = .late
+            } else {
+                currentReservation.status = .pending
+            }
+
+            print("2 - Status in HandleTap: \(currentReservation.status)")
+            reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
+            statusChanged += 1
+
+        }
+    }
+    
+    private func doubleTapGesture() -> some Gesture {
+        TapGesture(count: 2).onEnded {
+            // Cancel the single-tap timer and process double-tap
+            tapTimer?.invalidate()
+            isDoubleTap = true  // Prevent single-tap action
+            
+            
+                handleDoubleTap()
+
+            // Reset double-tap state shortly after handling
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                isDoubleTap = false
+            }
+        }
+    }
+    
+    private func handleDoubleTap() {
+        // Check if the table is occupied by filtering active reservations.
+       
+        showInspector = true
+        selectedReservation = cluster.reservationID
+        
+    }
+    
+    private func updateRemainingTime() {
+        cachedRemainingTime = TimeHelpers.remainingTimeString(
+            endTime: cluster.reservationID.endTimeDate ?? Date(),
+            currentTime: appState.selectedDate
+        )
+    }
     
     private func updateNearEndReservation() {
         if resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {

@@ -14,7 +14,7 @@ struct ContentView: View {
     @Environment(\.locale) var locale // Access the current locale set by .italianLocale()
 
     // Controls the SwiftUI NavigationSplitView's sidebar
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var selectedReservation: Reservation? = nil
     @State private var currentReservation: Reservation? = nil
     @State private var selectedCategory: Reservation.ReservationCategory? 
@@ -22,14 +22,16 @@ struct ContentView: View {
 
    
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility)
+        NavigationSplitView(columnVisibility: $appState.columnVisibility)
         {
             // The Sidebar
-            SidebarView(
+            SidebarView(layoutServices: layoutServices,
                 selectedReservation: $selectedReservation,
                 currentReservation: $currentReservation,
-                selectedCategory: $selectedCategory
+                selectedCategory: $selectedCategory,
+                columnVisibility: $appState.columnVisibility
             )
+           
             .environmentObject(store)
             .environmentObject(resCache)
             .environmentObject(tableStore)
@@ -49,24 +51,28 @@ struct ContentView: View {
 
     
         .toolbar {
-
-            Button {
-                if columnVisibility == .all {
-                    // Hide the sidebar
-                    columnVisibility = .detailOnly
-                } else {
-                    // Show the sidebar
-                    columnVisibility = .all
+            ToolbarItemGroup(placement: .navigationBarLeading) {
+                // Sidebar toggle button
+                Button {
+                    if appState.columnVisibility == .all {
+                            // Hide the sidebar
+                        appState.columnVisibility = .detailOnly
+                    } else {
+                        // Show the sidebar
+                        appState.columnVisibility = .all
+                    }
+                } label: {
+                    Text("Mostra/Nascondi menu laterale")
                 }
-            } label: {
-                Text("Mostra/Nascondi menu laterale")
+                
+               
             }
         }
         
         .onAppear {
             print("ContentView appeared. Data already loaded by ReservationStore.")
         }
-        .onChange(of: columnVisibility) { oldState, newState in
+        .onChange(of: appState.columnVisibility) { oldState, newState in
             store.isSidebarVisible = (newState == .all)
         }
         

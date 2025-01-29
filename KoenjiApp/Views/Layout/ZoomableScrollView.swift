@@ -88,18 +88,23 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
             return hostingController.view
         }
 
+        
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
             DispatchQueue.main.async {
                 self.state.zoomScale = scrollView.zoomScale
                 self.scale = scrollView.zoomScale
                 self.updateCentering(for: scrollView)
+
+                // Enable or disable scrolling based on the zoom scale
+                scrollView.isScrollEnabled = scrollView.zoomScale > 1
             }
         }
 
         func scrollViewDidScroll(_ scrollView: UIScrollView) {
             DispatchQueue.main.async {
-                self.state.contentOffset = scrollView.contentOffset
-                self.updateCentering(for: scrollView)
+                // Prevent scrolling if the scale is 1
+                    self.state.contentOffset = scrollView.contentOffset
+                    self.updateCentering(for: scrollView)
             }
         }
 

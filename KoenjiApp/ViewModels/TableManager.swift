@@ -65,18 +65,7 @@ class LayoutUIManager: ObservableObject {
         loadLayout()
         isConfigured = true
     }
-    
-    // MARK: - Layout Management
-    
-    /// Loads the layout for the associated date and category.
 
-    
-    /// Saves the current layout to the store.
-    func saveLayout() {
-        guard let layoutServices = layoutServices else { return }
-        layoutServices.saveTables(tables, for: date, category: category)
-    }
-    
     // MARK: - Dragging Helpers
 
     /// Updates the state for a table currently being dragged.
@@ -87,14 +76,14 @@ class LayoutUIManager: ObservableObject {
 
     /// Finalizes a drag operation, saving the layout state.
 
-    func setTableTapped(_ table: TableModel) {
+    func setTableVisible(_ table: TableModel) {
         guard let index = tables.firstIndex(where: { $0.id == table.id }) else { return }
-        tables[index].isTapped = true
+        tables[index].isVisible = true
     }
     
-    func setTableUntapped(_ table: TableModel) {
+    func setTableInvisible(_ table: TableModel) {
         guard let index = tables.firstIndex(where: { $0.id == table.id }) else { return }
-        tables[index].isTapped = false
+        tables[index].isVisible = false
     }
 
     /// Attempts to move a table to a new position.
@@ -121,6 +110,7 @@ class LayoutUIManager: ObservableObject {
         layoutServices?.unmarkTable(oldTable)
         layoutServices?.markTable(newTable, occupied: true)
 
+       
         if let index = tables.firstIndex(where: { $0.id == oldTable.id }) {
             tables[index] = newTable
         }

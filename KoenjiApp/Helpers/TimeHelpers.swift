@@ -27,27 +27,20 @@ struct TimeHelpers {
         return DateHelper.formatTime(end)
     }
 
-    static func remainingTimeString(endTime: String, currentTime: Date) -> String? {
-        guard let end = DateHelper.parseTime(endTime) else { return nil }
-
-        // Merge today's date with the `endTime`'s time-of-day
+    static func remainingTimeString(endTime: Date, currentTime: Date) -> String? {
         let calendar = Calendar.current
-        let components = calendar.dateComponents([.hour, .minute], from: end)
-        guard let todayEnd = calendar.date(bySettingHour: components.hour ?? 0,
-                                           minute: components.minute ?? 0,
-                                           second: 0,
-                                           of: currentTime) else {
+
+        // If the end time is in the past, return nil
+        if endTime <= currentTime {
             return nil
         }
 
-        if todayEnd <= currentTime {
-            return nil // Reservation expired
-        }
-
-        let diff = calendar.dateComponents([.hour, .minute], from: currentTime, to: todayEnd)
+        // Calculate the difference in hours and minutes
+        let diff = calendar.dateComponents([.hour, .minute], from: currentTime, to: endTime)
         let hours = diff.hour ?? 0
         let minutes = diff.minute ?? 0
 
+        // Return formatted string if there's time left
         if hours > 0 || minutes > 0 {
             return "\(hours)h \(minutes)m"
         }

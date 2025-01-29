@@ -116,4 +116,14 @@ class ScribbleService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "cachedScribbles")
         print("All scribbles have been deleted.")
     }
+    
+    func saveScribbleForCurrentLayout(_ currentDrawing: DrawingModel, _ currentLayoutKey: String) {
+        print("Generated currentLayoutKey: \(currentLayoutKey)")
+
+        saveDrawing(currentDrawing.layer1, for: currentLayoutKey, layer: "layer1")
+        saveDrawing(currentDrawing.layer2, for: currentLayoutKey, layer: "layer2")
+        saveDrawing(currentDrawing.layer3, for: currentLayoutKey, layer: "layer3")
+
+        print("Scribbles saved successfully for key: \(currentLayoutKey)")
+    }
 }

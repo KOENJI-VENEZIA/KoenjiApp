@@ -20,19 +20,25 @@ struct LayoutView: View {
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.scenePhase) private var scenePhase
 
+    @State var clusterManager: ClusterManager
+    
     @State var toolbarManager = ToolbarStateManager()
-    // Dynamic Arrays
+    @StateObject private var currentDrawing = DrawingModel()
+    @StateObject private var zoomableState = ZoomableScrollViewState()
+    @StateObject private var timerManager = TimerManager()
+    @StateObject var sharedToolPicker = SharedToolPicker()
+
     @State private var dates: [Date] = []
     @State private var selectedIndex: Int = 15  // Start in the middle of the dates array
 
     // Time
     @State private var systemTime: Date = Date()
-    @StateObject private var timerManager = TimerManager()
 
     // Reservation editing
     @Binding var selectedReservation: Reservation?
     @Binding var currentReservation: Reservation?
-
+    @Binding var columnVisibility: NavigationSplitViewVisibility
+    
     @State private var isManuallyOverridden: Bool = false
     @State private var showingEditReservation: Bool = false
     @State private var showInspector: Bool = false  // Controls Inspector visibility
@@ -52,41 +58,77 @@ struct LayoutView: View {
     // Drawing mode
     @State private var isScribbleModeEnabled: Bool = false
     @State private var drawings: [String: PKDrawing] = [:]
-    @StateObject private var currentDrawing = DrawingModel()
-    @StateObject private var zoomableState = ZoomableScrollViewState()
+
     @State private var toolPickerShows = false
-    @StateObject var sharedToolPicker = SharedToolPicker()
 
     @State private var capturedImage: UIImage? = nil
     @State private var cachedScreenshot: ScreenshotMaker?
-
-    // Toolbar
-//    @State var toolbarState: ToolbarState = .pinnedLeft
-//    @State var dragAmount: CGPoint? = nil
-//    @State var isDragging: Bool = false
-//    @State var navigationDirection: NavigationDirection = .forward
-//    @State var isToolbarVisible: Bool = true
-//    @State var lastPinnedPosition: CGPoint = .zero
-
     @State private var isSharing: Bool = false
     @State private var isPresented: Bool = false
 
     @State var refreshID = UUID()
-
     @State private var scale: CGFloat = 1
-
     @State private var isShowingFullImage = false
+    
 
+
+
+    init(
+        appState: AppState,
+        clusterServices: ClusterServices,
+        layoutServices: LayoutServices,
+        resCache: CurrentReservationsCache,
+        selectedReservation: Binding<Reservation?>,
+        currentReservation: Binding<Reservation?>,
+        columnVisibility: Binding<NavigationSplitViewVisibility>
+    ) {
+        
+        self._selectedReservation = selectedReservation
+        self._currentReservation = currentReservation
+        self._columnVisibility = columnVisibility
+        
+        _clusterManager = State(
+            initialValue: ClusterManager(
+                clusterServices: clusterServices, layoutServices: layoutServices,
+                resCache: resCache,
+                date: appState.selectedDate,
+                category: appState.selectedCategory
+            )
+        )
+        
+    }
+    
+    // MARK: - Computed variables
+    var currentLayoutKey: String {
+        let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
+        let combinedDate = DateHelper.combine(date: currentDate, time: appState.selectedDate)
+        return layoutServices.keyFor(date: combinedDate, category: appState.selectedCategory)
+    }
+
+    private var gridWidth: CGFloat {
+        CGFloat(store.totalColumns) * gridData.cellSize
+    }
+
+    private var gridHeight: CGFloat {
+        CGFloat(store.totalRows) * gridData.cellSize
+    }
+    
     var body: some View {
 
         GeometryReader { geometry in
 
             ZStack {
-
-                CardSwapView(
-                    selectedIndex: $selectedIndex, navigationDirection: toolbarManager.navigationDirection
-                ) {
+                
+                
+                
+//                CardSwapView(
+//                        selectedIndex: $selectedIndex,
+//                        navigationDirection: toolbarManager.navigationDirection,
+//                        rotationAngle: $appState.rotationAngle,  // Pass as binding
+//                        isContentReady: $appState.isContentReady  // Track content readiness
+//                    ) {
                     LayoutPageView(
+                        columnVisibility: $columnVisibility,
                         scale: $scale,
                         selectedDate: appState.selectedDate,
                         selectedCategory: appState.selectedCategory,
@@ -105,6 +147,7 @@ struct LayoutView: View {
                         isPresented: $isPresented,
                         cachedScreenshot: $cachedScreenshot
                     )
+                    .environment(clusterManager)
                     .environmentObject(store)
                     .environmentObject(appState)
                     .environmentObject(resCache)
@@ -118,9 +161,24 @@ struct LayoutView: View {
                     .environmentObject(sharedToolPicker)
                     .id(selectedIndex)  // Force view refresh on index change
                     .transition(.opacity)
-                    .animation(.easeInOut, value: selectedIndex)
+                    .animation(.easeInOut(duration: 0.5), value: selectedIndex)
 
-                }
+//                }
+                
+//                .animation(.easeInOut(duration: 0.3), value: appState.isFullScreen)
+                .gesture(
+                    TapGesture(count: 2) // Double-tap to exit full-screen
+                        .onEnded {
+                                withAnimation {
+                                    appState.isFullScreen.toggle()
+                                    if appState.isFullScreen {
+                                        columnVisibility = .detailOnly
+                                    } else {
+                                        columnVisibility = .all
+                                    }
+                            }
+                        }
+                )
 
                 if scale <= 1 {
                     PencilKitCanvas(
@@ -167,10 +225,10 @@ struct LayoutView: View {
                 .position(
                     toolbarManager.isDragging
                     ? toolbarManager.dragAmount
-                        : calculatePosition(geometry: geometry)
+                    : toolbarManager.calculatePosition(geometry: geometry)
                 )
                 .animation(toolbarManager.isDragging ? .none : .spring(), value: toolbarManager.isDragging)
-                .transition(transitionForCurrentState(geometry: geometry))
+                .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
                 .gesture(
                     toolbarManager.toolbarGesture(geometry: geometry)
                 )
@@ -181,10 +239,10 @@ struct LayoutView: View {
                     .position(
                         toolbarManager.isDragging
                         ? toolbarManager.dragAmount
-                            : calculatePosition(geometry: geometry)
+                        : toolbarManager.calculatePosition(geometry: geometry)
                     )  // depends on pinned side
                     .animation(toolbarManager.isDragging ? .none : .spring(), value: toolbarManager.isDragging)
-                    .transition(transitionForCurrentState(geometry: geometry))
+                    .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
                     .gesture(
                         TapGesture()
                             .onEnded {
@@ -213,6 +271,10 @@ struct LayoutView: View {
                     .opacity(appState.isWritingToFirebase ? 1.0 : 0.0)  // Smoothly fade in and out
                     .animation(.easeInOut(duration: 0.3), value: appState.isWritingToFirebase)
                     .allowsHitTesting(appState.isWritingToFirebase)  // Disable interaction when invisible
+                
+                LockOverlay(isLayoutLocked: isLayoutLocked)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height * 0.04)
+                    .animation(.easeInOut(duration: 0.3), value: isLayoutLocked)
 
             }
             .environmentObject(sharedToolPicker)
@@ -220,6 +282,20 @@ struct LayoutView: View {
             .navigationTitle("Layout Tavoli")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: {
+                        withAnimation {
+                            appState.isFullScreen.toggle()
+                            if appState.isFullScreen {
+                                columnVisibility = .detailOnly
+                            } else {
+                                columnVisibility = .all
+                            }
+                        }
+                    }) {
+                        Label("Toggle Full Screen", systemImage: appState.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    }
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Button(action: {
                         debugCache()
@@ -270,13 +346,16 @@ struct LayoutView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     // Lock/Unlock Layout Button
                     Button(action: {
-                        isLayoutLocked.toggle()
+                        withAnimation {
+                            isLayoutLocked.toggle()
+                        }
                         isZoomLocked.toggle()
                     }) {
                         Label(
                             isLayoutLocked ? "Unlock Layout" : "Lock Layout",
                             systemImage: isLayoutLocked ? "lock.fill" : "lock.open.fill")
                     }
+                    .tint(isLayoutLocked ? .red : .accentColor)
                     .id(refreshID)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -314,6 +393,9 @@ struct LayoutView: View {
                 )
                 .environmentObject(resCache)
                 .environmentObject(appState)
+                .environmentObject(store)
+                .environmentObject(reservationService)
+                .environmentObject(layoutServices)
             }
             .sheet(item: $currentReservation) { reservation in
                 EditReservationView(
@@ -327,7 +409,7 @@ struct LayoutView: View {
                 .environmentObject(reservationService)  // For the new service
                 .environmentObject(layoutServices)
             }
-            .sheet(isPresented: $appState.showingAddReservationSheet) {
+            .sheet(isPresented: $showingAddReservationSheet) {
                 AddReservationView(
                     selectedDate: Binding<Date>(
                         get: {
@@ -365,10 +447,6 @@ struct LayoutView: View {
             }
             .onChange(of: appState.selectedCategory) { oldCategory, newCategory in
                 handleSelectedCategoryChange(oldCategory, newCategory)
-                print(
-                    "Called handleSelectedCategoryChange() from LayoutView [onChange of selectedCategory]"
-                )
-
             }
             .onChange(of: appState.selectedDate) { oldTime, newTime in
                 handleCurrentTimeChange(newTime)
@@ -379,19 +457,13 @@ struct LayoutView: View {
                     selectedReservation = nil
                 }
             }
-            //            .onChange(of: appState.selectedDate) { old, newDate in
-            //                // This is your existing logic to handle expansions
-            //
-            //            }
             .onChange(of: isScribbleModeEnabled) {
                 DispatchQueue.main.async {
-                    saveScribbleForCurrentLayout()
+                    scribbleService.saveScribbleForCurrentLayout(currentDrawing, currentLayoutKey)
                 }
             }
             .onReceive(timerManager.$currentDate) { newTime in
                 if !isManuallyOverridden {
-
-                    //                    appState.selectedDate = combinedTime
                     systemTime = newTime
                 }
             }
@@ -402,194 +474,11 @@ struct LayoutView: View {
 
     }
 
-    struct CardSwapView<Content: View>: View {
-        @Binding var selectedIndex: Int
-        let navigationDirection: NavigationDirection
-        let content: () -> Content
-
-        @State private var rotationAngle: Double = 0
-
-        var body: some View {
-            ZStack {
-                content()
-                    .id(selectedIndex)  // Ensure content refresh
-                    .flipEffect(
-                        rotation: rotationAngle,
-                        axis: navigationDirection == .backward
-                            ? (x: 0, y: -30, z: 0) : (x: 0, y: 30, z: 0))
-            }
-            .onChange(of: selectedIndex) {
-                // Animate flip out
-                withAnimation(.spring(duration: 0.3)) {
-                    rotationAngle = 15
-                }
-                // Swap content once half-flipped (after animation delay)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    withAnimation(.spring(duration: 0.5)) {
-                        rotationAngle = 0
-                    }
-                }
-            }
-        }
-    }
-
-    var customShareLinkButton: some View {
-        Button {
-            isSharing.toggle()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                presentShareLink()
-            }
-        } label: {
-            Label("share", systemImage: "square.and.arrow.up")
-        }
-    }
-
-    func debugCache() {
-        if let currentCachedRes = resCache.cache[appState.selectedDate] {
-            for res in currentCachedRes {
-                print(
-                    "DEBUG: reservation in cache \(res.name), start time: \(res.startTime), end time: \(res.endTime)"
-                )
-            }
-        } else {
-            print("DEBUG: reservations in cache at \(appState.selectedDate): 0")
-        }
-    }
-
-    func presentShareLink() {
-
-        guard let image = capturedImage else { return }
-        let vc = UIActivityViewController(activityItems: [image], applicationActivities: nil)
-        let scene =
-            UIApplication.shared.connectedScenes.first { $0.activationState == .foregroundActive }
-            as? UIWindowScene
-        scene?.keyWindow?.rootViewController?.present(vc, animated: true)
-    }
-
-    var currentLayoutKey: String {
-        let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
-        let combinedDate = DateHelper.combine(date: currentDate, time: appState.selectedDate)
-        return layoutServices.keyFor(date: combinedDate, category: appState.selectedCategory)
-    }
-
-    private var gridWidth: CGFloat {
-        CGFloat(store.totalColumns) * gridData.cellSize
-    }
-
-    private var gridHeight: CGFloat {
-        CGFloat(store.totalRows) * gridData.cellSize
-    }
-
-    func saveScribbleForCurrentLayout() {
-        print("Generated currentLayoutKey: \(currentLayoutKey)")
-
-        scribbleService.saveDrawing(currentDrawing.layer1, for: currentLayoutKey, layer: "layer1")
-        scribbleService.saveDrawing(currentDrawing.layer2, for: currentLayoutKey, layer: "layer2")
-        scribbleService.saveDrawing(currentDrawing.layer3, for: currentLayoutKey, layer: "layer3")
-
-        print("Scribbles saved successfully for key: \(currentLayoutKey)")
-    }
-
-    private func transitionForCurrentState(geometry: GeometryProxy) -> AnyTransition {
-        switch toolbarManager.toolbarState {
-
-        case .pinnedLeft:
-            return .move(edge: .leading)
-        case .pinnedRight:
-            return .move(edge: .trailing)
-        case .pinnedBottom:
-            return .move(edge: .bottom)
-        }
-    }
-
-    private func initializeView() {
-        // Initialize default date/time configuration
-        //        appState.selectedDate = Date()
-        //        appState.selectedDate = systemTime
-        //        currentTime = appState.selectedDate
-        //        loadScribbleForCurrentLayout()
-        // Generate date array
-        dates = generateInitialDates()
-
-        //        if let defaultDate = dates[safe: selectedIndex] {
-        //            appState.selectedDate = defaultDate
-        //        } else {
-        //            appState.selectedDate = Date()
-        //        }
-
-        print(
-            "Initialized with appState.selectedDate: \(appState.selectedDate), selectedCategory: \(appState.selectedCategory.localized)"
-        )
-
-        // Set initial sidebar color based on selectedCategory
-
-        //        handleCurrentTimeChange(appState.selectedDate)
-
-        resCache.startMonitoring(for: appState.selectedDate)
-    }
-
-    private func handleSelectedIndexChange() {
-
-        // Explicitly set and log current time
-        if let newDate = dates[safe: selectedIndex],
-            let combinedTime = DateHelper.normalizedTime(time: appState.selectedDate, date: newDate)
-        {
-            appState.selectedDate = combinedTime
-            //            currentTime = combinedTime
-
-        }
-
-        handleCurrentTimeChange(appState.selectedDate)
-
-        print(
-            "Selected index changed to \(selectedIndex), date: \(DateHelper.formatFullDate(appState.selectedDate))"
-        )
-
-        // Handle progressive date loading
-        if selectedIndex >= dates.count - 5 { appendMoreDates() }
-        if selectedIndex <= 5 { prependMoreDates() }
-        trimDatesAround(selectedIndex)
-    }
-
-    private func handleSelectedCategoryChange(
-        _ oldCategory: Reservation.ReservationCategory,
-        _ newCategory: Reservation.ReservationCategory
-    ) {
-        guard isManuallyOverridden else { return }
-        guard oldCategory != newCategory else { return }
-        print("Old category: \(oldCategory.rawValue)")
-        print("Category changed to \(newCategory.rawValue)")
-    }
-
-    private func handleCurrentTimeChange(_ newTime: Date) {
-        print("Time updated to \(newTime)")
-
-        appState.selectedDate = newTime
-        // Combine selectedDate with the new time
-        let currentDate = appState.selectedDate
-
-        // Determine the appropriate category based on time
-        let calendar = Calendar.current
-
-        // Define time ranges
-        let lunchStart = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: currentDate)!
-        let lunchEnd = calendar.date(bySettingHour: 15, minute: 0, second: 0, of: currentDate)!
-        let dinnerStart = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: currentDate)!
-        let dinnerEnd = calendar.date(bySettingHour: 23, minute: 45, second: 0, of: currentDate)!
-
-        // Compare newTime against the ranges
-        let determinedCategory: Reservation.ReservationCategory
-        if appState.selectedDate >= lunchStart && appState.selectedDate <= lunchEnd {
-            determinedCategory = .lunch
-        } else if appState.selectedDate >= dinnerStart && appState.selectedDate <= dinnerEnd {
-            determinedCategory = .dinner
-        } else {
-            determinedCategory = .noBookingZone
-        }
-
-        appState.selectedCategory = determinedCategory
-    }
-    // MARK: - Toolbar Content
+    // MARK: - Helper Views
+    
+    
+    
+    // Toolbar Views
     @ViewBuilder
     private func toolbarContent(in geometry: GeometryProxy, selectedDate: Date)
         -> some View
@@ -637,171 +526,7 @@ struct LayoutView: View {
 
         }
     }
-
-//    private func toolbarGesture(in geometry: GeometryProxy) -> some Gesture {
-//        DragGesture()
-//            .onChanged { value in
-//
-//                isDragging = true
-//
-//                var currentLocation = value.location
-//                let currentOffset = value.translation
-//
-//                if toolbarManager.toolbarState != .pinnedBottom {
-//                    currentLocation.y = (geometry.size.height / 2) + currentOffset.height
-//
-//                } else {
-//                    currentLocation.x = (geometry.size.height / 2) + currentOffset.width
-//                }
-//
-//                dragAmount = currentLocation
-//
-//            }
-//            .onEnded { value in
-//                var currentLocation = value.location
-//                let currentOffset = value.translation
-//
-//                if toolbarManager.toolbarState == .pinnedBottom {
-//                    if currentOffset.height > 0 {
-//                        withAnimation {
-//                            isToolbarVisible = false
-//                        }
-//                    }
-//                } else if toolbarManager.toolbarState == .pinnedLeft {
-//                    if currentOffset.width < 0 {
-//                        withAnimation {
-//                            isToolbarVisible = false
-//                        }
-//                    }
-//                } else if toolbarManager.toolbarState == .pinnedRight {
-//                    if currentOffset.width > 0 {
-//                        withAnimation {
-//                            isToolbarVisible = false
-//                        }
-//                    }
-//                }
-//
-//                if currentLocation.y > geometry.size.height / 2 && currentOffset.height > 0
-//                    && (currentLocation.x > geometry.size.width / 2 && currentOffset.width < 0
-//                        || currentLocation.x < geometry.size.width / 2 && currentOffset.width > 0)
-//                {
-//                    withAnimation {
-//                        toolbarManager.toolbarState = .pinnedBottom
-//                    }
-//                } else if currentLocation.x < geometry.size.width / 2 && currentOffset.width < 0
-//                    && currentOffset.height < 0
-//                {
-//                    toolbarManager.toolbarState = .pinnedLeft
-//                } else if currentLocation.x > geometry.size.width / 2 && currentOffset.width > 0
-//                    && currentOffset.height < 0
-//                {
-//                    toolbarManager.toolbarState = .pinnedRight
-//                }
-//
-//                if toolbarManager.toolbarState == .pinnedLeft {
-//                    currentLocation.x = 60
-//                    currentLocation.y = geometry.size.height / 2
-//                    withAnimation {
-//                        dragAmount = currentLocation
-//                    }
-//                } else if toolbarManager.toolbarState == .pinnedRight {
-//                    currentLocation.x = geometry.size.width - 60
-//                    currentLocation.y = geometry.size.height / 2
-//                    withAnimation {
-//                        dragAmount = currentLocation
-//                    }
-//                } else if toolbarManager.toolbarState == .pinnedBottom {
-//                    currentLocation.x = geometry.size.width / 2
-//                    currentLocation.y = geometry.size.height - 30
-//                    withAnimation {
-//                        dragAmount = currentLocation
-//                    }
-//                }
-//
-//                isDragging = false
-//            }
-//    }
-
-    private func calculatePosition(geometry: GeometryProxy) -> CGPoint {
-        if toolbarManager.toolbarState == .pinnedLeft {
-            return CGPoint(x: 90, y: geometry.size.height / 2)
-        } else if toolbarManager.toolbarState == .pinnedRight {
-            return CGPoint(x: geometry.size.width - 90, y: geometry.size.height / 2)
-        } else if toolbarManager.toolbarState == .pinnedBottom {
-            return CGPoint(x: geometry.size.width / 2, y: geometry.size.height - 90)
-        } else {
-            return toolbarManager.lastPinnedPosition
-        }
-    }
-
-    private func navigateToPreviousDate() {
-        guard selectedIndex > 0 else { return }
-        toolbarManager.navigationDirection = .backward
-        selectedIndex -= 1
-    }
-
-    private func navigateToNextDate() {
-        guard selectedIndex < dates.count - 1 else { return }
-        toolbarManager.navigationDirection = .forward
-        selectedIndex += 1
-
-    }
-
-    private func navigateToNextTime() {
-        let calendar = Calendar.current
-
-        // 1) Round down to nearest 15-min boundary
-        let roundedDown = calendar.roundedDownToNearest15(appState.selectedDate)
-        // 2) From that boundary, add 15 minutes
-        let newTime = calendar.date(byAdding: .minute, value: 15, to: roundedDown)!
-
-        appState.selectedDate = newTime
-        //        currentTime = newTime
-        isManuallyOverridden = true
-    }
-
-    private func navigateToPreviousTime() {
-        let calendar = Calendar.current
-
-        // 1) Round down to nearest 15-min boundary
-        let roundedDown = calendar.roundedDownToNearest15(appState.selectedDate)
-        // 2) From that boundary, subtract 15 minutes
-        let newTime = calendar.date(byAdding: .minute, value: -15, to: roundedDown)!
-
-        appState.selectedDate = newTime
-        //        currentTime = newTime
-        isManuallyOverridden = true
-    }
-
-    private func resetLayout() {
-        // Ensure the selected date and category are valid
-
-        let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
-
-        print(
-            "Resetting layout for date: \(DateHelper.formatFullDate(currentDate)) and category: \(appState.selectedCategory.localized)"
-        )
-
-        // Perform layout reset
-        let combinedDate = DateHelper.combine(date: currentDate, time: appState.selectedDate)
-        layoutServices.resetTables(for: currentDate, category: appState.selectedCategory)
-        layoutServices.tables = layoutServices.loadTables(
-            for: combinedDate, category: appState.selectedCategory)
-
-        // Clear clusters
-        clusterServices.resetClusters(for: combinedDate, category: appState.selectedCategory)
-        clusterServices.saveClusters([], for: combinedDate, category: appState.selectedCategory)
-
-        // Ensure layout flags are updated after reset completes
-        DispatchQueue.main.async {
-            self.isLayoutLocked = true
-            self.isLayoutReset = true
-            print("Layout successfully reset and reservations checked.")
-        }
-    }
-
-    // MARK: - Helper Methods
-
+    
     private var dateBackward: some View {
         VStack {
             Text("-1 gg.")
@@ -1081,6 +806,199 @@ struct LayoutView: View {
         }
         .disabled(appState.selectedCategory == .noBookingZone)
         .foregroundColor(appState.selectedCategory == .noBookingZone ? .gray : .accentColor)
+    }
+
+    var customShareLinkButton: some View {
+        Button {
+            isSharing.toggle()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                presentShareLink()
+            }
+        } label: {
+            Label("share", systemImage: "square.and.arrow.up")
+        }
+    }
+
+    func debugCache() {
+        if let currentCachedRes = resCache.cache[appState.selectedDate] {
+            for res in currentCachedRes {
+                print(
+                    "DEBUG: reservation in cache \(res.name), start time: \(res.startTime), end time: \(res.endTime)"
+                )
+            }
+        } else {
+            print("DEBUG: reservations in cache at \(appState.selectedDate): 0")
+        }
+    }
+
+    func presentShareLink() {
+
+        guard let image = capturedImage else { return }
+        let vc = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+        let scene =
+            UIApplication.shared.connectedScenes.first { $0.activationState == .foregroundActive }
+            as? UIWindowScene
+        scene?.keyWindow?.rootViewController?.present(vc, animated: true)
+    }
+
+
+    // MARK: - View Specific Methods
+    private func initializeView() {
+        // Initialize default date/time configuration
+        //        appState.selectedDate = Date()
+        //        appState.selectedDate = systemTime
+        //        currentTime = appState.selectedDate
+        //        loadScribbleForCurrentLayout()
+        // Generate date array
+        dates = generateInitialDates()
+
+        //        if let defaultDate = dates[safe: selectedIndex] {
+        //            appState.selectedDate = defaultDate
+        //        } else {
+        //            appState.selectedDate = Date()
+        //        }
+
+        print(
+            "Initialized with appState.selectedDate: \(appState.selectedDate), selectedCategory: \(appState.selectedCategory.localized)"
+        )
+
+        // Set initial sidebar color based on selectedCategory
+
+        //        handleCurrentTimeChange(appState.selectedDate)
+        clusterManager.loadClusters()
+        resCache.startMonitoring(for: appState.selectedDate)
+    }
+
+    private func handleSelectedIndexChange() {
+
+        // Explicitly set and log current time
+        if let newDate = dates[safe: selectedIndex],
+            let combinedTime = DateHelper.normalizedTime(time: appState.selectedDate, date: newDate)
+        {
+            appState.selectedDate = combinedTime
+            //            currentTime = combinedTime
+
+        }
+
+        handleCurrentTimeChange(appState.selectedDate)
+
+        print(
+            "Selected index changed to \(selectedIndex), date: \(DateHelper.formatFullDate(appState.selectedDate))"
+        )
+
+        // Handle progressive date loading
+        if selectedIndex >= dates.count - 5 { appendMoreDates() }
+        if selectedIndex <= 5 { prependMoreDates() }
+        trimDatesAround(selectedIndex)
+    }
+
+    private func handleSelectedCategoryChange(
+        _ oldCategory: Reservation.ReservationCategory,
+        _ newCategory: Reservation.ReservationCategory
+    ) {
+        guard isManuallyOverridden else { return }
+        guard oldCategory != newCategory else { return }
+        print("Old category: \(oldCategory.rawValue)")
+        print("Category changed to \(newCategory.rawValue)")
+    }
+
+    private func handleCurrentTimeChange(_ newTime: Date) {
+        print("Time updated to \(newTime)")
+
+        appState.selectedDate = newTime
+        // Combine selectedDate with the new time
+        let currentDate = appState.selectedDate
+
+        // Determine the appropriate category based on time
+        let calendar = Calendar.current
+
+        // Define time ranges
+        let lunchStart = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: currentDate)!
+        let lunchEnd = calendar.date(bySettingHour: 15, minute: 0, second: 0, of: currentDate)!
+        let dinnerStart = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: currentDate)!
+        let dinnerEnd = calendar.date(bySettingHour: 23, minute: 45, second: 0, of: currentDate)!
+
+        // Compare newTime against the ranges
+        let determinedCategory: Reservation.ReservationCategory
+        if appState.selectedDate >= lunchStart && appState.selectedDate <= lunchEnd {
+            determinedCategory = .lunch
+        } else if appState.selectedDate >= dinnerStart && appState.selectedDate <= dinnerEnd {
+            determinedCategory = .dinner
+        } else {
+            determinedCategory = .noBookingZone
+        }
+
+        appState.selectedCategory = determinedCategory
+    }
+    
+    private func resetLayout() {
+        // Ensure the selected date and category are valid
+
+        let currentDate = Calendar.current.startOfDay(for: dates[safe: selectedIndex] ?? Date())
+
+        print(
+            "Resetting layout for date: \(DateHelper.formatFullDate(currentDate)) and category: \(appState.selectedCategory.localized)"
+        )
+
+        // Perform layout reset
+        let combinedDate = DateHelper.combine(date: currentDate, time: appState.selectedDate)
+        layoutServices.resetTables(for: currentDate, category: appState.selectedCategory)
+        layoutServices.tables = layoutServices.loadTables(
+            for: combinedDate, category: appState.selectedCategory)
+
+        // Clear clusters
+        clusterServices.resetClusters(for: combinedDate, category: appState.selectedCategory)
+        clusterServices.saveClusters([], for: combinedDate, category: appState.selectedCategory)
+
+        // Ensure layout flags are updated after reset completes
+        DispatchQueue.main.async {
+            withAnimation {
+                self.isLayoutLocked = true
+                self.isLayoutReset = true
+            }
+            print("Layout successfully reset and reservations checked.")
+        }
+    }
+
+    // MARK: - Dates and Time methods
+
+    private func navigateToPreviousDate() {
+        guard selectedIndex > 0 else { return }
+        toolbarManager.navigationDirection = .backward
+        selectedIndex -= 1
+    }
+
+    private func navigateToNextDate() {
+        guard selectedIndex < dates.count - 1 else { return }
+        toolbarManager.navigationDirection = .forward
+        selectedIndex += 1
+
+    }
+
+    private func navigateToNextTime() {
+        let calendar = Calendar.current
+
+        // 1) Round down to nearest 15-min boundary
+        let roundedDown = calendar.roundedDownToNearest15(appState.selectedDate)
+        // 2) From that boundary, add 15 minutes
+        let newTime = calendar.date(byAdding: .minute, value: 15, to: roundedDown)!
+
+        appState.selectedDate = newTime
+        //        currentTime = newTime
+        isManuallyOverridden = true
+    }
+
+    private func navigateToPreviousTime() {
+        let calendar = Calendar.current
+
+        // 1) Round down to nearest 15-min boundary
+        let roundedDown = calendar.roundedDownToNearest15(appState.selectedDate)
+        // 2) From that boundary, subtract 15 minutes
+        let newTime = calendar.date(byAdding: .minute, value: -15, to: roundedDown)!
+
+        appState.selectedDate = newTime
+        //        currentTime = newTime
+        isManuallyOverridden = true
     }
 
     /// Generates the initial set of dates centered around today.

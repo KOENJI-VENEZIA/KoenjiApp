@@ -23,7 +23,7 @@ struct TableModel: Identifiable, Hashable, Codable, Equatable {
     var adjacentCount: Int = 0
     var activeReservationAdjacentCount: Int = 0
     
-    var isTapped: Bool = true
+    var isVisible: Bool = true
     
 
     

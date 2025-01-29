@@ -7,6 +7,8 @@ class CurrentReservationsCache: ObservableObject {
     var activeReservationsByMinute: [Date: [Date: [Reservation]]] = [:]
     var timer: Timer?
     let calendar = Calendar.current
+    @Published var activeReservations: [Reservation] = []
+
 
     // MARK: - Cache Management
     func preloadDates(around selectedDate: Date, range: Int, reservations: [Reservation]) {

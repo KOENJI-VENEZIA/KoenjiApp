@@ -9,23 +9,23 @@ import SwiftUI
 
 struct ReservationsInfoListView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var layoutServices: LayoutServices
     @State private var selection = Set<UUID>()  // Multi-select
     @Environment(\.colorScheme) var colorScheme
-    let activeReservations: [Reservation]
-    @Binding var currentTime: Date
     var onClose: () -> Void
     var onEdit: (Reservation) -> Void
     var onCancelled: (Reservation) -> Void
+    
     
     var body: some View {
         VStack {
 //            Color.clear.ignoresSafeArea()
             
             List(selection: $selection) {
-                let reservations = reservations(at: currentTime)
+                let reservations = resCache.activeReservations
                 let filtered = filterReservations(reservations)
                 let grouped = groupByCategory(filtered)
                 if !grouped.isEmpty {
@@ -126,12 +126,11 @@ struct ReservationsInfoListView: View {
             .frame(maxWidth: .infinity, alignment: .center)
             .padding()
         }
-        
     }
     
     private func handleDeleteFromGroup(groupKey: String, offsets: IndexSet) {
         // 1) Access the grouped reservations
-        let reservations = reservations(at: currentTime)
+        let reservations = reservations(at: appState.selectedDate)
         var grouped = groupByCategory(reservations)
         
         // 2) The reservations in this group

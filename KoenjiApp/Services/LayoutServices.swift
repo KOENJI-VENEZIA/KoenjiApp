@@ -303,7 +303,7 @@ class LayoutServices: ObservableObject {
     func computeLayoutSignature(tables: [TableModel]) -> String {
         let sortedTables = tables.sorted { $0.id < $1.id }
         let components = sortedTables.map { table in
-            "id_\(table.id)_row_\(table.row)_col_\(table.column)_w_\(table.width)_h_\(table.height)"
+            "id_\(table.id)_row_\(table.row)_col_\(table.column)"
         }
         return components.joined(separator: ";")
     }

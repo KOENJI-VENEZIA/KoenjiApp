@@ -23,8 +23,12 @@ class AppState: ObservableObject {
     @State var selectedIndex: Int = 15
     @State var showingDatePicker: Bool = false
     @State var showingAddReservationSheet: Bool = false
-
+    @Published var isFullScreen = false
+    @Published var columnVisibility: NavigationSplitViewVisibility = .all
     
+    @Published var rotationAngle: Double = 0
+    @Published var isContentReady = false
+
     init(selectedCategory: Reservation.ReservationCategory = .lunch) {
         self.selectedCategory = selectedCategory // Ensure category is correct at initialization
         self.selectedCategory = updateCategoryForDate()

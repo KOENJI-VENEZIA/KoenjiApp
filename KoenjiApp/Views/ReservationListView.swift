@@ -50,6 +50,8 @@ struct ReservationListView: View {
         sortOption != .removeSorting
     }
     @State private var isShowingFullImage = false
+    @Binding var columnVisibility: NavigationSplitViewVisibility
+
 
     enum SortOption: String, CaseIterable {
         case alphabetically = "A-Z"
@@ -91,6 +93,19 @@ struct ReservationListView: View {
         // Reservation List
         ZStack {
             Color.clear
+                .gesture(
+                TapGesture(count: 2) // Double-tap to exit full-screen
+                    .onEnded {
+                            withAnimation {
+                                appState.isFullScreen.toggle()
+                                if appState.isFullScreen {
+                                   columnVisibility = .detailOnly
+                                } else {
+                                    columnVisibility = .all
+                                }
+                        }
+                    }
+            )
             
             List(selection: $selection) {
                 let filtered = filterReservationsBy(selectedFilters, searchText: searchText)
@@ -219,6 +234,20 @@ struct ReservationListView: View {
         }
         .navigationTitle("Tutte le prenotazioni")
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: {
+                    withAnimation {
+                        appState.isFullScreen.toggle()
+                        if appState.isFullScreen {
+                            columnVisibility = .detailOnly
+                        } else {
+                            columnVisibility = .all
+                        }
+                    }
+                }) {
+                    Label("Toggle Full Screen", systemImage: appState.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     Text("Raggruppa per...").font(.headline)
@@ -1223,8 +1252,7 @@ struct ReservationRowView: View {
 
     var body: some View {
         // Make a local variable for table names
-        let duration = TimeHelpers.availableTimeString(
-            endTime: reservation.endTime, startTime: reservation.startTime)
+        let duration = reservation.duration
 
         VStack(alignment: .leading, spacing: 4) { // Added spacing for better layout
             // Name and Number of People
@@ -1257,7 +1285,7 @@ struct ReservationRowView: View {
                 }
             } else {
                 // Duration
-                Text("Durata: \(duration ?? "Errore")")
+                Text("Durata: \(duration)")
                     .font(.subheadline)
                     .foregroundStyle(.blue)
             }

@@ -1,13 +1,14 @@
 import EmojiPalette
 import SwiftUI
 
+enum DragState: Equatable {
+    case idle
+    case dragging(offset: CGSize)
+    case started(offset: CGSize)
+}
+
 struct TableView: View {
-    let table: TableModel
-    let selectedDate: Date
-    let selectedCategory: Reservation.ReservationCategory
-    @State private var systemTime: Date = Date()
-    @Binding var changedReservation: Reservation?
-    @Binding var isEditing: Bool
+    
     @EnvironmentObject var resCache: CurrentReservationsCache
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var gridData: GridData
@@ -17,50 +18,29 @@ struct TableView: View {
     @EnvironmentObject var layoutServices: LayoutServices
     @ObservedObject var layoutUI: LayoutUIManager
     @Environment(\.colorScheme) var colorScheme
-
-    let onTapEmpty: (TableModel) -> Void
-    let onStatusChange: () -> Void
-    @Binding var showInspector: Bool
-    let onEditReservation: (Reservation) -> Void
-
-    @GestureState private var dragOffset: CGSize = .zero
-
-    enum DragState: Equatable {
-        case idle
-        case dragging(offset: CGSize)
-        case started(offset: CGSize)
-    }
-    @State private var dragState: DragState = .idle
-
-    @State private var selectedTable: TableModel?
-
-    @State private var isDragging: Bool = false  // State to track dragging
-    @State private var isHeld: Bool = false  // State for long press hold
-    @State private var hasMoved: Bool = false
-    let isLayoutLocked: Bool
-    @Binding var isLayoutReset: Bool
-    let animationNamespace: Namespace.ID  // Animation namespace from LayoutView
-    let onTableUpdated: (TableModel) -> Void
-
-    @Binding var statusChanged: Int
-    @State private var showEmojiPicker: Bool = false
-    @State private var showFullEmojiPicker: Bool = false
-    @State private var isContextMenuActive = false
-    @State private var selectedEmoji: String = ""
-
-    @State private var tapTimer: Timer?
-    @State private var isDoubleTap = false
-
-    @State private var currentActiveReservation: Reservation?
-    @State private var firstUpcomingReservation: Reservation?
-    @State private var lateReservation: Reservation?
-    @State private var nearEndReservation: Reservation?
+    @Environment(ClusterManager.self) var clusterManager
     
+    @State var tableView: TableViewModel = TableViewModel()
     private let normalizedTimeCache = NormalizedTimeCache()
 
-    @State private var isLate: Bool = false
-    @State private var showedUp: Bool = false
-    @State private var isManuallyOverridden: Bool = false
+    let table: TableModel
+    let selectedDate: Date
+    let selectedCategory: Reservation.ReservationCategory
+    let onTapEmpty: (TableModel) -> Void
+    let onStatusChange: () -> Void
+    let onEditReservation: (Reservation) -> Void
+    let isLayoutLocked: Bool
+    let animationNamespace: Namespace.ID  // Animation namespace from LayoutView
+    let onTableUpdated: (TableModel) -> Void
+    
+    @Binding var changedReservation: Reservation?
+    @Binding var isEditing: Bool
+    @Binding var isLayoutReset: Bool
+    @Binding var showInspector: Bool
+    @Binding var statusChanged: Int
+    
+    @GestureState private var dragOffset: CGSize = .zero
+    @State private var cachedRemainingTime: String?
 
     private var cellSize: CGFloat { return gridData.cellSize }
 
@@ -72,6 +52,8 @@ struct TableView: View {
         return CGRect(x: xPos, y: yPos, width: width, height: height)
     }
 
+    
+    // MARK: - Body
     var body: some View {
         // Determine if the table is highlighted
         let isHighlighted = layoutServices.tableAnimationState[table.id] ?? false
@@ -79,19 +61,19 @@ struct TableView: View {
         // Get active reservation
 
         let isDragging = {
-            if case .dragging = dragState { return true }
+            if case .dragging = tableView.dragState { return true }
             return false
         }()
 
 
         let (fillColor, idSuffix): (Color, String) = {
-            if isDragging, let activeRes = currentActiveReservation {
+            if isDragging, let activeRes = tableView.currentActiveReservation {
                 return (activeRes.assignedColor.opacity(0.5), "dragging_1")
-            } else if isDragging, currentActiveReservation == nil {
+            } else if isDragging, tableView.currentActiveReservation == nil {
                 return (Color(hex: "#AEAB7D").opacity(0.5), "dragging_2")
-            } else if let activeRes = currentActiveReservation {
+            } else if let activeRes = tableView.currentActiveReservation {
                 return (activeRes.assignedColor.opacity(0.7), "reserved")
-            } else if isLayoutLocked, let activeRes = currentActiveReservation {
+            } else if isLayoutLocked, let activeRes = tableView.currentActiveReservation {
                 return (activeRes.assignedColor.opacity(0.7), "locked")
             } else {
                 return (Color(hex: "#A3B7D2").opacity(0.2), "default")
@@ -118,7 +100,7 @@ struct TableView: View {
                         in: animationNamespace
                     )
 
-                if let reservation = currentActiveReservation, reservation.id != nearEndReservation?.id {
+                if let reservation = tableView.currentActiveReservation, reservation.id != tableView.nearEndReservation?.id {
                     // Stroke overlay
                     RoundedRectangle(cornerRadius: 12.0)
                         .stroke(
@@ -138,7 +120,7 @@ struct TableView: View {
                             width: tableFrame.width,
                             height: tableFrame.height
                         )
-                } else if nearEndReservation != nil {
+                } else if tableView.nearEndReservation != nil {
                     // Stroke overlay
                     RoundedRectangle(cornerRadius: 12.0)
                         .stroke(
@@ -156,7 +138,7 @@ struct TableView: View {
                             width: tableFrame.width,
                             height: tableFrame.height
                         )
-                } else if currentActiveReservation == nil {
+                } else if tableView.currentActiveReservation == nil {
                     RoundedRectangle(cornerRadius: 12.0)
                         .stroke(
                             isDragging
@@ -174,150 +156,74 @@ struct TableView: View {
                             height: tableFrame.height
                         )
                 }
-                // Image overlay in the top-left corner
 
                 // Reservation information or table name
                 Group {
-                    if let reservation = currentActiveReservation {
-                        // Active reservation exists: display reservation details.
-                        reservationInfo(
-                            reservation: reservation,
-                            tableWidth: tableFrame.width,
-                            tableHeight: tableFrame.height
+                    reservationInfo(
+                        reservation: tableView.currentActiveReservation,
+                        tableWidth: tableFrame.width,
+                        tableHeight: tableFrame.height
+                    )
+                    .opacity(tableView.currentActiveReservation != nil ? 1 : 0)
+
+                    upcomingReservationPlaceholder(
+                        reservation: tableView.firstUpcomingReservation,
+                        tableWidth: tableFrame.width,
+                        tableHeight: tableFrame.height
+                    )
+                    .opacity(
+                        tableView.currentActiveReservation == nil &&
+                        tableView.firstUpcomingReservation != nil ? 1 : 0
+                    )
+
+                    tableName(
+                        name: table.name,
+                        tableWidth: tableFrame.width,
+                        tableHeight: tableFrame.height
+                    )
+                    .opacity(
+                        tableView.currentActiveReservation == nil &&
+                        tableView.firstUpcomingReservation == nil ? 1 : 0
+                    )
+                }
+
+                Group {
+                    showedUpMark()
+                        .opacity(
+                            (tableView.currentActiveReservation?.status == .showedUp) ? 1 : 0
                         )
 
-                    } else if let upcomingRes = firstUpcomingReservation
-                    {
-                        // No active reservation, but there is an upcoming reservation.
-                        upcomingReservationPlaceholder(
-                            reservation: upcomingRes,
-                            tableWidth: tableFrame.width,
-                            tableHeight: tableFrame.height
+                    emojiMark(tableView.currentActiveReservation?.assignedEmoji ?? "")
+                        .opacity(
+                            (tableView.currentActiveReservation?.assignedEmoji != nil) ? 1 : 0
                         )
-                    } else {
-                        tableName(
-                            name: table.name,
-                            tableWidth: tableFrame.width,
-                            tableHeight: tableFrame.height
+
+                    lateMark()
+                        .opacity(
+                            tableView.lateReservation != nil && tableView.currentActiveReservation != nil && tableView.currentActiveReservation?.status != .showedUp ? 1 : 0
                         )
-                    }
-                }
 
-                if let reservation = currentActiveReservation, reservation.status == .showedUp {
-                    Image(systemName: "checkmark.circle.fill")  // Replace with your custom image or SF Symbol
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 17, height: 17)  // Adjust size as needed
-                        .foregroundColor(.green)  // Optional styling
-                        .offset(x: -tableFrame.width / 2 + 13, y: -tableFrame.height / 2 + 13)  // Position in the top-left corner
-                        .zIndex(2)
-                }
-
-                if let reservation = currentActiveReservation,
-                    let emoji = reservation.assignedEmoji, !isContextMenuActive
-                {
-                    Text(emoji)
-                        .font(.system(size: 20))  // Match the font size to the frame of the Image
-                        .frame(maxWidth: 23, maxHeight: 23)  // Same dimensions as the Image
-                        .offset(x: tableFrame.width / 2 - 18, y: -tableFrame.height / 2 + 12)  // Match position
-                        .zIndex(2)
-                }
-
-                if let reservation = lateReservation, reservation.status != .showedUp {
-                    Image(systemName: "clock.badge.exclamationmark.fill")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 17, height: 17)  // Adjust size as needed
-                        .foregroundColor(.yellow)  // Optional styling
-                        .symbolRenderingMode(.multicolor)
-                        .offset(x: -tableFrame.width / 2 + 15, y: -tableFrame.height / 2 + 15)  // Position in the top-left corner
-                        .zIndex(2)
-                }
-
-                if nearEndReservation != nil {
-                    Image(systemName: "figure.walk.motion.trianglebadge.exclamationmark")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 20, height: 20)  // Adjust size as needed
-                        .foregroundStyle(
-                            .yellow,
-                            .orange /*isLunch ? Color(hex: "#6a6094") : Color(hex: "#435166")*/
-                        )  // Optional styling
-                        .symbolRenderingMode(.palette)  // Enable multicolor rendering
-                        .offset(x: tableFrame.width / 2 - 15, y: tableFrame.height / 2 - 15)  // Position in the top-left corner
-                        .zIndex(2)
+                    nearEndMark()
+                        .opacity(tableView.nearEndReservation != nil ? 1 : 0)
                 }
             }
-        }
-//        .opacity(table.isTapped ? 1 : 0)
-        .onAppear {
-            updateCachedReservation()
-            updateLateReservation()
-            updateNearEndReservation()
-            updateFirstUpcoming()
-            if let reservation = currentActiveReservation {
-                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found: \(reservation.name)")
-            } else {
-                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found.")
-            }
-        }
-        .onChange(of: selectedDate) {
-            updateCachedReservation()
-            updateLateReservation()
-            updateNearEndReservation()
-            updateFirstUpcoming()
-
-            if let reservation = currentActiveReservation {
-                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found: \(reservation.name)")
-            } else {
-                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found.")
-            }
+            .opacity(table.isVisible ? 1 : 0)
         }
         .onChange(of: statusChanged) {
-            updateCachedReservation()
-            updateLateReservation()
-            updateNearEndReservation()
-            updateFirstUpcoming()
-
+            updateResData()
         }
-        
         .onChange(of: showInspector) {
-            updateCachedReservation()
-            updateLateReservation()
-            updateNearEndReservation()
-            updateFirstUpcoming()
+            updateResData()
         }
         .onChange(of: changedReservation) {
-            updateCachedReservation()
-            updateLateReservation()
-            updateNearEndReservation()
-            updateFirstUpcoming()
+            updateResData()
         }
         .onChange(of: appState.selectedDate) {
-            updateCachedReservation()
-            updateLateReservation()
-            updateNearEndReservation()
-            updateFirstUpcoming()
-
-            if let reservation = currentActiveReservation {
-                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found: \(reservation.name)")
-            } else {
-                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found.")
-            }
+            updateResData()
         }
-        .onChange(of: selectedEmoji) {
-            if let reservation = currentActiveReservation {
-                handleEmojiAssignment(reservation, selectedEmoji)
-                print("DEBUG: active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found: \(reservation.name)")
-            } else {
-                print("DEBUG: no active reservation for table \(table.id) at time \(DateHelper.formatTime(appState.selectedDate)) found.")
-            }
+        .onChange(of: tableView.selectedEmoji) {
+            handleEmojiAssignment(tableView.currentActiveReservation, tableView.selectedEmoji)
         }
-//        .onChange(of: dragState) {
-//            if dragState != .idle {
-//                layoutUI.setTableTapped(table)
-//            }
-//        }
         .contextMenu {
             
             Button {
@@ -331,7 +237,7 @@ struct TableView: View {
                 
             
             Button {
-                showEmojiPicker = true
+                tableView.showEmojiPicker = true
             } label: {
                 Label("Scegli Emoji", systemImage: "ellipsis.circle")
             }
@@ -340,227 +246,179 @@ struct TableView: View {
             Divider()
 
             Button("Cancellazione") {
-                if let reservation = currentActiveReservation {
+                if let reservation = tableView.currentActiveReservation {
                     handleCancelled(reservation)
                 }
             }
         }
-        .popover(isPresented: $showFullEmojiPicker) {
-            EmojiPaletteView(selectedEmoji: $selectedEmoji)
+        .popover(isPresented: $tableView.showFullEmojiPicker) {
+            EmojiPaletteView(selectedEmoji: $tableView.selectedEmoji)
         }
-        .popover(isPresented: $showEmojiPicker) {
+        .popover(isPresented: $tableView.showEmojiPicker) {
             EmojiSmallPicker(
                 onEmojiSelected: { emoji in
-                    if selectedEmoji != emoji {
-                        selectedEmoji = emoji
+                    if tableView.selectedEmoji != emoji {
+                        tableView.selectedEmoji = emoji
                     } else {
-                        selectedEmoji = ""
+                        tableView.selectedEmoji = ""
                     }
-                    showEmojiPicker = false  // Dismiss the popover
+                    tableView.showEmojiPicker = false  // Dismiss the popover
                 },
-                showFullEmojiPicker: $showFullEmojiPicker,
-                selectedEmoji: $selectedEmoji)
+                showFullEmojiPicker: $tableView.showFullEmojiPicker,
+                selectedEmoji: $tableView.selectedEmoji)
         }
         .position(x: tableFrame.minX, y: tableFrame.minY)
         .offset(dragOffset)
         .highPriorityGesture(
-            DragGesture(minimumDistance: 0)
-                .updating($dragOffset) { value, state, _ in
-                    guard !isLayoutLocked else { return }
-                    state = value.translation
-                }
-                .onChanged { value in
-                    guard !isLayoutLocked else { return }
-                    dragState = .dragging(offset: value.translation)
-                }
-                .onEnded { value in
-                    dragState = .idle  // Reset dragging state
-                    handleDragEnd(
-                        translation: value.translation,
-                        cellSize: cellSize,
-                        tableWidth: tableFrame.width,
-                        tableHeight: tableFrame.height,
-                        xPos: tableFrame.minX,
-                        yPos: tableFrame.minY
-                    )
-                }
+            dragGesture()
         )
         .simultaneousGesture(
-            TapGesture(count: 2).onEnded {
-                // Cancel the single-tap timer and process double-tap
-                tapTimer?.invalidate()
-                isDoubleTap = true  // Prevent single-tap action
-                dragState = .idle
-                
-                    handleDoubleTap()
-
-                // Reset double-tap state shortly after handling
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    isDoubleTap = false
-                }
-            }
+            doubleTapGesture()
         )
         .simultaneousGesture(
-            TapGesture(count: 1).onEnded {
-                // Start a timer for single-tap action
-                tapTimer?.invalidate()  // Cancel any existing timer
-                tapTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
-                    Task { @MainActor in
-                        if !isDoubleTap {
-                            // Process single-tap only if no double-tap occurred
-                            if let reservation = currentActiveReservation {
-                                handleTap(reservation) }
-                            //                        if let reservation = currentActiveReservation {
-                            //                            print("UI status: showedUp: \(showedUp), isLate: \(isLate)")
-                            //                        }
-                        }
-                    }
-                }
-            }
+            tapGesture()
         )
-    }
-    
-
-    private func updateCachedReservation() {
-        if let reservation = resCache.reservation(forTable: table.id, datetime: appState.selectedDate, category: selectedCategory), reservation.status != .canceled, reservation.reservationType != .waitingList {
-            currentActiveReservation = reservation
-        } else {
-            currentActiveReservation = nil
-        }
-    }
-    
-    private func updateLateReservation() {
-        if let reservation = currentActiveReservation, resCache.lateReservations(currentTime: appState.selectedDate).contains(where: { $0.id == reservation.id }) {
-            lateReservation = reservation
-        } else {
-            lateReservation = nil
-        }
-    }
-    
-    private func updateNearEndReservation() {
-        if let reservation = currentActiveReservation, resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {
-            $0.id == reservation.id
-        }) {
-            nearEndReservation = reservation } else {
-                nearEndReservation = nil
-            }
-    }
-    
-    private func updateFirstUpcoming() {
-        if let reservation = resCache.firstUpcomingReservation(
-            forTable: table.id, date: appState.selectedDate, time: appState.selectedDate,
-            category: selectedCategory) {
-            firstUpcomingReservation = reservation
-        } else {
-            firstUpcomingReservation = nil
-        }
     }
     
     // MARK: - Subviews
-    private func handleCancelled(_ reservation: Reservation) {
-        var updatedReservation = reservation
-        if updatedReservation.status != .canceled {
-            updatedReservation.status = .canceled
-        }
-        changedReservation = updatedReservation
-        reservationService.updateReservation(updatedReservation)
+    private func showedUpMark() -> some View {
+        Image(systemName: "checkmark.circle.fill")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 17, height: 17)
+            .foregroundColor(.green)
+            .offset(x: -tableFrame.width / 2 + 13, y: -tableFrame.height / 2 + 13)
+            .zIndex(2)
     }
-
-    private func handleEmojiAssignment(_ activeReservation: Reservation?, _ emoji: String) {
-        guard var reservationActive = activeReservation else { return }
-        print("Emoji: \(emoji)")
-        reservationActive.assignedEmoji = emoji
-        reservationService.updateReservation(reservationActive)
-        statusChanged += 1
-        onStatusChange()
+    
+    private func emojiMark(_ emoji: String) -> some View {
+        Text(emoji)
+            .font(.system(size: 20))
+            .frame(maxWidth: 23, maxHeight: 23)
+            .offset(x: tableFrame.width / 2 - 18, y: -tableFrame.height / 2 + 12)
+            .zIndex(2)
     }
-
-    private func reservationInfo(reservation: Reservation, tableWidth: CGFloat, tableHeight: CGFloat
+    
+    private func nearEndMark() -> some View {
+        Image(systemName: "figure.walk.motion.trianglebadge.exclamationmark")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 20, height: 20)
+            .foregroundStyle(
+                .yellow,
+                .orange
+            )
+            .symbolRenderingMode(.palette)
+            .offset(x: tableFrame.width / 2 - 15, y: tableFrame.height / 2 - 15)
+            .zIndex(2)
+    }
+    
+    private func lateMark() -> some View {
+        Image(systemName: "clock.badge.exclamationmark.fill")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 17, height: 17)  // Adjust size as needed
+            .foregroundColor(.yellow)  // Optional styling
+            .symbolRenderingMode(.multicolor)
+            .offset(x: -tableFrame.width / 2 + 15, y: -tableFrame.height / 2 + 15)  // Position in the top-left corner
+            .zIndex(2)
+    }
+    
+    @ViewBuilder
+    private func reservationInfo(reservation: Reservation?, tableWidth: CGFloat, tableHeight: CGFloat
     ) -> some View {
-        VStack(spacing: 2) {
-            Text(reservation.name)
-                .bold()
-                .font(.headline)
-                .foregroundStyle(colorScheme == .dark ? .white : .black)
-            Text("\(reservation.numberOfPersons) p.")
-                .font(.footnote)
-                .foregroundStyle(colorScheme == .dark ? .white : .black)
-                .opacity(0.8)
-
-            Text("\(reservation.phone)")
-                .font(.footnote)
-                .foregroundStyle(colorScheme == .dark ? .white : .black)
-                .opacity(0.8)
-
-            if let remaining = TimeHelpers.remainingTimeString(
-                endTime: reservation.endTime, currentTime: appState.selectedDate)
-            {
-                Text("Tempo rimasto:")
+        
+        if let reservation = reservation {
+            VStack(spacing: 2) {
+                Text(reservation.name)
                     .bold()
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(colorScheme == .dark ? .white : .black)
+                    .font(.headline)
+                    .foregroundStyle(colorScheme == .dark ? .white : .black)
+                Text("\(reservation.numberOfPersons) p.")
                     .font(.footnote)
+                    .foregroundStyle(colorScheme == .dark ? .white : .black)
+                    .opacity(0.8)
                 
-                if reservation.id == nearEndReservation?.id {
-                    
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(.ultraThinMaterial)
-                            .frame(width: tableFrame.width-10, height: 20)
-                        
-                        Text("\(remaining)")
-                            .bold()
-                            .multilineTextAlignment(.center)
-                            .foregroundColor(Color(hex: "#bf5b34"))
-                            .font(.footnote)
-                    }
-                } else {
-                    Text("\(remaining)")
+                Text("\(reservation.phone)")
+                    .font(.footnote)
+                    .foregroundStyle(colorScheme == .dark ? .white : .black)
+                    .opacity(0.8)
+                
+                if let remaining = cachedRemainingTime
+                {
+                    Text("Tempo rimasto:")
                         .bold()
                         .multilineTextAlignment(.center)
                         .foregroundColor(colorScheme == .dark ? .white : .black)
                         .font(.footnote)
+                    
+                    if reservation.id == tableView.nearEndReservation?.id {
+                        
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(.ultraThinMaterial)
+                                .frame(width: tableFrame.width-10, height: 20)
+                            
+                            Text("\(remaining)")
+                                .bold()
+                                .multilineTextAlignment(.center)
+                                .foregroundColor(Color(hex: "#bf5b34"))
+                                .font(.footnote)
+                        }
+                    } else {
+                        Text("\(remaining)")
+                            .bold()
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(colorScheme == .dark ? .white : .black)
+                            .font(.footnote)
+                    }
                 }
             }
+            .background(Color.clear)
+            .cornerRadius(8)
+            .frame(width: tableFrame.width, height: tableFrame.height)
         }
-        .background(Color.clear)
-        .cornerRadius(8)
-        .frame(width: tableFrame.width, height: tableFrame.height)
+        
     }
-
+    
+    @ViewBuilder
     private func upcomingReservationPlaceholder(
-        reservation: Reservation, tableWidth: CGFloat, tableHeight: CGFloat
+        reservation: Reservation?, tableWidth: CGFloat, tableHeight: CGFloat
     ) -> some View {
-        VStack(spacing: 2) {
-            Text(reservation.name)
-                .bold()
-                .font(.headline)
-                .foregroundStyle(colorScheme == .dark ? .white : .black)
-            Text("\(reservation.numberOfPersons) p.")
-                .font(.footnote)
-                .opacity(0.8)
-                .foregroundStyle(colorScheme == .dark ? .white : .black)
 
-            Text("\(reservation.phone)")
-                .font(.footnote)
-                .foregroundStyle(colorScheme == .dark ? .white : .black)
-                .opacity(0.8)
-
-            if let upcomingTime = DateHelper.timeUntilReservation(
-                currentTime: appState.selectedDate,
-                reservationDateString: reservation.dateString,
-                reservationStartTimeString: reservation.startTime)
-            {
-                Text("In arrivo tra:\n\(DateHelper.formattedTime(from: upcomingTime) ?? "Errore")")
+        if let reservation = reservation {
+            
+            VStack(spacing: 2) {
+                Text(reservation.name)
                     .bold()
-                    .foregroundColor(colorScheme == .dark ? .white : .black)
-                    .multilineTextAlignment(.center)
+                    .font(.headline)
+                    .foregroundStyle(colorScheme == .dark ? .white : .black)
+                Text("\(reservation.numberOfPersons) p.")
                     .font(.footnote)
+                    .opacity(0.8)
+                    .foregroundStyle(colorScheme == .dark ? .white : .black)
+                
+                Text("\(reservation.phone)")
+                    .font(.footnote)
+                    .foregroundStyle(colorScheme == .dark ? .white : .black)
+                    .opacity(0.8)
+                
+                if let upcomingTime = DateHelper.timeUntilReservation(
+                    currentTime: appState.selectedDate,
+                    reservationDateString: reservation.dateString,
+                    reservationStartTimeString: reservation.startTime)
+                {
+                    Text("In arrivo tra:\n\(DateHelper.formattedTime(from: upcomingTime) ?? "Errore")")
+                        .bold()
+                        .foregroundColor(colorScheme == .dark ? .white : .black)
+                        .multilineTextAlignment(.center)
+                        .font(.footnote)
+                }
             }
+            .frame(width: tableFrame.width, height: tableFrame.height)
+            .background(Color.clear)
+            .cornerRadius(8)
         }
-        .background(Color.clear)
-        .cornerRadius(8)
-        .frame(width: tableFrame.width, height: tableFrame.height)
     }
 
     private func tableName(name: String, tableWidth: CGFloat, tableHeight: CGFloat) -> some View {
@@ -582,58 +440,77 @@ struct TableView: View {
         .frame(width: tableFrame.width - 5, height: tableFrame.height - 5)
 
     }
-
-    // MARK: - Gestures
-    private func dragGesture(
-        cellSize: CGFloat, tableWidth: CGFloat, tableHeight: CGFloat, xPos: CGFloat, yPos: CGFloat
-    ) -> some Gesture {
-        DragGesture(minimumDistance: 20)
-            .updating($dragOffset) { value, state, _ in
-                guard !isLayoutLocked else { return }
-                state = value.translation
-            }
-            .onChanged { value in
-                guard !isLayoutLocked else { return }
-
-                // Define a threshold distance (e.g., 10 points)
-                let dragThreshold: CGFloat = 10
-
-                switch dragState {
-                case .idle:
-                    // If the drag distance exceeds the threshold, move to the "started" state
-                    if abs(value.translation.width) > dragThreshold
-                        || abs(value.translation.height) > dragThreshold
-                    {
-                        dragState = .started(offset: value.translation)
-                    }
-                case .started, .dragging:
-                    // Update the drag state with the current offset
-                    dragState = .dragging(offset: value.translation)
-                }
-            }
-            .onEnded { value in
-                switch dragState {
-                case .dragging(let offset):
-                    // Perform the drag end operation only if it was in the dragging state
-                    handleDragEnd(
-                        translation: offset,
-                        cellSize: cellSize,
-                        tableWidth: tableFrame.width,
-                        tableHeight: tableFrame.height,
-                        xPos: tableFrame.minX,
-                        yPos: tableFrame.minY
-                    )
-                default:
-                    // No action needed for other states
-                    break
-                }
-
-                // Reset drag state to idle
-                dragState = .idle
+    
+    // MARK: - View Specific Methods
+    private func updateResData() {
+        updateCachedReservation()
+        updateFirstUpcoming()
+        updateLateReservation()
+        updateNearEndReservation()
+        updateRemainingTime()
+    }
+    private func updateRemainingTime() {
+        cachedRemainingTime = TimeHelpers.remainingTimeString(
+            endTime: tableView.currentActiveReservation?.endTimeDate ?? Date(),
+            currentTime: appState.selectedDate
+        )
+    }
+    
+    private func updateCachedReservation() {
+        if let reservation = resCache.reservation(forTable: table.id, datetime: appState.selectedDate, category: selectedCategory), reservation.status != .canceled, reservation.reservationType != .waitingList {
+            tableView.currentActiveReservation = reservation
+        } else {
+            tableView.currentActiveReservation = nil
+        }
+        
+        
+    }
+    
+    private func updateLateReservation() {
+        if let reservation = tableView.currentActiveReservation, resCache.lateReservations(currentTime: appState.selectedDate).contains(where: { $0.id == reservation.id }) {
+            tableView.lateReservation = reservation
+        } else {
+            tableView.lateReservation = nil
+        }
+    }
+    
+    private func updateNearEndReservation() {
+        if let reservation = tableView.currentActiveReservation, resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {
+            $0.id == reservation.id
+        }) {
+            tableView.nearEndReservation = reservation } else {
+                tableView.nearEndReservation = nil
             }
     }
+    
+    private func updateFirstUpcoming() {
+        if let reservation = resCache.firstUpcomingReservation(
+            forTable: table.id, date: appState.selectedDate, time: appState.selectedDate,
+            category: selectedCategory) {
+            tableView.firstUpcomingReservation = reservation
+        } else {
+            tableView.firstUpcomingReservation = nil
+        }
+    }
+    
+    private func handleCancelled(_ reservation: Reservation) {
+        var updatedReservation = reservation
+        if updatedReservation.status != .canceled {
+            updatedReservation.status = .canceled
+        }
+        changedReservation = updatedReservation
+        reservationService.updateReservation(updatedReservation)
+    }
 
-    // MARK: - Actions
+    private func handleEmojiAssignment(_ activeReservation: Reservation?, _ emoji: String) {
+        guard var reservationActive = activeReservation else { return }
+        print("Emoji: \(emoji)")
+        reservationActive.assignedEmoji = emoji
+        reservationService.updateReservation(reservationActive)
+        statusChanged += 1
+        onStatusChange()
+    }
+    
     private func handleTap(_ activeReservation: Reservation?) {
         guard let activeReservation = activeReservation else { return }
 
@@ -644,51 +521,33 @@ struct TableView: View {
         if currentReservation.status == .pending || currentReservation.status == .late {
             // Case 1: Update to .showedUp
             currentReservation.status = .showedUp
-            showedUp = true
-            isLate = false
+            tableView.showedUp = true
+            tableView.isLate = false
 
             print("2 - Status in HandleTap: \(currentReservation.status)")
             reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
             statusChanged += 1
         } else {
             // Case 2: Determine if the reservation is late or pending
-            if let reservationStart = currentReservation.startTimeDate,
-                let reservationEnd = currentReservation.endTimeDate
-            {
-                let calendar = Calendar.current
-                let isSameDay = calendar.isDate(systemTime, inSameDayAs: reservationStart)
-
-                // Calculate elapsed time since reservation started
-                let elapsedTime = systemTime.timeIntervalSince(reservationStart)
-
-                // Calculate the total duration of the reservation
-                let reservationDuration = reservationEnd.timeIntervalSince(reservationStart)
-
-                if isSameDay && elapsedTime >= 15 * 60 && elapsedTime <= reservationDuration {
-                    // Mark as .late if the elapsed time is within bounds
-                    currentReservation.status = .late
-                    isLate = true
-                    showedUp = false
-                } else {
-                    // Otherwise, mark as .pending
-                    currentReservation.status = .pending
-                    isLate = false
-                    showedUp = false
-                }
+            if tableView.lateReservation?.id == currentReservation.id {
+                currentReservation.status = .late
+            } else {
+                currentReservation.status = .pending
+            }
 
                 print("2 - Status in HandleTap: \(currentReservation.status)")
                 reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
                 statusChanged += 1
-            }
+            
         }
     }
 
     private func handleDoubleTap() {
         // Check if the table is occupied by filtering active reservations.
-        if let reservation = currentActiveReservation {
+        if let reservation = tableView.currentActiveReservation {
             showInspector = true
             onEditReservation(reservation)
-        } else if currentActiveReservation == nil || currentActiveReservation?.id == firstUpcomingReservation?.id {
+        } else if tableView.currentActiveReservation == nil || tableView.currentActiveReservation?.id == tableView.firstUpcomingReservation?.id {
                 onTapEmpty(table)
             }
         
@@ -729,6 +588,8 @@ struct TableView: View {
             return
         }
 
+        clusterManager.lastLayoutSignature = layoutServices.computeLayoutSignature(tables: layoutUI.tables)
+        
         // Delegate the move to LayoutUIManager
         layoutUI.attemptMove(
             table: table, to: (row: newRow, col: newCol), for: selectedDate,
@@ -740,10 +601,11 @@ struct TableView: View {
             print("Error: Updated table not found after move!")
             return
         }
-
-        let tables = layoutUI.tables
+        
+        
+        
         let combinedDate = DateHelper.combine(date: selectedDate, time: appState.selectedDate)
-        layoutServices.saveTables(tables, for: combinedDate, category: selectedCategory)
+//        layoutServices.saveTables(tables, for: combinedDate, category: selectedCategory)
         if let updatedLayout = layoutServices.cachedLayouts[
             layoutServices.keyFor(date: combinedDate, category: selectedCategory)]
         {
@@ -754,7 +616,7 @@ struct TableView: View {
         }
 
         
-        if let reservation = currentActiveReservation {
+        if let reservation = tableView.currentActiveReservation {
             reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
         }
         let layoutKey = layoutServices.keyFor(date: combinedDate, category: selectedCategory)
@@ -766,36 +628,7 @@ struct TableView: View {
         layoutServices.currentlyDraggedTableID = nil
 
     }
-
-    //    private func filterActiveReservation(for table: TableModel, in activeReservations: [Reservation]) -> Reservation? {
-    //        let calendar = Calendar.current
-    //
-    //        // Normalize the current time for the selected date
-    //        guard let normalizedCurrentTime = calendar.date(
-    //            bySettingHour: calendar.component(.hour, from: currentTime),
-    //            minute: calendar.component(.minute, from: currentTime),
-    //            second: 0,
-    //            of: calendar.startOfDay(for: selectedDate)
-    //        ) else {
-    //            return nil
-    //        }
-    //
-    //        // Search in the activeReservations array
-    //        return activeReservations.first { reservation in
-    //            guard let startTime = reservation.startTimeDate,
-    //                  let endTime = reservation.endTimeDate else {
-    //                return false
-    //            }
-    //
-    //            // Check if the table is part of the reservation
-    //            return reservation.tables.contains(where: { $0.id == table.id }) &&
-    //                // Check if the current time falls within the reservation's time range
-    //                startTime <= normalizedCurrentTime && normalizedCurrentTime < endTime &&
-    //                // Ensure the reservation matches the selected date
-    //                calendar.isDate(reservation.startTimeDate ?? Date(), inSameDayAs: selectedDate)
-    //        }
-    //    }
-
+    
     private func isReservationMatching(
         _ reservation: Reservation,
         table: TableModel,
@@ -812,9 +645,62 @@ struct TableView: View {
         return normalizedCurrentTime >= normalizedStartTime
             && normalizedCurrentTime < normalizedEndTime
     }
+    
+    // MARK: - Gestures
+    private func tapGesture() -> some Gesture {
+        TapGesture(count: 1).onEnded {
+            // Start a timer for single-tap action
+            tableView.tapTimer?.invalidate()  // Cancel any existing timer
+            tableView.tapTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
+                Task { @MainActor in
+                    if !tableView.isDoubleTap {
+                        // Process single-tap only if no double-tap occurred
+                        if let reservation = tableView.currentActiveReservation {
+                            handleTap(reservation) }
+                    }
+                }
+            }
+        }
+    }
+    private func doubleTapGesture() -> some Gesture {
+        TapGesture(count: 2).onEnded {
+            // Cancel the single-tap timer and process double-tap
+            tableView.tapTimer?.invalidate()
+            tableView.isDoubleTap = true  // Prevent single-tap action
+            tableView.dragState = .idle
+            
+                handleDoubleTap()
+
+            // Reset double-tap state shortly after handling
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                tableView.isDoubleTap = false
+            }
+        }
+    }
+    
+    private func dragGesture() -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .updating($dragOffset) { value, state, _ in
+                guard !isLayoutLocked else { return }
+                state = value.translation
+            }
+            .onChanged { value in
+                guard !isLayoutLocked else { return }
+                tableView.dragState = .dragging(offset: value.translation)
+            }
+            .onEnded { value in
+                tableView.dragState = .idle  // Reset dragging state
+                handleDragEnd(
+                    translation: value.translation,
+                    cellSize: cellSize,
+                    tableWidth: tableFrame.width,
+                    tableHeight: tableFrame.height,
+                    xPos: tableFrame.minX,
+                    yPos: tableFrame.minY
+                )
+            }
+    }
 }
-
-
 
 struct EmojiSmallPicker: View {
     let onEmojiSelected: (String) -> Void
@@ -852,23 +738,3 @@ struct EmojiSmallPicker: View {
     }
 }
 
-struct EmojiButton: View {
-    let emoji: Character
-    @State private var animate = false
-
-    var body: some View {
-        Text(String(emoji))
-            .font(.largeTitle)
-            .phaseAnimator([false, true], trigger: animate) { content, phase in
-                content.scaleEffect(phase ? 1.3 : 1)
-            } animation: { phase in
-                .bouncy(duration: phase ? 0.2 : 0.05, extraBounce: phase ? 0.7 : 0)
-            }
-            .onTapGesture {
-                print("\(emoji) tapped")
-                animate.toggle()
-            }
-
-    }
-
-}

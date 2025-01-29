@@ -8,60 +8,51 @@
 import SwiftUI
 
 /// Manages UI-related state and interactions for table layout.
-class ClusterManager: ObservableObject {
-    
+@Observable
+class ClusterManager {
+
     // MARK: - Dependencies
     private var store: ReservationStore?
     private var reservationService: ReservationService?
-    private var clusterServices: ClusterServices?
-    private var layoutServices: LayoutServices?
-    
+    private var clusterServices: ClusterServices
+    private var layoutServices: LayoutServices
+    private var resCache: CurrentReservationsCache
+
     private var date: Date
     private var category: Reservation.ReservationCategory
-        
-    @Published var clusters: [CachedCluster] = [] {
-        didSet {
-            objectWillChange.send() // Notify SwiftUI of changes
-        }
-    }
-    
-    @State var lastLayoutSignature: String = ""
 
-    @Published var isConfigured: Bool = false
-    @State private var statusChanged: Int = 0
+    var clusters: [CachedCluster] = []
+    var activeReservationsCount: Int = 0
+    var lastLayoutSignature: String = ""
 
-    
+    var isConfigured: Bool = false
+    var statusChanged: Int = 0
+
     // MARK: - Initializer
-    init(date: Date, category: Reservation.ReservationCategory) {
+    @MainActor
+    init(
+        clusterServices: ClusterServices, layoutServices: LayoutServices,
+        resCache: CurrentReservationsCache, date: Date, category: Reservation.ReservationCategory
+    ) {
+        self.clusterServices = clusterServices
+        self.layoutServices = layoutServices
+        self.resCache = resCache
         self.date = date
         self.category = category
     }
-    
-    func configure(store: ReservationStore, reservationService: ReservationService, clusterServices: ClusterServices, layoutServices: LayoutServices) {
-        self.store = store
-        self.reservationService = reservationService
-        self.clusterServices = clusterServices
-        self.layoutServices = layoutServices
-        // methods to load clusters
-        // methods to load clusters
-        isConfigured = true
-    }
-    
+
     // MARK: - Loading Methods
+    @MainActor
     func loadClusters() {
-        guard let clusterServices = clusterServices else { return }
         clusters = clusterServices.loadClusters(for: date, category: category)
+        //        print("Clusters: \(clusters.count)")
     }
-    
-    private func loadClustersFromCache() {
-        guard let clusterServices = clusterServices else { return }
-        let cached = clusterServices.loadClusters(for: date, category: category)
-        self.clusters = cached
-    }
-    
+
     // MARK: - Computational Methods
-    private func clusters(for reservation: Reservation, tables: [TableModel], cellSize: CGFloat) -> [CachedCluster] {
-        print("Called clusters()")
+    private func clusters(for reservation: Reservation, tables: [TableModel], cellSize: CGFloat)
+        -> [CachedCluster]
+    {
+        //        print("Called clusters()")
         // Step 1: Gather all tables that belong to `reservation`.
         // (table.id is in reservation.tables)
         let reservationTableIDs = Set(reservation.tables.map { $0.id })
@@ -89,8 +80,8 @@ class ClusterManager: ObservableObject {
                 frame: calculateClusterFrame(component, cellSize: cellSize)
             )
         }
-        
-        print("Retrieved clusters: \(clusters)")
+
+        //        print("Retrieved clusters: \(clusters)")
         return clusters
     }
 
@@ -116,9 +107,8 @@ class ClusterManager: ObservableObject {
                 component.append(current)
 
                 let neighbors = tables.filter { neighbor in
-                    neighbor.id != current.id &&
-                    !visited.contains(neighbor.id) &&
-                    areTablesPhysicallyAdjacent(table1: current, table2: neighbor)
+                    neighbor.id != current.id && !visited.contains(neighbor.id)
+                        && areTablesPhysicallyAdjacent(table1: current, table2: neighbor)
                 }
                 queue.append(contentsOf: neighbors)
             }
@@ -136,11 +126,11 @@ class ClusterManager: ObservableObject {
         for activeReservations: [Reservation],
         tables: [TableModel]
     ) -> Bool {
-        // 1) Are there any relevant reservations active?
-        guard !activeReservations.isEmpty else { return false }
-        
+
         // 2) Have the tables physically moved?
-        let currentSignature = layoutServices?.computeLayoutSignature(tables: tables)
+        //        print("Old signature: \(self.lastLayoutSignature)")
+        let currentSignature = layoutServices.computeLayoutSignature(tables: tables)
+        //        print("New signature: \(currentSignature)")
         if currentSignature == self.lastLayoutSignature {
             // No physical changes => No adjacency changes => Skip
             return false
@@ -149,102 +139,111 @@ class ClusterManager: ObservableObject {
         // 3) Otherwise, we do have a change => recalc
         return true
     }
-    
-    private func calculateClusters(for activeReservations: [Reservation], tables: [TableModel], combinedDate: Date, cellSize: CGFloat) -> [CachedCluster] {
-        print("Calculating clusters at \(combinedDate)...")
+
+    private func calculateClusters(
+        for activeReservations: [Reservation], tables: [TableModel], combinedDate: Date,
+        cellSize: CGFloat
+    ) -> [CachedCluster] {
+        //        print("Calculating clusters at \(combinedDate)...")
         var allClusters: [CachedCluster] = []
 
         // Filter out reservations that ended or haven't started
         let validReservations = activeReservations.filter { reservation in
-            print("\nDEBUG: Checking reservation: \(reservation.name)")
-            print("Start Time: \(String(describing: reservation.startTimeDate))")
-            print("End Time: \(String(describing: reservation.endTimeDate))")
 
-            
-            let isValid = combinedDate >= reservation.startTimeDate ?? Date() && combinedDate < reservation.endTimeDate ?? Date() && reservation.status != .canceled && reservation.reservationType != .waitingList
-            print("Is Valid: \(isValid)")
+            let isValid =
+                combinedDate >= reservation.startTimeDate ?? Date()
+                && combinedDate < reservation.endTimeDate ?? Date()
+                && reservation.status != .canceled && reservation.reservationType != .waitingList
             return isValid
         }
 
-        print("Valid Reservations Count: \(validReservations.count)")
-
         for reservation in validReservations {
-            print("Processing reservation: \(reservation.name)")
             // For each reservation, gather the clusters
             let resClusters = clusters(for: reservation, tables: tables, cellSize: cellSize)
             allClusters.append(contentsOf: resClusters)
         }
-
-        print("Total Clusters Calculated: \(allClusters.count)")
         return allClusters
     }
-    
 
     private func calculateClusterFrame(_ tables: [TableModel], cellSize: CGFloat) -> CGRect {
-        print("Calculating cluster frame... [calculateClusterFrame() in LayoutPageView]")
 
         if tables.isEmpty {
-            print("No tables provided for cluster frame calculation. Returning CGRect.zero.")
             return .zero
         }
-        
+
         // Calculate the min and max rows/columns of the cluster
         let minX = tables.map { $0.column }.min() ?? 0
         let maxX = tables.map { $0.column + $0.width }.max() ?? 0
         let minY = tables.map { $0.row }.min() ?? 0
         let maxY = tables.map { $0.row + $0.height }.max() ?? 0
-        
+
         // Convert grid coordinates to pixel coordinates
         let originX = CGFloat(minX) * cellSize
         let originY = CGFloat(minY) * cellSize
         let width = CGFloat(maxX - minX) * cellSize
         let height = CGFloat(maxY - minY) * cellSize
-        
-        print("Cluster Bounds - minX: \(minX), maxX: \(maxX), minY: \(minY), maxY: \(maxY)")
         return CGRect(x: originX, y: originY, width: width, height: height)
     }
-    
+
     private func areTablesPhysicallyAdjacent(table1: TableModel, table2: TableModel) -> Bool {
         let rowDifference = abs(table1.row - table2.row)
         let columnDifference = abs(table1.column - table2.column)
 
         // Check for direct adjacency (horizontally, vertically, or diagonally)
-        return (rowDifference == 3 && columnDifference == 0) || // Vertical adjacency
-               (rowDifference == 0 && columnDifference == 3) // Horizontal adjacency
+        return (rowDifference == 3 && columnDifference == 0)  // Vertical adjacency
+            || (rowDifference == 0 && columnDifference == 3)  // Horizontal adjacency
     }
-    
+
     // MARK: - Callable Method
-    func recalculateClustersIfNeeded(for activeReservations: [Reservation], tables: [TableModel], combinedDate: Date, oldCategory: Reservation.ReservationCategory, selectedCategory: Reservation.ReservationCategory, cellSize: CGFloat) {
-        print("Recalculating clusters... [recalculateClustersIfNeeded()]")
-        guard let layoutServices = layoutServices else { return }
-        guard let clusterServices = clusterServices else { return }
-        // Grab the current layout from store / layoutUI
+    @MainActor
+    func recalculateClustersIfNeeded(
+        for activeReservations: [Reservation], tables: [TableModel], combinedDate: Date,
+        oldCategory: Reservation.ReservationCategory,
+        selectedCategory: Reservation.ReservationCategory, cellSize: CGFloat
+    ) {
         let currentTables = tables
-        
-        // 1) Early-exit if no adjacency changes
-//        if oldCategory == selectedCategory {
-//            guard shouldRecalculateClusters(for: activeReservations, tables: currentTables) else {
-//                print("Skipping recalc: no physical adjacency change or no active reservations.")
-//                return
-//            }
-//        }
 
-//        let cachedClusters = clusterServices.loadClusters(for: date, category: category)
+        // 1. Are there the conditions for new clusters?
 
-        // 2) Attempt to load cached clusters for the date+time
-        
-//        if !cachedClusters.isEmpty && lastLayoutSignature == layoutServices.computeLayoutSignature(tables: currentTables) {
-//                self.clusters = cachedClusters
-//                return
-//            }
+        var newReservationsCount = 0
+        for table in tables {
+            if resCache.reservation(
+                forTable: table.id, datetime: combinedDate, category: selectedCategory) != nil
+            {
+                newReservationsCount += 1
+            }
+        }
 
-        // 3) Not in cache => recalc clusters
-            let newClusters = calculateClusters(for: activeReservations, tables: currentTables, combinedDate: combinedDate, cellSize: cellSize)
-            
-                self.clusters = newClusters
+        if newReservationsCount == activeReservationsCount {
+            guard shouldRecalculateClusters(for: activeReservations, tables: currentTables) else {
+                return
+            }
 
-            self.lastLayoutSignature = layoutServices.computeLayoutSignature(tables: currentTables)
-            clusterServices.saveClusters(newClusters, for: combinedDate, category: selectedCategory)
+            clusters = clusterServices.loadClusters(for: combinedDate, category: selectedCategory)
+
+            // 2. No condition for new clusters: let's check the cache:
+            if !clusters.isEmpty
+                && lastLayoutSignature == layoutServices.computeLayoutSignature(tables: tables)
+            {
+                return
+            }
+
+        }
+
+        // 3) Not in cache, relevant changes => recalc clusters
+        let newClusters = calculateClusters(
+            for: activeReservations, tables: currentTables, combinedDate: combinedDate,
+            cellSize: cellSize)
+        self.clusters = newClusters
+        self.lastLayoutSignature = layoutServices.computeLayoutSignature(tables: currentTables)
+        self.clusterServices.saveClusters(clusters, for: combinedDate, category: selectedCategory)
+        for table in tables {
+            if resCache.reservation(
+                forTable: table.id, datetime: combinedDate, category: selectedCategory) != nil
+            {
+                activeReservationsCount += 1
+            }
+        }
     }
 
 }

@@ -9,7 +9,7 @@ import Foundation
 
 class ClusterServices: ObservableObject {
     private let store: ReservationStore
-    private let clusterStore: ClusterStore          // single source of truth
+    let clusterStore: ClusterStore          // single source of truth
     private let tableStore: TableStore
     private let layoutServices: LayoutServices
 
@@ -24,14 +24,18 @@ class ClusterServices: ObservableObject {
     }
     
     // MARK: - Read/Write
+    @MainActor
     func loadClusters(for date: Date, category: Reservation.ReservationCategory) -> [CachedCluster] {
         let key = layoutServices.keyFor(date: date, category: category)
         print("Loading clusters for key: \(key)")
 
         // Attempt to load from the cache
         if let entry = clusterStore.clusterCache[key] {
-            clusterStore.clusterCache[key]?.lastAccessed = Date() // Update access timestamp
-            print("Loaded clusters from cache for key: \(key)")
+            DispatchQueue.main.async {
+                self.clusterStore.clusterCache[key]?.lastAccessed = Date() // Update access timestamp
+                print("Loaded clusters from cache for key: \(key)")
+                print("Loaded clusters: \(entry.clusters.count)")
+            }
             return entry.clusters
         }
 

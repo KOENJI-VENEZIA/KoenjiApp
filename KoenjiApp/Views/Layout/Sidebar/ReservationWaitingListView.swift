@@ -9,6 +9,8 @@ import SwiftUI
 
 struct ReservationWaitingListView: View {
     @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var resCache: CurrentReservationsCache
+    @EnvironmentObject var appState: AppState
     @EnvironmentObject var reservationService: ReservationService
     @EnvironmentObject var layoutServices: LayoutServices
     @State private var selection = Set<UUID>()  // Multi-select
@@ -17,8 +19,6 @@ struct ReservationWaitingListView: View {
     @Environment(\.colorScheme) var colorScheme
 
 
-    let activeReservations: [Reservation]
-    var currentTime: Date
     var onClose: () -> Void
     var onEdit: (Reservation) -> Void
     var onConfirm: (Reservation) -> Void
@@ -27,7 +27,7 @@ struct ReservationWaitingListView: View {
         VStack {
             
             List(selection: $selection) {
-                let reservations = reservations(at: currentTime)
+                let reservations = resCache.activeReservations
                 let filtered = filterReservations(reservations)
                 let grouped = groupByCategory(filtered)
                 if !grouped.isEmpty {
@@ -97,7 +97,7 @@ struct ReservationWaitingListView: View {
                 }
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
-                
+
             }
             .scrollContentBackground(.hidden) // Removes the List's default background (iOS 16+)
             .listStyle(GroupedListStyle())
@@ -122,7 +122,7 @@ struct ReservationWaitingListView: View {
     
     private func handleDeleteFromGroup(groupKey: String, offsets: IndexSet) {
         // 1) Access the grouped reservations
-        let reservations = reservations(at: currentTime)
+        let reservations = resCache.activeReservations
         var grouped = groupByCategory(reservations)
         
         // 2) The reservations in this group
