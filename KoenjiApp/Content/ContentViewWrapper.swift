@@ -18,18 +18,24 @@ struct ContentViewWrapper: View {
     @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var backupService: FirebaseBackupService
+    @EnvironmentObject var scribbleService: ScribbleService
+    @State var listView: ListViewModel
 
     var body: some View {
-        ContentView()
+        ContentView(listView: listView)
             .environmentObject(store)
-            .environmentObject(resCache)
             .environmentObject(tableStore)
-            .environmentObject(reservationService) // For the new service
-            .environmentObject(clusterServices)
+            .environmentObject(resCache)
             .environmentObject(layoutServices)
+            .environmentObject(clusterServices)
             .environmentObject(gridData)
+            .environmentObject(backupService)
             .environmentObject(appState) // Inject AppState
-            .applyCustomStyles() // Applies dynamic backgrounds and Italian locale
+            .environmentObject(reservationService) // For the new service
+            .environmentObject(scribbleService)
+
+//            .applyCustomStyles() // Applies dynamic backgrounds and Italian locale
             .onAppear {
                 print("App appearing. Loading data...")
                 // Data loading already handled by ReservationStore initializer

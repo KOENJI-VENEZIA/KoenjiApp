@@ -270,3 +270,18 @@ extension Color {
 
 
 
+extension View {
+    func forceTransparentNavigationBar() -> some View {
+        self.onAppear {
+            let appearance = UINavigationBarAppearance()
+            appearance.configureWithTransparentBackground()
+            appearance.backgroundColor = UIColor.clear
+            appearance.shadowColor = nil  // Removes shadow
+            appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+            appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+
+            UINavigationBar.appearance().standardAppearance = appearance
+            UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        }
+    }
+}

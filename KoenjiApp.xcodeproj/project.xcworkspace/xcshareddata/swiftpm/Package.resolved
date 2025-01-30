@@ -1,5 +1,5 @@
 {
-  "originHash" : "b44d4875e681380a269d314fc1afb21db1df312d4ae0a4284baea0b8160e4a2c",
+  "originHash" : "b7ffdd887c87e80ec6dcf0837966b5895a0f5871424c0399171f283ca2ccc1a2",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -134,6 +134,15 @@
       "state" : {
         "revision" : "ebc7251dd5b37f627c93698e4374084d98409633",
         "version" : "1.28.2"
+      }
+    },
+    {
+      "identity" : "swipeactions",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/aheze/SwipeActions",
+      "state" : {
+        "revision" : "41e6f6dce02d8cfa164f8c5461a41340850ca3ab",
+        "version" : "1.1.0"
       }
     }
   ],

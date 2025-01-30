@@ -5,28 +5,25 @@ import FirebaseAuth
 
 @main
 struct MyReservationApp: App {
-    @StateObject private var store = ReservationStore(tableAssignmentService: TableAssignmentService())
-    @StateObject private var resCache = CurrentReservationsCache()
+    @StateObject private var store: ReservationStore
+    @StateObject private var resCache: CurrentReservationsCache
     @StateObject private var reservationService: ReservationService
-    @StateObject private var clusterStore = ClusterStore(store: ReservationStore.shared, tableStore: TableStore.shared, layoutServices: LayoutServices(store: ReservationStore.shared, tableStore: TableStore.shared, tableAssignmentService: TableAssignmentService()))
+    @StateObject private var clusterStore: ClusterStore
     @StateObject private var clusterServices: ClusterServices
-    @StateObject private var tableStore = TableStore(store: ReservationStore.shared)
-    @StateObject private var layoutServices = LayoutServices(store: ReservationStore.shared, tableStore: TableStore.shared, tableAssignmentService: TableAssignmentService())
-    
-
-
-    @StateObject private var gridData = GridData(store: ReservationStore.shared)
-
-    @StateObject private var appState = AppState()
-        
-
+    @StateObject private var tableStore: TableStore
+    @StateObject private var layoutServices: LayoutServices
+    @StateObject private var gridData: GridData
+    @StateObject private var appState: AppState
+    @StateObject private var backupService: FirebaseBackupService
+    @StateObject private var scribbleService: ScribbleService
+    @State var listView: ListViewModel
 
     init() {
         
         
         FirebaseApp.configure()
         
-        
+
         // 1) Create a *local* store first
         let localStore = ReservationStore(tableAssignmentService: TableAssignmentService())
         let localTableStore = TableStore(store: localStore)
@@ -47,6 +44,14 @@ struct MyReservationApp: App {
         
         _clusterServices = StateObject(wrappedValue: clusterService)
         
+        
+        
+        let gridData = GridData(store: localStore)
+        _gridData = StateObject(wrappedValue: gridData)
+        
+        let backupService = FirebaseBackupService(store: localStore)
+        _backupService = StateObject(wrappedValue: backupService)
+        
         let appState = AppState()
         _appState = StateObject(wrappedValue: appState)
         
@@ -59,11 +64,19 @@ struct MyReservationApp: App {
             tableStore: localTableStore,
             layoutServices: layoutServices,
             tableAssignmentService: localStore.tableAssignmentService,
+            backupService: backupService,
             appState: appState
         )
         _reservationService = StateObject(wrappedValue: service)
         
+        let scribbleService = ScribbleService(layoutServices: layoutServices)
+        _scribbleService = StateObject(wrappedValue: scribbleService)
+        
+        let listView = ListViewModel(reservationService: service, store: localStore, layoutServices: layoutServices)
+        _listView = State(wrappedValue: listView)
+        
         authenticateUser()
+
 
     }
 
@@ -71,15 +84,18 @@ struct MyReservationApp: App {
         WindowGroup {
 
             
-            ContentViewWrapper()
+            ContentViewWrapper(listView: listView)
                 .environmentObject(store)
-                .environmentObject(resCache)
                 .environmentObject(tableStore)
-                .environmentObject(reservationService) // For the new service
-                .environmentObject(clusterServices)
+                .environmentObject(resCache)
                 .environmentObject(layoutServices)
+                .environmentObject(clusterServices)
                 .environmentObject(gridData)
+                .environmentObject(backupService)
                 .environmentObject(appState) // Inject AppState
+                .environmentObject(reservationService) // For the new service
+                .environmentObject(scribbleService)
+
 
         }
     

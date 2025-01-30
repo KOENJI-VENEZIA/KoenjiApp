@@ -31,7 +31,7 @@ extension LayoutServices {
 
             // Perform the move
             
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(.easeInOut(duration: 0.5)) {
                     if let idx = self.tables.firstIndex(where: { $0.id == table.id }) {
                         self.tables[idx] = newTable
                     }

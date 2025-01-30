@@ -5,6 +5,7 @@
 //  Created by Matteo Nassini on 26/1/25.
 //
 import SwiftUI
+import Foundation
 
 struct TimelineGantView: View {
     
@@ -21,6 +22,7 @@ struct TimelineGantView: View {
     
     // MARK: - Body
     var body: some View {
+
         
         let totalHours = {
             if appState.selectedCategory == .lunch {
@@ -154,9 +156,7 @@ struct TimelineGantView: View {
                     .background(.clear)
                 }
                 
-                Text(
-                    "\(reservations.count) PRENOTAZIONI"
-                )
+                Text("\(reservations.count) \(TextHelper.pluralized("PRENOTAZIONE", "PRENOTAZIONI", reservations.count))")
                 .font(.headline)
                 .padding()
                 .frame(maxHeight: .infinity, alignment: .bottom)

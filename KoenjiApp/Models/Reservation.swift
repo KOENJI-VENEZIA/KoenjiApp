@@ -90,10 +90,12 @@ struct Reservation: Identifiable, Hashable, Codable {
     
     
     // For the sake of simplicity, we will track category as an enum
-    enum ReservationCategory: String, CaseIterable {
+    enum ReservationCategory: String, CaseIterable, Identifiable, Equatable {
         case lunch
         case dinner
         case noBookingZone
+        
+        var id: String { rawValue }
     }
 
     enum Acceptance: String, CaseIterable {
@@ -214,13 +216,29 @@ extension Reservation {
             group = try container.decode(Bool.self, forKey: .group)
             notes = try container.decodeIfPresent(String.self, forKey: .notes)
             tables = try container.decode([TableModel].self, forKey: .tables)
-            creationDate = try container.decode(Date.self, forKey: .creationDate)
-
+            if let timestamp = try? container.decode(Double.self, forKey: .creationDate) {
+                creationDate = Date(timeIntervalSince1970: timestamp)
+            } else if let dateString = try? container.decode(String.self, forKey: .creationDate),
+                      let parsedDate = ISO8601DateFormatter().date(from: dateString) {
+                creationDate = parsedDate
+            } else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .creationDate,
+                    in: container,
+                    debugDescription: "creationDate is neither a Double (timestamp) nor a valid ISO8601 string."
+                )
+            }
             // Provide a default value for `isMock` if the key is missing
             isMock = try container.decodeIfPresent(Bool.self, forKey: .isMock) ?? false
             assignedEmoji = try container.decodeIfPresent(String.self, forKey: .assignedEmoji)
             imageData = try container.decodeIfPresent(Data.self, forKey: .imageData)
-            colorHue = try container.decode(Double.self, forKey: .colorHue)
+
+            // Provide a default value for `colorHue` if missing
+            if let hue = try container.decodeIfPresent(Double.self, forKey: .colorHue) {
+                colorHue = hue
+            } else {
+                colorHue = Reservation.stableHue(for: id) // Generate a hue based on UUID
+            }
 
         // Initialize cached dates
               self.updateCachedDates()
@@ -406,5 +424,25 @@ extension Reservation {
     // Helper to create a lightweight version of the reservation
     func toLightweight() -> LightweightReservation {
         return LightweightReservation(id: id, name: name, phone: phone, numberOfPersons: numberOfPersons, dateString: dateString, category: category, startTime: startTime, endTime: endTime, acceptance: acceptance, status: status, reservationType: reservationType, group: group, tables: tables, creationDate: creationDate)
+    }
+}
+
+extension Reservation.ReservationCategory {
+    var sidebarColor: Color {
+        switch self {
+        case .lunch: return Color.sidebar_lunch
+        case .dinner: return Color.sidebar_dinner
+        case .noBookingZone: return Color.sidebar_generic
+        }
+    }
+}
+
+extension Reservation.ReservationCategory {
+    var inspectorColor: Color {
+        switch self {
+        case .lunch: return Color.inspector_lunch
+        case .dinner: return Color.inspector_dinner
+        case .noBookingZone: return Color.inspector_generic
+        }
     }
 }

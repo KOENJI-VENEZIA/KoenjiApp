@@ -23,6 +23,7 @@ struct TableView: View {
     @State var tableView: TableViewModel = TableViewModel()
     private let normalizedTimeCache = NormalizedTimeCache()
 
+    @Binding var selectedIndex: Int
     let table: TableModel
     let selectedDate: Date
     let selectedCategory: Reservation.ReservationCategory
@@ -51,7 +52,7 @@ struct TableView: View {
         let yPos = CGFloat(table.row) * cellSize + height / 2
         return CGRect(x: xPos, y: yPos, width: width, height: height)
     }
-
+    
     
     // MARK: - Body
     var body: some View {
@@ -207,19 +208,24 @@ struct TableView: View {
                         .opacity(tableView.nearEndReservation != nil ? 1 : 0)
                 }
             }
+            .transition(.opacity)
             .opacity(table.isVisible ? 1 : 0)
+            .animation(.easeInOut(duration: 0.5), value: table.isVisible)
+        }
+        .onAppear {
+            updateResData(appState.selectedDate, refreshedKey: "onAppear")
         }
         .onChange(of: statusChanged) {
-            updateResData()
+            updateResData(appState.selectedDate, refreshedKey: "statusChanged", forceUpdate: true)
         }
         .onChange(of: showInspector) {
-            updateResData()
+            updateResData(appState.selectedDate, refreshedKey: "showInspector")
         }
         .onChange(of: changedReservation) {
-            updateResData()
+            updateResData(appState.selectedDate, refreshedKey: "changedReservation")
         }
         .onChange(of: appState.selectedDate) {
-            updateResData()
+            updateResData(appState.selectedDate, refreshedKey: "appState.selectedDate")
         }
         .onChange(of: tableView.selectedEmoji) {
             handleEmojiAssignment(tableView.currentActiveReservation, tableView.selectedEmoji)
@@ -269,14 +275,11 @@ struct TableView: View {
         }
         .position(x: tableFrame.minX, y: tableFrame.minY)
         .offset(dragOffset)
-        .highPriorityGesture(
-            dragGesture()
+        .gesture(
+            tapGesture().exclusively(before: dragGesture())
         )
         .simultaneousGesture(
             doubleTapGesture()
-        )
-        .simultaneousGesture(
-            tapGesture()
         )
     }
     
@@ -442,22 +445,45 @@ struct TableView: View {
     }
     
     // MARK: - View Specific Methods
-    private func updateResData() {
-        updateCachedReservation()
-        updateFirstUpcoming()
-        updateLateReservation()
-        updateNearEndReservation()
-        updateRemainingTime()
+    private func updateResData(_ date: Date, refreshedKey: String, forceUpdate: Bool = false) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm" // ✅ Only includes year, month, day, hour, and minute
+        formatter.timeZone = TimeZone(identifier: "UTC") // Adjust if needed
+        
+        let formattedDate = formatter.string(from: date)
+        let key = "\(formattedDate)-\(refreshedKey)-\(table.id)"
+        
+        // ✅ Guard against duplicate updates
+        if !forceUpdate {
+            if tableView.currentActiveReservation != nil || tableView.lateReservation != nil || tableView.firstUpcomingReservation != nil || tableView.nearEndReservation != nil {
+                
+                guard !appState.lastRefreshedKeys.contains(key) else {
+                    print("⚠️ Skipping update, key already exists!")
+                    return }
+            }
+        }
+        print("New key: \(key)")
+        print("DEBUG: Refreshing for \(date) and \(refreshedKey)...")
+        appState.lastRefreshedKeys.append(key) // ✅ Append only if it's a new key
+        
+        print("Key added!")
+
+        updateCachedReservation(date)
+        updateFirstUpcoming(date)
+        updateLateReservation(date)
+        updateNearEndReservation(date)
+        updateRemainingTime(date)
     }
-    private func updateRemainingTime() {
+    
+    private func updateRemainingTime(_ date: Date) {
         cachedRemainingTime = TimeHelpers.remainingTimeString(
             endTime: tableView.currentActiveReservation?.endTimeDate ?? Date(),
             currentTime: appState.selectedDate
         )
     }
     
-    private func updateCachedReservation() {
-        if let reservation = resCache.reservation(forTable: table.id, datetime: appState.selectedDate, category: selectedCategory), reservation.status != .canceled, reservation.reservationType != .waitingList {
+    private func updateCachedReservation(_ date: Date) {
+        if let reservation = resCache.reservation(forTable: table.id, datetime: date, category: selectedCategory), reservation.status != .canceled, reservation.reservationType != .waitingList {
             tableView.currentActiveReservation = reservation
         } else {
             tableView.currentActiveReservation = nil
@@ -466,16 +492,16 @@ struct TableView: View {
         
     }
     
-    private func updateLateReservation() {
-        if let reservation = tableView.currentActiveReservation, resCache.lateReservations(currentTime: appState.selectedDate).contains(where: { $0.id == reservation.id }) {
+    private func updateLateReservation(_ date: Date) {
+        if let reservation = tableView.currentActiveReservation, resCache.lateReservations(currentTime: date).contains(where: { $0.id == reservation.id }) {
             tableView.lateReservation = reservation
         } else {
             tableView.lateReservation = nil
         }
     }
     
-    private func updateNearEndReservation() {
-        if let reservation = tableView.currentActiveReservation, resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {
+    private func updateNearEndReservation(_ date: Date) {
+        if let reservation = tableView.currentActiveReservation, resCache.nearingEndReservations(currentTime: date).contains(where: {
             $0.id == reservation.id
         }) {
             tableView.nearEndReservation = reservation } else {
@@ -483,9 +509,9 @@ struct TableView: View {
             }
     }
     
-    private func updateFirstUpcoming() {
+    private func updateFirstUpcoming(_ date: Date) {
         if let reservation = resCache.firstUpcomingReservation(
-            forTable: table.id, date: appState.selectedDate, time: appState.selectedDate,
+            forTable: table.id, date: date, time: date,
             category: selectedCategory) {
             tableView.firstUpcomingReservation = reservation
         } else {
@@ -514,6 +540,7 @@ struct TableView: View {
     private func handleTap(_ activeReservation: Reservation?) {
         guard let activeReservation = activeReservation else { return }
 
+        let oldReservation = activeReservation
         var currentReservation = activeReservation
 
         print("1 - Status in HandleTap: \(currentReservation.status)")
@@ -525,7 +552,7 @@ struct TableView: View {
             tableView.isLate = false
 
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
+            reservationService.updateReservation(oldReservation, newReservation: currentReservation)  // Ensure the data store is updated
             statusChanged += 1
         } else {
             // Case 2: Determine if the reservation is late or pending
@@ -536,7 +563,7 @@ struct TableView: View {
             }
 
                 print("2 - Status in HandleTap: \(currentReservation.status)")
-                reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
+            reservationService.updateReservation(oldReservation, newReservation: currentReservation)  // Ensure the data store is updated
                 statusChanged += 1
             
         }
@@ -679,25 +706,28 @@ struct TableView: View {
     }
     
     private func dragGesture() -> some Gesture {
-        DragGesture(minimumDistance: 0)
+        DragGesture(minimumDistance: 25)
             .updating($dragOffset) { value, state, _ in
                 guard !isLayoutLocked else { return }
                 state = value.translation
             }
             .onChanged { value in
+                
                 guard !isLayoutLocked else { return }
                 tableView.dragState = .dragging(offset: value.translation)
             }
             .onEnded { value in
                 tableView.dragState = .idle  // Reset dragging state
-                handleDragEnd(
-                    translation: value.translation,
-                    cellSize: cellSize,
-                    tableWidth: tableFrame.width,
-                    tableHeight: tableFrame.height,
-                    xPos: tableFrame.minX,
-                    yPos: tableFrame.minY
-                )
+                if abs(value.translation.width) > 10 || abs(value.translation.height) > 10 {
+                    handleDragEnd(
+                        translation: value.translation,
+                        cellSize: cellSize,
+                        tableWidth: tableFrame.width,
+                        tableHeight: tableFrame.height,
+                        xPos: tableFrame.minX,
+                        yPos: tableFrame.minY
+                    )
+                }
             }
     }
 }

@@ -255,7 +255,7 @@ struct EditReservationView: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .animation(.easeInOut, value: showImageField)  // Apply animation when `showImageField` changes
+                    .animation(.easeInOut(duration: 0.5), value: showImageField)  // Apply animation when `showImageField` changes
                 }
 
                 Section("Facoltativo: Note") {
@@ -338,6 +338,7 @@ struct EditReservationView: View {
                 }
             }
         }
+        .background(.clear)
     }
 
     private func saveChanges() {

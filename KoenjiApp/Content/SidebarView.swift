@@ -17,20 +17,24 @@ struct SidebarView: View {
     @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var gridData: GridData
     @EnvironmentObject var appState: AppState // Access AppState
+    @EnvironmentObject var backupService: FirebaseBackupService
+    @EnvironmentObject var scribbleService: ScribbleService
+    @State var listView: ListViewModel
+    
     @Binding  var selectedReservation: Reservation?
     @Binding  var currentReservation: Reservation?
     @Binding  var selectedCategory: Reservation.ReservationCategory? 
     @Binding var columnVisibility: NavigationSplitViewVisibility
-    @StateObject private var scribbleService: ScribbleService
     
-    init(layoutServices: LayoutServices, selectedReservation: Binding<Reservation?>, currentReservation: Binding<Reservation?>, selectedCategory: Binding<Reservation.ReservationCategory?>, columnVisibility: Binding<NavigationSplitViewVisibility>) {
+    init(layoutServices: LayoutServices, listView: ListViewModel, selectedReservation: Binding<Reservation?>, currentReservation: Binding<Reservation?>, selectedCategory: Binding<Reservation.ReservationCategory?>, columnVisibility: Binding<NavigationSplitViewVisibility>) {
 
+        self._listView = State(wrappedValue: listView)
         self._selectedReservation = selectedReservation
         self._currentReservation = currentReservation
         self._selectedCategory = selectedCategory
         self._columnVisibility = columnVisibility
         
-        _scribbleService = StateObject(wrappedValue: ScribbleService(layoutServices: layoutServices))
+        
         
     }
     var body: some View {
@@ -41,31 +45,41 @@ struct SidebarView: View {
             VStack {
                    
                     List {
-                        NavigationLink(destination: ReservationListView(columnVisibility: $columnVisibility)
-                            .environmentObject(store)
+                        NavigationLink(
+                            destination: ReservationListView(
+                                store: store,
+                                reservationService: reservationService,
+                                layoutServices: layoutServices,
+                                columnVisibility: $columnVisibility,
+                                listView: listView
+                            )
+                            
                             .environmentObject(resCache)
-                            .environmentObject(tableStore)
-                            .environmentObject(reservationService) // For the new service
-                            .environmentObject(clusterServices)
-                            .environmentObject(layoutServices)
-                            .environmentObject(gridData)
-                            .environmentObject(appState)
+                            .environmentObject(backupService)
+                            .environmentObject(appState) // Inject AppState
                             ) {
                                 Label("Database", systemImage: "list.bullet")
                             }
                         
-                        NavigationLink(destination: TabsView(columnVisibility: $columnVisibility)
+                        NavigationLink(
+                            destination: TabsView(
+                                columnVisibility: $columnVisibility
+                            )
                             .environmentObject(store)
-                            .environmentObject(reservationService) // For the new service
-                            .environmentObject(layoutServices)
-                            .environmentObject(appState)
+                            .environmentObject(tableStore)
                             .environmentObject(resCache)
+                            .environmentObject(layoutServices)
+                            .environmentObject(clusterServices)
+                            .environmentObject(gridData)
+                            .environmentObject(backupService)
+                            .environmentObject(appState) // Inject AppState
+                            .environmentObject(reservationService) // For the new service
                             .ignoresSafeArea(.all)
                         ) {
                             Label("Timeline", systemImage: "calendar.day.timeline.left")
                         }
-                        NavigationLink(destination:
-                            LayoutView(
+                        NavigationLink(
+                            destination: LayoutView(
                                 appState: appState,
                                 clusterServices: clusterServices,
                                 layoutServices: layoutServices,
@@ -75,15 +89,16 @@ struct SidebarView: View {
                                 columnVisibility: $columnVisibility
                             )
                             .environmentObject(store)
-                            .environmentObject(resCache)
                             .environmentObject(tableStore)
-                            .environmentObject(reservationService) // For the new service
-                            .environmentObject(clusterServices)
+                            .environmentObject(resCache)
                             .environmentObject(layoutServices)
+                            .environmentObject(clusterServices)
                             .environmentObject(gridData)
+                            .environmentObject(backupService)
+                            .environmentObject(appState) // Inject AppState
+                            .environmentObject(reservationService) // For the new service
                             .environmentObject(scribbleService)
-                            .environmentObject(appState)
-                            .environmentObject(SharedToolPicker())) {
+                        ) {
                                 Label("Layout Tavoli", systemImage: "rectangle.grid.3x2")
                             }
                     }
@@ -92,7 +107,6 @@ struct SidebarView: View {
                     .background(appState.selectedCategory.sidebarColor) // Match the list background to the sidebar color
                     .navigationTitle("Prenotazioni")
                     .padding(.vertical)
-                    .toolbarColorScheme(.dark, for: .navigationBar)
 
                 Spacer()
                 
@@ -118,24 +132,6 @@ struct SidebarView: View {
     }
 }
 
-extension Reservation.ReservationCategory {
-    var sidebarColor: Color {
-        switch self {
-        case .lunch: return Color.sidebar_lunch
-        case .dinner: return Color.sidebar_dinner
-        case .noBookingZone: return Color.sidebar_generic
-        }
-    }
-}
 
-extension Reservation.ReservationCategory {
-    var inspectorColor: Color {
-        switch self {
-        case .lunch: return Color.inspector_lunch
-        case .dinner: return Color.inspector_dinner
-        case .noBookingZone: return Color.inspector_generic
-        }
-    }
-}
 
 

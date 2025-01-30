@@ -26,7 +26,6 @@ struct LayoutView: View {
     @StateObject private var currentDrawing = DrawingModel()
     @StateObject private var zoomableState = ZoomableScrollViewState()
     @StateObject private var timerManager = TimerManager()
-    @StateObject var sharedToolPicker = SharedToolPicker()
 
     @State private var dates: [Date] = []
     @State private var selectedIndex: Int = 15  // Start in the middle of the dates array
@@ -128,6 +127,7 @@ struct LayoutView: View {
 //                        isContentReady: $appState.isContentReady  // Track content readiness
 //                    ) {
                     LayoutPageView(
+                        selectedIndex: $selectedIndex,
                         columnVisibility: $columnVisibility,
                         scale: $scale,
                         selectedDate: appState.selectedDate,
@@ -158,7 +158,6 @@ struct LayoutView: View {
                     .environmentObject(gridData)
                     .environmentObject(scribbleService)
                     .environmentObject(currentDrawing)
-                    .environmentObject(sharedToolPicker)
                     .id(selectedIndex)  // Force view refresh on index change
                     .transition(.opacity)
                     .animation(.easeInOut(duration: 0.5), value: selectedIndex)
@@ -191,7 +190,6 @@ struct LayoutView: View {
                         isEditable: isScribbleModeEnabled
                     )
                     .environmentObject(currentDrawing)
-                    .environmentObject(sharedToolPicker)
                     .frame(
                         width: abs(geometry.size.width - gridWidth), height: geometry.size.height
                     )
@@ -207,7 +205,6 @@ struct LayoutView: View {
                         isEditable: isScribbleModeEnabled
                     )
                     .environmentObject(currentDrawing)
-                    .environmentObject(sharedToolPicker)
                     .frame(
                         width: abs(geometry.size.width - gridWidth), height: geometry.size.height
                     )
@@ -277,7 +274,6 @@ struct LayoutView: View {
                     .animation(.easeInOut(duration: 0.3), value: isLayoutLocked)
 
             }
-            .environmentObject(sharedToolPicker)
             .ignoresSafeArea(edges: .bottom)  // Ignore only the bottom safe area
             .navigationTitle("Layout Tavoli")
             .navigationBarTitleDisplayMode(.inline)
@@ -382,7 +378,7 @@ struct LayoutView: View {
                     .id(refreshID)
                 }
             }
-            .inspector(isPresented: $showInspector) {  // Show Inspector if a reservation is selected
+            .sheet(isPresented: $showInspector) {  // Show Inspector if a reservation is selected
                 InspectorSideView(
                     selectedReservation: $selectedReservation,
                     currentReservation: $currentReservation,
@@ -396,6 +392,7 @@ struct LayoutView: View {
                 .environmentObject(store)
                 .environmentObject(reservationService)
                 .environmentObject(layoutServices)
+                .presentationBackground(.thinMaterial)
             }
             .sheet(item: $currentReservation) { reservation in
                 EditReservationView(
@@ -408,6 +405,7 @@ struct LayoutView: View {
                 .environmentObject(resCache)
                 .environmentObject(reservationService)  // For the new service
                 .environmentObject(layoutServices)
+                .presentationBackground(.thinMaterial)
             }
             .sheet(isPresented: $showingAddReservationSheet) {
                 AddReservationView(
@@ -428,6 +426,7 @@ struct LayoutView: View {
                 .environmentObject(resCache)
                 .environmentObject(reservationService)  // For the new service
                 .environmentObject(layoutServices)
+                .presentationBackground(.thinMaterial)
             }
             .sheet(isPresented: $isPresented) {
                 ShareModal(
@@ -467,8 +466,8 @@ struct LayoutView: View {
                     systemTime = newTime
                 }
             }
-            .toolbarBackground(Material.ultraThin, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
+//            .toolbarBackground(Material.ultraThin, for: .navigationBar)
+//            .toolbarBackground(.visible, for: .navigationBar)
         }
         .ignoresSafeArea(.keyboard)
 
@@ -844,27 +843,13 @@ struct LayoutView: View {
 
     // MARK: - View Specific Methods
     private func initializeView() {
-        // Initialize default date/time configuration
-        //        appState.selectedDate = Date()
-        //        appState.selectedDate = systemTime
-        //        currentTime = appState.selectedDate
-        //        loadScribbleForCurrentLayout()
-        // Generate date array
-        dates = generateInitialDates()
 
-        //        if let defaultDate = dates[safe: selectedIndex] {
-        //            appState.selectedDate = defaultDate
-        //        } else {
-        //            appState.selectedDate = Date()
-        //        }
+        dates = generateInitialDates()
 
         print(
             "Initialized with appState.selectedDate: \(appState.selectedDate), selectedCategory: \(appState.selectedCategory.localized)"
         )
 
-        // Set initial sidebar color based on selectedCategory
-
-        //        handleCurrentTimeChange(appState.selectedDate)
         clusterManager.loadClusters()
         resCache.startMonitoring(for: appState.selectedDate)
     }
@@ -966,12 +951,22 @@ struct LayoutView: View {
         guard selectedIndex > 0 else { return }
         toolbarManager.navigationDirection = .backward
         selectedIndex -= 1
+        if let newDate = dates[safe: selectedIndex],
+            let combinedTime = DateHelper.normalizedTime(time: appState.selectedDate, date: newDate)
+        {
+            appState.selectedDate = combinedTime
+        }
     }
 
     private func navigateToNextDate() {
         guard selectedIndex < dates.count - 1 else { return }
         toolbarManager.navigationDirection = .forward
         selectedIndex += 1
+        if let newDate = dates[safe: selectedIndex],
+            let combinedTime = DateHelper.normalizedTime(time: appState.selectedDate, date: newDate)
+        {
+            appState.selectedDate = combinedTime
+        }
 
     }
 

@@ -27,5 +27,5 @@ import SwiftUI
     var isLate: Bool = false
     var showedUp: Bool = false
     var isManuallyOverridden: Bool = false
-    
+
 }

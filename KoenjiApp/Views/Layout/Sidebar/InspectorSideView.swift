@@ -35,8 +35,8 @@ struct InspectorSideView: View {
     var body: some View {
 
         ZStack {
-            Color(appState.selectedCategory.inspectorColor)
-                .ignoresSafeArea()
+//            Color(appState.selectedCategory.inspectorColor)
+//                .ignoresSafeArea()
 
             VStack {
                 Picker("Dettagli", selection: $selectedView) {
@@ -56,7 +56,7 @@ struct InspectorSideView: View {
                         onClose: {
                             dismissInfoCard()
                         },
-                        onEdit: {
+                        onEdit: { reservation in
                             currentReservation = reservation
                             showingEditReservation = true
                         },
@@ -127,6 +127,7 @@ struct InspectorSideView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             
         }
+        .padding()
         .onAppear {
             currentTime = appState.selectedDate
         }

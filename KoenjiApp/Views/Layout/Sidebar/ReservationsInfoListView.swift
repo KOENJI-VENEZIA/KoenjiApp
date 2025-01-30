@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Foundation
 
 struct ReservationsInfoListView: View {
     @EnvironmentObject var store: ReservationStore
@@ -35,7 +36,8 @@ struct ReservationsInfoListView: View {
                                 Text(groupKey)
                                     .font(.title2)
                                     .foregroundStyle(colorScheme == .dark ? .white : .black)
-                                Text("\(grouped[groupKey]?.count ?? 0) prenotazioni")
+                                Text("\(grouped[groupKey]?.count ?? 0) \(TextHelper.pluralized("prenotazione", "prenotazioni", grouped[groupKey]?.count ?? 0))")
+
                                     .font(.title2)
                                     .foregroundStyle(colorScheme == .dark ? .white : .black)
                                     .frame(maxWidth: .infinity, alignment: .trailing)

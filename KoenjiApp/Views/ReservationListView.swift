@@ -1,457 +1,157 @@
+import Foundation
 import SwiftUI
-
-struct GroupedReservations: Identifiable {
-    let id = UUID()
-    let label: String
-    let reservations: [Reservation]
-    let sortDate: Date?      // Used for date-based groupings
-    let sortString: String?  // Used for non-date-based groupings (e.g., table names)
-}
+import SwipeActions
 
 struct ReservationListView: View {
-    @EnvironmentObject var store: ReservationStore
+    
+    
     @EnvironmentObject var resCache: CurrentReservationsCache
-    @EnvironmentObject var reservationService: ReservationService
-    @EnvironmentObject var layoutServices: LayoutServices
     @EnvironmentObject var appState: AppState  // Access AppState
-
+    @EnvironmentObject var backupService: FirebaseBackupService
+    @Environment(\.scenePhase) private var scenePhase
+    @State var listView: ListViewModel
+    
+    @Binding var columnVisibility: NavigationSplitViewVisibility
+    
+    let store: ReservationStore
+    let reservationService: ReservationService
+    let layoutServices: LayoutServices
+    
     // MARK: - State
     @State private var searchDate = Date()
     @State private var filterPeople: Int = 1
     @State private var filterStartDate: Date = Date()
     @State private var filterEndDate: Date = Date()
     @State private var filterCancelled: Reservation.ReservationStatus = .canceled
-    @State private var selection = Set<UUID>()  // Multi-select
-    @State private var showingAddReservation = false
-    @State private var showingNotesAlert = false  // Controls visibility
-    @State private var isAnimating = false  // Controls animation
-    @State private var notesToShow: String = ""
-    @State private var currentReservation: Reservation? = nil
-    @State private var selectedReservationID: UUID? = nil
-    @State private var showTopControls: Bool = false
-    @State private var isFiltered: Bool = false
     @State private var daysToSimulate: Int = 5
-    @State private var showingDebugConfig: Bool = false
-    @State private var showingResetConfirmation = false
-    @State private var shouldReopenDebugConfig = false
-    @State private var selectedReservation: Reservation?
     @State private var popoverPosition: CGRect = .zero
-    @State private var selectedDate: Date = Date()
-    @State private var selectedCategory: Reservation.ReservationCategory? =
-        .lunch
 
-    @State private var showInspector: Bool = false  // Controls Inspector visibility
-    @State private var showingFilters = false
-    @State private var activeAlert: AddReservationAlertType? = nil
-
-
-    @State private var sortOption: SortOption? = .removeSorting  // Default to nil (not sorted)
     private var isSorted: Bool {
-        sortOption != .removeSorting
+        listView.sortOption != .removeSorting
     }
-    @State private var isShowingFullImage = false
-    @Binding var columnVisibility: NavigationSplitViewVisibility
-
-
-    enum SortOption: String, CaseIterable {
-        case alphabetically = "A-Z"
-        case chronologically = "Per data"
-        case byNumberOfPeople = "Per numero di persone"
-        case removeSorting = "Nessuno"
+ 
+    init(
+        store: ReservationStore,
+        reservationService: ReservationService,
+        layoutServices: LayoutServices,
+        columnVisibility: Binding<NavigationSplitViewVisibility>,
+        listView: ListViewModel
+    ) {
+        self.store = store
+        self.reservationService = reservationService
+        self.layoutServices = layoutServices
+        self._columnVisibility = columnVisibility
+        self._listView = State(wrappedValue: listView)
     }
-
-    enum GroupOption: String, CaseIterable {
-        case none = "Nessuno"
-        case table = "Per tavolo"
-        case day = "Per giorno"
-        case week = "Per settimana"
-        case month = "Per mese"
-    }
-
-    enum FilterOption: String, CaseIterable {
-        case none = "Nessuno"
-        case people = "Per numero ospiti"
-        case date = "Per data"
-        case canceled = "Cancellazioni"
-    }
-
-    @State private var selectedFilters: Set<FilterOption> = [.none]  // Default to .none
-    @State private var groupOption: GroupOption = .none
     
-    @State private var searchText: String = ""
-
-    @State private var showPeoplePopover: Bool = false
-    @State private var showStartDatePopover: Bool = false
-    @State private var showEndDatePopover: Bool = false
-    @State private var hasSelectedPeople: Bool = false
-    @State private var hasSelectedStartDate: Bool = false
-    @State private var hasSelectedEndDate: Bool = false
 
     // MARK: - Body
     var body: some View {
-
         // Reservation List
-        ZStack {
-            Color.clear
-                .gesture(
-                TapGesture(count: 2) // Double-tap to exit full-screen
-                    .onEnded {
-                            withAnimation {
-                                appState.isFullScreen.toggle()
-                                if appState.isFullScreen {
-                                   columnVisibility = .detailOnly
-                                } else {
-                                    columnVisibility = .all
-                                }
-                        }
-                    }
-            )
-            
-            List(selection: $selection) {
-                let filtered = filterReservationsBy(selectedFilters, searchText: searchText)
-                // Then group
-                let grouped = groupReservations(filtered, by: groupOption)
+        
+        
+            reservationsList
+            .onAppear {
+                listView.currentReservations = store.reservations
+            }
+            .onChange(of: store.reservations) {
+                listView.currentReservations = store.reservations
+            }
+        
+        .sheet(item: $listView.activeSheet) { sheet in
+            switch sheet {
+            case .inspector(let id):
+                ReservationInfoCard(
+                    reservationID: id,
+                    onClose: { listView.activeSheet = nil },
+                    onEdit: { reservation in
+                        listView.handleEditTap(reservation)
+                    },
+                    isShowingFullImage: $listView.isShowingFullImage
+                )
+//                .presentationBackground(.thinMaterial) // ✅ Prevents the list from "dragging"
+//                .background(.clear)
                 
-                ForEach((try? grouped.sorted(by: groupSortingFunction)) ?? grouped, id: \.id) { group in
-                    Section(
-                        header: HStack(spacing: 25) {
-                            Text(group.label)
-                                .font(.headline)
-                            let reservationsLunch = filterForCategory(group.reservations, .lunch)
-                            let reservationsDinner = filterForCategory(group.reservations, .dinner)
-                            Text(
-                                "\(group.reservations.count) prenotazioni (\(reservationsLunch.count) per pranzo, \(reservationsDinner.count) per cena)"
-                            )
-                            .font(.headline)
-                        }
-                        
-                            .padding(.vertical, 4)
-                    ) {
-                        ForEach(group.reservations) { reservation in
-                            ReservationRowView(
-                                reservation: reservation,
-                                notesAlertShown: $showingNotesAlert,
-                                notesToShow: $notesToShow,
-                                selectedReservationID: $selectedReservationID,
-                                currentReservation: $currentReservation,
-                                onTap: {
-                                    handleEditTap(reservation)
-                                },
-                                onDelete: {
-                                    handleDelete(reservation)
-                                },
-                                onRecover: {
-                                    handleRecover(reservation)
-                                },
-                                onEdit: {
-                                    currentReservation = reservation
-                                },
-                                onInfoTap: {
-                                    selectedReservationID = reservation.id
-                                    withAnimation {
-                                        isAnimating = true
-                                        showInspector = true
-                                    }
-                                },
-                                searchText: searchText
-                            )
-                            .frame(maxWidth: .infinity, alignment: .leading)  // Make the row fill the width
-                            .contentShape(Rectangle())  // Make the entire row tappable
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)  // Add a rounded rectangle
-                                    .fill(
-                                        selectedReservationID == reservation.id && showInspector
-                                        ? Color.accentColor.opacity(0.4)  // Highlight for selected row
-                                        : Color.clear  // Default transparent background
-                                    )
-                            )
-                            .onTapGesture {
-                                selectedReservationID = reservation.id
-                                withAnimation {
-                                    isAnimating = true
-                                    showInspector = true
-                                }
-                            }
-                            //                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                            .listRowSeparator(.visible)
-                        }
-//                        .onDelete { offsets in
-//                            handleDeleteFromGroup(
-//                                groupKey: groupKey, offsets: offsets)
-//                        }
-                    }
-                }
-            }
-            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always), prompt: "Cerca prenotazioni")
-            .autocapitalization(.none)
-            .disableAutocorrection(true)
-            
-            LoadingOverlay()
-                    .opacity(appState.isWritingToFirebase ? 1.0 : 0.0) // Smoothly fade in and out
-                    .animation(.easeInOut(duration: 0.3), value: appState.isWritingToFirebase)
-                    .allowsHitTesting(appState.isWritingToFirebase) // Disable interaction when invisible
-        }
-        .listStyle(.plain)
-        .inspector(isPresented: $showInspector) {  // Show Inspector if a reservation is selected
-            if let selectedID = selectedReservationID {
+            case .addReservation:
+                AddReservationView(selectedDate: $appState.selectedDate)
+                    .environmentObject(appState)
+                    .environmentObject(store)
+                    .environmentObject(resCache)
+                    .environmentObject(reservationService)
+                    .environmentObject(layoutServices)
+//                    .presentationBackground(.thinMaterial)
 
-                ZStack {
-
-                    ReservationInfoCard(
-                        reservationID: selectedID,
-                        onClose: {
-                            showInspector = false
-                            selectedReservationID = nil
+            case .debugConfig:
+                    DebugConfigView(
+                        daysToSimulate: $daysToSimulate,
+                        onGenerate: {
+                            generateDebugData()
+                            saveDebugData()
                         },
-                        onEdit: {
-                            // If you want to open Edit Reservation, pass the ID
-                            // or fetch from the store.
-                            if let reservation = store.reservations.first(
-                                where: { $0.id == selectedID })
-                            {
-                                handleEditTap(reservation)
-                            }
+                        onResetData: {
+                            listView.showingResetConfirmation = true
+                            listView.shouldReopenDebugConfig = true
                         },
-                        isShowingFullImage: $isShowingFullImage
+                        onSaveDebugData: { saveDebugData() },
+                        onFlushCaches: { flushCaches() },
+                        onParse: { parseReservations() }
                     )
-                    .environmentObject(store)  // So inside InfoCard, we can access the updated reservations
-                    .padding()
-                }
+                    .environmentObject(reservationService)
+                    .environmentObject(store)
+    //                .presentationBackground(.thinMaterial)
             }
-
         }
-        .alert(item: $activeAlert) { alertType in
+//        .animation(nil, value: listView.showInspector)
+        .alert(item: $listView.activeAlert) { alertType  in
             switch alertType {
             case .mondayConfirmation:
-                return Alert(title: Text("Nothing"), message: Text("Nothing"), dismissButton: .default(Text("OK"))) // to modify in the future
+                return Alert(
+                    title: Text("Nothing"), message: Text("Nothing"),
+                    dismissButton: .default(Text("OK")))  // to modify in the future
             case .error(let message):
                 return Alert(
                     title: Text("Errore:"),
                     message: Text(message),
                     dismissButton: .default(Text("OK"))
                 )
+                
             }
         }
         .navigationTitle("Tutte le prenotazioni")
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button(action: {
-                    withAnimation {
-                        appState.isFullScreen.toggle()
-                        if appState.isFullScreen {
-                            columnVisibility = .detailOnly
-                        } else {
-                            columnVisibility = .all
-                        }
-                    }
-                }) {
-                    Label("Toggle Full Screen", systemImage: appState.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                }
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Text("Raggruppa per...").font(.headline)
-
-                    Picker("Group By", selection: $groupOption) {
-                        ForEach(GroupOption.allCases, id: \.self) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.inline)
-
-                } label: {
-                    // Some icon or label
-                    Image(systemName: "rectangle.grid.2x2")
-                }
-                .id(UUID())
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-
-                    Text("Ordina per...")  // Add a title here
-                        .font(.headline)  // Optional: Make the title stand out
-                        .padding(.bottom, 4)  // Optional: Add spacing below the title
-
-                    Picker("Ordina Per", selection: $sortOption) {
-                        ForEach(SortOption.allCases, id: \.self) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.inline)  // Optional: Use inline style for better layout
-
-                } label: {
-                    Image(
-                        systemName: isSorted
-                            ? "arrow.up.arrow.down.circle.fill"
-                            : "arrow.up.arrow.down.circle"
-                    )
-                    .imageScale(.large)
-                }
-                .id(UUID())
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Text("Filtra per...")
-                        .font(.headline)
-                        .padding(.bottom, 4)
-
-                    // Simple buttons for .none and .canceled
-                    ForEach([FilterOption.none, FilterOption.canceled], id: \.self) { option in
-                        Button(action: {
-                            toggleFilter(option)  // Toggles these options
-                        }) {
-                            HStack {
-                                Text(option.rawValue)
-                                if selectedFilters.contains(option) {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-
-                    // Submenu for .people
-                    Button(action: {
-                        showPeoplePopover = true
-                    }) {
-                        HStack {
-                            Text("Numero di persone")
-                            if selectedFilters.contains(.people) {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-
-                    Button(action: {
-                        showStartDatePopover = true
-                    }) {
-                        HStack {
-                            if !selectedFilters.contains(.date) {
-                                Text("Da data...")
-                            }
-                            else {
-                                Text("Dal '\(DateHelper.formatFullDate(filterStartDate))'...")
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-
-                    Button(action: {
-                        showEndDatePopover = true
-                    }) {
-                        HStack {
-                            
-                            if !selectedFilters.contains(.date) {
-                                Text("A data...")
-                            }
-                            else {
-                                Text("Al '\(DateHelper.formatFullDate(filterEndDate))'...")
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-
-                } label: {
-                    Image(
-                        systemName: !selectedFilters.isEmpty && selectedFilters != [.none]
-                            ? "line.3.horizontal.decrease.circle.fill"
-                            : "line.3.horizontal.decrease.circle"
-                    )
-                }
-                .popover(isPresented: $showPeoplePopover) {
-                    PeoplePickerView(
-                        filterPeople: $filterPeople, hasSelectedPeople: $hasSelectedPeople)
-                }
-                .popover(isPresented: $showStartDatePopover) {
-                    DatePickerView(filteredDate: $filterStartDate,hasSelectedStartDate: $hasSelectedStartDate)
-                        .environmentObject(appState)
-                    .frame(width: 300)
-                }
-                .popover(isPresented: $showEndDatePopover) {
-                    DatePickerView(filteredDate: $filterEndDate, hasSelectedEndDate: $hasSelectedEndDate)
-                    .environmentObject(appState)
-                    .frame(width: 300)
-                }
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showingAddReservation = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .id(UUID())
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Debug Config") {
-                    showingDebugConfig = true
-                }
-                .id(UUID())
-            }
-            ToolbarItem(placement: .navigationBarLeading) {
-                EditButton()
-                    .id(UUID())
-            }
+            toolbarContent
         }
-        .sheet(isPresented: $showingAddReservation) {
-            AddReservationView(
-                selectedDate: $selectedDate
-            )
-            .environmentObject(appState)
-            .environmentObject(store)
-            .environmentObject(resCache)
-            .environmentObject(reservationService)  // For the new service
-            .environmentObject(layoutServices)
+        .sheet(isPresented: $listView.showRestoreSheet) {
+            BackupListView(showRestoreSheet: $listView.showRestoreSheet)
+
+                .environmentObject(backupService)
+                .environmentObject(store)
+                .environmentObject(reservationService)
+                .environmentObject(resCache)
+                .presentationBackground(.thinMaterial)
         }
-        .sheet(item: $currentReservation) { reservation in
+        
+        .sheet(item: $listView.currentReservation) { (reservation: Reservation) in
             EditReservationView(reservation: reservation, onClose: {})
+
                 .environmentObject(store)
                 .environmentObject(resCache)
                 .environmentObject(reservationService)  // For the new service
                 .environmentObject(layoutServices)
+                .presentationBackground(.thinMaterial)
         }
-        .sheet(isPresented: $showingDebugConfig) {
-            DebugConfigView(
-                daysToSimulate: $daysToSimulate,
-                onGenerate: {
-                    generateDebugData()
-                    saveDebugData()
-                },
-                onResetData: {
-                    showingResetConfirmation = true  // Show the alert first
-                    shouldReopenDebugConfig = true  // Mark for reopening if canceled
-                },
-                onSaveDebugData: {
-                    saveDebugData()
-                },
-                onFlushCaches: {
-                    flushCaches()
-                },
-                onParse: {
-                    parseReservations()
-                }
-            )
-            .environmentObject(reservationService)
-            .environmentObject(store)
-
-        }
-        .onAppear {
-
-            appState.selectedCategory = .noBookingZone
-           
-        }
-        .onChange(of: hasSelectedPeople) {
-            if hasSelectedPeople {
-                updatePeopleFilter()
+        .onChange(of: listView.hasSelectedPeople) {
+            if listView.hasSelectedPeople {
+                listView.updatePeopleFilter()
             }
         }
-        .onChange(of: hasSelectedStartDate) {
-                updateDateFilter()
+        .onChange(of: listView.hasSelectedStartDate) {
+            listView.updateDateFilter()
         }
-        .onChange(of: hasSelectedEndDate) {
-                updateDateFilter()
+        .onChange(of: listView.hasSelectedEndDate) {
+            listView.updateDateFilter()
         }
-        
-
-        .alert(isPresented: $showingResetConfirmation) {
+        .alert(isPresented: $listView.showingResetConfirmation) {
             Alert(
                 title: Text("Reset di Tutti i Dati"),
                 message: Text(
@@ -459,33 +159,316 @@ struct ReservationListView: View {
                 ),
                 primaryButton: .destructive(Text("Reset")) {
                     resetData()
-                    shouldReopenDebugConfig = false  // Ensure the sheet doesn't reopen after reset
+                    listView.shouldReopenDebugConfig = false  // Ensure the sheet doesn't reopen after reset
                 },
                 secondaryButton: .cancel(Text("Annulla")) {
-                    if shouldReopenDebugConfig {
+                    if listView.shouldReopenDebugConfig {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            showingDebugConfig = true
+                            listView.activeSheet = .debugConfig
                         }
                     }
                 }
             )
         }
-        .toolbarBackground(Material.ultraThin, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
     }
 
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Button(action: {
+                withAnimation {
+                    appState.isFullScreen.toggle()
+                    if appState.isFullScreen {
+                        columnVisibility = .detailOnly
+                    } else {
+                        columnVisibility = .all
+                    }
+                }
+            }) {
+                Label(
+                    "Toggle Full Screen",
+                    systemImage: appState.isFullScreen
+                        ? "arrow.down.right.and.arrow.up.left"
+                        : "arrow.up.left.and.arrow.down.right")
+            }
+//            .id(listView.refreshID)
+        }
+        ToolbarItem(placement: .topBarLeading) {
+            Button(action: {
+                withAnimation {
+                    listView.showRestoreSheet = true
+                }
+            }) {
+                Label("Show Restore Sheet", systemImage: "externaldrive.fill.badge.timemachine")
+            }
+//            .id(listView.refreshID)
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Text("Raggruppa per...").font(.headline)
+
+                Picker("Group By", selection: $listView.groupOption) {
+                    ForEach(GroupOption.allCases, id: \.self) { (option: GroupOption) in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.inline)
+
+            } label: {
+                // Some icon or label
+                Image(systemName: "rectangle.grid.2x2")
+            }
+//            .id(listView.refreshID)
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+
+                Text("Ordina per...")  // Add a title here
+                    .font(.headline)  // Optional: Make the title stand out
+                    .padding(.bottom, 4)  // Optional: Add spacing below the title
+
+                Picker("Ordina Per", selection: $listView.sortOption) {
+                    ForEach(SortOption.allCases, id: \.self) { (option: SortOption) in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.inline)  // Optional: Use inline style for better layout
+
+            } label: {
+                Image(
+                    systemName: isSorted
+                        ? "arrow.up.arrow.down.circle.fill"
+                        : "arrow.up.arrow.down.circle"
+                )
+                .imageScale(.large)
+            }
+//            .id(listView.refreshID)
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                Text("Filtra per...")
+                    .font(.headline)
+                    .padding(.bottom, 4)
+
+                // Simple buttons for .none and .canceled
+                ForEach([FilterOption.none, FilterOption.canceled], id: \.self) { (option: FilterOption) in
+                    Button(action: {
+                        listView.toggleFilter(option)  // Toggles these options
+                    }) {
+                        HStack {
+                            Text(option.rawValue)
+                            if listView.selectedFilters.contains(option) {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+
+                // Submenu for .people
+                Button(action: {
+                    listView.showPeoplePopover = true
+                }) {
+                    HStack {
+                        Text("Numero di persone")
+                        if listView.selectedFilters.contains(.people) {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+
+                Button(action: {
+                    listView.showStartDatePopover = true
+                }) {
+                    HStack {
+                        if !listView.selectedFilters.contains(.date) {
+                            Text("Da data...")
+                        } else {
+                            Text("Dal '\(DateHelper.formatFullDate(filterStartDate))'...")
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+
+                Button(action: {
+                    listView.showEndDatePopover = true
+                }) {
+                    HStack {
+
+                        if !listView.selectedFilters.contains(.date) {
+                            Text("A data...")
+                        } else {
+                            Text("Al '\(DateHelper.formatFullDate(filterEndDate))'...")
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+
+            } label: {
+                Image(
+                    systemName: !listView.selectedFilters.isEmpty && listView.selectedFilters != [.none]
+                        ? "line.3.horizontal.decrease.circle.fill"
+                        : "line.3.horizontal.decrease.circle"
+                )
+            }
+            .popover(isPresented: $listView.showPeoplePopover) {
+                PeoplePickerView(
+                    filterPeople: $filterPeople, hasSelectedPeople: $listView.hasSelectedPeople)
+            }
+            .popover(isPresented: $listView.showStartDatePopover) {
+                DatePickerView(
+                    filteredDate: $filterStartDate, hasSelectedStartDate: $listView.hasSelectedStartDate
+                )
+                .environmentObject(appState)
+                .frame(width: 300)
+            }
+            .popover(isPresented: $listView.showEndDatePopover) {
+                DatePickerView(
+                    filteredDate: $filterEndDate, hasSelectedEndDate: $listView.hasSelectedEndDate
+                )
+                .environmentObject(appState)
+                .frame(width: 300)
+            }
+//            .id(listView.refreshID)
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                listView.activeSheet = .addReservation
+            } label: {
+                Image(systemName: "plus")
+            }
+//            .id(listView.refreshID)
+        }
+        
+        ToolbarItem(placement: .topBarTrailing) {
+            Button("Debug Config") {
+                listView.activeSheet = .debugConfig
+            }
+//            .id(listView.refreshID)
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            EditButton()
+//                .id(listView.refreshID)
+        }
+    }
+
+    private var reservationsList: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders){
+                let filtered: [Reservation] = filterReservationsBy(
+                    filters: listView.selectedFilters,
+                    searchText: listView.searchText,
+                    currentReservations: listView.currentReservations
+                )
+                
+                let grouped: [GroupedReservations] = groupReservations(
+                    reservations: filtered,
+                    by: listView.groupOption,
+                    sortOption: listView.sortOption
+                )
+                
+                let sortedGrouped: [GroupedReservations] = sortGroupedReservations(
+                    groups: grouped,
+                    by: listView.groupOption
+                )
+                
+                ForEach(sortedGrouped, id: \.id) { (group: GroupedReservations) in
+                    Section(header: groupHeader(for: group)) {
+                        ForEach(group.reservations) { (reservation: Reservation) in
+                            row(for: reservation, group: group)
+                        }
+                    }
+                }
+            }
+        }
+
+//        .overlay(
+//            LoadingOverlay()
+//                .opacity(appState.isWritingToFirebase ? 1.0 : 0.0)
+//                .animation(.easeInOut(duration: 0.5), value: appState.isWritingToFirebase)
+//                .allowsHitTesting(appState.isWritingToFirebase)
+//        )
+        .searchable(
+            text: $listView.searchText,
+            placement: .toolbar,
+            prompt: "Cerca prenotazioni"
+        )
+        .autocapitalization(.none)
+        .disableAutocorrection(true)
+    }
+
+    private func groupHeader(for group: GroupedReservations) -> some View {
+        ZStack(alignment: .leading) {
+            Rectangle()
+                .fill(.thinMaterial)
+                .frame(maxWidth: .infinity)
+            
+            HStack(spacing: 25) {
+                Text(group.label)
+                    .font(.headline)
+                let reservationsLunch = filterForCategory(group.reservations, .lunch)
+                let reservationsDinner = filterForCategory(group.reservations, .dinner)
+                Text(
+                    "\(group.reservations.count) \(TextHelper.pluralized("prenotazione", "prenotazioni", group.reservations.count)) (\(reservationsLunch.count) per pranzo, \(reservationsDinner.count) per cena)"
+                )
+                .font(.headline)
+            }
+            .padding()
+        }
+        .frame(maxWidth: .infinity, maxHeight: 60) // Adjust height as needed
+    }
+
+    private func row(for reservation: Reservation, group: GroupedReservations) -> some View {
+        
+        
+            ReservationRowView(
+                reservation: reservation,
+                notesAlertShown: $listView.showingNotesAlert,
+                notesToShow: $listView.notesToShow,
+                currentReservation: $listView.currentReservation,
+                onTap: {
+                    listView.handleEditTap(reservation)
+                },
+                onDelete: {
+                    listView.handleDelete(reservation)
+                },
+                onRecover: {
+                    listView.handleRecover(reservation)
+                },
+                onEdit: {
+                    listView.currentReservation = reservation
+                },
+                searchText: listView.searchText
+            )
+            .id(reservation.id)
+//            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .background(
+                Rectangle().fill(reservation.assignedColor.opacity(0.8)))
+            .onTapGesture {
+                listView.selectedReservationID = reservation.id
+                listView.activeSheet = .inspector(reservation.id)
+            }
+        
+    }
+    
     func formattedDateRange() -> String {
         let start = DateHelper.formatFullDate(filterStartDate)
         let end = DateHelper.formatFullDate(filterEndDate)
         return "\(start) - \(end)"
     }
 
+    func sortGroupedReservations(
+        groups: [GroupedReservations],
+        by groupOption: GroupOption
+    ) -> [GroupedReservations] {
+        return (try? groups.sorted(by: { (lhs: GroupedReservations, rhs: GroupedReservations) -> Bool in
+            return groupSortingFunction(lhs: lhs, rhs: rhs, by: groupOption)
+        })) ?? groups
+    }
+    
     func dismissInfoCard() {
-        withAnimation {
-            isAnimating = false
-        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {  // Match animation duration
-            selectedReservation = nil
+            listView.selectedReservation = nil
         }
     }
 
@@ -502,7 +485,6 @@ struct ReservationListView: View {
             return reservationTime >= startTime && reservationTime <= endTime
         }.count
     }
-
 
     struct DebugConfigView: View {
         @Binding var daysToSimulate: Int
@@ -583,24 +565,6 @@ struct ReservationListView: View {
                             }
                         }
 
-                        Button("Import Reservations") {
-                            isImporting = true
-                        }.fileImporter(
-                            isPresented: $isImporting,
-                            allowedContentTypes: [.json],
-                            allowsMultipleSelection: false
-                        ) { result in
-                            switch result {
-                            case .success(let urls):
-                                if let url = urls.first {
-                                    importReservations(from: url)
-                                } else {
-                                    print("No file selected.")
-                                }
-                            case .failure(let error):
-                                print("Import failed: \(error.localizedDescription)")
-                            }
-                        }
                     }
                 }
                 //                .sheet(isPresented: $isExporting) {
@@ -608,11 +572,6 @@ struct ReservationListView: View {
                 //                        ExportReservationsView(fileURL: exportURL)
                 //                    }
                 //                }
-                .sheet(isPresented: $isImporting) {
-                    ImportReservationsView { selectedURL in
-                        importReservations(from: selectedURL)
-                    }
-                }
                 .navigationBarTitle("Debug Config", displayMode: .inline)
                 .navigationBarItems(
                     leading: Button("Annulla") {
@@ -648,71 +607,37 @@ struct ReservationListView: View {
 
         }
 
-        private func importReservations(from url: URL) {
-            print("Attempting to import file at URL: \(url)")
-
-            // Start accessing the security-scoped resource
-            guard url.startAccessingSecurityScopedResource() else {
-                print("Failed to access the security-scoped resource.")
-                return
-            }
-
-            defer { url.stopAccessingSecurityScopedResource() }
-
-            do {
-                // Read the file's data
-                let data = try Data(contentsOf: url)
-                print("File data loaded successfully.")
-
-                // Decode the JSON data
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
-                let reservations = try decoder.decode([Reservation].self, from: data)
-                print("Reservations decoded successfully.")
-
-                // Handle the imported reservations
-                handleImportedReservations(reservations)
-            } catch {
-                print("Failed to import reservations: \(error.localizedDescription)")
-            }
-        }
-
-        private func handleImportedReservations(_ reservations: [Reservation]) {
-            // Integrate the imported reservations into your app's data
-            print("Imported \(reservations.count) reservations:")
-            reservations.forEach { print($0) }
-
-            // Example: Save them to your ReservationService
-            store.reservations.append(contentsOf: reservations)
-        }
-
     }
 
     // MARK: - Grouping
 
-    func groupReservations(_ reservations: [Reservation], by option: GroupOption) -> [GroupedReservations] {
+    func groupReservations(reservations: [Reservation], by option: GroupOption, sortOption: SortOption?)
+        -> [GroupedReservations]
+    {
         switch option {
         case .none:
             // All reservations in a single group with sorting
-            let sortedReservations = sortReservations(reservations)
-            return [GroupedReservations(
-                label: "Tutte",
-                reservations: sortedReservations,
-                sortDate: nil,
-                sortString: "Tutte"
-            )]
+            let sortedReservations = sortReservations(reservations, sortOption: sortOption)
+            return [
+                GroupedReservations(
+                    label: "Tutte",
+                    reservations: sortedReservations,
+                    sortDate: nil,
+                    sortString: "Tutte"
+                )
+            ]
         case .table:
             return groupByTable(reservations)
         case .day:
-            return groupByDay(reservations)
+            return groupByDay(reservations, sortOption: sortOption)
         case .week:
-            return groupByWeek(reservations)
+            return groupByWeek(reservations, sortOption: sortOption)
         case .month:
-            return groupByMonth(reservations)
+            return groupByMonth(reservations, sortOption: sortOption)
         }
     }
 
-    private func groupSortingFunction(lhs: GroupedReservations, rhs: GroupedReservations) -> Bool {
+    private func groupSortingFunction(lhs: GroupedReservations, rhs: GroupedReservations, by groupOption: GroupOption) -> Bool {
         switch groupOption {
         case .day, .week, .month:
             // Date-based sorting
@@ -723,68 +648,45 @@ struct ReservationListView: View {
             } else if rhs.sortDate != nil {
                 return false
             } else {
-                return lhs.label < rhs.label // Fallback to alphabetical
+                return lhs.label < rhs.label  // Fallback to alphabetical
             }
         case .table, .none:
             // String-based sorting
             return (lhs.sortString ?? lhs.label) < (rhs.sortString ?? rhs.label)
         }
     }
-    
-    func toggleFilter(_ option: FilterOption) {
-        switch option {
-        case .none, .canceled:
-            // If selecting .none or .canceled, clear all and only add the selected one
-            selectedFilters = [option]
-        case .people, .date:
-            // Allow multiselect for .people and .date
-            selectedFilters.remove(.none)
-            selectedFilters.remove(.canceled)
-            if selectedFilters.contains(option) {
-                selectedFilters.remove(option)
-            } else {
-                selectedFilters.insert(option)
-            }
-        }
-    }
 
-    func updatePeopleFilter() {
-        selectedFilters.insert(.people)
-        selectedFilters.remove(.none)  // Ensure `.none` is deselected
-        selectedFilters.remove(.canceled)  // Ensure `.canceled` is deselected
-    }
+    private func filterReservationsBy(
+        filters: Set<FilterOption>,
+        searchText: String,
+        currentReservations: [Reservation]
+    )
+        -> [Reservation]
+    {
+        var filtered = currentReservations
 
-    func updateDateFilter() {
-        selectedFilters.insert(.date)
-        selectedFilters.remove(.none)  // Ensure `.none` is deselected
-        selectedFilters.remove(.canceled)  // Ensure `.canceled` is deselected
-    }
-
-    private func filterReservationsBy(_ selectedFilters: Set<FilterOption>, searchText: String) -> [Reservation] {
-        var filtered = store.reservations
-        
         // Apply existing filters
-        if !selectedFilters.isEmpty && !selectedFilters.contains(.none) {
+        if !filters.isEmpty && !filters.contains(.none) {
             filtered = filtered.filter { reservation in
                 var matches = true
-                
+
                 // Check for each selected filter
-                if selectedFilters.contains(.canceled) {
+                if filters.contains(.canceled) {
                     matches = matches && (reservation.status == .canceled)
                 }
-                
-                if selectedFilters.contains(.people) {
-                    matches = matches && (reservation.numberOfPersons == filterPeople) // Use the selectedPeople variable
+
+                if filters.contains(.people) {
+                    matches = matches && (reservation.numberOfPersons == filterPeople)  // Use the selectedPeople variable
                 }
-                
-                if selectedFilters.contains(.date) {
+
+                if filters.contains(.date) {
                     if let date = reservation.normalizedDate {
                         matches = matches && (date >= filterStartDate && date <= filterEndDate)
                     } else {
                         matches = false
                     }
                 }
-                
+
                 return matches
             }
         } else {
@@ -793,7 +695,7 @@ struct ReservationListView: View {
                 reservation.status != .canceled
             }
         }
-        
+
         // Apply search filtering
         if !searchText.isEmpty {
             let lowercasedSearchText = searchText.lowercased()
@@ -801,16 +703,17 @@ struct ReservationListView: View {
                 // Define what fields you want to search. For example:
                 let nameMatch = reservation.name.lowercased().contains(lowercasedSearchText)
                 let tableMatch = reservation.tables.contains { table in
-                    table.name.lowercased().contains(lowercasedSearchText) ||
-                    String(table.id).contains(lowercasedSearchText)
+                    table.name.lowercased().contains(lowercasedSearchText)
+                        || String(table.id).contains(lowercasedSearchText)
                 }
-                let notesMatch = reservation.notes?.lowercased().contains(lowercasedSearchText) ?? false
+                let notesMatch =
+                    reservation.notes?.lowercased().contains(lowercasedSearchText) ?? false
                 // Add other fields as necessary
-        
+
                 return nameMatch || tableMatch || notesMatch
             }
         }
-        
+
         return filtered
     }
 
@@ -824,7 +727,7 @@ struct ReservationListView: View {
                 grouped["Nessun tavolo assegnato", default: []].append(reservation)
             } else {
                 for table in assignedTables {
-                    let key = "Tavolo \(table.id)" // Assuming `table.id` uniquely identifies a table
+                    let key = "Tavolo \(table.id)"  // Assuming `table.id` uniquely identifies a table
                     grouped[key, default: []].append(reservation)
                 }
             }
@@ -841,24 +744,27 @@ struct ReservationListView: View {
         // Create GroupedReservations
         var groupedReservations: [GroupedReservations] = sortedKeys.map { key in
             let reservations = grouped[key] ?? []
-            return GroupedReservations(label: key, reservations: reservations, sortDate: nil, sortString: key)
+            return GroupedReservations(
+                label: key, reservations: reservations, sortDate: nil, sortString: key)
         }
 
         // Handle "Nessun tavolo assegnato" group if present
-        if let noTableReservations = grouped["Nessun tavolo assegnato"], !noTableReservations.isEmpty {
+        if let noTableReservations = grouped["Nessun tavolo assegnato"],
+            !noTableReservations.isEmpty
+        {
             let noTableGroup = GroupedReservations(
                 label: "Nessun tavolo assegnato",
                 reservations: noTableReservations,
                 sortDate: nil,
                 sortString: "Nessun tavolo assegnato"
             )
-            groupedReservations.append(noTableGroup) // Append at the end or desired position
+            groupedReservations.append(noTableGroup)  // Append at the end or desired position
         }
 
         return groupedReservations
     }
 
-    private func groupByDay(_ reservations: [Reservation]) -> [GroupedReservations] {
+    private func groupByDay(_ reservations: [Reservation], sortOption: SortOption?) -> [GroupedReservations] {
         var grouped: [Date: [Reservation]] = [:]
         let calendar = Calendar.current
 
@@ -883,7 +789,7 @@ struct ReservationListView: View {
         var groupedReservations: [GroupedReservations] = sortedDates.map { date in
             let label = localizedDayLabel(for: date)
             let unsortedReservations = grouped[date] ?? []
-            let sortedGroupReservations = sortReservations(unsortedReservations) // Apply sorting
+            let sortedGroupReservations = sortReservations(unsortedReservations, sortOption: sortOption)  // Apply sorting
             return GroupedReservations(
                 label: label,
                 reservations: sortedGroupReservations,
@@ -894,20 +800,20 @@ struct ReservationListView: View {
 
         // Handle invalid dates, if any
         if let invalidReservations = grouped[Date.distantFuture], !invalidReservations.isEmpty {
-            let sortedInvalidReservations = sortReservations(invalidReservations) // Optionally sort invalid reservations
+            let sortedInvalidReservations = sortReservations(invalidReservations, sortOption: sortOption)  // Optionally sort invalid reservations
             let invalidGroup = GroupedReservations(
                 label: "Data Non Valida",
                 reservations: sortedInvalidReservations,
                 sortDate: nil,
                 sortString: "Data Non Valida"
             )
-            groupedReservations.append(invalidGroup) // Append invalid dates at the end
+            groupedReservations.append(invalidGroup)  // Append invalid dates at the end
         }
 
         return groupedReservations
     }
-    
-    private func groupByWeek(_ reservations: [Reservation]) -> [GroupedReservations] {
+
+    private func groupByWeek(_ reservations: [Reservation], sortOption: SortOption?) -> [GroupedReservations] {
         var grouped: [Date: [Reservation]] = [:]
         let calendar = Calendar.current
 
@@ -921,7 +827,10 @@ struct ReservationListView: View {
             // Determine the start of the partial week (Tuesday)
             let weekday = calendar.component(.weekday, from: date)
             let offsetToTuesday = ((weekday - 3) + 7) % 7
-            guard let startOfPartialWeek = calendar.date(byAdding: .day, value: -offsetToTuesday, to: date) else {
+            guard
+                let startOfPartialWeek = calendar.date(
+                    byAdding: .day, value: -offsetToTuesday, to: date)
+            else {
                 grouped[Date.distantFuture, default: []].append(reservation)
                 continue
             }
@@ -940,7 +849,7 @@ struct ReservationListView: View {
         var groupedReservations: [GroupedReservations] = sortedDates.map { date in
             let label = partialWeekLabelSkippingMonday(for: date)
             let unsortedReservations = grouped[date] ?? []
-            let sortedGroupReservations = sortReservations(unsortedReservations) // Apply sorting
+            let sortedGroupReservations = sortReservations(unsortedReservations, sortOption: sortOption)  // Apply sorting
             return GroupedReservations(
                 label: label,
                 reservations: sortedGroupReservations,
@@ -951,19 +860,19 @@ struct ReservationListView: View {
 
         // Handle invalid dates, if any
         if let invalidReservations = grouped[Date.distantFuture], !invalidReservations.isEmpty {
-            let sortedInvalidReservations = sortReservations(invalidReservations) // Optionally sort invalid reservations
+            let sortedInvalidReservations = sortReservations(invalidReservations, sortOption: sortOption)  // Optionally sort invalid reservations
             let invalidGroup = GroupedReservations(
                 label: "Data Non Valida",
                 reservations: sortedInvalidReservations,
                 sortDate: nil,
                 sortString: "Data Non Valida"
             )
-            groupedReservations.append(invalidGroup) // Append invalid dates at the end
+            groupedReservations.append(invalidGroup)  // Append invalid dates at the end
         }
 
         return groupedReservations
     }
-    private func groupByMonth(_ reservations: [Reservation]) -> [GroupedReservations] {
+    private func groupByMonth(_ reservations: [Reservation], sortOption: SortOption?) -> [GroupedReservations] {
         var grouped: [Date: [Reservation]] = [:]
         let calendar = Calendar.current
 
@@ -995,7 +904,7 @@ struct ReservationListView: View {
         var groupedReservations: [GroupedReservations] = sortedDates.map { date in
             let label = monthLabel(for: date)
             let unsortedReservations = grouped[date] ?? []
-            let sortedGroupReservations = sortReservations(unsortedReservations) // Apply sorting
+            let sortedGroupReservations = sortReservations(unsortedReservations, sortOption: sortOption)  // Apply sorting
             return GroupedReservations(
                 label: label,
                 reservations: sortedGroupReservations,
@@ -1006,14 +915,14 @@ struct ReservationListView: View {
 
         // Handle invalid dates, if any
         if let invalidReservations = grouped[Date.distantFuture], !invalidReservations.isEmpty {
-            let sortedInvalidReservations = sortReservations(invalidReservations) // Optionally sort invalid reservations
+            let sortedInvalidReservations = sortReservations(invalidReservations, sortOption: sortOption)  // Optionally sort invalid reservations
             let invalidGroup = GroupedReservations(
                 label: "Data Non Valida",
                 reservations: sortedInvalidReservations,
                 sortDate: nil,
                 sortString: "Data Non Valida"
             )
-            groupedReservations.append(invalidGroup) // Append invalid dates at the end
+            groupedReservations.append(invalidGroup)  // Append invalid dates at the end
         }
 
         return groupedReservations
@@ -1130,7 +1039,7 @@ struct ReservationListView: View {
             return matchesFilter
         }
 
-        return sortReservations(filtered)
+        return sortReservations(filtered, sortOption: listView.sortOption)
     }
 
     private func filterForCategory(
@@ -1139,7 +1048,10 @@ struct ReservationListView: View {
         reservations.filter { $0.category == category }
     }
 
-    private func sortReservations(_ reservations: [Reservation])
+    private func sortReservations(
+        _ reservations: [Reservation],
+        sortOption: SortOption?
+    )
         -> [Reservation]
     {
         guard let sortOption = sortOption else {
@@ -1165,62 +1077,6 @@ struct ReservationListView: View {
         }
     }
 
-
-    // MARK: - Row Tap Handler
-    private func handleEditTap(_ reservation: Reservation) {
-        withAnimation {
-            currentReservation = reservation
-        }
-    }
-
-    // MARK: - Delete Handler from Context Menu
-    private func handleDelete(_ reservation: Reservation) {
-
-        if let idx = store.reservations.firstIndex(where: {
-            $0.id == reservation.id
-        }), var reservation = store.reservations.first(where: { $0.id == reservation.id}) {
-            reservation.status = .canceled
-            reservation.tables = []
-            reservationService.updateReservation(reservation,
-                at: idx)
-        }
-    }
-    
-    private func handleRecover(_ reservation: Reservation) {
-
-        if let idx = store.reservations.firstIndex(where: {
-            $0.id == reservation.id
-        }), var reservation = store.reservations.first(where: { $0.id == reservation.id}) {
-            reservation.status = .pending
-            let assignmentResult = layoutServices.assignTables(
-                for: reservation, selectedTableID: nil)
-            switch assignmentResult {
-            case .success(let assignedTables):
-                DispatchQueue.main.async {
-                    // do actual saving logic here
-                    reservation.tables = assignedTables
-                }
-            case .failure(let error):
-                switch error {
-                case .noTablesLeft:
-                    activeAlert = .error("Non ci sono tavoli disponibili.")
-                case .insufficientTables:
-                    activeAlert = .error("Non ci sono abbastanza tavoli per la prenotazione.")
-                case .tableNotFound:
-                    activeAlert = .error("Tavolo selezionato non trovato.")
-                case .tableLocked:
-                    activeAlert = .error("Il tavolo scelto è occupato o bloccato.")
-                case .unknown:
-                    activeAlert = .error("Errore sconosciuto.")
-                }
-                return
-            }
-            reservationService.updateReservation(reservation,
-                at: idx)
-        }
-
-    }
-
     // MARK: - Flush Caches
     private func flushCaches() {
 
@@ -1235,144 +1091,131 @@ struct ReservationListView: View {
 /// A smaller subview that displays a single reservation row. This often helps reduce Swift's type-checking overhead.
 struct ReservationRowView: View {
     let reservation: Reservation
-
     @Binding var notesAlertShown: Bool
     @Binding var notesToShow: String
-    @Binding var selectedReservationID: UUID?
     @Binding var currentReservation: Reservation?
 
     var onTap: () -> Void
     var onDelete: () -> Void
     var onRecover: () -> Void
     var onEdit: () -> Void
-    var onInfoTap: () -> Void  // Added here
 
     var searchText: String
-
 
     var body: some View {
         // Make a local variable for table names
         let duration = reservation.duration
 
-        VStack(alignment: .leading, spacing: 4) { // Added spacing for better layout
-            // Name and Number of People
-            if searchText.isEmpty {
-                Text("\(reservation.name) - \(reservation.numberOfPersons) p.")
-                    .font(.headline)
-            } else {
-                highlightedText(for: reservation.name, with: searchText) +
-                Text(" - \(reservation.numberOfPersons) p.")
-                    .font(.headline)
-            }
-            
-            // Date
-            Text("Data: \(reservation.dateString)")
-                .font(.subheadline)
-            
-            // Time
-            Text("Orario: \(reservation.startTime) - \(reservation.endTime)")
-                .font(.subheadline)
-            
-            if !searchText.isEmpty {
-                // Notes Section
-                if let notes = reservation.notes, !notes.isEmpty {
-                    Text("Note:")
-                        .font(.subheadline)
-                        .bold()
-                    highlightedText(for: notes, with: searchText)
-                        .font(.subheadline)
-                        .foregroundColor(.gray)
-                }
-            } else {
-                // Duration
-                Text("Durata: \(duration)")
-                    .font(.subheadline)
-                    .foregroundStyle(.blue)
-            }
-        }
-        .padding()
-        .contextMenu {
-            Button("Modifica") {
-                onEdit()
-            }
-            Button("Elimina", role: .destructive) {
-                onDelete()
-            }
-        }
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            if reservation.status != .canceled {
-                Button {
-                    onDelete()
-                } label: {
-                    Label("Cancella", systemImage: "x.circle.fill")
-                }
-                .tint(Color(hex: "#5c140f"))
+            ZStack(alignment: .leading) {
                 
-            } else {
-                Button {
-                    onRecover()
-                } label: {
-                    Label("Ripristina", systemImage: "arrowshape.turn.up.backward.2.circle.fill")
+                RoundedRectangle(cornerRadius: 12.0)
+                    .fill(.thinMaterial)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                SwipeView() {
+                VStack(alignment: .leading, spacing: 4) {  // Added spacing for better layout
+                    // Name and Number of People
+                    if searchText.isEmpty {
+                        Text("\(reservation.name) - \(reservation.numberOfPersons) p.")
+                            .font(.headline)
+                    } else {
+                        highlightedText(for: reservation.name, with: searchText)
+                        + Text(" - \(reservation.numberOfPersons) p.")
+                            .font(.headline)
+                    }
+                    
+                    // Date
+                    Text("Data: \(reservation.dateString)")
+                        .font(.subheadline)
+                    
+                    // Time
+                    Text("Orario: \(reservation.startTime) - \(reservation.endTime)")
+                        .font(.subheadline)
+                    
+                    if !searchText.isEmpty {
+                        // Notes Section
+                        if let notes = reservation.notes, !notes.isEmpty {
+                            Text("Note:")
+                                .font(.subheadline)
+                                .bold()
+                            highlightedText(for: notes, with: searchText)
+                                .font(.subheadline)
+                                .foregroundColor(.gray)
+                        }
+                    } else {
+                        // Duration
+                        Text("Durata: \(duration)")
+                            .font(.subheadline)
+                            .foregroundStyle(.blue)
+                    }
                 }
-                .tint(.blue)
-            }
-        
-            Button {
-                onEdit()
-            } label: {
-                Label("Modifica", systemImage: "square.and.pencil")
-            }
-            .tint(.orange)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .padding()
+                .contentShape(Rectangle())
+            } trailingActions: {_ in
+                if reservation.status != .canceled {
+                    SwipeAction(systemImage: "x.circle.fill", backgroundColor: Color(hex: "#5c140f")) {
+                        onDelete()
+                    }
+                    .swipeActionLabelHorizontalPadding()
 
-            Button {
-                onInfoTap()
-            } label: {
-                Label("Info", systemImage: "info.circle")
+                } else {
+                    SwipeAction(systemImage: "arrowshape.turn.up.backward.2.circle.fill", backgroundColor: reservation.assignedColor) {
+                        onRecover()
+                    }
+                    .swipeActionLabelHorizontalPadding()
+                    .allowSwipeToTrigger()
+
+                }
+                
             }
-            .tint(.green)
-        }
+            .swipeActionCornerRadius(12)
+            .swipeMinimumDistance(40)
+            }
+            .padding()
+
+
+           
+        
+        
     }
-    
+
     /// Function to highlight matched text
     private func highlightedText(for text: String, with searchText: String) -> Text {
         // Ensure searchText is not empty to avoid unnecessary processing
         guard !searchText.isEmpty else { return Text(text) }
-        
+
         let lowercasedText = text.lowercased()
         let lowercasedSearchText = searchText.lowercased()
-        
+
         var highlighted = Text("")
         var currentIndex = lowercasedText.startIndex
-        
-        while let range = lowercasedText.range(of: lowercasedSearchText, range: currentIndex..<lowercasedText.endIndex) {
+
+        while let range = lowercasedText.range(
+            of: lowercasedSearchText, range: currentIndex..<lowercasedText.endIndex)
+        {
             // Append the text before the match
             let prefixRange = currentIndex..<range.lowerBound
             let prefix = String(text[prefixRange])
             highlighted = highlighted + Text(prefix)
-            
+
             // Append the matched text with highlight
             let matchRange = range.lowerBound..<range.upperBound
             let match = String(text[matchRange])
-            highlighted = highlighted + Text(match)
+            highlighted =
+                highlighted
+                + Text(match)
                 .foregroundColor(.yellow)
-            
+
             // Update the current index to continue searching
             currentIndex = range.upperBound
         }
-        
+
         // Append the remaining text after the last match
         let suffixRange = currentIndex..<lowercasedText.endIndex
         let suffix = String(text[suffixRange])
         highlighted = highlighted + Text(suffix)
-        
+
         return highlighted
     }
 
 }
-struct ButtonPositionPreferenceKey: PreferenceKey {
-    nonisolated(unsafe) static var defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
-}
-

@@ -8,8 +8,11 @@ struct ContentView: View {
     @EnvironmentObject var clusterStore: ClusterStore
     @EnvironmentObject var clusterServices: ClusterServices
     @EnvironmentObject var layoutServices: LayoutServices
-    @EnvironmentObject var gridData: GridData
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var gridData: GridData
+    @EnvironmentObject var backupService: FirebaseBackupService
+    @EnvironmentObject var scribbleService: ScribbleService
+    @State var listView: ListViewModel
 
     @Environment(\.locale) var locale // Access the current locale set by .italianLocale()
 
@@ -25,7 +28,9 @@ struct ContentView: View {
         NavigationSplitView(columnVisibility: $appState.columnVisibility)
         {
             // The Sidebar
-            SidebarView(layoutServices: layoutServices,
+            SidebarView(
+                layoutServices: layoutServices,
+                listView: listView,
                 selectedReservation: $selectedReservation,
                 currentReservation: $currentReservation,
                 selectedCategory: $selectedCategory,
@@ -33,13 +38,15 @@ struct ContentView: View {
             )
            
             .environmentObject(store)
-            .environmentObject(resCache)
             .environmentObject(tableStore)
-            .environmentObject(reservationService) // For the new service
-            .environmentObject(clusterServices)
+            .environmentObject(resCache)
             .environmentObject(layoutServices)
+            .environmentObject(clusterServices)
             .environmentObject(gridData)
-            .environmentObject(appState)
+            .environmentObject(backupService)
+            .environmentObject(appState) // Inject AppState
+            .environmentObject(reservationService) // For the new service
+            .environmentObject(scribbleService)
                 
         }
         detail: {
@@ -48,8 +55,6 @@ struct ContentView: View {
                 .foregroundColor(.secondary)
             
         }
-
-    
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarLeading) {
                 // Sidebar toggle button
@@ -80,10 +85,6 @@ struct ContentView: View {
 
     }
     
-    func dismissInfoCard() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { // Match animation duration
-            showInspector = false
-        }
-    }
+   
 }
 

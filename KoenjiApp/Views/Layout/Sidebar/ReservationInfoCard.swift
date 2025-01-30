@@ -11,7 +11,7 @@ struct ReservationInfoCard: View {
     @EnvironmentObject var store: ReservationStore
     let reservationID: UUID
     var onClose: () -> Void
-    var onEdit: () -> Void
+    var onEdit: (Reservation) -> Void
     
     @Binding var isShowingFullImage: Bool
 
@@ -161,7 +161,7 @@ struct ReservationInfoCard: View {
                 }
 
                 HStack {  // Close Button
-                    Button(action: onEdit) {
+                    Button(action: { onEdit(reservation) }) {
                         Text("Modifica")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
@@ -171,6 +171,7 @@ struct ReservationInfoCard: View {
                 .padding(.vertical)
 
             }
+            .background(.clear)
             .padding()
         }
     }

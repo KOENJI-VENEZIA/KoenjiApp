@@ -25,7 +25,11 @@ struct TableModel: Identifiable, Hashable, Codable, Equatable {
     
     var isVisible: Bool = true
     
+    enum CodingKeys: String, CodingKey {
+           case id, name, maxCapacity, row, column, adjacentCount, activeReservationAdjacentCount, isVisible
+       }
 
+       
     
     enum TableSide: CaseIterable {
         case top
@@ -44,6 +48,34 @@ struct TableModel: Identifiable, Hashable, Codable, Equatable {
     }
     
     
+}
+
+extension TableModel {
+    // ✅ Custom decoder to handle missing `isVisible`
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        maxCapacity = try container.decode(Int.self, forKey: .maxCapacity)
+        row = try container.decode(Int.self, forKey: .row)
+        column = try container.decode(Int.self, forKey: .column)
+        adjacentCount = try container.decodeIfPresent(Int.self, forKey: .adjacentCount) ?? 0
+        activeReservationAdjacentCount = try container.decodeIfPresent(Int.self, forKey: .activeReservationAdjacentCount) ?? 0
+        isVisible = try container.decodeIfPresent(Bool.self, forKey: .isVisible) ?? true  // ✅ Default value if missing
+    }
+
+    // ✅ Custom encoder to ensure `isVisible` is always encoded
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(maxCapacity, forKey: .maxCapacity)
+        try container.encode(row, forKey: .row)
+        try container.encode(column, forKey: .column)
+        try container.encode(adjacentCount, forKey: .adjacentCount)
+        try container.encode(activeReservationAdjacentCount, forKey: .activeReservationAdjacentCount)
+        try container.encode(isVisible, forKey: .isVisible)  // ✅ Always encode `isVisible`
+    }
 }
 
 struct TableCluster: Equatable, Encodable, Decodable {

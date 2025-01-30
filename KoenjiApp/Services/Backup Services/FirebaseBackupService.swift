@@ -2,16 +2,17 @@ import FirebaseFirestore
 import FirebaseStorage
 
 /// A service for uploading and downloading backups to Firebase Storage
-class FirebaseBackupService {
+class FirebaseBackupService: ObservableObject {
     private let db: Firestore
     private let storage: Storage
-
+    private let store: ReservationStore
     /// Initializes the backup service with the specified bucket URL
-    init() {
+    init(store: ReservationStore) {
         self.db = Firestore.firestore()
         
         // Explicitly use your bucket URL
         self.storage = Storage.storage(url: "gs://koenji-app.firebasestorage.app")
+        self.store = store
     }
 
     /// Uploads a backup file to Firebase Storage
@@ -77,4 +78,57 @@ class FirebaseBackupService {
             }
         }
     }
+    
+    @MainActor
+    func restoreBackup(fileName: String, completion: @escaping () -> Void) {
+        let localURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+
+        downloadBackup(fileName: fileName, to: localURL) { result in
+            switch result {
+            case .success:
+                print("Backup downloaded successfully to: \(localURL)")
+                
+                self.importReservations(from: localURL)
+                
+                DispatchQueue.main.async {
+                    completion() // Notify when done
+                }
+                
+            case .failure(let error):
+                print("Error downloading backup: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    completion() // Call completion to avoid being stuck
+                }
+            }
+        }
+    }
+    
+    private func importReservations(from url: URL) {
+        print("Attempting to import file at URL: \(url)")
+
+        do {
+            let data = try Data(contentsOf: url)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+
+            let reservations = try decoder.decode([Reservation].self, from: data)
+            print("Reservations decoded successfully: \(reservations.count) entries.")
+
+            handleImportedReservations(reservations)
+        } catch let decodingError as DecodingError {
+            print("Decoding error: \(decodingError)")
+        } catch {
+            print("Failed to import reservations: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleImportedReservations(_ reservations: [Reservation]) {
+        // Integrate the imported reservations into your app's data
+        print("Imported \(reservations.count) reservations:")
+        reservations.forEach { print($0) }
+
+        // Example: Save them to your ReservationService
+        store.reservations.append(contentsOf: reservations)
+    }
+
 }

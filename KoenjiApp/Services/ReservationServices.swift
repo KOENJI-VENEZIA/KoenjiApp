@@ -22,7 +22,7 @@ class ReservationService: ObservableObject {
     private let tableStore: TableStore
     private let layoutServices: LayoutServices
     private let tableAssignmentService: TableAssignmentService
-    private let backupService = FirebaseBackupService()
+    private let backupService: FirebaseBackupService
     
     private var imageCache: [UUID: UIImage] = [:]
 
@@ -30,7 +30,7 @@ class ReservationService: ObservableObject {
 
     // MARK: - Initializer
     @MainActor
-    init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, appState: AppState) {
+    init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, backupService: FirebaseBackupService, appState: AppState) {
         self.store = store
         self.resCache = resCache
         self.clusterStore = clusterStore
@@ -38,6 +38,7 @@ class ReservationService: ObservableObject {
         self.tableStore = tableStore
         self.layoutServices = layoutServices
         self.tableAssignmentService = tableAssignmentService
+        self.backupService = backupService
         self.appState = appState
 
         self.layoutServices.loadFromDisk()
@@ -70,14 +71,13 @@ class ReservationService: ObservableObject {
     
     /// Updates an existing reservation, refreshes the cache, and reassigns tables if needed.
     @MainActor
-    func updateReservation(_ oldReservation: Reservation, at index: Int? = nil/*, dateString: String? = "", startTime: String? = "", endTime: String? = ""*/) {
+    func updateReservation(_ oldReservation: Reservation, newReservation: Reservation? = nil, at index: Int? = nil/*, dateString: String? = "", startTime: String? = "", endTime: String? = ""*/) {
         // Remove from active cache
-//        removeReservationFromActiveCache(updatedReservation)
         self.invalidateClusterCache(for: oldReservation)
         resCache.removeReservation(oldReservation)
-        let updatedReservation = oldReservation
         
-        // Update reservation in the store
+        let updatedReservation = newReservation ?? oldReservation
+
         DispatchQueue.main.async {
             let reservationIndex = index ?? self.store.reservations.firstIndex(where: { $0.id == oldReservation.id })
 
@@ -87,21 +87,28 @@ class ReservationService: ObservableObject {
             }
 
             let oldReservation = self.store.reservations[reservationIndex]
-
-            // Unmark old tables
-            oldReservation.tables.forEach { self.layoutServices.unmarkTable($0) }
-
             
-
+            // 🔹 Compare old and new tables before unmarking/marking
+            let oldTableIDs = Set(oldReservation.tables)
+            let newTableIDs = Set(updatedReservation.tables)
             
-            // Update the reservation
+            if oldTableIDs != newTableIDs {
+                print("Table change detected for reservation \(updatedReservation.id). Updating tables...")
+
+                // Unmark only if tables have changed
+                oldTableIDs.subtracting(newTableIDs).forEach { self.layoutServices.unmarkTable($0) }
+
+                // Mark only new tables that weren't already assigned
+                newTableIDs.subtracting(oldTableIDs).forEach { self.layoutServices.markTable($0, occupied: true) }
+                
+                // Invalidate cluster cache only if tables changed
+                self.invalidateClusterCache(for: updatedReservation)
+            } else {
+                print("No table change detected for reservation \(updatedReservation.id). Skipping table update.")
+            }
+
+            // Update the reservation in the store
             self.store.reservations[reservationIndex] = updatedReservation
-
-            // Mark new tables as occupied
-            updatedReservation.tables.forEach { self.layoutServices.markTable($0, occupied: true) }
-
-            // Invalidate cluster cache
-            self.invalidateClusterCache(for: updatedReservation)
 
             print("Updated reservation \(updatedReservation.id).")
         }

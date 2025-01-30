@@ -28,6 +28,8 @@ class CurrentReservationsCache: ObservableObject {
         }
 
         preloadedDates = newDates
+        
+        populateCache(for: Array(newDates), reservations: reservations)
 
         print(
             "DEBUG: successfully preloaded dates (\(preloadedDates.count) dates) around selected date \(selectedDate)!"

@@ -141,6 +141,7 @@ struct TabsView: View {
                 .environmentObject(resCache)
                 .environmentObject(reservationService)  // For the new service
                 .environmentObject(layoutServices)
+                .presentationBackground(.thinMaterial)
             }
             .onAppear {
                 if selectedTab == .lunch {
@@ -251,7 +252,7 @@ struct TabsView: View {
                 firstTime: appState.selectedDate, secondTime: Date(), interval: 60)
                 ? 0 : 1
         )
-        .animation(.easeInOut, value: appState.selectedDate)
+        .animation(.easeInOut(duration: 0.5), value: appState.selectedDate)
     }
 
     private var dateBackward: some View {

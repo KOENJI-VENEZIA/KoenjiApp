@@ -54,9 +54,8 @@ struct ClusterView: View {
                     )
                     .frame(width: overlayFrame.width, height: overlayFrame.height)
                     .position(x: overlayFrame.midX, y: overlayFrame.midY)
-                    .zIndex(1)
             } else {
-                RoundedRectangle(cornerRadius: 8.0)
+                RoundedRectangle(cornerRadius: 12.0)
                     .fill(cluster.reservationID.assignedColor.opacity(0.7))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8.0)
@@ -66,7 +65,6 @@ struct ClusterView: View {
                     )
                     .frame(width: overlayFrame.width, height: overlayFrame.height)
                     .position(x: overlayFrame.midX, y: overlayFrame.midY)
-                    .zIndex(1)
             }
 
             // Reservation label (centered on the cluster)
@@ -117,11 +115,10 @@ struct ClusterView: View {
                 }
                 .background(.clear)
                 .position(x: overlayFrame.midX, y: overlayFrame.midY)
-                .zIndex(2)
             }
         }
-        .highPriorityGesture(tapGesture())
-        .simultaneousGesture(doubleTapGesture())
+//        .highPriorityGesture(tapGesture())
+//        .simultaneousGesture(doubleTapGesture())
         .onAppear {
             updateNearEndReservation()
             updateRemainingTime()
@@ -134,52 +131,22 @@ struct ClusterView: View {
 
     // MARK: - Precompute Reservation States
     
-    private func tapGesture() -> some Gesture {
-        TapGesture(count: 1).onEnded {
-            // Start a timer for single-tap action
-            tapTimer?.invalidate()  // Cancel any existing timer
-            tapTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
-                Task { @MainActor in
-                    if !isDoubleTap {
-                        // Process single-tap only if no double-tap occurred
-                        handleTap(cluster.reservationID)
-                    }
-                }
-            }
-        }
-    }
+//    private func tapGesture() -> some Gesture {
+//        TapGesture(count: 1).onEnded {
+//            // Start a timer for single-tap action
+//            tapTimer?.invalidate()  // Cancel any existing timer
+//            tapTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
+//                Task { @MainActor in
+//                    if !isDoubleTap {
+//                        // Process single-tap only if no double-tap occurred
+//                        handleTap(cluster.reservationID)
+//                    }
+//                }
+//            }
+//        }
+//    }
     
-    private func handleTap(_ activeReservation: Reservation?) {
-        guard let activeReservation = activeReservation else { return }
-
-        var currentReservation = activeReservation
-
-        print("1 - Status in HandleTap: \(currentReservation.status)")
-
-        if currentReservation.status == .pending || currentReservation.status == .late {
-            // Case 1: Update to .showedUp
-            currentReservation.status = .showedUp
-
-            print("2 - Status in HandleTap: \(currentReservation.status)")
-            reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
-            statusChanged += 1
-            
-        } else {
-            // Case 2: Determine if the reservation is late or pending
-            if resCache.lateReservations(currentTime: appState.selectedDate).first(where: {
-                $0.id == currentReservation.id
-            }) != nil {
-                currentReservation.status = .late
-            } else {
-                currentReservation.status = .pending
-            }
-
-            print("2 - Status in HandleTap: \(currentReservation.status)")
-            reservationService.updateReservation(currentReservation)  // Ensure the data store is updated
-            statusChanged += 1
-
-        }
-    }
+    
     
     private func doubleTapGesture() -> some Gesture {
         TapGesture(count: 2).onEnded {

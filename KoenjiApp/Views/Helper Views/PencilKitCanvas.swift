@@ -9,7 +9,9 @@
 import SwiftUI
 import PencilKit
 
-final class SharedToolPicker: ObservableObject {
+class SharedToolPicker: ObservableObject {
+    @MainActor static let shared = SharedToolPicker()
+    
     let toolPicker: PKToolPicker
     
     init() {
@@ -21,7 +23,7 @@ final class SharedToolPicker: ObservableObject {
 
 struct PencilKitCanvas: UIViewRepresentable {
     @EnvironmentObject var drawingModel: DrawingModel
-    @EnvironmentObject var sharedToolPicker: SharedToolPicker
+    let sharedToolPicker = SharedToolPicker.shared
     @ObservedObject var zoomableState: ZoomableScrollViewState
     @Binding var toolPickerShows: Bool
 
@@ -38,16 +40,15 @@ struct PencilKitCanvas: UIViewRepresentable {
 
     class Coordinator: NSObject, PKCanvasViewDelegate {
         var parent: PencilKitCanvas
-        var toolPicker: PKToolPicker
+        let toolPicker = PKToolPicker()
         @Binding var toolPickerShows: Bool
         private var debounceTimer: Timer?
 //        var exclusionAreaModel: ExclusionAreaModel  // regular property
         var isUpdatingFromModel = false // Flag to prevent infinite loop
 
 
-        init(parent: PencilKitCanvas, toolPicker: PKToolPicker, toolPickerShows: Binding<Bool>) {
+        init(parent: PencilKitCanvas, toolPickerShows: Binding<Bool>) {
                     self.parent = parent
-                    self.toolPicker = toolPicker
                     self._toolPickerShows = toolPickerShows
                 }
         
@@ -94,7 +95,7 @@ struct PencilKitCanvas: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        return Coordinator(parent: self, toolPicker: sharedToolPicker.toolPicker, toolPickerShows: $toolPickerShows)
+        return Coordinator(parent: self, toolPickerShows: $toolPickerShows)
 
     }
     

@@ -102,36 +102,39 @@ struct AddReservationView: View {
                         }
                     }
 
-                    Picker("Categoria", selection: $category) {
+                    Picker("Categoria", selection: $appState.selectedCategory) {
                         Text("Pranzo").tag(
-                            Reservation.ReservationCategory.lunch
-                                as Reservation.ReservationCategory?)
+                            Reservation.ReservationCategory.lunch)
                         Text("Cena").tag(
-                            Reservation.ReservationCategory.dinner
-                                as Reservation.ReservationCategory?)
+                            Reservation.ReservationCategory.dinner)
                         Text("Pomeriggio").tag(
-                            Reservation.ReservationCategory.noBookingZone
-                                as Reservation.ReservationCategory?)
+                            Reservation.ReservationCategory.noBookingZone)
                     }
-                    .onChange(of: category) {
+//                    .onAppear {
+//                          DispatchQueue.main.async {
+//                              appState.selectedCategory = .lunch
+//                          }
+//                      }
+                    .onChange(of: appState.selectedCategory) { old, newValue in
+                        print("Selected category:", newValue, "Type:", type(of: newValue))
                         adjustTimesForCategory()
                     }
 
                     TimeSelectionView(
                         selectedTime: $startTimeString,
-                        category: category
+                        category: appState.selectedCategory
                     )
                     .frame(maxWidth: .infinity, alignment: .center)
                     .onChange(of: startTimeString) { _, newValue in
                         endTimeString = TimeHelpers.calculateEndTime(
                             startTime: newValue,
-                            category: category
+                            category: appState.selectedCategory
                         )
                     }
 
                     EndTimeSelectionView(
                         selectedTime: $endTimeString,
-                        category: category
+                        category: appState.selectedCategory
                     )
                     .frame(maxWidth: .infinity, alignment: .center)
 
@@ -250,7 +253,7 @@ struct AddReservationView: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .animation(.easeInOut, value: showImageField)  // Apply animation when `showImageField` changes
+                    .animation(.easeInOut(duration: 0.5), value: showImageField)  // Apply animation when `showImageField` changes
                 }
 
                 Section("Facoltativo: Note") {
@@ -258,6 +261,7 @@ struct AddReservationView: View {
                         .frame(minHeight: 80)
                 }
             }
+            .background(.clear)
             .navigationTitle("Nuova Prenotazione")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -316,9 +320,9 @@ struct AddReservationView: View {
                 startTimeString = DateHelper.formatTime(startTime)
                 endTimeString = TimeHelpers.calculateEndTime(
                     startTime: startTimeString,
-                    category: category)
+                    category: appState.selectedCategory)
 
-                category = categoryForTimeInterval(time: startTime)
+//                appState.selectedCategory = categoryForTimeInterval(time: startTime)
                 availableTables = store.tableAssignmentService.availableTables(
                     for: createTemporaryReservation(),
                     reservations: store.getReservations(),
@@ -333,9 +337,9 @@ struct AddReservationView: View {
                 print("End time after: \(endTimeString)")
 
             }
-            .onChange(of: appState.selectedCategory) { old, new in
-                category = new
-            }
+//            .onChange(of: appState.selectedCategory) { old, new in
+//                category = new
+//            }
             .onChange(of: selectedPhotoItem) { old, newItem in
                 if let newItem {
                     Task {
@@ -354,7 +358,7 @@ struct AddReservationView: View {
                 }
             }
         }
-        
+        .background(.clear)
     }
 
     // MARK: - Helpers
@@ -366,7 +370,7 @@ struct AddReservationView: View {
             phone: phone,
             numberOfPersons: numberOfPersons,
             dateString: DateHelper.formatDate(selectedDate),
-            category: category,
+            category: appState.selectedCategory,
             startTime: startTimeString,
             endTime: endTimeString,
             acceptance: selectedStatus.asAcceptance,
@@ -390,7 +394,7 @@ struct AddReservationView: View {
         }
         endTimeString = TimeHelpers.calculateEndTime(
             startTime: startTimeString,
-            category: category
+            category: appState.selectedCategory
         )
     }
 

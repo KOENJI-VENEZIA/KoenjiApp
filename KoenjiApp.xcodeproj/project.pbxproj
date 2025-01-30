@@ -13,6 +13,7 @@
 		A03B7B712D43B18200FF8FF7 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B702D43B18200FF8FF7 /* FirebaseFirestore */; };
 		A03B7B732D43B18900FF8FF7 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B722D43B18900FF8FF7 /* FirebaseStorage */; };
 		A03B7B792D43B93D00FF8FF7 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B782D43B93D00FF8FF7 /* FirebaseAuth */; };
+		A07145E92D4BC28100B6918A /* SwipeActions in Frameworks */ = {isa = PBXBuildFile; productRef = A07145E82D4BC28100B6918A /* SwipeActions */; };
 		A0C598AA2D427F43004A3423 /* EmojiPalette in Frameworks */ = {isa = PBXBuildFile; productRef = A0C598A92D427F43004A3423 /* EmojiPalette */; };
 		A0C599D82D42B0FD004A3423 /* Launchscreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */; };
 		A0FBB6942D41743700A5783E /* ScreenshotSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = A0FBB6932D41743700A5783E /* ScreenshotSwiftUI */; };
@@ -69,6 +70,7 @@
 				A03B7B732D43B18900FF8FF7 /* FirebaseStorage in Frameworks */,
 				A03B7B672D43B00000FF8FF7 /* FirebaseAnalyticsOnDeviceConversion in Frameworks */,
 				A03B7B712D43B18200FF8FF7 /* FirebaseFirestore in Frameworks */,
+				A07145E92D4BC28100B6918A /* SwipeActions in Frameworks */,
 				A03B7B792D43B93D00FF8FF7 /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -130,6 +132,7 @@
 				A03B7B702D43B18200FF8FF7 /* FirebaseFirestore */,
 				A03B7B722D43B18900FF8FF7 /* FirebaseStorage */,
 				A03B7B782D43B93D00FF8FF7 /* FirebaseAuth */,
+				A07145E82D4BC28100B6918A /* SwipeActions */,
 			);
 			productName = KoenjiApp;
 			productReference = A0775E242D1CAA1F00068B00 /* KoenjiApp.app */;
@@ -163,6 +166,7 @@
 				A0FBB6922D41743700A5783E /* XCRemoteSwiftPackageReference "ScreenshotSwiftUI" */,
 				A0C598A82D427F43004A3423 /* XCRemoteSwiftPackageReference "EmojiPalette" */,
 				A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				A07145E72D4BC28100B6918A /* XCRemoteSwiftPackageReference "SwipeActions" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A0775E252D1CAA1F00068B00 /* Products */;
@@ -433,6 +437,14 @@
 				minimumVersion = 11.7.0;
 			};
 		};
+		A07145E72D4BC28100B6918A /* XCRemoteSwiftPackageReference "SwipeActions" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/aheze/SwipeActions";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.0;
+			};
+		};
 		A0C598A82D427F43004A3423 /* XCRemoteSwiftPackageReference "EmojiPalette" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Kyome22/EmojiPalette.git";
@@ -481,6 +493,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAuth;
+		};
+		A07145E82D4BC28100B6918A /* SwipeActions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A07145E72D4BC28100B6918A /* XCRemoteSwiftPackageReference "SwipeActions" */;
+			productName = SwipeActions;
 		};
 		A0C598A92D427F43004A3423 /* EmojiPalette */ = {
 			isa = XCSwiftPackageProductDependency;

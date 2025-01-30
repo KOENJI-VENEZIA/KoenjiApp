@@ -41,8 +41,8 @@
             filePath = "KoenjiApp/Views/Timeline/TabsView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "161"
-            endingLineNumber = "161"
+            startingLineNumber = "162"
+            endingLineNumber = "162"
             landmarkName = "body"
             landmarkType = "24">
          </BreakpointContent>
@@ -57,8 +57,8 @@
             filePath = "KoenjiApp/Views/Layout/LayoutView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "389"
-            endingLineNumber = "389"
+            startingLineNumber = "385"
+            endingLineNumber = "385"
             landmarkName = "body"
             landmarkType = "24">
          </BreakpointContent>
@@ -76,22 +76,6 @@
             startingLineNumber = "22"
             endingLineNumber = "22"
             landmarkName = "LayoutView"
-            landmarkType = "14">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "D3AB1144-96D8-40D9-935B-227772A95944"
-            shouldBeEnabled = "No"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "KoenjiApp/Content/SidebarView.swift"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "25"
-            endingLineNumber = "25"
-            landmarkName = "SidebarView"
             landmarkType = "14">
          </BreakpointContent>
       </BreakpointProxy>
