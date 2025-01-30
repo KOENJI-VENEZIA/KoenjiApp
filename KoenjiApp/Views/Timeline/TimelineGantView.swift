@@ -142,6 +142,13 @@ struct TimelineGantView: View {
                                                 duration: calculateWidth(for: reservation),
                                                 padding: calculatePadding(
                                                     for: reservation, (tableID + 1)))
+                                            .gesture(
+                                                TapGesture(count: 2)
+                                                    .onEnded {
+                                                        appState.currentReservation = reservation
+                                                        appState.showingEditReservation = true
+                                                    }
+                                            )
                                             
                                             
                                         }

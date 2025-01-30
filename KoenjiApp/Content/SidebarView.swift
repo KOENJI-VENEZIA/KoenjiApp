@@ -85,7 +85,6 @@ struct SidebarView: View {
                                 layoutServices: layoutServices,
                                 resCache: resCache,
                                 selectedReservation: $selectedReservation,
-                                currentReservation: $currentReservation,
                                 columnVisibility: $columnVisibility
                             )
                             .environmentObject(store)

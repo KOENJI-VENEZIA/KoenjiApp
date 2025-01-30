@@ -76,6 +76,7 @@ struct ReservationsInfoListView: View {
                                     
                                     Button {
                                         markReservationStatus(reservation)
+                                        onEdit(reservation)
                                     } label: {
                                         Label("Stato", systemImage: whichIconForStatus)
                                     }

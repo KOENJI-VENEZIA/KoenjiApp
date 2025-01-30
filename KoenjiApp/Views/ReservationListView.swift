@@ -69,18 +69,17 @@ struct ReservationListView: View {
                     },
                     isShowingFullImage: $listView.isShowingFullImage
                 )
-//                .presentationBackground(.thinMaterial) // ✅ Prevents the list from "dragging"
-//                .background(.clear)
+               .presentationBackground(.thinMaterial)
+
                 
             case .addReservation:
-                AddReservationView(selectedDate: $appState.selectedDate)
+                AddReservationView(passedTable: nil)
                     .environmentObject(appState)
                     .environmentObject(store)
                     .environmentObject(resCache)
                     .environmentObject(reservationService)
                     .environmentObject(layoutServices)
-//                    .presentationBackground(.thinMaterial)
-
+                    .presentationBackground(.thinMaterial)
             case .debugConfig:
                     DebugConfigView(
                         daysToSimulate: $daysToSimulate,
@@ -98,7 +97,7 @@ struct ReservationListView: View {
                     )
                     .environmentObject(reservationService)
                     .environmentObject(store)
-    //                .presentationBackground(.thinMaterial)
+                    .presentationBackground(.thinMaterial)
             }
         }
 //        .animation(nil, value: listView.showInspector)
@@ -132,7 +131,8 @@ struct ReservationListView: View {
         }
         
         .sheet(item: $listView.currentReservation) { (reservation: Reservation) in
-            EditReservationView(reservation: reservation, onClose: {})
+            EditReservationView(reservation: reservation, onClose: {},
+                                onChanged: { reservation in })
 
                 .environmentObject(store)
                 .environmentObject(resCache)
@@ -419,7 +419,10 @@ struct ReservationListView: View {
 
     private func row(for reservation: Reservation, group: GroupedReservations) -> some View {
         
-        
+        ZStack {
+            reservation.assignedColor.opacity(0.5)
+                .edgesIgnoringSafeArea(.all)
+            
             ReservationRowView(
                 reservation: reservation,
                 notesAlertShown: $listView.showingNotesAlert,
@@ -440,14 +443,15 @@ struct ReservationListView: View {
                 searchText: listView.searchText
             )
             .id(reservation.id)
-//            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .background(
-                Rectangle().fill(reservation.assignedColor.opacity(0.8)))
+            //            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            //            .contentShape(Rectangle())
+            //            .background(
+            //                RoundedRectangle(cornerRadius: 12.0).fill(reservation.assignedColor.opacity(0.8)))
             .onTapGesture {
                 listView.selectedReservationID = reservation.id
                 listView.activeSheet = .inspector(reservation.id)
             }
+        }
         
     }
     
@@ -567,11 +571,7 @@ struct ReservationListView: View {
 
                     }
                 }
-                //                .sheet(isPresented: $isExporting) {
-                //                    if let exportURL = exportURL {
-                //                        ExportReservationsView(fileURL: exportURL)
-                //                    }
-                //                }
+                .scrollContentBackground(.hidden)
                 .navigationBarTitle("Debug Config", displayMode: .inline)
                 .navigationBarItems(
                     leading: Button("Annulla") {
@@ -1170,6 +1170,8 @@ struct ReservationRowView: View {
             }
             .swipeActionCornerRadius(12)
             .swipeMinimumDistance(40)
+            .swipeActionsMaskCornerRadius(12)
+
             }
             .padding()
 

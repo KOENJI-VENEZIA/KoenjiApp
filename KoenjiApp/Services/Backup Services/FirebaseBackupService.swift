@@ -6,6 +6,13 @@ class FirebaseBackupService: ObservableObject {
     private let db: Firestore
     private let storage: Storage
     private let store: ReservationStore
+    private var backupDirectory: String {
+        #if DEBUG
+        return "debugBackups"
+        #else
+        return "backups"
+        #endif
+    }
     /// Initializes the backup service with the specified bucket URL
     init(store: ReservationStore) {
         self.db = Firestore.firestore()
@@ -21,7 +28,7 @@ class FirebaseBackupService: ObservableObject {
     ///   - completion: Completion handler with success or failure
     func uploadBackup(fileURL: URL, completion: @escaping (Result<Void, Error>) -> Void) {
         let timestamp = DateHelper.formatDate(Date()) + "_" + DateHelper.formatTime(Date())
-        let storageRef = storage.reference().child("backups/\(fileURL.lastPathComponent)_\(timestamp)")
+        let storageRef = storage.reference().child("\(backupDirectory)/\(fileURL.lastPathComponent)_\(timestamp)")
 
         storageRef.putFile(from: fileURL, metadata: nil) { _, error in
             if let error = error {
@@ -33,7 +40,7 @@ class FirebaseBackupService: ObservableObject {
     }
 
     func listBackups(completion: @escaping (Result<[String], Error>) -> Void) {
-        let storageRef = storage.reference().child("backups")
+        let storageRef = storage.reference().child(backupDirectory)
 
         storageRef.listAll { result, error in
             if let error = error {
@@ -49,7 +56,7 @@ class FirebaseBackupService: ObservableObject {
     ///   - localURL: The local destination for the downloaded file
     ///   - completion: Completion handler with success or failure
     func downloadBackup(fileName: String, to localURL: URL, completion: @escaping (Result<Void, Error>) -> Void) {
-        let storageRef = storage.reference().child("backups/\(fileName)")
+        let storageRef = storage.reference().child("\(backupDirectory)/\(fileName)")
 
         storageRef.write(toFile: localURL) { _, error in
             if let error = error {

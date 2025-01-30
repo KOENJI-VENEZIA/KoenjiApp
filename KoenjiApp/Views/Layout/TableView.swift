@@ -227,8 +227,14 @@ struct TableView: View {
         .onChange(of: appState.selectedDate) {
             updateResData(appState.selectedDate, refreshedKey: "appState.selectedDate")
         }
+        .onChange(of: appState.selectedCategory) {
+            updateResData(appState.selectedDate, refreshedKey: "appState.selectedCategory")
+        }
         .onChange(of: tableView.selectedEmoji) {
             handleEmojiAssignment(tableView.currentActiveReservation, tableView.selectedEmoji)
+        }
+        .onChange(of: tableView.currentActiveReservation?.status) { 
+                updateResData(appState.selectedDate, refreshedKey: "status")
         }
         .contextMenu {
             
@@ -276,10 +282,13 @@ struct TableView: View {
         .position(x: tableFrame.minX, y: tableFrame.minY)
         .offset(dragOffset)
         .gesture(
-            tapGesture().exclusively(before: dragGesture())
-        )
-        .simultaneousGesture(
             doubleTapGesture()
+                .exclusively(before:
+                    tapGesture()
+                        .exclusively(before:
+                            dragGesture()
+                        )
+                )
         )
     }
     
@@ -706,7 +715,7 @@ struct TableView: View {
     }
     
     private func dragGesture() -> some Gesture {
-        DragGesture(minimumDistance: 25)
+        DragGesture(minimumDistance: 2)
             .updating($dragOffset) { value, state, _ in
                 guard !isLayoutLocked else { return }
                 state = value.translation

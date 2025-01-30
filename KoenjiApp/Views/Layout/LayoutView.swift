@@ -35,14 +35,11 @@ struct LayoutView: View {
 
     // Reservation editing
     @Binding var selectedReservation: Reservation?
-    @Binding var currentReservation: Reservation?
     @Binding var columnVisibility: NavigationSplitViewVisibility
     
     @State private var isManuallyOverridden: Bool = false
-    @State private var showingEditReservation: Bool = false
     @State private var showInspector: Bool = false  // Controls Inspector visibility
     @State private var showingDatePicker: Bool = false
-    @State private var changedReservation: Reservation? = nil
 
     // Add Reservation
     @State private var showingAddReservationSheet: Bool = false
@@ -78,12 +75,10 @@ struct LayoutView: View {
         layoutServices: LayoutServices,
         resCache: CurrentReservationsCache,
         selectedReservation: Binding<Reservation?>,
-        currentReservation: Binding<Reservation?>,
         columnVisibility: Binding<NavigationSplitViewVisibility>
     ) {
         
         self._selectedReservation = selectedReservation
-        self._currentReservation = currentReservation
         self._columnVisibility = columnVisibility
         
         _clusterManager = State(
@@ -118,7 +113,20 @@ struct LayoutView: View {
 
             ZStack {
                 
-                
+                Color.clear
+                .gesture(
+                    TapGesture(count: 3) // Double-tap to exit full-screen
+                        .onEnded {
+                                withAnimation {
+                                    appState.isFullScreen.toggle()
+                                    if appState.isFullScreen {
+                                        columnVisibility = .detailOnly
+                                    } else {
+                                        columnVisibility = .all
+                                    }
+                            }
+                        }
+                )
                 
 //                CardSwapView(
 //                        selectedIndex: $selectedIndex,
@@ -134,9 +142,9 @@ struct LayoutView: View {
                         selectedCategory: appState.selectedCategory,
                         isManuallyOverridden: $isManuallyOverridden,
                         selectedReservation: $selectedReservation,
-                        changedReservation: $changedReservation,
+                        changedReservation: $appState.changedReservation,
                         showInspector: $showInspector,
-                        showingEditReservation: $showingEditReservation,
+                        showingEditReservation: $appState.showingEditReservation,
                         showingAddReservationSheet: $showingAddReservationSheet,
                         tableForNewReservation: $tableForNewReservation,
                         isLayoutLocked: $isLayoutLocked,
@@ -165,19 +173,7 @@ struct LayoutView: View {
 //                }
                 
 //                .animation(.easeInOut(duration: 0.3), value: appState.isFullScreen)
-                .gesture(
-                    TapGesture(count: 2) // Double-tap to exit full-screen
-                        .onEnded {
-                                withAnimation {
-                                    appState.isFullScreen.toggle()
-                                    if appState.isFullScreen {
-                                        columnVisibility = .detailOnly
-                                    } else {
-                                        columnVisibility = .all
-                                    }
-                            }
-                        }
-                )
+                
 
                 if scale <= 1 {
                     PencilKitCanvas(
@@ -381,10 +377,10 @@ struct LayoutView: View {
             .sheet(isPresented: $showInspector) {  // Show Inspector if a reservation is selected
                 InspectorSideView(
                     selectedReservation: $selectedReservation,
-                    currentReservation: $currentReservation,
+                    currentReservation: $appState.currentReservation,
                     showInspector: $showInspector,
-                    showingEditReservation: $showingEditReservation,
-                    changedReservation: $changedReservation,
+                    showingEditReservation: $appState.showingEditReservation,
+                    changedReservation: $appState.changedReservation,
                     isShowingFullImage: $isShowingFullImage
                 )
                 .environmentObject(resCache)
@@ -394,11 +390,15 @@ struct LayoutView: View {
                 .environmentObject(layoutServices)
                 .presentationBackground(.thinMaterial)
             }
-            .sheet(item: $currentReservation) { reservation in
+            .sheet(item: $appState.currentReservation) { reservation in
                 EditReservationView(
                     reservation: reservation,
                     onClose: {
-                        showingEditReservation = false
+                        appState.showingEditReservation = false
+                        showInspector = true
+                    },
+                    onChanged: { reservation in
+                        appState.changedReservation = reservation
                     }
                 )
                 .environmentObject(store)
@@ -409,16 +409,6 @@ struct LayoutView: View {
             }
             .sheet(isPresented: $showingAddReservationSheet) {
                 AddReservationView(
-                    selectedDate: Binding<Date>(
-                        get: {
-                            // Force-unwrap or handle out-of-range more gracefully
-                            dates[selectedIndex]
-                        },
-                        set: { newVal in
-                            // Update the array in the parent
-                            dates[selectedIndex] = newVal
-                        }
-                    ),
                     passedTable: tableForNewReservation
                 )
                 .environmentObject(store)
@@ -456,6 +446,11 @@ struct LayoutView: View {
                     selectedReservation = nil
                 }
             }
+//            .onChange(of: selectedReservation) { old, new in
+//                if new {
+//                    showInspector = true
+//                }
+//            }
             .onChange(of: isScribbleModeEnabled) {
                 DispatchQueue.main.async {
                     scribbleService.saveScribbleForCurrentLayout(currentDrawing, currentLayoutKey)

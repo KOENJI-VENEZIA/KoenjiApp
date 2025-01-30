@@ -59,6 +59,7 @@ struct InspectorSideView: View {
                         onEdit: { reservation in
                             currentReservation = reservation
                             showingEditReservation = true
+                            dismissInfoCard()
                         },
                         isShowingFullImage: $isShowingFullImage
                     )
@@ -72,8 +73,8 @@ struct InspectorSideView: View {
                         },
                         onEdit: { reservation in
                             currentReservation = reservation
-                            changedReservation = reservation
                             showingEditReservation = true
+                            dismissInfoCard()
                         },
                         onCancelled: { reservation in
                             changedReservation = reservation
@@ -95,6 +96,7 @@ struct InspectorSideView: View {
                         onEdit: { reservation in
                             currentReservation = reservation
                             showingEditReservation = true
+                            dismissInfoCard()
                         },
                         onRestore: { reservation in
                         changedReservation = reservation
@@ -111,6 +113,7 @@ struct InspectorSideView: View {
                         onEdit: { reservation in
                             currentReservation = reservation
                             showingEditReservation = true
+                            dismissInfoCard()
                         },
                         onConfirm: { reservation in
                             changedReservation = reservation

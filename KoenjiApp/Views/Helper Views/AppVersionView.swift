@@ -21,8 +21,13 @@ struct AppVersionView: View {
         VStack(alignment: .leading) {
             Text("App Version: \(appVersion)")
                 .font(.headline)
-            Text("Build: \(buildNumber) (beta 2)")
+            #if DEBUG
+            Text("Build: \(buildNumber) (debug ver.)")
                 .font(.subheadline)
+            #else
+            Text("Build: \(buildNumber) (release)")
+                .font(.subheadline)
+            #endif
             Text("Matteo Nassini\n© All Rights Reserved")
                 .font(.subheadline)
         }

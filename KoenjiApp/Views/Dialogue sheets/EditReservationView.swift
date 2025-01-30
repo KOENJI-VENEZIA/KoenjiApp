@@ -29,6 +29,7 @@ struct EditReservationView: View {
     @State private var showImageField = false
 
     var onClose: () -> Void
+    var onChanged: (Reservation) -> Void
 
     var body: some View {
         NavigationView {
@@ -263,6 +264,7 @@ struct EditReservationView: View {
                         .frame(minHeight: 80)
                 }
             }
+            .scrollContentBackground(.hidden)
             .navigationTitle("Modifica - \(reservation.name)")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -338,7 +340,6 @@ struct EditReservationView: View {
                 }
             }
         }
-        .background(.clear)
     }
 
     private func saveChanges() {
@@ -375,6 +376,7 @@ struct EditReservationView: View {
             print("Updated tables of \(reservation.name): \(reservation.tables)")
             print("Updated status of \(reservation.name): \(reservation.status)")
 
+            onChanged(reservation)
             onClose()
             dismiss()
         }
@@ -388,7 +390,8 @@ struct EditReservationView: View {
                 reservationService.updateReservation(reservation)
 
                 reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
-
+                
+                onChanged(reservation)
                 onClose()
                 dismiss()
             case .failure(let error):

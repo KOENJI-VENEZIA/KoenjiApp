@@ -42,7 +42,7 @@ struct BackupListView: View {
                     }
                 }
             }
-            .background(.clear)
+            .scrollContentBackground(.hidden)
             .navigationTitle("Ripristino da backup")
             .onAppear {
                 fetchBackupList()

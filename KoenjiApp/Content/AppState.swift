@@ -19,6 +19,9 @@ class AppState: ObservableObject {
     @Published var selectedCategory: Reservation.ReservationCategory
     @Published var systemTime: Date = Date()
     @Published var isManuallyOverridden: Bool = false
+    @Published var changedReservation: Reservation? = nil
+    @Published var showingEditReservation: Bool = false
+    @Published var currentReservation: Reservation? = nil
 
     @State var dates: [Date] = []
     @State var selectedIndex: Int = 15

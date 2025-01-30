@@ -173,7 +173,7 @@ struct LayoutPageView: View {
                         .background(backgroundColor.opacity(0.2))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .gesture(
-                            TapGesture(count: 2)  // Double-tap to exit full-screen
+                            TapGesture(count: 3)  // Double-tap to exit full-screen
                                 .onEnded {
                                     withAnimation {
                                         appState.isFullScreen.toggle()
@@ -301,7 +301,9 @@ struct LayoutPageView: View {
                                     selectedReservation: $selectedReservation,
                                     isLunch: isLunch
                                 )
+//                                .frame(width: overlayFrame.width, height: overlayFrame.height)
                                 .zIndex(2)
+                                .allowsHitTesting(false)
                                 .opacity(isLayoutLocked ? 1 : 0)
                                 .animation(.easeInOut(duration: 0.5), value: isLayoutLocked)
                                 .environmentObject(resCache)
@@ -332,10 +334,13 @@ struct LayoutPageView: View {
                                 }
 
                                 ClusterOverlayView(
-                                    cluster: cluster, selectedCategory: selectedCategory,
-                                    overlayFrame: overlayFrame, statusChanged: $statusChanged
+                                    cluster: cluster,
+                                    selectedCategory: selectedCategory,
+                                    overlayFrame: overlayFrame,
+                                    statusChanged: $statusChanged,
+                                    showInspector: $showInspector,
+                                    selectedReservation: $selectedReservation
                                 )
-                                .contentShape(Rectangle()) // Ensures taps register anywhere inside the frame
                                 .environmentObject(resCache)
                                 .environmentObject(appState)
                                 .environmentObject(reservationService)
@@ -449,17 +454,17 @@ struct LayoutPageView: View {
             //            print("Triggered onChange of showingEditReservation")
             debounce {
                 updateCachedReservation(appState.selectedDate)
-                reloadLayout(appState.selectedCategory, resCache.activeReservations)
+//                reloadLayout(appState.selectedCategory, resCache.activeReservations)
             }
         }
-        .onChange(of: store.reservations) { oldValue, newValue in
-            print("reservations changed from \(oldValue.count) to \(newValue.count)")
-            // Force the active-reservations fetch (since store.reservations changed)
-            debounce {
-                updateCachedReservation(appState.selectedDate)
-                reloadLayout(appState.selectedCategory, resCache.activeReservations)
-            }
-        }
+//        .onChange(of: store.reservations) { oldValue, newValue in
+//            print("reservations changed from \(oldValue.count) to \(newValue.count)")
+//            // Force the active-reservations fetch (since store.reservations changed)
+//            debounce {
+//                updateCachedReservation(appState.selectedDate)
+////                reloadLayout(appState.selectedCategory, resCache.activeReservations)
+//            }
+//        }
         .onChange(of: changedReservation) {
             debounce {
                 print("Detected cancelled Reservation [LayoutPageView]")
@@ -471,7 +476,7 @@ struct LayoutPageView: View {
         .onChange(of: statusChanged) {
             debounce {
                 updateCachedReservation(appState.selectedDate)
-                updateClustersIfNeeded(for: resCache.activeReservations, tables: layoutUI.tables)
+//                updateClustersIfNeeded(for: resCache.activeReservations, tables: layoutUI.tables)
 
             }
         }

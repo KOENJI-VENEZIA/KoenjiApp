@@ -11,6 +11,9 @@ struct ClusterOverlayView: View {
     let selectedCategory: Reservation.ReservationCategory
     let overlayFrame: CGRect
     @Binding var statusChanged: Int
+    @Binding var showInspector: Bool
+    @Binding var selectedReservation: Reservation?
+    
     @State private var systemTime: Date = Date()
     
     @State private var nearEndReservation: Reservation?
@@ -73,14 +76,20 @@ struct ClusterOverlayView: View {
             }
         }
         .gesture(
-            TapGesture()
-            .onEnded {
-                print("tapped!!!!")
-                if let reservation = currentReservation {
-                    handleTap(reservation)
+            TapGesture(count: 2)
+                .onEnded {
+                    handleDoubleTap()
                 }
+                .exclusively(before:
+                    TapGesture()
+                        .onEnded {
+                            print("tapped!!!!")
+                            if let reservation = currentReservation {
+                                handleTap(reservation)
+                            }
+                        }
+                )
                 
-            }
         )
         .background(.clear)
         .onAppear {
@@ -108,6 +117,14 @@ struct ClusterOverlayView: View {
         if resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {$0.id == cluster.reservationID.id }) {
             nearEndReservation = cluster.reservationID
         }
+    }
+    
+    private func handleDoubleTap() {
+        // Check if the table is occupied by filtering active reservations.
+       
+        showInspector = true
+        selectedReservation = cluster.reservationID
+        
     }
     
     private func handleTap(_ activeReservation: Reservation?) {

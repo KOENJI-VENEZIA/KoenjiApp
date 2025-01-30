@@ -41,12 +41,18 @@ struct AddReservationView: View {
 
     // MARK: - Bindings from parent
     @State var category: Reservation.ReservationCategory = .lunch
-    @Binding var selectedDate: Date
     @State var startTime: Date = Date()
     var passedTable: TableModel?
 
     @State private var availableTables: [(table: TableModel, isCurrentlyAssigned: Bool)] = []
 
+    init(
+        passedTable: TableModel?
+    ) {
+        self.passedTable = passedTable
+        
+        UITableView.appearance().backgroundColor = .clear
+    }
     // MARK: - Body
     var body: some View {
         NavigationView {
@@ -62,9 +68,9 @@ struct AddReservationView: View {
                         in: 2...14)
 
                     DatePicker(
-                        "Seleziona Data", selection: $selectedDate, displayedComponents: .date
+                        "Seleziona Data", selection: $appState.selectedDate, displayedComponents: .date
                     )
-                    .onChange(of: selectedDate) {
+                    .onChange(of: appState.selectedDate) {
                         adjustTimesForCategory()
                     }
 
@@ -261,7 +267,8 @@ struct AddReservationView: View {
                         .frame(minHeight: 80)
                 }
             }
-            .background(.clear)
+//            .background(.thinMaterial)
+            .scrollContentBackground(.hidden)
             .navigationTitle("Nuova Prenotazione")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -358,7 +365,7 @@ struct AddReservationView: View {
                 }
             }
         }
-        .background(.clear)
+
     }
 
     // MARK: - Helpers
@@ -369,7 +376,7 @@ struct AddReservationView: View {
             name: name,
             phone: phone,
             numberOfPersons: numberOfPersons,
-            dateString: DateHelper.formatDate(selectedDate),
+            dateString: DateHelper.formatDate(appState.selectedDate),
             category: appState.selectedCategory,
             startTime: startTimeString,
             endTime: endTimeString,
@@ -459,7 +466,7 @@ struct AddReservationView: View {
             return
         }
 
-        let weekday = Calendar.current.component(.weekday, from: selectedDate)
+        let weekday = Calendar.current.component(.weekday, from: appState.selectedDate)
         if weekday == 2 {  // Monday
             activeAlert = .mondayConfirmation
             isSaving = false

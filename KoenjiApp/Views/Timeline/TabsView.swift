@@ -119,21 +119,24 @@ struct TabsView: View {
                 }
                 
             }
-//            .sheet(item: $currentReservation) { reservation in
-//                EditReservationView(
-//                    reservation: reservation,
-//                    onClose: {
-//                        showingEditReservation = false
-//                    }
-//                )
-//                .environmentObject(store)
-//                .environmentObject(resCache)
-//                .environmentObject(reservationService)  // For the new service
-//                .environmentObject(layoutServices)
-//            }
+            .sheet(item: $appState.currentReservation) { reservation in
+                EditReservationView(
+                    reservation: reservation,
+                    onClose: {
+                        appState.showingEditReservation = false
+                    },
+                    onChanged: { reservation in
+                        appState.changedReservation = reservation
+                    }
+                )
+                .environmentObject(store)
+                .environmentObject(resCache)
+                .environmentObject(reservationService)  // For the new service
+                .environmentObject(layoutServices)
+                .presentationBackground(.thinMaterial)
+            }
             .sheet(isPresented: $showingAddReservationSheet) {
                 AddReservationView(
-                    selectedDate: $bindableDate,
                     passedTable: nil
                 )
                 .environmentObject(store)
