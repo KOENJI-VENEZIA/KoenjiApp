@@ -66,6 +66,7 @@ struct ReservationListView: View {
                     onClose: { listView.activeSheet = nil },
                     onEdit: { reservation in
                         listView.handleEditTap(reservation)
+                        dismissInfoCard()
                     },
                     isShowingFullImage: $listView.isShowingFullImage
                 )
@@ -473,6 +474,7 @@ struct ReservationListView: View {
     func dismissInfoCard() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {  // Match animation duration
             listView.selectedReservation = nil
+            listView.activeSheet = .none
         }
     }
 
