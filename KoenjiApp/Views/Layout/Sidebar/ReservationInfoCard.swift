@@ -23,45 +23,61 @@ struct ReservationInfoCard: View {
                 ScrollView {
                     VStack (spacing: 20) {
                         Group {
-                            HStack {
-                                Text("Dettagli")
-                                    .font(.headline)
-                                Spacer()
-                                if let reservationImage = reservation.image {
-                                    reservationImage
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 30, height: 30)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 12)
-                                                .stroke(Color.gray, lineWidth: 1)
-                                        )
-                                        .clipped()
-                                        .onTapGesture {
-                                            withAnimation {
-                                                isShowingFullImage = true // Show the full image when tapped
+                            ZStack(alignment: .leading) {
+                                 RoundedRectangle(cornerRadius: 12.0)
+                                     .fill(reservation.assignedColor.opacity(0.5))
+                                
+                                HStack {
+                                    
+                                    
+                                    Text("Dettagli - \(reservation.name)")
+                                        .lineLimit(1)
+                                        .bold()
+                                        .truncationMode(.tail)
+                                        .font(.title2)
+                                        .padding()
+                                    
+                                    
+                                    Spacer()
+                                    if let reservationImage = reservation.image {
+                                        reservationImage
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 40, height: 40)
+                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(Color.gray, lineWidth: 1)
+                                            )
+                                            .clipped()
+                                            .padding()
+                                            .onTapGesture {
+                                                withAnimation {
+                                                    isShowingFullImage = true // Show the full image when tapped
+                                                }
                                             }
-                                        }
-                                        .sheet(isPresented: $isShowingFullImage) {
-                                            VStack {
-                                                Spacer()
-                                                reservationImage
-                                                    .resizable()
-                                                    .scaledToFit() // Show the full image
-                                                Spacer()
+                                            .sheet(isPresented: $isShowingFullImage) {
+                                                VStack {
+                                                    Spacer()
+                                                    reservationImage
+                                                        .resizable()
+                                                        .scaledToFit() // Show the full image
+                                                    Spacer()
+                                                }
+                                                .background(Color.black.edgesIgnoringSafeArea(.all)) // Optional: Fullscreen background color
                                             }
-                                            .background(Color.black.edgesIgnoringSafeArea(.all)) // Optional: Fullscreen background color
-                                        }
-                                } else {
-                                    Image(systemName: "person.2")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 30, height: 30)
+                                    } else {
+                                        Image(systemName: "person.2")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 30, height: 30)
+                                            .padding()
+                                    }
                                 }
                             }
                             .padding()
                         }
+                        Divider()
                         // Guest Name and Phone
                         Group {
                             HStack {

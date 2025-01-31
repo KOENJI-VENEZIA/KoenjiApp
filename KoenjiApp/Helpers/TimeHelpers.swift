@@ -18,13 +18,17 @@ struct TimeHelpers {
         let lastDinnerTime = DateHelper.parseTime("23:45")!
         let maxEndTime = category == .lunch ? lastLunchTime : lastDinnerTime
 
+        var end: Date = Date()
         // Adjust end time based on start time
-        var end = Calendar.current.date(byAdding: .minute, value: 105, to: start) ?? start
-
-        // Ensure the calculated end time does not exceed the maximum allowed time
+        if category == .lunch {
+            end = Calendar.current.date(byAdding: .minute, value: 80, to: start) ?? start
+        } else if category == .dinner {
+            end = Calendar.current.date(byAdding: .minute, value: 105, to: start) ?? start
+        }
+        
         end = min(end, maxEndTime)
-
         return DateHelper.formatTime(end)
+
     }
 
     static func remainingTimeString(endTime: Date, currentTime: Date) -> String? {

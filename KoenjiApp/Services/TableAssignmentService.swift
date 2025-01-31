@@ -60,7 +60,7 @@ class TableAssignmentService {
         tables: [TableModel]
     ) -> [TableModel]? {
         guard let reservationDate = reservation.normalizedDate else {
-            print("Failed to parse reservation date string: \(reservation.normalizedDate) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
+            print("Failed to parse reservation date string: \(reservation.normalizedDate ?? Date()) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
             return nil
         }
         print("Parsed reservation date: \(reservationDate) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")

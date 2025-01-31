@@ -57,6 +57,9 @@ struct ReservationListView: View {
             .onChange(of: store.reservations) {
                 listView.currentReservations = store.reservations
             }
+            .onChange(of: listView.changedReservation) {
+                listView.currentReservations = store.reservations
+            }
         
         .sheet(item: $listView.activeSheet) { sheet in
             switch sheet {
@@ -133,7 +136,9 @@ struct ReservationListView: View {
         
         .sheet(item: $listView.currentReservation) { (reservation: Reservation) in
             EditReservationView(reservation: reservation, onClose: {},
-                                onChanged: { reservation in })
+                                onChanged: { reservation in
+                listView.changedReservation = reservation
+            })
 
                 .environmentObject(store)
                 .environmentObject(resCache)
@@ -466,9 +471,9 @@ struct ReservationListView: View {
         groups: [GroupedReservations],
         by groupOption: GroupOption
     ) -> [GroupedReservations] {
-        return (try? groups.sorted(by: { (lhs: GroupedReservations, rhs: GroupedReservations) -> Bool in
+        return (groups.sorted(by: { (lhs: GroupedReservations, rhs: GroupedReservations) -> Bool in
             return groupSortingFunction(lhs: lhs, rhs: rhs, by: groupOption)
-        })) ?? groups
+        }))
     }
     
     func dismissInfoCard() {
@@ -593,14 +598,10 @@ struct ReservationListView: View {
         }
 
         private func prepareExport() {
-            do {
                 // Generate the ReservationsDocument with current reservations
                 let reservations = getReservations()  // Replace with your actual reservations
-                document = try ReservationsDocument(reservations: reservations)
+                document = ReservationsDocument(reservations: reservations)
                 isExporting = true
-            } catch {
-                print("Failed to prepare export: \(error.localizedDescription)")
-            }
         }
 
         private func getReservations() -> [Reservation] {

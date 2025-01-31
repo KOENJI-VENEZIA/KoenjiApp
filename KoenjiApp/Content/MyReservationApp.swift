@@ -1,7 +1,6 @@
 import UIKit
 import SwiftUI
 import Firebase
-import FirebaseAuth
 
 @main
 struct MyReservationApp: App {
@@ -75,7 +74,6 @@ struct MyReservationApp: App {
         let listView = ListViewModel(reservationService: service, store: localStore, layoutServices: layoutServices)
         _listView = State(wrappedValue: listView)
         
-        authenticateUser()
 
 
     }
@@ -100,16 +98,6 @@ struct MyReservationApp: App {
         }
     
         
-    }
-    
-    func authenticateUser() {
-        Auth.auth().signInAnonymously { authResult, error in
-            if let error = error {
-                print("Authentication failed: \(error)")
-            } else {
-                print("User authenticated: \(authResult?.user.uid ?? "No UID")")
-            }
-        }
     }
 
 }

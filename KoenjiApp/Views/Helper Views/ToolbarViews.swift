@@ -11,18 +11,19 @@ struct ToolbarExtended: View {
 
     let geometry: GeometryProxy
     @Binding var toolbarState: ToolbarState
+    let small: Bool
 
     var body: some View {
 
             // MARK: Background (RoundedRectangle)
             RoundedRectangle(cornerRadius: 12)
-                .fill(.thinMaterial)
+                .fill(.ultraThinMaterial)
                 .frame(
                     width: toolbarState != .pinnedBottom
                     ? 80  // 20% of the available width (you can tweak the factor)
-                    : geometry.size.width * 0.9,  // 90% of the available width when pinned bottom
+                    : (small ? geometry.size.width * 0.4 : geometry.size.width * 0.9 ),  // 90% of the available width when pinned bottom
                     height: toolbarState != .pinnedBottom
-                    ? geometry.size.height * 0.9  // 90% of the available height when vertical
+                    ? (small ? geometry.size.height * 0.4 : geometry.size.height * 0.9 )  // 90% of the available height when vertical
                     : 80  // 15% of the available height when horizontal
                 )
     }

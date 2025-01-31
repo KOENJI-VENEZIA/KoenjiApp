@@ -166,9 +166,9 @@ struct LayoutView: View {
                     .environmentObject(gridData)
                     .environmentObject(scribbleService)
                     .environmentObject(currentDrawing)
-                    .id(selectedIndex)  // Force view refresh on index change
-                    .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.5), value: selectedIndex)
+//                    .id(selectedIndex)  // Force view refresh on index change
+//                    .transition(.opacity)
+//                    .animation(.easeInOut(duration: 0.5), value: selectedIndex)
 
 //                }
                 
@@ -208,7 +208,7 @@ struct LayoutView: View {
                 }
 
                 ZStack {
-                    ToolbarExtended(geometry: geometry, toolbarState: $toolbarManager.toolbarState)
+                    ToolbarExtended(geometry: geometry, toolbarState: $toolbarManager.toolbarState, small: false)
 
                     // MARK: Toolbar Content
                     toolbarContent(in: geometry, selectedDate: appState.selectedDate)
@@ -636,6 +636,7 @@ struct LayoutView: View {
                     let combinedTime = DateHelper.combineDateAndTime(
                         date: day, timeString: lunchTime)
                 else { return }
+                print("DEBUG: Returned combined date for new category: \(combinedTime)")
                 appState.selectedDate = combinedTime
                 //            currentTime = combinedTime
             }) {
@@ -968,27 +969,61 @@ struct LayoutView: View {
     private func navigateToNextTime() {
         let calendar = Calendar.current
 
-        // 1) Round down to nearest 15-min boundary
+        // Round down to nearest 15-min boundary
         let roundedDown = calendar.roundedDownToNearest15(appState.selectedDate)
-        // 2) From that boundary, add 15 minutes
-        let newTime = calendar.date(byAdding: .minute, value: 15, to: roundedDown)!
+        
+        // Determine max allowed time based on selected category
+        let maxAllowedTime: Date?
+        
+        switch appState.selectedCategory {
+        case .lunch:
+            maxAllowedTime = calendar.date(bySettingHour: 15, minute: 0, second: 0, of: appState.selectedDate)
+        case .dinner:
+            maxAllowedTime = calendar.date(bySettingHour: 23, minute: 45, second: 0, of: appState.selectedDate)
+        case .noBookingZone:
+            return // Do nothing; time navigation isn't allowed here
+        }
 
-        appState.selectedDate = newTime
-        //        currentTime = newTime
-        isManuallyOverridden = true
+        // Calculate new time
+        if let maxAllowedTime = maxAllowedTime {
+            let newTime = calendar.date(byAdding: .minute, value: 15, to: roundedDown)!
+
+            // Prevent going past the max limit
+            if newTime <= maxAllowedTime {
+                appState.selectedDate = newTime
+                isManuallyOverridden = true
+            }
+        }
     }
 
     private func navigateToPreviousTime() {
         let calendar = Calendar.current
 
-        // 1) Round down to nearest 15-min boundary
+        // Round down to nearest 15-min boundary
         let roundedDown = calendar.roundedDownToNearest15(appState.selectedDate)
-        // 2) From that boundary, subtract 15 minutes
-        let newTime = calendar.date(byAdding: .minute, value: -15, to: roundedDown)!
+        
+        // Determine min allowed time based on selected category
+        let minAllowedTime: Date?
+        
+        switch appState.selectedCategory {
+        case .lunch:
+            minAllowedTime = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: appState.selectedDate)
+        case .dinner:
+            minAllowedTime = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: appState.selectedDate)
+        case .noBookingZone:
+            return // Do nothing; time navigation isn't allowed here
+        }
 
-        appState.selectedDate = newTime
-        //        currentTime = newTime
-        isManuallyOverridden = true
+        // Calculate new time
+        if let minAllowedTime = minAllowedTime {
+            let newTime = calendar.date(byAdding: .minute, value: -15, to: roundedDown)!
+
+            // Prevent going before the min limit
+            if newTime >= minAllowedTime {
+                appState.selectedDate = newTime
+                isManuallyOverridden = true
+            }
+        }
     }
 
     /// Generates the initial set of dates centered around today.

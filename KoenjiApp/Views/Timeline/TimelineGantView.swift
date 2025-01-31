@@ -48,6 +48,12 @@ struct TimelineGantView: View {
         
         GeometryReader { geometry in
             ZStack {
+                Text("\(DateHelper.dayOfWeek(for: appState.selectedDate)), \(DateHelper.formatFullDate(appState.selectedDate))")
+                    .bold()
+                    .padding()
+                    .font(.title3)
+                    .offset(y: (-geometry.size.height/2)+20)
+                
                 Color.clear
                     .gesture(
                     TapGesture(count: 2) // Double-tap to exit full-screen
@@ -69,7 +75,7 @@ struct TimelineGantView: View {
                             .font(.headline)
                             .padding()
                         ForEach(0..<7) { tableID in
-                            Text("TABLE \(tableID + 1)")
+                            Text("TAVOLO \(tableID + 1)")
                                 .padding()
                         }
                     }
@@ -136,6 +142,7 @@ struct TimelineGantView: View {
                                                 })
                                             }, id: \.id
                                         ) { reservation in
+                                            
                                             
                                             RectangleReservationBackground(
                                                 reservation: reservation,
@@ -279,21 +286,35 @@ struct RectangleReservationBackground: View {
                     .fill(.thinMaterial)
                     .frame(width: duration - 20.0, height: 40)
 
-                    HStack(spacing: 10) {
-                        Text("\(reservation.name), \(reservation.numberOfPersons) p.")
-                            .font(.title3)
-                            .bold()
-                        
-                        Text(" | ")
-                            .font(.headline)
-                        
-                        Text("dalle \(reservation.startTime)")
-                            .font(.headline)
-                    }
+                    GeometryReader { geo in
+                        HStack(spacing: 10) {
+                            Text("\(reservation.name),")
+                                .font(.title3) // Larger font for name
+                                .bold()
+                            
+                            Text("\(reservation.numberOfPersons) p.")
+                                .font(.headline) // Slightly smaller font for persons count
+                            
+                            Text("|")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                            
+                            Text("dalle \(reservation.startTime)")
+                                .font(.headline) // Smaller font for time
+                        }
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .layoutPriority(1)
+                        .frame(maxWidth: geo.size.width - 20, alignment: .center)
+                       .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                       
+                   }
+//                   .frame(maxWidth: duration - 20.0)
                 }
                 .frame(width: duration, height: 60)
             }
         }
+        .animation(.easeInOut(duration: 0.5), value: reservation)
         .background(Color.clear)
     }
 }

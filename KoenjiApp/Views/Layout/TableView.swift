@@ -158,6 +158,28 @@ struct TableView: View {
                         )
                 }
 
+                
+
+                Group {
+                    showedUpMark()
+                        .opacity(
+                            (tableView.currentActiveReservation?.status == .showedUp) ? 1 : 0
+                        )
+
+                    emojiMark(tableView.currentActiveReservation?.assignedEmoji ?? "")
+                        .opacity(
+                            (tableView.currentActiveReservation?.assignedEmoji != nil) ? 1 : 0
+                        )
+
+                    lateMark()
+                        .opacity(
+                            tableView.lateReservation != nil && tableView.currentActiveReservation != nil && tableView.currentActiveReservation?.status != .showedUp ? 1 : 0
+                        )
+
+                    nearEndMark()
+                        .opacity(tableView.nearEndReservation != nil ? 1 : 0)
+                }
+                
                 // Reservation information or table name
                 Group {
                     reservationInfo(
@@ -187,26 +209,7 @@ struct TableView: View {
                         tableView.firstUpcomingReservation == nil ? 1 : 0
                     )
                 }
-
-                Group {
-                    showedUpMark()
-                        .opacity(
-                            (tableView.currentActiveReservation?.status == .showedUp) ? 1 : 0
-                        )
-
-                    emojiMark(tableView.currentActiveReservation?.assignedEmoji ?? "")
-                        .opacity(
-                            (tableView.currentActiveReservation?.assignedEmoji != nil) ? 1 : 0
-                        )
-
-                    lateMark()
-                        .opacity(
-                            tableView.lateReservation != nil && tableView.currentActiveReservation != nil && tableView.currentActiveReservation?.status != .showedUp ? 1 : 0
-                        )
-
-                    nearEndMark()
-                        .opacity(tableView.nearEndReservation != nil ? 1 : 0)
-                }
+                
             }
             .transition(.opacity)
             .opacity(table.isVisible ? 1 : 0)
@@ -225,10 +228,10 @@ struct TableView: View {
             updateResData(appState.selectedDate, refreshedKey: "changedReservation")
         }
         .onChange(of: appState.selectedDate) {
-            updateResData(appState.selectedDate, refreshedKey: "appState.selectedDate")
+            updateResData(appState.selectedDate, refreshedKey: "appState.selectedDate", forceUpdate: true)
         }
-        .onChange(of: appState.selectedCategory) {
-            updateResData(appState.selectedDate, refreshedKey: "appState.selectedCategory")
+        .onChange(of: appState.selectedCategory) { oldCat, newCat in
+            updateResData(appState.selectedDate, refreshedKey: "appState.selectedCategory", forceUpdate: true)
         }
         .onChange(of: tableView.selectedEmoji) {
             handleEmojiAssignment(tableView.currentActiveReservation, tableView.selectedEmoji)
@@ -346,6 +349,8 @@ struct TableView: View {
                     .bold()
                     .font(.headline)
                     .foregroundStyle(colorScheme == .dark ? .white : .black)
+                    .lineLimit(1) // Ensures the text stays on one line
+                    .truncationMode(.tail) // Truncates with "..." at the end if it overflows
                 Text("\(reservation.numberOfPersons) p.")
                     .font(.footnote)
                     .foregroundStyle(colorScheme == .dark ? .white : .black)
@@ -405,6 +410,8 @@ struct TableView: View {
                     .bold()
                     .font(.headline)
                     .foregroundStyle(colorScheme == .dark ? .white : .black)
+                    .lineLimit(1) // Ensures the text stays on one line
+                    .truncationMode(.tail) // Truncates with "..." at the end if it overflows
                 Text("\(reservation.numberOfPersons) p.")
                     .font(.footnote)
                     .opacity(0.8)
@@ -454,16 +461,16 @@ struct TableView: View {
     }
     
     // MARK: - View Specific Methods
-    private func updateResData(_ date: Date, refreshedKey: String, forceUpdate: Bool = false) {
+    private func updateResData(_ date: Date, refreshedKey: String, forceUpdate: Bool = false, oldCat: Reservation.ReservationCategory? = nil, newCat: Reservation.ReservationCategory? = nil) {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm" // ✅ Only includes year, month, day, hour, and minute
         formatter.timeZone = TimeZone(identifier: "UTC") // Adjust if needed
         
         let formattedDate = formatter.string(from: date)
-        let key = "\(formattedDate)-\(refreshedKey)-\(table.id)"
+        let key = "\(formattedDate)-\(refreshedKey)-\(appState.selectedCategory.rawValue)-\(table.id)"
         
         // ✅ Guard against duplicate updates
-        if !forceUpdate {
+        if !forceUpdate, oldCat == nil, newCat == nil {
             if tableView.currentActiveReservation != nil || tableView.lateReservation != nil || tableView.firstUpcomingReservation != nil || tableView.nearEndReservation != nil {
                 
                 guard !appState.lastRefreshedKeys.contains(key) else {

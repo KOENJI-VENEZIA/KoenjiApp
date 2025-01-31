@@ -36,6 +36,7 @@ class ListViewModel {
     var hasSelectedPeople: Bool = false
     var hasSelectedStartDate: Bool = false
     var hasSelectedEndDate: Bool = false
+    var changedReservation: Reservation?
 
     
     @ObservationIgnored private var reservationService: ReservationService

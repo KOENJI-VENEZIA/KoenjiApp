@@ -44,25 +44,20 @@ class ScribbleService: ObservableObject {
     // MARK: - Disk Persistence
     
     func validateDrawingData(_ drawing: PKDrawing) -> Bool {
-        do {
-            let data = try drawing.dataRepresentation()
+            let data = drawing.dataRepresentation()
             guard let decodedDrawing = try? PKDrawing(data: data) else {
                 print("Failed to decode drawing from data.")
                 return false
             }
             return decodedDrawing == drawing
-        } catch {
-            print("Error during validation: \(error)")
-            return false
-        }
     }
     
     private func saveToDisk() {
         let encoder = JSONEncoder()
         do {
             // Serialize drawings to base64 strings
-            let serializedData = try cachedScribbles.mapValues { layers in
-                try layers.mapValues { $0.dataRepresentation().base64EncodedString() }
+            let serializedData = cachedScribbles.mapValues { layers in
+                layers.mapValues { $0.dataRepresentation().base64EncodedString() }
             }
             let data = try encoder.encode(serializedData)
             UserDefaults.standard.set(data, forKey: "cachedScribbles")

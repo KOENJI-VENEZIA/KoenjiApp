@@ -55,7 +55,7 @@ struct TabsView: View {
                     }
                     
                     ZStack {
-                        ToolbarExtended(geometry: geometry, toolbarState: $toolbarManager.toolbarState)
+                        ToolbarExtended(geometry: geometry, toolbarState: $toolbarManager.toolbarState, small: true)
                         
                         // MARK: Toolbar Content
                         toolbarContent(in: geometry, selectedDate: appState.selectedDate)
@@ -96,7 +96,7 @@ struct TabsView: View {
                         )
                 }
             }
-            .navigationTitle("Timeline tavoli - \(DateHelper.dayOfWeek(for: appState.selectedDate)), \(DateHelper.formatFullDate(appState.selectedDate))")
+            .navigationTitle("Timeline tavoli")
             .navigationBarTitleDisplayMode(.inline)
             .ignoresSafeArea(.all)
             .toolbar{
@@ -251,8 +251,7 @@ struct TabsView: View {
            }
         }
         .opacity(
-            DateHelper.compareTimes(
-                firstTime: appState.selectedDate, secondTime: Date(), interval: 60)
+            appState.selectedDate.isSameDay(as: Date())
                 ? 0 : 1
         )
         .animation(.easeInOut(duration: 0.5), value: appState.selectedDate)

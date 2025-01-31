@@ -90,7 +90,7 @@ struct ReservationsInfoListView: View {
                                     .tint(.indigo)
                                 }
                                 .listRowSeparator(.visible) // Ensure dividers are visible
-                                .listRowSeparatorTint(Color.white, edges: .bottom) // Customize divider color
+//                                .listRowSeparatorTint(Color.white, edges: .bottom) // Customize divider color
                                 
                             }
                             .onDelete { offsets in
