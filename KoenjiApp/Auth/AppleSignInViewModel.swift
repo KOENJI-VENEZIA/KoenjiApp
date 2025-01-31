@@ -11,16 +11,11 @@ import SwiftUI
 
 class AppleSignInViewModel: NSObject, ObservableObject {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
-    @AppStorage("userEmail") private var userEmail = ""
-    
-
-    private let allowedEmail = "koenji.staff@gmail.com"  // Only allow this email
-
     
     func signInWithApple() {
         let request = ASAuthorizationAppleIDProvider().createRequest()
-        request.requestedScopes = [.email, .fullName]
-
+        request.requestedScopes = [.fullName, .email]
+        
         let controller = ASAuthorizationController(authorizationRequests: [request])
         controller.delegate = self
         controller.performRequests()
@@ -30,21 +25,15 @@ class AppleSignInViewModel: NSObject, ObservableObject {
 extension AppleSignInViewModel: ASAuthorizationControllerDelegate {
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
         if let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential {
-            let email = appleIDCredential.email ?? "Unknown"  // Get email if available
-            let userIdentifier = appleIDCredential.user  // Unique Apple ID identifier
+            // Store login state
+            isLoggedIn = true
             
-            print("Apple Sign-In Success: Email - \(email), ID - \(userIdentifier)")
+            // You can retrieve the Apple ID's email and full name (first time sign-in)
+            let userIdentifier = appleIDCredential.user
+            let email = appleIDCredential.email ?? "Unknown email"
+            let fullName = appleIDCredential.fullName?.givenName ?? "User"
             
-            // Check if the email is allowed
-            if email == allowedEmail {
-                isLoggedIn = true
-                userEmail = email
-                print("✅ Access granted")
-            } else {
-                isLoggedIn = false
-                userEmail = ""
-                print("⛔ Access denied: Unauthorized email")
-            }
+            print("Apple Sign-In Success: \(fullName), Email: \(email), ID: \(userIdentifier)")
         }
     }
     
