@@ -24,7 +24,6 @@ class SharedToolPicker: ObservableObject {
 struct PencilKitCanvas: UIViewRepresentable {
     @EnvironmentObject var drawingModel: DrawingModel
     let sharedToolPicker = SharedToolPicker.shared
-    @ObservedObject var zoomableState: ZoomableScrollViewState
     @Binding var toolPickerShows: Bool
 
     enum Layer {

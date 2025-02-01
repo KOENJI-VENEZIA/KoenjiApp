@@ -46,34 +46,21 @@ struct SidebarView: View {
                    
                     List {
                         NavigationLink(
-                            destination: ReservationListView(
+                            destination: DatabaseView(
                                 store: store,
                                 reservationService: reservationService,
                                 layoutServices: layoutServices,
                                 columnVisibility: $columnVisibility,
                                 listView: listView
                             )
-                            
-                            .environmentObject(resCache)
-                            .environmentObject(backupService)
-                            .environmentObject(appState) // Inject AppState
-                            ) {
-                                Label("Database", systemImage: "list.bullet")
-                            }
+                        ) {
+                            Label("Database", systemImage: "list.bullet")
+                        }
                         
                         NavigationLink(
                             destination: TabsView(
                                 columnVisibility: $columnVisibility
                             )
-                            .environmentObject(store)
-                            .environmentObject(tableStore)
-                            .environmentObject(resCache)
-                            .environmentObject(layoutServices)
-                            .environmentObject(clusterServices)
-                            .environmentObject(gridData)
-                            .environmentObject(backupService)
-                            .environmentObject(appState) // Inject AppState
-                            .environmentObject(reservationService) // For the new service
                             .ignoresSafeArea(.all)
                         ) {
                             Label("Timeline", systemImage: "calendar.day.timeline.left")
@@ -81,29 +68,21 @@ struct SidebarView: View {
                         NavigationLink(
                             destination: LayoutView(
                                 appState: appState,
+                                store: store,
+                                reservationService: reservationService,
                                 clusterServices: clusterServices,
                                 layoutServices: layoutServices,
                                 resCache: resCache,
                                 selectedReservation: $selectedReservation,
                                 columnVisibility: $columnVisibility
                             )
-                            .environmentObject(store)
-                            .environmentObject(tableStore)
-                            .environmentObject(resCache)
-                            .environmentObject(layoutServices)
-                            .environmentObject(clusterServices)
-                            .environmentObject(gridData)
-                            .environmentObject(backupService)
-                            .environmentObject(appState) // Inject AppState
-                            .environmentObject(reservationService) // For the new service
-                            .environmentObject(scribbleService)
                         ) {
                                 Label("Layout Tavoli", systemImage: "rectangle.grid.3x2")
                             }
                     }
                     .listStyle(.sidebar)
-                    .scrollContentBackground(.hidden) // Remove default background of the list
-                    .background(appState.selectedCategory.sidebarColor) // Match the list background to the sidebar color
+                    .scrollContentBackground(.hidden)
+                    .background(appState.selectedCategory.sidebarColor)
                     .navigationTitle("Prenotazioni")
                     .padding(.vertical)
 
@@ -114,19 +93,15 @@ struct SidebarView: View {
                     .frame(maxWidth: .infinity, alignment: .bottomLeading)
                     .opacity(0.8)
                 
-                Image("logo_image") // Replace "YourImageName" with the actual image asset name
+                Image("logo_image")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 200, height: 120) // Adjust size as needed
                     .frame(maxWidth: .infinity, alignment: .bottomLeading)
                     .padding(.horizontal)
-                    .drawingGroup() // Ensures antialiasing and higher-quality rendering
-                
-                
-                
+                    .drawingGroup()
             }
             .ignoresSafeArea(.keyboard)
-
         }
     }
 }

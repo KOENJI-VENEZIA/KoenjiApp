@@ -9,63 +9,41 @@ import SwiftUI
 
 // To update to: TableLayoutManager
 /// Manages UI-related state and interactions for table layout.
-class LayoutUIManager: ObservableObject {
+@Observable
+class LayoutUIManager {
     // MARK: - Dragging State
     /// The table currently being dragged by the user.
-    @Published var draggingTable: TableModel? = nil
+     var draggingTable: TableModel? = nil
     /// The offset of the dragged table from its original position.
-    @Published var draggingOffset: CGSize = .zero
+     var draggingOffset: CGSize = .zero
     /// Indicates whether a table is currently being dragged.
-    @Published var isDragging: Bool = false
+     var isDragging: Bool = false
 
     // MARK: - Pop-up / Alert
     /// Whether an alert is currently visible.
-    @Published var showAlert = false
+     var showAlert = false
     /// The message displayed in the alert.
-    @Published var alertMessage = ""
+     var alertMessage = ""
 
     // MARK: - Grid / Cell Size
     /// The size of a single grid cell, used for layout calculations.
     let cellSize: CGFloat = 40
     /// The list of tables currently displayed in the layout.
-    @Published var tables: [TableModel] = [] {
-        didSet {
-            objectWillChange.send() // Notify SwiftUI of changes
-        }
-    }
-    
-    
-    // to move into ClusterManager
-
+    var tables: [TableModel] = [] 
 
     // MARK: - Dependencies
     /// A reference to the `ReservationStore` for table data and layout operations.
-    private var store: ReservationStore?
-    private var reservationService: ReservationService?
-    private var layoutServices: LayoutServices?
-    
-    /// The date and category this LayoutUIManager is associated with.
-    private var date: Date
-    private var category: Reservation.ReservationCategory
-    
-    @Published var isConfigured: Bool = false
+    private let store: ReservationStore
+    private let reservationService: ReservationService
+    private let layoutServices: LayoutServices
 
-
-    // MARK: - Initialization
-    init(date: Date, category: Reservation.ReservationCategory) {
-        self.date = date
-        self.category = category
-    }
-
-    /// Configures the manager with necessary dependencies.
-    func configure(store: ReservationStore, reservationService: ReservationService, layoutServices: LayoutServices) {
+    @MainActor
+    init(store: ReservationStore, reservationService: ReservationService, layoutServices: LayoutServices) {
         self.store = store
         self.reservationService = reservationService
         self.layoutServices = layoutServices
-        loadLayout()
-        isConfigured = true
     }
-
+    
     // MARK: - Dragging Helpers
 
     /// Updates the state for a table currently being dragged.
@@ -87,8 +65,8 @@ class LayoutUIManager: ObservableObject {
     }
 
     /// Attempts to move a table to a new position.
-    func attemptMove(table: TableModel, to newPosition: (row: Int, col: Int), for date: Date, activeTables: [TableModel]) {
-        guard let layoutServices = layoutServices else { return }
+    func attemptMove(table: TableModel, to newPosition: (row: Int, col: Int), for date: Date, activeTables: [TableModel], category: Reservation.ReservationCategory) {
+//        guard let layoutServices = layoutServices else { return }
         let newTable = TableModel(
             id: table.id,
             name: table.name,
@@ -107,8 +85,8 @@ class LayoutUIManager: ObservableObject {
 
     /// Updates the grid and data for a table's new position.
     private func updateTablePosition(from oldTable: TableModel, to newTable: TableModel) {
-        layoutServices?.unmarkTable(oldTable)
-        layoutServices?.markTable(newTable, occupied: true)
+        layoutServices.unmarkTable(oldTable)
+        layoutServices.markTable(newTable, occupied: true)
 
        
         if let index = tables.firstIndex(where: { $0.id == oldTable.id }) {
@@ -151,15 +129,4 @@ class LayoutUIManager: ObservableObject {
     }
 }
 
-// Continue from the previous LayoutUIManager.swift
 
-extension LayoutUIManager {
-    /// Loads the layout for the associated date and category.
-    func loadLayout() {
-        guard let layoutServices = layoutServices else { return }
-        tables = layoutServices.loadTables(for: date, category: category)
-    }
-    
-    
-
-}

@@ -70,7 +70,6 @@ struct ReservationWaitingListView: View {
                                     .tint(.blue)
                                 }
                                 .listRowSeparator(.visible) // Ensure dividers are visible
-                                .listRowSeparatorTint(Color.white, edges: .bottom) // Customize divider color
                                 
                             }
                             .onDelete { offsets in

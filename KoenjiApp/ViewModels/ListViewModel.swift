@@ -7,6 +7,23 @@
 
 import SwiftUI
 
+enum ActiveSheet: Identifiable {
+    case inspector(UUID)
+    case addReservation
+    case debugConfig
+
+    var id: String {
+        switch self {
+        case .inspector(let id):
+            return "inspector-\(id)"
+        case .addReservation:
+            return "addReservation"
+        case .debugConfig:
+            return "debugConfig"
+        }
+    }
+}
+
 @Observable
 class ListViewModel {
     var searchText: String = ""
@@ -49,22 +66,7 @@ class ListViewModel {
         self.layoutServices = layoutServices
     }
     
-    enum ActiveSheet: Identifiable {
-        case inspector(UUID)
-        case addReservation
-        case debugConfig
-
-        var id: String {
-            switch self {
-            case .inspector(let id):
-                return "inspector-\(id)"
-            case .addReservation:
-                return "addReservation"
-            case .debugConfig:
-                return "debugConfig"
-            }
-        }
-    }
+    
     
     func handleEditTap(_ reservation: Reservation) {
             withAnimation {

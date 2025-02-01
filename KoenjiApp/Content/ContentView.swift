@@ -40,18 +40,6 @@ struct ContentView: View {
                     selectedCategory: $selectedCategory,
                     columnVisibility: $appState.columnVisibility
                 )
-                
-                .environmentObject(store)
-                .environmentObject(tableStore)
-                .environmentObject(resCache)
-                .environmentObject(layoutServices)
-                .environmentObject(clusterServices)
-                .environmentObject(gridData)
-                .environmentObject(backupService)
-                .environmentObject(appState) // Inject AppState
-                .environmentObject(reservationService) // For the new service
-                .environmentObject(scribbleService)
-                
             }
             detail: {
                 // The Detail View

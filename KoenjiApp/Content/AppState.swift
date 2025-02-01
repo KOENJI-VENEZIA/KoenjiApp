@@ -11,11 +11,6 @@ class AppState: ObservableObject {
     @Published var isWritingToFirebase = false
     @Published var inspectorColor: Color = Color.inspector_generic
     @Published var selectedDate: Date = Date()
-//    {
-//        didSet {
-//            selectedCategory = updateCategoryForDate()
-//        }
-//    }
     @Published var selectedCategory: Reservation.ReservationCategory
     @Published var systemTime: Date = Date()
     @Published var isManuallyOverridden: Bool = false

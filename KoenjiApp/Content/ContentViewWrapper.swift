@@ -24,21 +24,8 @@ struct ContentViewWrapper: View {
 
     var body: some View {
         ContentView(listView: listView)
-            .environmentObject(store)
-            .environmentObject(tableStore)
-            .environmentObject(resCache)
-            .environmentObject(layoutServices)
-            .environmentObject(clusterServices)
-            .environmentObject(gridData)
-            .environmentObject(backupService)
-            .environmentObject(appState) // Inject AppState
-            .environmentObject(reservationService) // For the new service
-            .environmentObject(scribbleService)
-
-//            .applyCustomStyles() // Applies dynamic backgrounds and Italian locale
             .onAppear {
                 print("App appearing. Loading data...")
-                // Data loading already handled by ReservationStore initializer
             }
     }
 }

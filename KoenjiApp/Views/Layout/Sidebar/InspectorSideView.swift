@@ -99,7 +99,7 @@ struct InspectorSideView: View {
                             dismissInfoCard()
                         },
                         onRestore: { reservation in
-                        changedReservation = reservation
+                            changedReservation = reservation
                         }
                     )
                     .background(.clear)

@@ -7,6 +7,11 @@
 import SwiftUI
 import Observation
 
+enum NavigationDirection {
+    case forward
+    case backward
+}
+
 @Observable
 class ToolbarStateManager {
      var isDragging: Bool = false

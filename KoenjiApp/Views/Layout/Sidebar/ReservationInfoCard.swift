@@ -30,7 +30,7 @@ struct ReservationInfoCard: View {
                                 HStack {
                                     
                                     
-                                    Text("Dettagli - \(reservation.name)")
+                                    Text("\(reservation.name) - Dettagli")
                                         .lineLimit(1)
                                         .bold()
                                         .truncationMode(.tail)

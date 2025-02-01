@@ -2,20 +2,13 @@ import SwiftUI
 
 struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     @EnvironmentObject private var gridData: GridData
-    @ObservedObject var state: ZoomableScrollViewState
     private var content: Content
     @Binding private var scale: CGFloat
-    @Binding private var category: Reservation.ReservationCategory
-
-
     
     init(
-        state: ZoomableScrollViewState, category: Binding<Reservation.ReservationCategory>,
         scale: Binding<CGFloat>,
         @ViewBuilder content: () -> Content
     ) {
-        self.state = state
-        self._category = category
         self._scale = scale
         self.content = content()
     }
@@ -52,9 +45,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     func makeCoordinator() -> Coordinator {
         return Coordinator(
             hostingController: UIHostingController(rootView: self.content),
-            state: state,  // Pass the shared state
-            scale: $scale,
-            category: $category
+            scale: $scale
         )
     }
 
@@ -62,26 +53,19 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         // update the hosting controller's SwiftUI content
         context.coordinator.hostingController.rootView = self.content
         assert(context.coordinator.hostingController.view.superview == uiView)
-//        context.coordinator.hostingController.willMove(toParent: nil)
-//        context.coordinator.hostingController.removeFromParent()
-//        context.coordinator.hostingController.view.removeFromSuperview()
 
     }
 
     class Coordinator: NSObject, UIScrollViewDelegate {
         var hostingController: UIHostingController<Content>
-        @ObservedObject var state: ZoomableScrollViewState
         @Binding var scale: CGFloat
-        @Binding var category: Reservation.ReservationCategory
 
         init(
-            hostingController: UIHostingController<Content>, state: ZoomableScrollViewState,
-            scale: Binding<CGFloat>, category: Binding<Reservation.ReservationCategory>
+            hostingController: UIHostingController<Content>,
+            scale: Binding<CGFloat>
         ) {
             self.hostingController = hostingController
-            self.state = state
             self._scale = scale
-            self._category = category
         }
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
@@ -91,45 +75,12 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
             DispatchQueue.main.async {
-                self.state.zoomScale = scrollView.zoomScale
                 self.scale = scrollView.zoomScale
-                self.updateCentering(for: scrollView)
-
                 // Enable or disable scrolling based on the zoom scale
                 scrollView.isScrollEnabled = scrollView.zoomScale > 1
             }
         }
-
-        func scrollViewDidScroll(_ scrollView: UIScrollView) {
-            DispatchQueue.main.async {
-                // Prevent scrolling if the scale is 1
-                    self.state.contentOffset = scrollView.contentOffset
-                    self.updateCentering(for: scrollView)
-            }
-        }
-
-        private func updateCentering(for scrollView: UIScrollView) {
-            let contentSize = scrollView.contentSize
-            let visibleBounds = scrollView.bounds
-
-            // Calculate center offset
-            let offsetX = max((visibleBounds.width - contentSize.width) * 0.5, 0)
-            let offsetY = max((visibleBounds.height - contentSize.height) * 0.5, 0)
-
-            DispatchQueue.main.async {
-                self.state.contentSize = contentSize
-                self.state.visibleBounds = visibleBounds
-                self.state.contentOffset = CGPoint(x: offsetX, y: offsetY)
-            }
-        }
     }
-}
-
-class ZoomableScrollViewState: ObservableObject {
-    @Published var zoomScale: CGFloat = 1.0
-    @Published var contentOffset: CGPoint = .zero
-    @Published var contentSize: CGSize = .zero  // Add contentSize to track the scrollable area
-    @Published var visibleBounds: CGRect = .zero  // Add visible bounds of the scroll view
 }
 
 extension UIView {

@@ -5,8 +5,8 @@
 //  Created by Matteo Nassini on 26/1/25.
 //
 
-import SwiftUI
 import Foundation
+import SwiftUI
 
 enum Tabs: Equatable, Hashable, CaseIterable {
     case lunch
@@ -27,9 +27,9 @@ struct TabsView: View {
     @State var reservations: [Reservation] = []
     @State var bindableDate: Date = Date()
     @State var showingAddReservationSheet: Bool = false
-    
+
     @Binding var columnVisibility: NavigationSplitViewVisibility
-    
+
     // MARK: - Body
     var body: some View {
         // TabView for "Lunch" and "Dinner" selection
@@ -37,26 +37,22 @@ struct TabsView: View {
             GeometryReader { geometry in
                 ZStack {
                     Color.clear
-                       
+
                     TabView(selection: $selectedTab) {
                         Tab("Pranzo", systemImage: "sun.max.circle", value: .lunch) {
                             TimelineGantView(columnVisibility: $columnVisibility)
-                                .environmentObject(appState)
-                                .environmentObject(resCache)
                         }
                         Tab("Cena", systemImage: "moon.circle.fill", value: .dinner) {
                             TimelineGantView(columnVisibility: $columnVisibility)
-                                .environmentObject(appState)
-                                .environmentObject(resCache)
                         }
-                        //                }
-                        
-                        
+
                     }
-                    
+
                     ZStack {
-                        ToolbarExtended(geometry: geometry, toolbarState: $toolbarManager.toolbarState, small: true)
-                        
+                        ToolbarExtended(
+                            geometry: geometry, toolbarState: $toolbarManager.toolbarState,
+                            small: true)
+
                         // MARK: Toolbar Content
                         toolbarContent(in: geometry, selectedDate: appState.selectedDate)
                     }
@@ -64,24 +60,30 @@ struct TabsView: View {
                     .ignoresSafeArea(.keyboard)
                     .position(
                         toolbarManager.isDragging
-                        ? toolbarManager.dragAmount
-                        : toolbarManager.calculatePosition(geometry: geometry)
+                            ? toolbarManager.dragAmount
+                            : toolbarManager.calculatePosition(geometry: geometry)
                     )
-                    .animation(toolbarManager.isDragging ? .none : .spring(), value: toolbarManager.isDragging)
+                    .animation(
+                        toolbarManager.isDragging ? .none : .spring(),
+                        value: toolbarManager.isDragging
+                    )
                     .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
                     .gesture(
                         toolbarManager.toolbarGesture(geometry: geometry)
                     )
-                    
+
                     ToolbarMinimized()
                         .opacity(!toolbarManager.isToolbarVisible ? 1 : 0)
                         .ignoresSafeArea(.keyboard)
                         .position(
                             toolbarManager.isDragging
-                            ? toolbarManager.dragAmount
-                            : toolbarManager.calculatePosition(geometry: geometry)
+                                ? toolbarManager.dragAmount
+                                : toolbarManager.calculatePosition(geometry: geometry)
                         )  // depends on pinned side
-                        .animation(toolbarManager.isDragging ? .none : .spring(), value: toolbarManager.isDragging)
+                        .animation(
+                            toolbarManager.isDragging ? .none : .spring(),
+                            value: toolbarManager.isDragging
+                        )
                         .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
                         .gesture(
                             TapGesture()
@@ -99,25 +101,29 @@ struct TabsView: View {
             .navigationTitle("Timeline tavoli")
             .navigationBarTitleDisplayMode(.inline)
             .ignoresSafeArea(.all)
-            .toolbar{
+            .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(action: {
                         withAnimation {
                             appState.isFullScreen.toggle()
                             if appState.isFullScreen {
-                               columnVisibility = .detailOnly
+                                columnVisibility = .detailOnly
                             } else {
                                 columnVisibility = .all
                             }
                         }
                     }) {
-                        Label("Toggle Full Screen", systemImage: appState.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        Label(
+                            "Toggle Full Screen",
+                            systemImage: appState.isFullScreen
+                                ? "arrow.down.right.and.arrow.up.left"
+                                : "arrow.up.left.and.arrow.down.right")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     addReservationButton
                 }
-                
+
             }
             .sheet(item: $appState.currentReservation) { reservation in
                 EditReservationView(
@@ -129,21 +135,12 @@ struct TabsView: View {
                         appState.changedReservation = reservation
                     }
                 )
-                .environmentObject(store)
-                .environmentObject(resCache)
-                .environmentObject(reservationService)  // For the new service
-                .environmentObject(layoutServices)
                 .presentationBackground(.thinMaterial)
             }
             .sheet(isPresented: $showingAddReservationSheet) {
                 AddReservationView(
                     passedTable: nil
                 )
-                .environmentObject(store)
-                .environmentObject(appState)
-                .environmentObject(resCache)
-                .environmentObject(reservationService)  // For the new service
-                .environmentObject(layoutServices)
                 .presentationBackground(.thinMaterial)
             }
             .onAppear {
@@ -152,15 +149,16 @@ struct TabsView: View {
                 } else {
                     appState.selectedCategory = .dinner
                 }
-                
-                reservations = resCache.reservations(for: appState.selectedDate).filter { reservation in
+
+                reservations = resCache.reservations(for: appState.selectedDate).filter {
+                    reservation in
                     reservation.category == appState.selectedCategory
-                    && reservation.status != .canceled
-                    && reservation.reservationType != .waitingList
+                        && reservation.status != .canceled
+                        && reservation.reservationType != .waitingList
                 }
-                
+
                 bindableDate = appState.selectedDate
-                
+
             }
             .onChange(of: selectedTab) {
                 if selectedTab == .lunch {
@@ -168,11 +166,12 @@ struct TabsView: View {
                 } else {
                     appState.selectedCategory = .dinner
                 }
-                
-                reservations = resCache.reservations(for: appState.selectedDate).filter { reservation in
+
+                reservations = resCache.reservations(for: appState.selectedDate).filter {
+                    reservation in
                     reservation.category == appState.selectedCategory
-                    && reservation.status != .canceled
-                    && reservation.reservationType != .waitingList
+                        && reservation.status != .canceled
+                        && reservation.reservationType != .waitingList
                 }
             }
 
@@ -180,7 +179,7 @@ struct TabsView: View {
             // Fallback on earlier versions
         }
     }
-      
+
     // MARK: - Subviews
     @ViewBuilder
     private func toolbarContent(in geometry: GeometryProxy, selectedDate: Date)
@@ -190,7 +189,7 @@ struct TabsView: View {
         case .pinnedLeft, .pinnedRight:
             // Vertical layout:
             VStack {
-                
+
                 resetDateButton
                     .padding(.bottom, 2)
 
@@ -202,53 +201,48 @@ struct TabsView: View {
 
                 datePicker(selectedDate: selectedDate)
                     .padding(.bottom, 2)
-
-
-                
 
             }
 
         case .pinnedBottom:
             // Horizontal layout:
             HStack(spacing: 25) {
-               
+
                 resetDateButton
-                
+
                 dateBackward
-                
+
                 dateForward
-                
+
                 datePicker(selectedDate: selectedDate)
-                
-                
-                
 
             }
         }
     }
-    
+
     private var resetDateButton: some View {
 
         VStack {
-        Text("Adesso")
-            .font(.caption)
-            .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
-        // Reset to Default or System Time
-        Button(action: {
-            withAnimation {
-               resetDate()
-            }
-
-        }) {
-            Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90.circle.fill")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 40, height: 40)
+            Text("Adesso")
+                .font(.caption)
                 .foregroundStyle(
-                    colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
-                )
-                .shadow(radius: 2)
-           }
+                    colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+            // Reset to Default or System Time
+            Button(action: {
+                withAnimation {
+                    resetDate()
+                }
+
+            }) {
+                Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90.circle.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+                    .foregroundStyle(
+                        colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3")
+                    )
+                    .shadow(radius: 2)
+            }
         }
         .opacity(
             appState.selectedDate.isSameDay(as: Date())
@@ -261,31 +255,34 @@ struct TabsView: View {
         VStack {
             Text("-1 gg.")
                 .font(.caption)
-                .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
-            
+                .foregroundStyle(
+                    colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+
             Button(action: {
-                
+
                 navigateToPreviousDate()
-                
+
             }) {
                 Image(systemName: "chevron.left.circle.fill")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 40, height: 40)
                     .symbolRenderingMode(.hierarchical)  // Enable multicolor rendering
-                    .foregroundColor(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "364468"))
+                    .foregroundColor(
+                        colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "364468")
+                    )
                     .shadow(radius: 2)
             }
         }
     }
 
     private var dateForward: some View {
-        VStack
-        {
+        VStack {
             Text("+1 gg.")
                 .font(.caption)
-                .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
-            
+                .foregroundStyle(
+                    colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+
             Button(action: {
                 navigateToNextDate()
 
@@ -295,7 +292,9 @@ struct TabsView: View {
                     .scaledToFit()
                     .frame(width: 40, height: 40)
                     .symbolRenderingMode(.hierarchical)  // Enable multicolor rendering
-                    .foregroundColor(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "364468"))
+                    .foregroundColor(
+                        colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "364468")
+                    )
                     .shadow(radius: 2)
             }
         }
@@ -307,8 +306,9 @@ struct TabsView: View {
         VStack {
             Text("Data")
                 .font(.caption)
-                .foregroundStyle(colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
-            
+                .foregroundStyle(
+                    colorScheme == .dark ? Color(hex: "A3B7D2") : Color(hex: "#6c7ba3"))
+
             Button(action: {
                 appState.showingDatePicker = true
             }) {
@@ -325,7 +325,7 @@ struct TabsView: View {
         .popover(isPresented: $appState.showingDatePicker) {
             DatePickerView()
                 .environmentObject(appState)
-            .frame(width: 300, height: 350)  // Adjust as needed
+                .frame(width: 300, height: 350)  // Adjust as needed
 
         }
 
@@ -341,22 +341,24 @@ struct TabsView: View {
         .disabled(appState.selectedCategory == .noBookingZone)
         .foregroundColor(appState.selectedCategory == .noBookingZone ? .gray : .accentColor)
     }
-    
+
     // MARK: - View Specific Methods
-    
+
     private func navigateToPreviousDate() {
         let calendar = Calendar.current
         if appState.selectedCategory == .lunch {
             if let newDate = calendar.date(byAdding: .day, value: -1, to: appState.selectedDate) {
-                appState.selectedDate = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: newDate) ?? newDate
+                appState.selectedDate =
+                    calendar.date(bySettingHour: 12, minute: 0, second: 0, of: newDate) ?? newDate
             } else {
-                appState.selectedDate = Date() // Fallback in case of a failure
+                appState.selectedDate = Date()  // Fallback in case of a failure
             }
         } else if appState.selectedCategory == .dinner {
             if let newDate = calendar.date(byAdding: .day, value: -1, to: appState.selectedDate) {
-                appState.selectedDate = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: newDate) ?? newDate
+                appState.selectedDate =
+                    calendar.date(bySettingHour: 18, minute: 0, second: 0, of: newDate) ?? newDate
             } else {
-                appState.selectedDate = Date() // Fallback in case of a failure
+                appState.selectedDate = Date()  // Fallback in case of a failure
             }
         }
     }
@@ -365,19 +367,21 @@ struct TabsView: View {
         let calendar = Calendar.current
         if appState.selectedCategory == .lunch {
             if let newDate = calendar.date(byAdding: .day, value: 1, to: appState.selectedDate) {
-                appState.selectedDate = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: newDate) ?? newDate
+                appState.selectedDate =
+                    calendar.date(bySettingHour: 12, minute: 0, second: 0, of: newDate) ?? newDate
             } else {
-                appState.selectedDate = Date() // Fallback in case of a failure
+                appState.selectedDate = Date()  // Fallback in case of a failure
             }
         } else if appState.selectedCategory == .dinner {
             if let newDate = calendar.date(byAdding: .day, value: 1, to: appState.selectedDate) {
-                appState.selectedDate = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: newDate) ?? newDate
+                appState.selectedDate =
+                    calendar.date(bySettingHour: 18, minute: 0, second: 0, of: newDate) ?? newDate
             } else {
-                appState.selectedDate = Date() // Fallback in case of a failure
+                appState.selectedDate = Date()  // Fallback in case of a failure
             }
         }
     }
-    
+
     private func resetDate() {
         let calendar = Calendar.current
         if appState.selectedCategory == .lunch {
@@ -391,5 +395,3 @@ struct TabsView: View {
         }
     }
 }
-
-
