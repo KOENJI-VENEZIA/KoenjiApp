@@ -16,6 +16,8 @@ struct TableView: View {
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
 
+    @ObservedObject var notifsManager = NotificationManager.shared
+
     @Environment(LayoutUIManager.self) var layoutUI
     @Environment(LayoutUnitViewModel.self) var unitView
     @Environment(\.colorScheme) var colorScheme
@@ -82,13 +84,18 @@ struct TableView: View {
         .position(x: tableFrame.minX, y: tableFrame.minY)
         .offset(dragOffset)
         .gesture(combinedGestures)
-        .onAppear { updateResData(appState.selectedDate, refreshedKey: "onAppear", forceUpdate: true) }
+        .onAppear {
+            updateResData(appState.selectedDate, refreshedKey: "onAppear", forceUpdate: true)
+        }
         .onChange(of: statusChanged) {
             updateResData(appState.selectedDate, refreshedKey: "statusChanged", forceUpdate: true)
         }
-        .onChange(of: unitView.showInspector) { updateResData(appState.selectedDate, refreshedKey: "showInspector") }
+        .onChange(of: unitView.showInspector) {
+            updateResData(appState.selectedDate, refreshedKey: "showInspector")
+        }
         .onChange(of: appState.changedReservation) {
-            updateResData(appState.selectedDate, refreshedKey: "changedReservation", forceUpdate: true)
+            updateResData(
+                appState.selectedDate, refreshedKey: "changedReservation", forceUpdate: true)
         }
         .onChange(of: appState.selectedDate) {
             updateResData(
@@ -104,7 +111,7 @@ struct TableView: View {
         .onChange(of: tableView.currentActiveReservation?.status) {
             updateResData(appState.selectedDate, refreshedKey: "status")
         }
-        
+
     }
 }
 
@@ -130,7 +137,7 @@ extension TableView {
             // Group of marks and overlays
             overlayMarksAndText()
                 .animation(
-                .easeInOut(duration: 0.5), value: tableView.currentActiveReservation?.status)
+                    .easeInOut(duration: 0.5), value: tableView.currentActiveReservation?.status)
         }
         .transition(.opacity)
         .opacity(table.isVisible ? 1 : 0)
@@ -175,7 +182,6 @@ extension TableView {
             )
         }
     }
-
 
     private var strokeOverlay: some View {
 
@@ -234,15 +240,17 @@ extension TableView {
             Group {
                 showedUpMark()
                     .opacity(
-                       (tableView.currentActiveReservation?.status == .showedUp) ? 1 : 0
-                   )
+                        (tableView.currentActiveReservation?.status == .showedUp) ? 1 : 0
+                    )
                 emojiMark(tableView.currentActiveReservation?.assignedEmoji ?? "")
                     .opacity(
                         (tableView.currentActiveReservation?.assignedEmoji != nil) ? 1 : 0
                     )
                 lateMark()
                     .opacity(
-                        tableView.lateReservation != nil && tableView.currentActiveReservation != nil && tableView.currentActiveReservation?.status != .showedUp ? 1 : 0
+                        tableView.lateReservation != nil
+                            && tableView.currentActiveReservation != nil
+                            && tableView.currentActiveReservation?.status != .showedUp ? 1 : 0
                     )
                 nearEndMark()
                     .opacity(tableView.nearEndReservation != nil ? 1 : 0)
@@ -308,7 +316,7 @@ extension TableView {
             .foregroundStyle(.yellow, .orange)
             .symbolRenderingMode(.palette)
             .offset(x: tableFrame.width / 2 - 15, y: tableFrame.height / 2 - 15)
-            .zIndex(2)
+            .zIndex(4)
     }
 
     private func lateMark() -> some View {
@@ -520,7 +528,7 @@ extension TableView {
 
         let formattedDate = formatter.string(from: date)
         let key =
-        "\(formattedDate)-\(refreshedKey)-\(appState.selectedCategory.rawValue)-\(table.id)"
+            "\(formattedDate)-\(refreshedKey)-\(appState.selectedCategory.rawValue)-\(table.id)"
 
         if !forceUpdate {
             if tableView.currentActiveReservation != nil || tableView.lateReservation != nil
@@ -549,6 +557,33 @@ extension TableView {
             endTime: tableView.currentActiveReservation?.endTimeDate ?? Date(),
             currentTime: appState.selectedDate
         )
+
+        let reservationEnd = tableView.currentActiveReservation?.endTimeDate ?? Date()
+        let timeRemaining = reservationEnd.timeIntervalSince(appState.selectedDate)  // Get time difference
+
+        print("🕒 Time remaining until reservation ends: \(timeRemaining) seconds")
+
+        let lastNotification = notifsManager.notifications.first(where: {
+            $0.type == .nearEnd && $0.reservation == tableView.currentActiveReservation
+        })
+
+        guard  date == appState.systemTime, date.timeIntervalSince(lastNotification?.date ?? Date()) >= 60 * 5 else {
+            print("Not enough time since last notified. Skipping notification!")
+            return
+        }
+        
+        guard tableView.currentActiveReservation != nil else { return }
+
+        if timeRemaining <= 30 * 60 && timeRemaining > 0 {
+            Task {
+                await notifsManager.addNotification(
+                    title: "Prenotazione in scadenza",
+                    message:
+                        "Prenotazione a nome di \(tableView.currentActiveReservation?.name ?? "Errore") sta per terminare (-\(Int(timeRemaining / 60)) minuti).",
+                    type: .nearEnd
+                )
+            }
+        }
     }
 
     private func updateCachedReservation(_ date: Date) {
@@ -565,10 +600,28 @@ extension TableView {
 
     private func updateLateReservation(_ date: Date) {
         if let reservation = tableView.currentActiveReservation,
-           env.resCache.lateReservations(currentTime: date).contains(where: { $0.id == reservation.id }
+            env.resCache.lateReservations(currentTime: date).contains(where: {
+                $0.id == reservation.id
+            }
             )
         {
             tableView.lateReservation = reservation
+            let lastNotification = notifsManager.notifications.first(where: {
+                $0.type == .nearEnd && $0.reservation == reservation
+            })
+
+            guard date == appState.systemTime, date.timeIntervalSince(lastNotification?.date ?? Date()) >= 60 * 5 else {
+                print("Not enough time since last notified. Skipping notification!")
+                return
+            }
+
+            Task { @MainActor in
+                await notifsManager.addNotification(
+                    title: "\(reservation.name): ritardo",
+                    message: "Prenotazione a nome di \(reservation.name) è in ritardo.", type: .late
+                )
+            }
+
         } else {
             tableView.lateReservation = nil
         }
@@ -576,7 +629,7 @@ extension TableView {
 
     private func updateNearEndReservation(_ date: Date) {
         if let reservation = tableView.currentActiveReservation,
-           env.resCache.nearingEndReservations(currentTime: date).contains(where: {
+            env.resCache.nearingEndReservations(currentTime: date).contains(where: {
                 $0.id == reservation.id
             })
         {
@@ -604,15 +657,18 @@ extension TableView {
         if updatedReservation.status != .canceled {
             updatedReservation.status = .canceled
         }
-        appState.changedReservation = updatedReservation
-        env.reservationService.checkBeforeUpdate(reservation: updatedReservation)
+        env.reservationService.updateReservation(updatedReservation) {
+            appState.changedReservation = updatedReservation
+        }
     }
 
     private func handleEmojiAssignment(_ activeReservation: Reservation?, _ emoji: String) {
         guard var reservationActive = activeReservation else { return }
         print("Emoji: \(emoji)")
         reservationActive.assignedEmoji = emoji
-        env.reservationService.checkBeforeUpdate(reservation: reservationActive)
+        env.reservationService.updateReservation(reservationActive) {
+            appState.changedReservation = reservationActive
+        }
         statusChanged += 1
         onStatusChange()
     }
@@ -625,15 +681,19 @@ extension TableView {
             tableView.showedUp = true
             tableView.isLate = false
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            env.reservationService.checkBeforeUpdate(reservation:
-                activeReservation, newReservation: currentReservation)
+            env.reservationService.updateReservation(
+                    activeReservation, newReservation: currentReservation) {
+                        appState.changedReservation = currentReservation
+                    }
             statusChanged += 1
         } else {
             currentReservation.status =
                 (tableView.lateReservation?.id == currentReservation.id ? .late : .pending)
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            env.reservationService.checkBeforeUpdate(reservation:
-                activeReservation, newReservation: currentReservation)
+            env.reservationService.updateReservation(
+                    activeReservation, newReservation: currentReservation) {
+                        appState.changedReservation = currentReservation
+                    }
             statusChanged += 1
         }
     }
@@ -695,7 +755,8 @@ extension TableView {
             return
         }
 
-        let combinedDate = DateHelper.combine(date: appState.selectedDate, time: appState.selectedDate)
+        let combinedDate = DateHelper.combine(
+            date: appState.selectedDate, time: appState.selectedDate)
         if let updatedLayout = env.layoutServices.cachedLayouts[
             env.layoutServices.keyFor(date: combinedDate, category: appState.selectedCategory)]
         {

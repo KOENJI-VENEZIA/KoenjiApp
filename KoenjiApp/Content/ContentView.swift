@@ -62,12 +62,17 @@ struct ContentView: View {
                 if isLoggedIn {
                     authenticateUser()
                 }
-                checkForLatestBackup()
-
+//                DispatchQueue.main.async {
+                    checkForLatestBackup()
+                Task {
+                    await env.backupService.notifsManager.requestNotificationAuthorization()
+                }
             }
             .onChange(of: scenePhase) { old, newPhase in
                 if newPhase == .active {
-                    checkForLatestBackup()
+                    Task { @MainActor in
+                        checkForLatestBackup()
+                    }
                 }
             }
             
@@ -118,16 +123,16 @@ struct ContentView: View {
                     
                     // 3. Restore the latest backup
                     env.backupService.restoreBackup(fileName: latestBackup.fileName) {
-                        // When restoration is complete, update reservations, etc.
-                        env.reservationService.saveReservationsToDisk()
-                        let today = Calendar.current.startOfDay(for: Date())
-                        env.resCache.preloadDates(around: today, range: 5, reservations: env.store.reservations)
-                        
-                        // (Optionally, you can trigger another automatic backup right away)
-                        env.reservationService.automaticBackup()
-                        
-                        // Done with restoration
-                        appState.isRestoring = false
+                        Task {
+                            // Now you can await asynchronous methods:
+                            await env.reservationService.checkForConflictsAndCleanup()
+                            env.reservationService.saveReservationsToDisk()
+                            let today = Calendar.current.startOfDay(for: Date())
+                            env.resCache.preloadDates(around: today, range: 5, reservations: env.store.reservations)
+                            
+                            env.reservationService.automaticBackup()
+                            appState.isRestoring = false
+                        }
                     }
                     
                 case .failure(let error):

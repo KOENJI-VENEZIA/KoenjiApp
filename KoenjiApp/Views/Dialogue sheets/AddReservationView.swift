@@ -412,18 +412,22 @@ struct AddReservationView: View {
             case .pending: newTag = "[in attesa];"
             case .showedUp: newTag = "[arrivati];"
             case .late: newTag = "[in ritardo];"
-            case .na: newTag = ""
+            case .toHandle: newTag = "[da sistemare];"
+            case .deleted: newTag = "[eliminata];"
+            case .na: newTag = "[N/A]"
             }
         case .acceptance(let acceptance):
             switch acceptance {
             case .confirmed: newTag = "[confermata];"
             case .toConfirm: newTag = "[da confermare];"
+            case .na: newTag = "[N/A]"
             }
         case .type(let type):
             switch type {
             case .inAdvance: newTag = "[prenotata];"
             case .walkIn: newTag = "[walk-in];"
             case .waitingList: newTag = "[waiting list];"
+            case .na: newTag = "[N/A]"
             }
         }
 
@@ -562,7 +566,10 @@ enum ReservationOption: Hashable {
                 return "in ritardo"
             case .na:
                 return "N/A"
-            // Add any additional status cases as needed.
+            case .toHandle:
+                return "in sospeso"
+            case .deleted:
+                return "eliminata"
             }
         case .type(let type):
             switch type {
@@ -572,6 +579,8 @@ enum ReservationOption: Hashable {
                 return "prenotata"
             case .waitingList:
                 return "waiting list"
+            case .na:
+                return "n/a"
             }
         case .acceptance(let acceptance):
             switch acceptance {
@@ -579,6 +588,8 @@ enum ReservationOption: Hashable {
                 return "confermata"
             case .toConfirm:
                 return "da confermare"
+            case .na:
+                return "n/a"
             }
         }
     }

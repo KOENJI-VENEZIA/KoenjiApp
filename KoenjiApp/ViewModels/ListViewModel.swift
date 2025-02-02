@@ -56,7 +56,7 @@ class ListViewModel {
     var changedReservation: Reservation?
 
     
-    @ObservationIgnored private var reservationService: ReservationService
+    private var reservationService: ReservationService
     @ObservationIgnored private var store: ReservationStore
     @ObservationIgnored private var layoutServices: LayoutServices
 
@@ -75,17 +75,24 @@ class ListViewModel {
         
     }
     
-    @MainActor func handleDelete(_ reservation: Reservation) {
+    @MainActor func handleCancel(_ reservation: Reservation) {
 
         if let idx = store.reservations.firstIndex(where: {
             $0.id == reservation.id
         }), var reservation = store.reservations.first(where: { $0.id == reservation.id }) {
             reservation.status = .canceled
             reservation.tables = []
-            reservationService.checkBeforeUpdate(
-                reservation: reservation,
-                at: idx)
+            reservationService.updateReservation(
+                reservation) {
+                    
+                }
+            changedReservation = reservation
         }
+    }
+    
+    @MainActor func handleDelete(_ reservation: Reservation) {
+            reservationService.deleteReservation(reservation)
+            changedReservation = reservation
     }
 
     @MainActor
@@ -114,9 +121,11 @@ class ListViewModel {
                 }
                 return
             }
-            reservationService.checkBeforeUpdate(
-                reservation: reservation,
-                at: idx)
+            reservationService.updateReservation(
+                reservation) {
+                   
+                }
+            changedReservation = reservation
         }
     }
     
@@ -134,7 +143,7 @@ class ListViewModel {
     
     func toggleFilter(_ option: FilterOption) {
         switch option {
-        case .none, .canceled:
+        case .none, .canceled, .toHandle, .deleted:
             // If selecting .none or .canceled, clear all and only add the selected one
             selectedFilters = [option]
         case .people, .date:

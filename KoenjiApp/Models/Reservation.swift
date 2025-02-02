@@ -46,7 +46,7 @@ struct Reservation: Identifiable, Hashable, Codable {
     var imageData: Data? // Store image data for the reservation
     private var cachedStartTimeDate: Date?
     private var cachedEndTimeDate: Date?
-    private var cachedNormalizedDate: Date?
+    var cachedNormalizedDate: Date?
     
     var image: Image? {
         if let imageData, let uiImage = UIImage(data: imageData) {
@@ -103,6 +103,7 @@ struct Reservation: Identifiable, Hashable, Codable {
     enum Acceptance: String, CaseIterable {
         case confirmed
         case toConfirm
+        case na
     }
     
     enum ReservationStatus: String, CaseIterable {
@@ -111,6 +112,8 @@ struct Reservation: Identifiable, Hashable, Codable {
         case canceled
         case pending
         case late
+        case toHandle
+        case deleted
         case na
     }
     
@@ -118,6 +121,7 @@ struct Reservation: Identifiable, Hashable, Codable {
         case walkIn
         case inAdvance
         case waitingList
+        case na
     }
     
     init(
@@ -374,6 +378,8 @@ extension Reservation.Acceptance {
             return "confermata"
         case .toConfirm:
             return "da confermare"
+        case .na:
+            return "N/A"
         }
     }
 }
@@ -387,6 +393,8 @@ extension Reservation.ReservationType {
             return "con anticipo"
         case .waitingList:
             return "waiting list"
+        case .na:
+            return "N/A"
         }
     }
 }
@@ -404,6 +412,10 @@ extension Reservation.ReservationStatus {
             return "arrivati"
         case .late:
             return "in ritardo"
+        case .toHandle:
+            return "in sospeso"
+        case .deleted:
+            return "eliminata"
         case .na:
             return "N/A"
         }

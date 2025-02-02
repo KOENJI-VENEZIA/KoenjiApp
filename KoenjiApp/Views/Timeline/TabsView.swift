@@ -335,6 +335,7 @@ struct TabsView: View {
         }
         .popover(isPresented: $appState.showingDatePicker) {
             DatePickerView()
+                .environmentObject(appState)
                 .frame(width: 300, height: 350)  // Adjust as needed
 
         }

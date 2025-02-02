@@ -130,8 +130,10 @@ struct ReservationWaitingListView: View {
                 }), var reservation = env.store.reservations.first(where: { $0.id == reservation.id}) {
                     reservation.status = .canceled
                     reservation.tables = []
-                    env.reservationService.checkBeforeUpdate(reservation: reservation,
-                        at: idx)
+                    env.reservationService.updateReservation(reservation,
+                        at: idx) {
+                        print("Update reservation.")
+                    }
                 }
             }
             // 5) Optionally remove them from `grouped[groupKey]` if you want to keep a local copy
@@ -180,8 +182,10 @@ struct ReservationWaitingListView: View {
         }), var reservation = env.store.reservations.first(where: { $0.id == reservation.id}) {
             reservation.status = .canceled
             reservation.tables = []
-            env.reservationService.checkBeforeUpdate(reservation: reservation,
-                at: idx)
+            env.reservationService.updateReservation(reservation,
+                at: idx) {
+                print("Update reservation.")
+            }
         }
     }
     

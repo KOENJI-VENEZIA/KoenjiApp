@@ -4,6 +4,7 @@ import Firebase
 
 @main
 struct MyReservationApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var env = AppDependencies()
     @StateObject private var appState: AppState
     

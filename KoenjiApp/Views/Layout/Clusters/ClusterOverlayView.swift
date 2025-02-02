@@ -141,8 +141,9 @@ struct ClusterOverlayView: View {
             currentReservation.status = .showedUp
 
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            env.reservationService.checkBeforeUpdate(reservation: oldReservation, newReservation: currentReservation)  // Ensure the data store is updated
-            statusChanged += 1
+            env.reservationService.updateReservation(oldReservation, newReservation: currentReservation) { // Ensure the data store is updated
+                statusChanged += 1
+            }
             
         } else {
             // Case 2: Determine if the reservation is late or pending
@@ -155,8 +156,9 @@ struct ClusterOverlayView: View {
             }
 
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            env.reservationService.checkBeforeUpdate(reservation: oldReservation, newReservation: currentReservation)  // Ensure the data store is updated
-            statusChanged += 1
+            env.reservationService.updateReservation(oldReservation, newReservation: currentReservation) {  // Ensure the data store is updated
+                statusChanged += 1
+            }
 
         }
     }

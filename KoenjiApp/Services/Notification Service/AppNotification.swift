@@ -1,0 +1,84 @@
+//
+//  AppNotification.swift
+//  KoenjiApp
+//
+//  Created by Matteo Nassini on 2/2/25.
+//
+
+
+import Foundation
+import UserNotifications
+import SwiftUI
+
+enum NotificationType: Equatable {
+    case late
+    case nearEnd
+    case canceled
+    case restored
+    case waitingList
+    case sync
+}
+
+/// A simple model representing a notification within your app.
+struct AppNotification: Identifiable, Equatable {
+    let id = UUID()
+    let title: String
+    let message: String
+    let date: Date = Date()
+    let reservation: Reservation? = nil
+    let type: NotificationType
+}
+
+/// A manager to handle scheduling local notifications and keeping an in‑app log.
+@MainActor
+final class NotificationManager: ObservableObject {
+    @Published var notifications: [AppNotification] = []
+    
+    static let shared = NotificationManager()
+        /// Adds a new notification to the in‑app log and schedules a local notification.
+    
+    func requestNotificationAuthorization() async {
+        do {
+            let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+            print("Notification permission granted: \(granted)")
+        } catch {
+            print("❌ Notification permission error: \(error.localizedDescription)")
+        }
+    }
+    
+    @MainActor
+    func addNotification(title: String, message: String, type: NotificationType) async {
+        let newNotification = AppNotification(title: title, message: message, type: type)
+        notifications.append(newNotification)
+
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = message
+        content.sound = .default
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false) // Debug with 3s delay
+        let request = UNNotificationRequest(identifier: newNotification.id.uuidString,
+                                            content: content,
+                                            trigger: trigger)
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            print("✅ Notification scheduled: \(title) - Will appear in 3 seconds")
+        } catch {
+            print("❌ Error scheduling notification: \(error.localizedDescription)")
+        }
+    }
+    
+    
+    
+    /// Removes a specific notification from the in‑app log.
+    @MainActor
+    func removeNotification(_ notification: AppNotification) {
+        notifications.removeAll { $0.id == notification.id }
+    }
+
+    @MainActor
+    func clearNotifications() {
+        notifications.removeAll()
+    }
+}

@@ -37,11 +37,7 @@ struct SidebarView: View {
                     List {
                         NavigationLink(
                             destination: DatabaseView(
-                                store: env.store,
-                                reservationService: env.reservationService,
-                                layoutServices: env.layoutServices,
-                                columnVisibility: $columnVisibility,
-                                listView: env.listView
+                                columnVisibility: $columnVisibility
                             )
                         ) {
                             Label("Database", systemImage: "list.bullet")

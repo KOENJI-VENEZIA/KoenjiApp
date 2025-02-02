@@ -11,12 +11,9 @@ struct DatabaseView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
 
-    let store: ReservationStore
-    let reservationService: ReservationService
-    let layoutServices: LayoutServices
+    
 
     // MARK: View Model & Bindings
-    @State var listView: ListViewModel
     @Binding var columnVisibility: NavigationSplitViewVisibility
     @State var unitView = LayoutUnitViewModel()
 
@@ -28,23 +25,23 @@ struct DatabaseView: View {
     @State private var filterCancelled: Reservation.ReservationStatus = .canceled
     @State var daysToSimulate: Int = 5
     @State private var popoverPosition: CGRect = .zero
+    @State private var refreshID: UUID = UUID()
+    private var isSorted: Bool { env.listView.sortOption != .removeSorting }
 
-    private var isSorted: Bool { listView.sortOption != .removeSorting }
-    
+    private var filtered: [Reservation] {
+       filterReservations(
+        filters: env.listView.selectedFilters,
+        searchText: env.listView.searchText,
+        currentReservations: env.listView.currentReservations)
+    }
     // MARK: - Initializer
 
     init(
-        store: ReservationStore,
-        reservationService: ReservationService,
-        layoutServices: LayoutServices,
-        columnVisibility: Binding<NavigationSplitViewVisibility>,
-        listView: ListViewModel
+       
+        columnVisibility: Binding<NavigationSplitViewVisibility>
     ) {
-        self.store = store
-        self.reservationService = reservationService
-        self.layoutServices = layoutServices
+        
         self._columnVisibility = columnVisibility
-        self._listView = State(wrappedValue: listView)
     }
     
     // MARK: - Body
@@ -52,34 +49,38 @@ struct DatabaseView: View {
     var body: some View {
 
         mainContent
+            .id(refreshID)
             .navigationTitle("Tutte le prenotazioni")
             .toolbar { toolbarContent }
-            .sheet(item: $listView.activeSheet, content: sheetContent)
-            .sheet(isPresented: $listView.showRestoreSheet) {
-                BackupListView(showRestoreSheet: $listView.showRestoreSheet)
+            .sheet(item: $env.listView.activeSheet, content: sheetContent)
+            .sheet(isPresented: $env.listView.showRestoreSheet) {
+                BackupListView(showRestoreSheet: $env.listView.showRestoreSheet)
                     .presentationBackground(.thinMaterial)
             }
-            .sheet(item: $listView.currentReservation, content: editReservationSheet)
-            .alert(item: $listView.activeAlert, content: activeAlertContent)
-            .alert(isPresented: $listView.showingResetConfirmation, content: resetConfirmationAlert)
+            .sheet(item: $env.listView.currentReservation, content: editReservationSheet)
+            .alert(item: $env.listView.activeAlert, content: activeAlertContent)
+            .alert(isPresented: $env.listView.showingResetConfirmation, content: resetConfirmationAlert)
             .onAppear {
-                listView.currentReservations = store.reservations
+                env.listView.currentReservations = env.store.reservations
             }
-            .onChange(of: store.reservations) {
-                listView.currentReservations = store.reservations
+            .onReceive(env.store.$reservations) { new in
+                env.listView.currentReservations = new
+                refreshID = UUID()
+                print("store.reservations changed! (should reflect in the UI)")
             }
-        
-            .onChange(of: listView.changedReservation) {
-                listView.currentReservations = store.reservations
+            .onChange(of: env.reservationService.changedReservation) {
+                env.listView.currentReservations = env.store.reservations
+                refreshID = UUID()
+                print("reservationService.changedReservation changed! (should reflect in the UI)")
             }
-            .onChange(of: listView.hasSelectedPeople) { _, newValue in
-                if newValue { listView.updatePeopleFilter() }
+            .onChange(of: env.listView.hasSelectedPeople) { _, newValue in
+                if newValue { env.listView.updatePeopleFilter() }
             }
-            .onChange(of: listView.hasSelectedStartDate) {
-                listView.updateDateFilter()
+            .onChange(of: env.listView.hasSelectedStartDate) {
+                env.listView.updateDateFilter()
             }
-            .onChange(of: listView.hasSelectedEndDate) {
-                listView.updateDateFilter()
+            .onChange(of: env.listView.hasSelectedEndDate) {
+                env.listView.updateDateFilter()
             }
     }
 }
@@ -91,29 +92,29 @@ extension DatabaseView {
     /// The main content: a searchable reservations list.
     private var mainContent: some View {
         reservationsList
-            .searchable(text: $listView.searchText,
+            .searchable(text: $env.listView.searchText,
                         placement: .toolbar,
                         prompt: "Cerca prenotazioni")
             .autocapitalization(.none)
             .disableAutocorrection(true)
     }
     
+
+    
+    
     /// The reservations list with sections based on grouping.
     private var reservationsList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
-                let filtered = filterReservations(
-                    filters: listView.selectedFilters,
-                    searchText: listView.searchText,
-                    currentReservations: listView.currentReservations)
+                
                 
                 let grouped = groupReservations(
                     reservations: filtered,
-                    by: listView.groupOption,
-                    sortOption: listView.sortOption)
+                    by: env.listView.groupOption,
+                    sortOption: env.listView.sortOption)
                 
                 let sortedGrouped = sortGroupedReservations(groups: grouped,
-                                                            by: listView.groupOption)
+                                                            by: env.listView.groupOption)
                 
                 ForEach(sortedGrouped, id: \.id) { group in
                     Section(header: groupHeader(for: group)) {
@@ -123,6 +124,7 @@ extension DatabaseView {
                     }
                 }
             }
+
         }
     }
     
@@ -148,23 +150,36 @@ extension DatabaseView {
     /// A row view for an individual reservation.
     private func row(for reservation: Reservation, group: GroupedReservations) -> some View {
         ZStack {
-            reservation.assignedColor.opacity(0.5)
-                .edgesIgnoringSafeArea(.all)
+            if reservation.status == .canceled {
+                Color.gray.opacity(0.5)
+                    .edgesIgnoringSafeArea(.all)
+            } else if reservation.status == .toHandle {
+                Color.yellow.opacity(0.5)
+                    .edgesIgnoringSafeArea(.all)
+            } else if reservation.status == .deleted {
+                Color.red.opacity(0.5)
+                    .edgesIgnoringSafeArea(.all)
+            } else {
+                reservation.assignedColor.opacity(0.5)
+                    .edgesIgnoringSafeArea(.all)
+            }
+            
             ReservationRowView(
                 reservation: reservation,
-                notesAlertShown: $listView.showingNotesAlert,
-                notesToShow: $listView.notesToShow,
-                currentReservation: $listView.currentReservation,
-                onTap: { listView.handleEditTap(reservation) },
-                onDelete: { listView.handleDelete(reservation) },
-                onRecover: { listView.handleRecover(reservation) },
-                onEdit: { listView.currentReservation = reservation },
-                searchText: listView.searchText
+                notesAlertShown: $env.listView.showingNotesAlert,
+                notesToShow: $env.listView.notesToShow,
+                currentReservation: $env.listView.currentReservation,
+                onTap: { env.listView.handleEditTap(reservation) },
+                onCancel: { env.listView.handleCancel(reservation) },
+                onRecover: { env.listView.handleRecover(reservation) },
+                onDelete: { env.listView.handleDelete(reservation) },
+                onEdit: { env.listView.currentReservation = reservation },
+                searchText: env.listView.searchText
             )
             .id(reservation.id)
             .onTapGesture {
-                listView.selectedReservationID = reservation.id
-                listView.activeSheet = .inspector(reservation.id)
+                env.listView.selectedReservationID = reservation.id
+                env.listView.activeSheet = .inspector(reservation.id)
             }
         }
     }
@@ -182,7 +197,7 @@ extension DatabaseView {
         }
         ToolbarItem(placement: .topBarLeading) {
             Button {
-                withAnimation { listView.showRestoreSheet = true }
+                withAnimation { env.listView.showRestoreSheet = true }
             } label: {
                 Label("Show Restore Sheet", systemImage: "externaldrive.fill.badge.timemachine")
             }
@@ -190,7 +205,7 @@ extension DatabaseView {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Text("Raggruppa per...").font(.headline)
-                Picker("Group By", selection: $listView.groupOption) {
+                Picker("Group By", selection: $env.listView.groupOption) {
                     ForEach(GroupOption.allCases, id: \.self) { option in
                         Text(option.rawValue).tag(option)
                     }
@@ -205,7 +220,7 @@ extension DatabaseView {
                 Text("Ordina per...")
                     .font(.headline)
                     .padding(.bottom, 4)
-                Picker("Ordina Per", selection: $listView.sortOption) {
+                Picker("Ordina Per", selection: $env.listView.sortOption) {
                     ForEach(SortOption.allCases, id: \.self) { option in
                         Text(option.rawValue).tag(option)
                     }
@@ -223,31 +238,31 @@ extension DatabaseView {
                 Text("Filtra per...")
                     .font(.headline)
                     .padding(.bottom, 4)
-                ForEach([FilterOption.none, FilterOption.canceled], id: \.self) { option in
-                    Button(action: { listView.toggleFilter(option) }) {
+                ForEach([FilterOption.none, FilterOption.canceled, FilterOption.toHandle, FilterOption.deleted], id: \.self) { option in
+                    Button(action: { env.listView.toggleFilter(option) }) {
                         HStack {
                             Text(option.rawValue)
-                            if listView.selectedFilters.contains(option) {
+                            if env.listView.selectedFilters.contains(option) {
                                 Image(systemName: "checkmark")
                             }
                         }
                     }
                 }
                 Button {
-                    listView.showPeoplePopover = true
+                    env.listView.showPeoplePopover = true
                 } label: {
                     HStack {
                         Text("Numero di persone")
-                        if listView.selectedFilters.contains(.people) {
+                        if env.listView.selectedFilters.contains(.people) {
                             Image(systemName: "checkmark")
                         }
                     }
                 }
                 Button {
-                    listView.showStartDatePopover = true
+                    env.listView.showStartDatePopover = true
                 } label: {
                     HStack {
-                        if !listView.selectedFilters.contains(.date) {
+                        if !env.listView.selectedFilters.contains(.date) {
                             Text("Da data...")
                         } else {
                             Text("Dal '\(DateHelper.formatFullDate(filterStartDate))'...")
@@ -256,10 +271,10 @@ extension DatabaseView {
                     }
                 }
                 Button {
-                    listView.showEndDatePopover = true
+                    env.listView.showEndDatePopover = true
                 } label: {
                     HStack {
-                        if !listView.selectedFilters.contains(.date) {
+                        if !env.listView.selectedFilters.contains(.date) {
                             Text("A data...")
                         } else {
                             Text("Al '\(DateHelper.formatFullDate(filterEndDate))'...")
@@ -268,36 +283,38 @@ extension DatabaseView {
                     }
                 }
             } label: {
-                Image(systemName: (!listView.selectedFilters.isEmpty &&
-                                    listView.selectedFilters != [.none])
+                Image(systemName: (!env.listView.selectedFilters.isEmpty &&
+                                   env.listView.selectedFilters != [.none])
                                 ? "line.3.horizontal.decrease.circle.fill"
                                 : "line.3.horizontal.decrease.circle")
             }
-            .popover(isPresented: $listView.showPeoplePopover) {
+            .popover(isPresented: $env.listView.showPeoplePopover) {
                 PeoplePickerView(filterPeople: $filterPeople,
-                                 hasSelectedPeople: $listView.hasSelectedPeople)
+                                 hasSelectedPeople: $env.listView.hasSelectedPeople)
             }
-            .popover(isPresented: $listView.showStartDatePopover) {
+            .popover(isPresented: $env.listView.showStartDatePopover) {
                 DatePickerView(filteredDate: $filterStartDate,
-                               hasSelectedStartDate: $listView.hasSelectedStartDate)
+                               hasSelectedStartDate: $env.listView.hasSelectedStartDate)
+                .environmentObject(appState)
                     .frame(width: 300)
             }
-            .popover(isPresented: $listView.showEndDatePopover) {
+            .popover(isPresented: $env.listView.showEndDatePopover) {
                 DatePickerView(filteredDate: $filterEndDate,
-                               hasSelectedEndDate: $listView.hasSelectedEndDate)
+                               hasSelectedEndDate: $env.listView.hasSelectedEndDate)
+                .environmentObject(appState)
                     .frame(width: 300)
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
-                listView.activeSheet = .addReservation
+                env.listView.activeSheet = .addReservation
             } label: {
                 Image(systemName: "plus")
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button("Debug Config") {
-                listView.activeSheet = .debugConfig
+                env.listView.activeSheet = .debugConfig
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -314,9 +331,9 @@ extension DatabaseView {
             return AnyView(
                 ReservationInfoCard(
                     reservationID: id,
-                    onClose: { listView.activeSheet = nil },
+                    onClose: { env.listView.activeSheet = nil },
                     onEdit: { reservation in
-                        listView.handleEditTap(reservation)
+                        env.listView.handleEditTap(reservation)
                         dismissInfoCard()
                     }
                 )
@@ -340,8 +357,8 @@ extension DatabaseView {
                         saveDebugData()
                     },
                     onResetData: {
-                        listView.showingResetConfirmation = true
-                        listView.shouldReopenDebugConfig = true
+                        env.listView.showingResetConfirmation = true
+                        env.listView.shouldReopenDebugConfig = true
                     },
                     onSaveDebugData: { saveDebugData() },
                     onFlushCaches: { flushCaches() },
@@ -358,7 +375,7 @@ extension DatabaseView {
             reservation: reservation,
             onClose: {},
             onChanged: { updatedReservation in
-                listView.changedReservation = updatedReservation
+                env.listView.changedReservation = updatedReservation
             }
         )
         .presentationBackground(.thinMaterial)
@@ -389,12 +406,12 @@ extension DatabaseView {
             message: Text("Sei sicuro di voler eliminare tutte le prenotazioni e i dati salvati? Questa operazione non può essere annullata."),
             primaryButton: .destructive(Text("Reset")) {
                 resetData()
-                listView.shouldReopenDebugConfig = false
+                env.listView.shouldReopenDebugConfig = false
             },
             secondaryButton: .cancel(Text("Annulla")) {
-                if listView.shouldReopenDebugConfig {
+                if env.listView.shouldReopenDebugConfig {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        listView.activeSheet = .debugConfig
+                        env.listView.activeSheet = .debugConfig
                     }
                 }
             }
@@ -404,8 +421,8 @@ extension DatabaseView {
     /// Dismisses the inspector sheet with a short delay.
     private func dismissInfoCard() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            listView.selectedReservation = nil
-            listView.activeSheet = .none
+            env.listView.selectedReservation = nil
+            env.listView.activeSheet = .none
         }
     }
     
@@ -433,12 +450,19 @@ extension DatabaseView {
         searchText: String,
         currentReservations: [Reservation]
     ) -> [Reservation] {
+        print("Executing filtering logic... (should reflect in the UI)")
         var filtered = currentReservations
         if !filters.isEmpty && !filters.contains(.none) {
             filtered = filtered.filter { reservation in
                 var matches = true
                 if filters.contains(.canceled) {
                     matches = matches && (reservation.status == .canceled)
+                }
+                if filters.contains(.toHandle) {
+                    matches = matches && (reservation.status == .toHandle)
+                }
+                if filters.contains(.deleted) {
+                    matches = matches && (reservation.status == .deleted)
                 }
                 if filters.contains(.people) {
                     matches = matches && (reservation.numberOfPersons == filterPeople)
@@ -453,7 +477,7 @@ extension DatabaseView {
                 return matches
             }
         } else {
-            filtered = filtered.filter { $0.status != .canceled }
+            filtered = filtered.filter { $0.status != .canceled && $0.status != .deleted && $0.status != .toHandle && $0.reservationType != .waitingList }
         }
         if !searchText.isEmpty {
             let lowercasedSearchText = searchText.lowercased()

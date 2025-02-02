@@ -25,12 +25,13 @@ class ReservationService: ObservableObject {
     private let backupService: FirebaseBackupService
     private let pushAlerts: PushAlerts
     private var imageCache: [UUID: UIImage] = [:]
-
+    let notifsManager: NotificationManager
+    @Published var changedReservation: Reservation? = nil
     
 
     // MARK: - Initializer
     @MainActor
-    init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, backupService: FirebaseBackupService, pushAlerts: PushAlerts) {
+    init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, backupService: FirebaseBackupService, pushAlerts: PushAlerts, notifsManager: NotificationManager = NotificationManager.shared) {
         self.store = store
         self.resCache = resCache
         self.clusterStore = clusterStore
@@ -40,6 +41,7 @@ class ReservationService: ObservableObject {
         self.tableAssignmentService = tableAssignmentService
         self.backupService = backupService
         self.pushAlerts = pushAlerts
+        self.notifsManager = notifsManager
         
         self.layoutServices.loadFromDisk()
         self.clusterServices.loadClustersFromDisk()
@@ -62,16 +64,19 @@ class ReservationService: ObservableObject {
     func addReservation(_ reservation: Reservation) {
            DispatchQueue.main.async {
                self.store.reservations.append(reservation)
+               self.store.reservations = Array(self.store.reservations)
+               self.changedReservation = reservation
                reservation.tables.forEach { self.layoutServices.markTable($0, occupied: true) }
                self.invalidateClusterCache(for: reservation)
                self.saveReservationsToDisk()
                print("Added reservation \(reservation.id).")
+               
            }
        }
     
     /// Updates an existing reservation, refreshes the cache, and reassigns tables if needed.
     @MainActor
-    func updateReservation(_ oldReservation: Reservation, newReservation: Reservation? = nil, at index: Int? = nil/*, dateString: String? = "", startTime: String? = "", endTime: String? = ""*/) {
+    func updateReservation(_ oldReservation: Reservation, newReservation: Reservation? = nil, at index: Int? = nil/*, dateString: String? = "", startTime: String? = "", endTime: String? = ""*/, completion: @escaping () -> Void) {
         // Remove from active cache
         self.invalidateClusterCache(for: oldReservation)
         resCache.removeReservation(oldReservation)
@@ -79,12 +84,18 @@ class ReservationService: ObservableObject {
         let updatedReservation = newReservation ?? oldReservation
 
         DispatchQueue.main.async {
+            
             let reservationIndex = index ?? self.store.reservations.firstIndex(where: { $0.id == oldReservation.id })
 
             guard let reservationIndex else {
                 print("Error: Reservation with ID \(oldReservation.id) not found.")
                 return
             }
+            
+            self.store.reservations[reservationIndex] = updatedReservation
+            self.store.reservations = Array(self.store.reservations)
+            self.changedReservation = updatedReservation
+            print("Changed changedReservation, should update UI...")
 
             let oldReservation = self.store.reservations[reservationIndex]
             
@@ -110,19 +121,21 @@ class ReservationService: ObservableObject {
             }
 
             // Update the reservation in the store
-            self.store.reservations[reservationIndex] = updatedReservation
-
+            self.checkBeforeUpdate()
+            self.resCache.addOrUpdateReservation(updatedReservation)
+            self.store.finalizeReservation(updatedReservation)
+            self.saveReservationsToDisk()
             print("Updated reservation \(updatedReservation.id).")
+            
         }
 
         // Finalize and save
-        resCache.addOrUpdateReservation(updatedReservation)
-        store.finalizeReservation(updatedReservation)
-        saveReservationsToDisk()
+        
+        
     }
     
     @MainActor
-    func checkBeforeUpdate(reservation: Reservation, newReservation: Reservation? = nil, at index: Int? = nil) {
+    func checkBeforeUpdate() {
         automaticBackup()
         let localBackupTimestamp = Date() // or the timestamp of your local data
         backupService.uploadBackupWithConflictCheck(fileURL: backupService.localBackupFileURL ?? nil,
@@ -130,7 +143,7 @@ class ReservationService: ObservableObject {
         alertManager: pushAlerts) { result in
             switch result {
             case .success:
-                // Proceed with saving to disk and any further actions
+                
                 self.backupService.uploadBackup(fileURL: self.backupService.localBackupFileURL ?? nil) { result in
                     switch result {
                     case .success:
@@ -139,8 +152,6 @@ class ReservationService: ObservableObject {
                         print("Automatic backup failed: \(error)")
                     }
                 }
-                self.updateReservation(reservation, newReservation: newReservation, at: index)
-                self.updateActiveReservationAdjacencyCounts(for: reservation)
                 
                 print("Backup uploaded successfully.")
             case .failure(let error):
@@ -152,27 +163,27 @@ class ReservationService: ObservableObject {
 
     
     /// Deletes reservations and invalidates the associated cluster cache.
-    @MainActor
-    func deleteReservations(at offsets: IndexSet) {
-        DispatchQueue.main.async {
-            offsets.forEach { index in
-                let reservation = self.store.reservations[index]
-
-                // 1) Remove from activeReservationCache
-                self.resCache.removeReservation(reservation)
-
-                // 2) Unlock the tables, invalidate cluster cache, etc.
-                reservation.tables.forEach { self.layoutServices.unmarkTable($0) }
-                self.invalidateClusterCache(for: reservation)
-            }
-
-            // 3) Remove from the reservations array
-            self.store.reservations.remove(atOffsets: offsets)
-
-            // 4) Save changes to disk
-            self.saveReservationsToDisk()
-        }
-    }
+//    @MainActor
+//    func deleteReservations(at offsets: IndexSet) {
+//        DispatchQueue.main.async {
+//            offsets.forEach { index in
+//                let reservation = self.store.reservations[index]
+//
+//                // 1) Remove from activeReservationCache
+//                self.resCache.removeReservation(reservation)
+//
+//                // 2) Unlock the tables, invalidate cluster cache, etc.
+//                reservation.tables.forEach { self.layoutServices.unmarkTable($0) }
+//                self.invalidateClusterCache(for: reservation)
+//            }
+//
+//            // 3) Remove from the reservations array
+//            self.store.reservations.remove(atOffsets: offsets)
+//
+//            // 4) Save changes to disk
+//            self.saveReservationsToDisk()
+//        }
+//    }
     
     @MainActor
     func handleConfirm(_ reservation: Reservation) {
@@ -186,7 +197,9 @@ class ReservationService: ObservableObject {
                     updatedReservation.tables = assignedTables
                     updatedReservation.reservationType = .inAdvance
                     updatedReservation.status = .pending
-                    self.updateReservation(updatedReservation)
+                    self.updateReservation(updatedReservation) {
+                        print("Updated reservations.")
+                    }
 
                 }
             case .failure(let error):
@@ -589,8 +602,9 @@ extension ReservationService {
                         if !self.store.reservations.contains(where: { $0.id == updatedReservation.id }) {
                             self.resCache.addOrUpdateReservation(updatedReservation)
                             self.store.reservations.append(updatedReservation)
-                            self.updateReservation(updatedReservation)
-                            print("Generated reservation: \(updatedReservation)")
+                            self.updateReservation(updatedReservation) {
+                                print("Generated reservation: \(updatedReservation)")
+                            }
                         }
                     case .failure(let error):
                         // Show an alert message based on `error`.
@@ -797,6 +811,211 @@ extension ReservationService {
             Task { @MainActor in
                 self.automaticBackup()
             }
+        }
+    }
+}
+
+// MARK: - Conflict Manager
+extension ReservationService {
+    struct ReservationKey: Hashable {
+        let day: Date
+        let category: Reservation.ReservationCategory
+    }
+    
+    // A helper struct to represent an event in time.
+    struct TimeEvent {
+        let time: Date
+        /// +guestDelta on reservation start, –guestDelta on reservation end.
+        let guestDelta: Int
+        let reservation: Reservation
+    }
+
+    /// Checks all reservations (loaded into store.reservations) for conflicts.
+    @MainActor
+    func checkForConflictsAndCleanup() async {
+        var conflictFound = false
+
+        // Dictionaries keyed by reservation id.
+        var overbookingConflicts: [Reservation.ID: Reservation] = [:]
+        var inconsistencyConflicts: [Reservation.ID: Reservation] = [:]
+
+        // Group reservations by day (using cachedNormalizedDate if available) and category.
+        let grouped = Dictionary(grouping: store.reservations) { res -> ReservationKey in
+            let day = Calendar.current.startOfDay(for: res.cachedNormalizedDate ?? Date())
+            return ReservationKey(day: day, category: res.category)
+        }
+
+        // Process each group.
+        for (key, reservationsForGroup) in grouped {
+            // --- Overcapacity Check (Time Sensitive) ---
+            // Exclude reservations that do not count toward overbooking.
+            let validForOverbooking = reservationsForGroup.filter { res in
+                let excludedStatuses: [Reservation.ReservationStatus] = [.canceled, .toHandle, .deleted]
+                return !excludedStatuses.contains(res.status) && res.reservationType != .waitingList
+            }
+            if validForOverbooking.isEmpty {
+                // Nothing to check in this group.
+                continue
+            }
+
+            // Build an array of time events.
+            var events: [TimeEvent] = []
+            for res in validForOverbooking {
+                events.append(TimeEvent(time: res.startTimeDate ?? Date(), guestDelta: res.numberOfPersons, reservation: res))
+                events.append(TimeEvent(time: res.endTimeDate ?? Date(), guestDelta: -res.numberOfPersons, reservation: res))
+            }
+            // Sort events by time. If two events have the same time, process the addition before the removal.
+            events.sort {
+                if $0.time == $1.time {
+                    return $0.guestDelta > $1.guestDelta
+                }
+                return $0.time < $1.time
+            }
+
+            var cumulativeGuests = 0
+            var currentOverlapping: [Reservation] = []
+
+            for event in events {
+                if event.guestDelta > 0 {
+                    currentOverlapping.append(event.reservation)
+                } else {
+                    if let idx = currentOverlapping.firstIndex(where: { $0.id == event.reservation.id }) {
+                        currentOverlapping.remove(at: idx)
+                    }
+                }
+                cumulativeGuests += event.guestDelta
+
+                if cumulativeGuests > 14 {
+                    conflictFound = true
+                    // Overbooking occurred at event.time. Among the currently overlapping reservations, choose
+                    // the candidate with the latest lastEditedOn.
+                    if let candidate = currentOverlapping.max(by: { $0.lastEditedOn < $1.lastEditedOn }) {
+                        overbookingConflicts[candidate.id] = candidate
+                        print("Overcapacity conflict in group \(key.day) \(key.category) at time \(event.time): candidate reservation \(candidate.id)")
+                    }
+                }
+            }
+
+            // --- Check for Duplicate Table Assignments Within Each Reservation ---
+            for res in reservationsForGroup {
+                let tableIDs = res.tables.map { $0.id }
+                if tableIDs.count != Set(tableIDs).count {
+                    conflictFound = true
+                    inconsistencyConflicts[res.id] = res
+                    print("Inconsistency conflict: Reservation \(res.id) in group \(key.day) \(key.category) has duplicate table assignments: \(tableIDs)")
+                }
+            }
+        }
+
+        // --- Additional Consistency Checks on the Entire Store ---
+        for res in store.reservations {
+            // Canceled or waiting list reservations should not have tables.
+            if (res.status == .canceled || res.reservationType == .waitingList) && !res.tables.isEmpty {
+                conflictFound = true
+                inconsistencyConflicts[res.id] = res
+                print("Consistency conflict: Reservation \(res.id) is \(res.status)/\(res.reservationType) but has tables assigned.")
+            }
+        }
+
+        if conflictFound {
+            // Notify the user that conflicts have been detected.
+            await notifsManager.addNotification(
+                title: "Errore di sincronizzazione",
+                message: "Trovato possibile overbooking o inconsistenza. Risoluzione automatica in corso: controlla tra le prenotazioni in sospeso!",
+                type: .sync
+            )
+
+            // --- Resolve Overbooking Conflicts ---
+            if !overbookingConflicts.isEmpty {
+                for (_, res) in overbookingConflicts {
+                    print("Cleaning overbooking conflict: Deleting reservation \(res.id)")
+                    separateReservation(res)
+                    updateReservation(res) {
+                        print("Updated reservations.")
+                    }
+                }
+            }
+
+            // --- Resolve Inconsistency Conflicts ---
+            // Since Reservation is a struct, iterate over the indices.
+            for index in store.reservations.indices {
+                var res = store.reservations[index]
+                if inconsistencyConflicts.keys.contains(res.id) {
+                    // If a canceled or waiting list reservation still has tables, clear them.
+                    if (res.status == .canceled || res.reservationType == .waitingList) && !res.tables.isEmpty {
+                        print("Cleaning inconsistency: Clearing tables for reservation \(res.id) (status: \(res.status), type: \(res.reservationType))")
+                        res.tables = []
+                        store.reservations[index] = res
+                        updateReservation(res) {
+                            print("Updated reservations.")
+                        }
+                    }
+                    // Otherwise, if the reservation should have tables but has none, attempt to assign tables.
+                    else if res.tables.isEmpty {
+                        print("Cleaning inconsistency: Reservation \(res.id) should have tables but has none. Attempting assignment.")
+                        let assignmentResult = layoutServices.assignTables(for: res, selectedTableID: nil)
+                        switch assignmentResult {
+                        case .success(let assignedTables):
+                            res.tables = assignedTables
+                            res.reservationType = .inAdvance
+                            res.status = .pending
+                            store.reservations[index] = res
+                            updateReservation(res) {
+                                print("Updated reservations.")
+                            }
+                            await notifsManager.addNotification(
+                                title: "Sincronizzazione",
+                                message: "Ripristinati tavoli assegnati per prenotazione \(res.name)!",
+                                type: .sync
+                            )
+                        case .failure:
+                            print("Assignment failed for reservation \(res.id). Treating as overbooking.")
+                           separateReservation(res)
+                            updateReservation(res) {
+                                print("Updated reservations.")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // After cleanup, persist changes.
+            self.saveReservationsToDisk()
+        } else {
+            await notifsManager.addNotification(
+                title: "Sincronizzazione",
+                message: "Sincronizzazione effettuata con successo. Nessun conflitto rilevato.",
+                type: .sync
+            )
+            print("No conflicts found.")
+        }
+    }
+    
+    // MARK: - Helper Method
+    
+    /// “Deletes” a reservation by marking it with “NA” values and clearing its tables and notes.
+    @MainActor
+    func separateReservation(_ reservation: Reservation) {
+        var updatedReservation = reservation  // Create a mutable copy
+        updatedReservation.reservationType = .na
+        updatedReservation.status = .toHandle
+        updatedReservation.acceptance = .na
+        updatedReservation.tables = []
+        updatedReservation.notes = "[in sospeso];"
+    
+    }
+    
+    @MainActor
+    func deleteReservation(_ reservation: Reservation) {
+        var updatedReservation = reservation  // Create a mutable copy
+        updatedReservation.reservationType = .na
+        updatedReservation.status = .deleted
+        updatedReservation.acceptance = .na
+        updatedReservation.tables = []
+        updatedReservation.notes = "[eliminata];"
+        
+        updateReservation(updatedReservation) {
+            print("Updated reservation")
         }
     }
 }

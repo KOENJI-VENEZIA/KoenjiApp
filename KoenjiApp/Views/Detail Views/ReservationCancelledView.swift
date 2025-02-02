@@ -62,10 +62,10 @@ struct ReservationCancelledView: View {
                                 .listRowSeparator(.visible) // Ensure dividers are visible
                                 
                             }
-                            .onDelete { offsets in
-                                handleDeleteFromGroup(
-                                    groupKey: groupKey, offsets: offsets)
-                            }
+//                            .onDelete { offsets in
+//                                handleDeleteFromGroup(
+//                                    groupKey: groupKey, offsets: offsets)
+//                            }
                             .listRowBackground(Color.clear)
                             
                             
@@ -102,29 +102,29 @@ struct ReservationCancelledView: View {
         
     }
     
-    private func handleDeleteFromGroup(groupKey: String, offsets: IndexSet) {
-        // 1) Access the grouped reservations
-        let reservations = reservations(at: currentTime)
-        var grouped = groupByCategory(reservations)
-        
-        // 2) The reservations in this group
-        if var reservationsInGroup = grouped[groupKey] {
-            // 3) Get the items to delete
-            let toDelete = offsets.map { reservationsInGroup[$0] }
-            // 4) Actually remove them from your store
-            for reservation in toDelete {
-                if let idx = env.store.reservations.firstIndex(where: {
-                    $0.id == reservation.id
-                }) {
-                    env.reservationService.deleteReservations(
-                        at: IndexSet(integer: idx))
-                }
-            }
-            // 5) Optionally remove them from `grouped[groupKey]` if you want to keep a local copy
-            offsets.forEach { reservationsInGroup.remove(at: $0) }
-            grouped[groupKey] = reservationsInGroup
-        }
-    }
+//    private func handleDeleteFromGroup(groupKey: String, offsets: IndexSet) {
+//        // 1) Access the grouped reservations
+//        let reservations = reservations(at: currentTime)
+//        var grouped = groupByCategory(reservations)
+//        
+//        // 2) The reservations in this group
+//        if var reservationsInGroup = grouped[groupKey] {
+//            // 3) Get the items to delete
+//            let toDelete = offsets.map { reservationsInGroup[$0] }
+//            // 4) Actually remove them from your store
+//            for reservation in toDelete {
+//                if let idx = env.store.reservations.firstIndex(where: {
+//                    $0.id == reservation.id
+//                }) {
+//                    env.reservationService.deleteReservations(
+//                        at: IndexSet(integer: idx))
+//                }
+//            }
+//            // 5) Optionally remove them from `grouped[groupKey]` if you want to keep a local copy
+//            offsets.forEach { reservationsInGroup.remove(at: $0) }
+//            grouped[groupKey] = reservationsInGroup
+//        }
+//    }
     
     private func groupByCategory(_ activeReservations: [Reservation]) -> [String:
         [Reservation]]
@@ -159,13 +159,13 @@ struct ReservationCancelledView: View {
         }
     }
     
-    private func handleDelete(_ reservation: Reservation) {
-        if let idx = env.store.reservations.firstIndex(where: {
-            $0.id == reservation.id
-        }) {
-            env.reservationService.deleteReservations(at: IndexSet(integer: idx))
-        }
-    }
+//    private func handleDelete(_ reservation: Reservation) {
+//        if let idx = env.store.reservations.firstIndex(where: {
+//            $0.id == reservation.id
+//        }) {
+//            env.reservationService.deleteReservations(at: IndexSet(integer: idx))
+//        }
+//    }
     
     private func handleRestore(_ reservation: Reservation) {
         var updatedReservation = reservation
@@ -174,8 +174,9 @@ struct ReservationCancelledView: View {
                 updatedReservation.status = .pending
             }
         }
-        env.reservationService.checkBeforeUpdate(
-            reservation: updatedReservation)
+        env.reservationService.updateReservation(updatedReservation) {
+                print("Update reservation.")
+            }
     }
     
 

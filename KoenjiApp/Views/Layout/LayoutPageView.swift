@@ -289,6 +289,7 @@ extension LayoutPageView {
         }
         env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
         updateCachedReservation(appState.selectedDate)
+        reloadLayout(appState.selectedCategory, env.resCache.activeReservations)
         env.resCache.startMonitoring(for: appState.selectedDate)
         currentDrawing.layer1 = newDrawingModel.layer1
         currentDrawing.layer2 = newDrawingModel.layer2

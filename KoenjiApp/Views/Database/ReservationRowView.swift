@@ -15,8 +15,9 @@ struct ReservationRowView: View {
     @Binding var currentReservation: Reservation?
     
     var onTap: () -> Void
-    var onDelete: () -> Void
+    var onCancel: () -> Void
     var onRecover: () -> Void
+    var onDelete: () -> Void
     var onEdit: () -> Void
     var searchText: String
     
@@ -59,10 +60,10 @@ struct ReservationRowView: View {
                 .padding()
                 .contentShape(Rectangle())
             } trailingActions: { _ in
-                if reservation.status != .canceled {
+                if reservation.status != .canceled && reservation.status != .toHandle && reservation.reservationType != .waitingList  {
                     SwipeAction(systemImage: "x.circle.fill",
                                 backgroundColor: Color(hex: "#5c140f")) {
-                        onDelete()
+                        onCancel()
                     }
                     .swipeActionLabelHorizontalPadding()
                 } else {
@@ -72,6 +73,14 @@ struct ReservationRowView: View {
                     }
                     .swipeActionLabelHorizontalPadding()
                     .allowSwipeToTrigger()
+                }
+                
+                if (reservation.status == .canceled || reservation.status == .toHandle) && reservation.status != .deleted {
+                    SwipeAction(systemImage: "x.circle.fill",
+                                backgroundColor: .black) {
+                        onDelete()
+                    }
+                    .swipeActionLabelHorizontalPadding()
                 }
             }
             .swipeActionCornerRadius(12)

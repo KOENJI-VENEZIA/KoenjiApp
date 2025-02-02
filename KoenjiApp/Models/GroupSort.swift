@@ -35,4 +35,6 @@ enum FilterOption: String, CaseIterable {
     case people = "Per numero ospiti"
     case date = "Per data"
     case canceled = "Cancellazioni"
+    case toHandle = "In sospeso"
+    case deleted = "Eliminate"
 }

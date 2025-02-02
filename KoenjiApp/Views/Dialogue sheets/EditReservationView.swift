@@ -363,8 +363,10 @@ struct EditReservationView: View {
         if reservation.reservationType == .waitingList {
             reservation.tables = []
 
-            env.reservationService.checkBeforeUpdate(reservation: reservation)
-            onChanged(reservation)
+            env.reservationService.updateReservation(reservation) {
+                onChanged(reservation)
+            }
+            
 
             onClose()
             dismiss()
@@ -374,8 +376,9 @@ struct EditReservationView: View {
         if reservation.status == .canceled {
             reservation.tables = []
 
-            env.reservationService.checkBeforeUpdate(reservation: reservation)
-            onChanged(reservation)
+            env.reservationService.updateReservation(reservation){
+                onChanged(reservation)
+            }
             onClose()
             dismiss()
             return
@@ -387,8 +390,9 @@ struct EditReservationView: View {
             switch assignmentResult {
             case .success(let assignedTables):
                 reservation.tables = assignedTables
-                env.reservationService.checkBeforeUpdate(reservation: reservation)
-                onChanged(reservation)
+                env.reservationService.updateReservation(reservation){
+                    onChanged(reservation)
+                }
                 onClose()
                 dismiss()
             case .failure(let error):
@@ -430,15 +434,19 @@ struct EditReservationView: View {
         case .showedUp: newTag = "[arrivati];"
         case .late: newTag = "[in ritardo];"
         case .na: newTag = ""
+        case .toHandle: newTag = "[in sospeso];"
+        case .deleted: newTag = "[cancellata];"
         }
         switch reservation.acceptance {
         case .confirmed: newTag = "[confermata];"
         case .toConfirm: newTag = "[da confermare];"
+        case .na: newTag = "[N/A];"
         }
         switch reservation.reservationType {
         case .inAdvance: newTag = "[prenotata];"
         case .walkIn: newTag = "[walk-in];"
         case .waitingList: newTag = "[waiting list];"
+        case .na: newTag = "[N/A];"
 
         }
 

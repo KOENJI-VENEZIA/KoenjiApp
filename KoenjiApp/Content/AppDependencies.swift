@@ -44,7 +44,7 @@ final class AppDependencies: ObservableObject {
             layoutServices: layoutServices
         )
         self.gridData = GridData(store: store)
-        self.backupService = FirebaseBackupService(store: store)
+        self.backupService = FirebaseBackupService(store: store, notifsManager: NotificationManager.shared)
         self.pushAlerts = PushAlerts()
         self.reservationService = ReservationService(
             store: store,

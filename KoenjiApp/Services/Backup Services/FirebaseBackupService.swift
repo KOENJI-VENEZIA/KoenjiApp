@@ -21,6 +21,7 @@ class FirebaseBackupService: ObservableObject {
     private let db: Firestore
     private let storage: Storage
     private let store: ReservationStore
+    let notifsManager: NotificationManager
     private var backupDirectory: String {
         #if DEBUG
         return "debugBackups"
@@ -30,11 +31,13 @@ class FirebaseBackupService: ObservableObject {
     }
     
     /// Initializes the backup service with the specified bucket URL
-    init(store: ReservationStore) {
+    @MainActor
+    init(store: ReservationStore, notifsManager: NotificationManager = NotificationManager.shared) {
         self.db = Firestore.firestore()
         // Explicitly use your bucket URL
         self.storage = Storage.storage(url: "gs://koenji-app.firebasestorage.app")
         self.store = store
+        self.notifsManager = notifsManager
     }
 
     /// Uploads a backup file to Firebase Storage without conflict checking.
@@ -178,6 +181,7 @@ class FirebaseBackupService: ObservableObject {
         }
     }
     
+    
     private func importReservations(from url: URL) {
         print("Attempting to import file at URL: \(url)")
         do {
@@ -195,20 +199,23 @@ class FirebaseBackupService: ObservableObject {
         }
     }
     
+    
     private func handleImportedReservations(_ importedReservations: [Reservation]) {
         print("Imported \(importedReservations.count) reservations (merge mode).")
         
-        // Build a dictionary of imported reservations keyed by id.
-        let importedDict = Dictionary(uniqueKeysWithValues: importedReservations.map { ($0.id, $0) })
+        // Build a dictionary of imported reservations for quick lookup.
+        // In case of duplicate IDs, choose the one with the later lastEditedOn date.
+        let importedDict = Dictionary(importedReservations.map { ($0.id, $0) },
+                                      uniquingKeysWith: { (existing, new) in
+                                          return existing.lastEditedOn > new.lastEditedOn ? existing : new
+                                      })
         
         var changesOccurred = false
         
-        // Update existing reservations in the store.
+        // Update existing reservations that need to be updated.
         for index in store.reservations.indices {
             let currentReservation = store.reservations[index]
             if let importedReservation = importedDict[currentReservation.id] {
-                // If the imported version is more recent and not identical,
-                // update the corresponding reservation.
                 if importedReservation.lastEditedOn > currentReservation.lastEditedOn &&
                    importedReservation != currentReservation {
                     store.reservations[index] = importedReservation
@@ -217,7 +224,7 @@ class FirebaseBackupService: ObservableObject {
             }
         }
         
-        // Add any new reservations that are in the imported set but not in the current store.
+        // Append new reservations not already in the store.
         let currentIDs = Set(store.reservations.map { $0.id })
         let newReservations = importedReservations.filter { !currentIDs.contains($0.id) }
         if !newReservations.isEmpty {
@@ -227,6 +234,10 @@ class FirebaseBackupService: ObservableObject {
         
         if changesOccurred {
             print("Reservations updated. Now there are \(store.reservations.count) reservations.")
+//             Notify the user that reservations have been updated.
+            Task { @MainActor in
+                await NotificationManager.shared.addNotification(title: "Prenotazioni aggiornate", message: "Nuove modifiche rilevate: sincronizzazione completata.", type: .sync)
+            }
         } else {
             print("No changes detected; store.reservations remains unchanged.")
         }
