@@ -1,7 +1,7 @@
 import Foundation
 
 /// Service responsible for handling table assignment logic.
-class TableAssignmentService {
+class TableAssignmentService: ObservableObject {
     // MARK: - Dependencies
     let tableAssignmentOrder: [String] = ["T1", "T2", "T3", "T4", "T6", "T7", "T5"]
 

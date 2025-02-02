@@ -8,6 +8,8 @@ import SwiftUI
 
 
 struct ClusterView: View {
+    @Environment(LayoutUnitViewModel.self) var unitView
+
     @State private var systemTime: Date = Date()
 
     
@@ -19,9 +21,7 @@ struct ClusterView: View {
     let cluster: CachedCluster
     let tables: [TableModel]
     let overlayFrame: CGRect
-    @Binding var isLayoutLocked: Bool
     @Binding var statusChanged: Int
-    @Binding var showInspector: Bool
     @Binding var selectedReservation: Reservation?
     var isLunch: Bool
     
@@ -167,7 +167,7 @@ struct ClusterView: View {
     private func handleDoubleTap() {
         // Check if the table is occupied by filtering active reservations.
        
-        showInspector = true
+        unitView.showInspector = true
         selectedReservation = cluster.reservationID
         
     }

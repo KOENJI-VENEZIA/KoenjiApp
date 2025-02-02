@@ -82,26 +82,23 @@ class ListViewModel {
         }), var reservation = store.reservations.first(where: { $0.id == reservation.id }) {
             reservation.status = .canceled
             reservation.tables = []
-            reservationService.updateReservation(
-                reservation,
+            reservationService.checkBeforeUpdate(
+                reservation: reservation,
                 at: idx)
         }
     }
 
-    @MainActor func handleRecover(_ reservation: Reservation) {
-
-        if let idx = store.reservations.firstIndex(where: {
-            $0.id == reservation.id
-        }), var reservation = store.reservations.first(where: { $0.id == reservation.id }) {
+    @MainActor
+    func handleRecover(_ reservation: Reservation) {
+        if let idx = store.reservations.firstIndex(where: { $0.id == reservation.id }),
+           var reservation = store.reservations.first(where: { $0.id == reservation.id }) {
             reservation.status = .pending
             let assignmentResult = layoutServices.assignTables(
                 for: reservation, selectedTableID: nil)
             switch assignmentResult {
             case .success(let assignedTables):
-                DispatchQueue.main.async {
-                    // do actual saving logic here
-                    reservation.tables = assignedTables
-                }
+                // Direct assignment on the main thread without async dispatch.
+                reservation.tables = assignedTables
             case .failure(let error):
                 switch error {
                 case .noTablesLeft:
@@ -117,11 +114,10 @@ class ListViewModel {
                 }
                 return
             }
-            reservationService.updateReservation(
-                reservation,
+            reservationService.checkBeforeUpdate(
+                reservation: reservation,
                 at: idx)
         }
-
     }
     
     func updatePeopleFilter() {

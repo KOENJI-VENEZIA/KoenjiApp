@@ -8,22 +8,17 @@
 import SwiftUI
 
 struct InspectorSideView: View {
+    @EnvironmentObject var env: AppDependencies
+    @EnvironmentObject var appState: AppState
+    @Environment(LayoutUnitViewModel.self) var unitView
+    
     @Binding var selectedReservation: Reservation?
-    @Binding var currentReservation: Reservation?
-    @Binding var showInspector: Bool
-    @Binding var showingEditReservation: Bool
-    @Binding var changedReservation: Reservation?
-    @Binding var isShowingFullImage: Bool
     @State private var selectedView: SelectedView = .info
     @State var currentTime: Date = Date()
-    @EnvironmentObject var resCache: CurrentReservationsCache
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var store: ReservationStore
-    @EnvironmentObject var reservationService: ReservationService
-    @EnvironmentObject var layoutServices: LayoutServices
+
     
     var activeReservations: [Reservation] {
-        resCache.reservations(for: currentTime)
+        env.resCache.reservations(for: currentTime)
     }
     
     enum SelectedView {
@@ -57,11 +52,10 @@ struct InspectorSideView: View {
                             dismissInfoCard()
                         },
                         onEdit: { reservation in
-                            currentReservation = reservation
-                            showingEditReservation = true
+                            appState.currentReservation = reservation
+                            appState.showingEditReservation = true
                             dismissInfoCard()
-                        },
-                        isShowingFullImage: $isShowingFullImage
+                        }
                     )
                     .background(.clear)
                     
@@ -72,19 +66,14 @@ struct InspectorSideView: View {
                             dismissInfoCard()
                         },
                         onEdit: { reservation in
-                            currentReservation = reservation
-                            showingEditReservation = true
+                            appState.currentReservation = reservation
+                            appState.showingEditReservation = true
                             dismissInfoCard()
                         },
                         onCancelled: { reservation in
-                            changedReservation = reservation
+                            appState.changedReservation = reservation
                         }
                     )
-                    .environmentObject(resCache)
-                    .environmentObject(appState)
-                    .environmentObject(store)
-                    .environmentObject(reservationService)
-                    .environmentObject(layoutServices)
                     .background(.clear)
                 }
                 case .cancelled:
@@ -94,12 +83,12 @@ struct InspectorSideView: View {
                             dismissInfoCard()
                         },
                         onEdit: { reservation in
-                            currentReservation = reservation
-                            showingEditReservation = true
+                        appState.currentReservation = reservation
+                        appState.showingEditReservation = true
                             dismissInfoCard()
                         },
                         onRestore: { reservation in
-                            changedReservation = reservation
+                        appState.changedReservation = reservation
                         }
                     )
                     .background(.clear)
@@ -111,19 +100,14 @@ struct InspectorSideView: View {
                             dismissInfoCard()
                         },
                         onEdit: { reservation in
-                            currentReservation = reservation
-                            showingEditReservation = true
+                            appState.currentReservation = reservation
+                            appState.showingEditReservation = true
                             dismissInfoCard()
                         },
                         onConfirm: { reservation in
-                            changedReservation = reservation
+                            appState.changedReservation = reservation
                         }
                     )
-                    .environmentObject(resCache)
-                    .environmentObject(appState)
-                    .environmentObject(store)
-                    .environmentObject(reservationService)
-                    .environmentObject(layoutServices)
                 }
                 
             }
@@ -141,7 +125,7 @@ struct InspectorSideView: View {
     
     func dismissInfoCard() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { // Match animation duration
-            showInspector = false
+            unitView.showInspector = false
             selectedReservation = nil
         }
     }

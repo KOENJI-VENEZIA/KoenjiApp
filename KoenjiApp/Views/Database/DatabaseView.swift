@@ -7,9 +7,8 @@ import SwipeActions
 struct DatabaseView: View {
     
     // MARK: Environment Objects & Dependencies
-    @EnvironmentObject var resCache: CurrentReservationsCache
+    @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var backupService: FirebaseBackupService
     @Environment(\.scenePhase) private var scenePhase
 
     let store: ReservationStore
@@ -19,6 +18,7 @@ struct DatabaseView: View {
     // MARK: View Model & Bindings
     @State var listView: ListViewModel
     @Binding var columnVisibility: NavigationSplitViewVisibility
+    @State var unitView = LayoutUnitViewModel()
 
     // MARK: Local State (Filters, Debug, etc.)
     @State private var searchDate = Date()
@@ -26,7 +26,7 @@ struct DatabaseView: View {
     @State private var filterStartDate: Date = Date()
     @State private var filterEndDate: Date = Date()
     @State private var filterCancelled: Reservation.ReservationStatus = .canceled
-    @State private var daysToSimulate: Int = 5
+    @State var daysToSimulate: Int = 5
     @State private var popoverPosition: CGRect = .zero
 
     private var isSorted: Bool { listView.sortOption != .removeSorting }
@@ -68,6 +68,7 @@ struct DatabaseView: View {
             .onChange(of: store.reservations) {
                 listView.currentReservations = store.reservations
             }
+        
             .onChange(of: listView.changedReservation) {
                 listView.currentReservations = store.reservations
             }
@@ -279,13 +280,11 @@ extension DatabaseView {
             .popover(isPresented: $listView.showStartDatePopover) {
                 DatePickerView(filteredDate: $filterStartDate,
                                hasSelectedStartDate: $listView.hasSelectedStartDate)
-                    .environmentObject(appState)
                     .frame(width: 300)
             }
             .popover(isPresented: $listView.showEndDatePopover) {
                 DatePickerView(filteredDate: $filterEndDate,
                                hasSelectedEndDate: $listView.hasSelectedEndDate)
-                    .environmentObject(appState)
                     .frame(width: 300)
             }
         }
@@ -319,14 +318,17 @@ extension DatabaseView {
                     onEdit: { reservation in
                         listView.handleEditTap(reservation)
                         dismissInfoCard()
-                    },
-                    isShowingFullImage: $listView.isShowingFullImage
+                    }
                 )
+                .environment(unitView)
                 .presentationBackground(.thinMaterial)
             )
         case .addReservation:
             return AnyView(
-                AddReservationView(passedTable: nil)
+                AddReservationView(passedTable: nil, onAdded: { newReservation in
+                    appState.changedReservation = newReservation})
+                .environmentObject(appState)
+                .environmentObject(env)
                     .presentationBackground(.thinMaterial)
             )
         case .debugConfig:
@@ -413,37 +415,6 @@ extension DatabaseView {
             appState.isFullScreen.toggle()
             columnVisibility = appState.isFullScreen ? .detailOnly : .all
         }
-    }
-    
-    // MARK: - Debug Actions
-    
-    private func generateDebugData(force: Bool = false) {
-        Task {
-            await reservationService.generateReservations(daysToSimulate: daysToSimulate)
-        }
-    }
-    
-    private func saveDebugData() {
-        reservationService.saveReservationsToDisk(includeMock: true)
-        print("Debug data saved to disk.")
-    }
-    
-    private func resetData() {
-        store.setReservations([])
-        reservationService.clearAllData()
-        flushCaches()
-        layoutServices.unlockAllTables()
-        print("All data has been reset.")
-    }
-    
-    private func parseReservations() {
-        let reservations = store.reservations
-        print("\(reservations)")
-    }
-    
-    private func flushCaches() {
-        reservationService.flushAllCaches()
-        print("Debug: Cache flush triggered.")
     }
 }
 

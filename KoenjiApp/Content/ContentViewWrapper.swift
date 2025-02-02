@@ -9,21 +9,11 @@
 import SwiftUI
 
 struct ContentViewWrapper: View {
-    @EnvironmentObject var store: ReservationStore
-    @EnvironmentObject var resCache: CurrentReservationsCache
-    @EnvironmentObject var tableStore: TableStore
-    @EnvironmentObject var reservationService: ReservationService
-    @EnvironmentObject var clusterStore: ClusterStore
-    @EnvironmentObject var clusterServices: ClusterServices
-    @EnvironmentObject var layoutServices: LayoutServices
-    @EnvironmentObject var gridData: GridData
+    @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var backupService: FirebaseBackupService
-    @EnvironmentObject var scribbleService: ScribbleService
-    @State var listView: ListViewModel
 
     var body: some View {
-        ContentView(listView: listView)
+        ContentView()
             .onAppear {
                 print("App appearing. Loading data...")
             }

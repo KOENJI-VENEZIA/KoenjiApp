@@ -8,27 +8,17 @@
 import SwiftUI
 
 struct SidebarView: View {
-    @EnvironmentObject var store: ReservationStore
-    @EnvironmentObject var resCache: CurrentReservationsCache
-    @EnvironmentObject var tableStore: TableStore
-    @EnvironmentObject var reservationService: ReservationService
-    @EnvironmentObject var clusterStore: ClusterStore
-    @EnvironmentObject var clusterServices: ClusterServices
-    @EnvironmentObject var layoutServices: LayoutServices
-    @EnvironmentObject var gridData: GridData
-    @EnvironmentObject var appState: AppState // Access AppState
-    @EnvironmentObject var backupService: FirebaseBackupService
-    @EnvironmentObject var scribbleService: ScribbleService
-    @State var listView: ListViewModel
-    
+    @EnvironmentObject var env: AppDependencies
+    @EnvironmentObject var appState: AppState
+
     @Binding  var selectedReservation: Reservation?
     @Binding  var currentReservation: Reservation?
     @Binding  var selectedCategory: Reservation.ReservationCategory? 
     @Binding var columnVisibility: NavigationSplitViewVisibility
     
-    init(layoutServices: LayoutServices, listView: ListViewModel, selectedReservation: Binding<Reservation?>, currentReservation: Binding<Reservation?>, selectedCategory: Binding<Reservation.ReservationCategory?>, columnVisibility: Binding<NavigationSplitViewVisibility>) {
+    init(selectedReservation: Binding<Reservation?>, currentReservation: Binding<Reservation?>, selectedCategory: Binding<Reservation.ReservationCategory?>, columnVisibility: Binding<NavigationSplitViewVisibility>) {
 
-        self._listView = State(wrappedValue: listView)
+    
         self._selectedReservation = selectedReservation
         self._currentReservation = currentReservation
         self._selectedCategory = selectedCategory
@@ -47,11 +37,11 @@ struct SidebarView: View {
                     List {
                         NavigationLink(
                             destination: DatabaseView(
-                                store: store,
-                                reservationService: reservationService,
-                                layoutServices: layoutServices,
+                                store: env.store,
+                                reservationService: env.reservationService,
+                                layoutServices: env.layoutServices,
                                 columnVisibility: $columnVisibility,
-                                listView: listView
+                                listView: env.listView
                             )
                         ) {
                             Label("Database", systemImage: "list.bullet")
@@ -68,11 +58,11 @@ struct SidebarView: View {
                         NavigationLink(
                             destination: LayoutView(
                                 appState: appState,
-                                store: store,
-                                reservationService: reservationService,
-                                clusterServices: clusterServices,
-                                layoutServices: layoutServices,
-                                resCache: resCache,
+                                store: env.store,
+                                reservationService: env.reservationService,
+                                clusterServices: env.clusterServices,
+                                layoutServices: env.layoutServices,
+                                resCache: env.resCache,
                                 selectedReservation: $selectedReservation,
                                 columnVisibility: $columnVisibility
                             )

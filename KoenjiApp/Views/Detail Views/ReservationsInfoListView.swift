@@ -9,11 +9,9 @@ import SwiftUI
 import Foundation
 
 struct ReservationsInfoListView: View {
-    @EnvironmentObject var store: ReservationStore
-    @EnvironmentObject var resCache: CurrentReservationsCache
+    @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var reservationService: ReservationService
-    @EnvironmentObject var layoutServices: LayoutServices
+
     @State private var selection = Set<UUID>()  // Multi-select
     @Environment(\.colorScheme) var colorScheme
     var onClose: () -> Void
@@ -26,7 +24,7 @@ struct ReservationsInfoListView: View {
 //            Color.clear.ignoresSafeArea()
             
             List(selection: $selection) {
-                let reservations = resCache.activeReservations
+                let reservations = env.resCache.activeReservations
                 let filtered = filterReservations(reservations)
                 let grouped = groupByCategory(filtered)
                 if !grouped.isEmpty {
@@ -142,10 +140,10 @@ struct ReservationsInfoListView: View {
             let toDelete = offsets.map { reservationsInGroup[$0] }
             // 4) Actually remove them from your store
             for reservation in toDelete {
-                if let idx = store.reservations.firstIndex(where: {
+                if let idx = env.store.reservations.firstIndex(where: {
                     $0.id == reservation.id
                 }) {
-                    reservationService.deleteReservations(
+                    env.reservationService.deleteReservations(
                         at: IndexSet(integer: idx))
                 }
             }
@@ -176,7 +174,7 @@ struct ReservationsInfoListView: View {
     }
     
     func reservations(at date: Date) -> [Reservation] {
-        store.reservations.filter { reservation in
+        env.store.reservations.filter { reservation in
             guard let reservationDate = reservation.normalizedDate else { return false }// Skip reservations with invalid times
             return reservationDate.isSameDay(as: date)
         }
@@ -189,10 +187,10 @@ struct ReservationsInfoListView: View {
     }
     
     private func handleDelete(_ reservation: Reservation) {
-        if let idx = store.reservations.firstIndex(where: {
+        if let idx = env.store.reservations.firstIndex(where: {
             $0.id == reservation.id
         }) {
-            reservationService.deleteReservations(at: IndexSet(integer: idx))
+            env.reservationService.deleteReservations(at: IndexSet(integer: idx))
         }
     }
     
@@ -201,9 +199,10 @@ struct ReservationsInfoListView: View {
         if updatedReservation.status != .canceled {
             withAnimation {
                 updatedReservation.status = .canceled
+                updatedReservation.tables = []
             }
         }
-        reservationService.updateReservation(updatedReservation)
+        env.reservationService.checkBeforeUpdate(reservation: updatedReservation)
     }
     
     
@@ -223,7 +222,7 @@ struct ReservationsInfoListView: View {
         else if updatedReservation.startTimeDate != nil {
                      updatedReservation.status = .pending
                  }
-            reservationService.updateReservation(updatedReservation)
+        env.reservationService.checkBeforeUpdate(reservation: updatedReservation)
     }
 }
 

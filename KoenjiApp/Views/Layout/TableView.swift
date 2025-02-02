@@ -13,14 +13,11 @@ enum DragState: Equatable {
 
 struct TableView: View {
     // MARK: Environment Objects & Dependencies
-    @EnvironmentObject var resCache: CurrentReservationsCache
+    @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var gridData: GridData
-    @EnvironmentObject var store: ReservationStore
-    @EnvironmentObject var tableStore: TableStore
-    @EnvironmentObject var reservationService: ReservationService
-    @EnvironmentObject var layoutServices: LayoutServices
+
     @Environment(LayoutUIManager.self) var layoutUI
+    @Environment(LayoutUnitViewModel.self) var unitView
     @Environment(\.colorScheme) var colorScheme
     @Environment(ClusterManager.self) var clusterManager
 
@@ -28,9 +25,7 @@ struct TableView: View {
     @State var tableView: TableViewModel = TableViewModel()
     private let normalizedTimeCache = NormalizedTimeCache()
 
-    @Binding var selectedIndex: Int
     let table: TableModel
-    let selectedDate: Date
     let onTapEmpty: (TableModel) -> Void
     let onStatusChange: () -> Void
     let onEditReservation: (Reservation) -> Void
@@ -38,17 +33,13 @@ struct TableView: View {
     let animationNamespace: Namespace.ID
     let onTableUpdated: (TableModel) -> Void
 
-    @Binding var changedReservation: Reservation?
-    @Binding var isEditing: Bool
-    @Binding var isLayoutReset: Bool
-    @Binding var showInspector: Bool
     @Binding var statusChanged: Int
 
     @GestureState private var dragOffset: CGSize = .zero
     @State private var cachedRemainingTime: String?
 
     // MARK: Computed Properties
-    private var cellSize: CGFloat { gridData.cellSize }
+    private var cellSize: CGFloat { env.gridData.cellSize }
 
     private var tableFrame: CGRect {
         let width = CGFloat(table.width) * cellSize
@@ -59,7 +50,7 @@ struct TableView: View {
     }
 
     private var isHighlighted: Bool {
-        layoutServices.tableAnimationState[table.id] ?? false
+        env.layoutServices.tableAnimationState[table.id] ?? false
     }
 
     private var isDragging: Bool {
@@ -91,13 +82,13 @@ struct TableView: View {
         .position(x: tableFrame.minX, y: tableFrame.minY)
         .offset(dragOffset)
         .gesture(combinedGestures)
-        .onAppear { updateResData(selectedDate, refreshedKey: "onAppear", forceUpdate: true) }
+        .onAppear { updateResData(appState.selectedDate, refreshedKey: "onAppear", forceUpdate: true) }
         .onChange(of: statusChanged) {
-            updateResData(selectedDate, refreshedKey: "statusChanged", forceUpdate: true)
+            updateResData(appState.selectedDate, refreshedKey: "statusChanged", forceUpdate: true)
         }
-        .onChange(of: showInspector) { updateResData(selectedDate, refreshedKey: "showInspector") }
-        .onChange(of: changedReservation) {
-            updateResData(selectedDate, refreshedKey: "changedReservation")
+        .onChange(of: unitView.showInspector) { updateResData(appState.selectedDate, refreshedKey: "showInspector") }
+        .onChange(of: appState.changedReservation) {
+            updateResData(appState.selectedDate, refreshedKey: "changedReservation", forceUpdate: true)
         }
         .onChange(of: appState.selectedDate) {
             updateResData(
@@ -147,7 +138,7 @@ extension TableView {
         .contextMenu {
             Button {
                 print(
-                    "DEBUG: FORCED Current active reservation: \(resCache.reservation(forTable: table.id, datetime: appState.selectedDate, category: appState.selectedCategory)?.name ?? "none")"
+                    "DEBUG: FORCED Current active reservation: \(env.resCache.reservation(forTable: table.id, datetime: appState.selectedDate, category: appState.selectedCategory)?.name ?? "none")"
                 )
             } label: {
                 Label("Debug Print", systemImage: "ladybug.slash.fill")
@@ -529,7 +520,7 @@ extension TableView {
 
         let formattedDate = formatter.string(from: date)
         let key =
-            "\(formattedDate)-\(refreshedKey)-\(appState.selectedCategory.rawValue)-\(table.id)"
+        "\(formattedDate)-\(refreshedKey)-\(appState.selectedCategory.rawValue)-\(table.id)"
 
         if !forceUpdate {
             if tableView.currentActiveReservation != nil || tableView.lateReservation != nil
@@ -561,7 +552,7 @@ extension TableView {
     }
 
     private func updateCachedReservation(_ date: Date) {
-        if let reservation = resCache.reservation(
+        if let reservation = env.resCache.reservation(
             forTable: table.id, datetime: date, category: appState.selectedCategory),
             reservation.status != .canceled,
             reservation.reservationType != .waitingList
@@ -574,7 +565,7 @@ extension TableView {
 
     private func updateLateReservation(_ date: Date) {
         if let reservation = tableView.currentActiveReservation,
-            resCache.lateReservations(currentTime: date).contains(where: { $0.id == reservation.id }
+           env.resCache.lateReservations(currentTime: date).contains(where: { $0.id == reservation.id }
             )
         {
             tableView.lateReservation = reservation
@@ -585,7 +576,7 @@ extension TableView {
 
     private func updateNearEndReservation(_ date: Date) {
         if let reservation = tableView.currentActiveReservation,
-            resCache.nearingEndReservations(currentTime: date).contains(where: {
+           env.resCache.nearingEndReservations(currentTime: date).contains(where: {
                 $0.id == reservation.id
             })
         {
@@ -596,7 +587,7 @@ extension TableView {
     }
 
     private func updateFirstUpcoming(_ date: Date) {
-        if let reservation = resCache.firstUpcomingReservation(
+        if let reservation = env.resCache.firstUpcomingReservation(
             forTable: table.id,
             date: date,
             time: date,
@@ -613,15 +604,15 @@ extension TableView {
         if updatedReservation.status != .canceled {
             updatedReservation.status = .canceled
         }
-        changedReservation = updatedReservation
-        reservationService.updateReservation(updatedReservation)
+        appState.changedReservation = updatedReservation
+        env.reservationService.checkBeforeUpdate(reservation: updatedReservation)
     }
 
     private func handleEmojiAssignment(_ activeReservation: Reservation?, _ emoji: String) {
         guard var reservationActive = activeReservation else { return }
         print("Emoji: \(emoji)")
         reservationActive.assignedEmoji = emoji
-        reservationService.updateReservation(reservationActive)
+        env.reservationService.checkBeforeUpdate(reservation: reservationActive)
         statusChanged += 1
         onStatusChange()
     }
@@ -634,14 +625,14 @@ extension TableView {
             tableView.showedUp = true
             tableView.isLate = false
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            reservationService.updateReservation(
+            env.reservationService.checkBeforeUpdate(reservation:
                 activeReservation, newReservation: currentReservation)
             statusChanged += 1
         } else {
             currentReservation.status =
                 (tableView.lateReservation?.id == currentReservation.id ? .late : .pending)
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            reservationService.updateReservation(
+            env.reservationService.checkBeforeUpdate(reservation:
                 activeReservation, newReservation: currentReservation)
             statusChanged += 1
         }
@@ -649,7 +640,7 @@ extension TableView {
 
     private func handleDoubleTap() {
         if let reservation = tableView.currentActiveReservation {
-            showInspector = true
+            unitView.showInspector = true
             onEditReservation(reservation)
         } else if tableView.currentActiveReservation == nil
             || tableView.currentActiveReservation?.id == tableView.firstUpcomingReservation?.id
@@ -664,7 +655,7 @@ extension TableView {
     ) {
         layoutUI.isDragging = false
         guard !isLayoutLocked else {
-            layoutServices.currentlyDraggedTableID = nil
+            env.layoutServices.currentlyDraggedTableID = nil
             return
         }
 
@@ -682,18 +673,18 @@ extension TableView {
         )
 
         // Check for blockage before moving the table
-        if !gridData.isBlockage(proposedFrame) {
+        if !env.gridData.isBlockage(proposedFrame) {
             print("Blockage detected! Table move rejected.")
-            layoutServices.currentlyDraggedTableID = nil
+            env.layoutServices.currentlyDraggedTableID = nil
             return
         }
 
-        clusterManager.lastLayoutSignature = layoutServices.computeLayoutSignature(
+        clusterManager.lastLayoutSignature = env.layoutServices.computeLayoutSignature(
             tables: layoutUI.tables)
 
         // Delegate the move to LayoutUIManager
         layoutUI.attemptMove(
-            table: table, to: (row: newRow, col: newCol), for: selectedDate,
+            table: table, to: (row: newRow, col: newCol), for: appState.selectedDate,
             activeTables: layoutUI.tables,
             category: appState.selectedCategory
         )
@@ -704,9 +695,9 @@ extension TableView {
             return
         }
 
-        let combinedDate = DateHelper.combine(date: selectedDate, time: appState.selectedDate)
-        if let updatedLayout = layoutServices.cachedLayouts[
-            layoutServices.keyFor(date: combinedDate, category: appState.selectedCategory)]
+        let combinedDate = DateHelper.combine(date: appState.selectedDate, time: appState.selectedDate)
+        if let updatedLayout = env.layoutServices.cachedLayouts[
+            env.layoutServices.keyFor(date: combinedDate, category: appState.selectedCategory)]
         {
             print("Updated cache for \(appState.selectedCategory):")
             for table in updatedLayout {
@@ -715,15 +706,15 @@ extension TableView {
         }
 
         if let reservation = tableView.currentActiveReservation {
-            reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
+            env.reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
         }
-        let layoutKey = layoutServices.keyFor(
+        let layoutKey = env.layoutServices.keyFor(
             date: combinedDate, category: appState.selectedCategory)
-        layoutServices.cachedLayouts[layoutKey] = layoutUI.tables
-        layoutServices.saveToDisk()
+        env.layoutServices.cachedLayouts[layoutKey] = layoutUI.tables
+        env.layoutServices.saveToDisk()
 
         onTableUpdated(updatedTable)
-        isLayoutReset = false
-        layoutServices.currentlyDraggedTableID = nil
+        unitView.isLayoutReset = false
+        env.layoutServices.currentlyDraggedTableID = nil
     }
 }

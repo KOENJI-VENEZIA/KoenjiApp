@@ -2,14 +2,8 @@ import PhotosUI
 import SwiftUI
 
 struct EditReservationView: View {
-    @EnvironmentObject var store: ReservationStore
-    @EnvironmentObject var resCache: CurrentReservationsCache
-    @EnvironmentObject var tableStore: TableStore
-    @EnvironmentObject var reservationService: ReservationService
-    @EnvironmentObject var clusterStore: ClusterStore
-    @EnvironmentObject var clusterServices: ClusterServices
-    @EnvironmentObject var layoutServices: LayoutServices
-    @EnvironmentObject var gridData: GridData
+    @EnvironmentObject var env: AppDependencies
+
     @Environment(\.dismiss) var dismiss
     @Environment(\.locale) var locale
 
@@ -102,10 +96,10 @@ struct EditReservationView: View {
                     Picker("Tavolo", selection: $selectedForcedTableID) {
                         Text("Auto Assegna").tag(nil as Int?)
                         ForEach(
-                            store.tableAssignmentService.availableTables(
+                            env.tableAssignment.availableTables(
                                 for: reservation,
-                                reservations: store.getReservations(),
-                                tables: layoutServices.getTables()
+                                reservations: env.store.getReservations(),
+                                tables: env.layoutServices.getTables()
                             ), id: \.table.id
                         ) { entry in
                             Text(
@@ -269,7 +263,7 @@ struct EditReservationView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Annulla") {
-                        resCache.addOrUpdateReservation(reservation)
+                        env.resCache.addOrUpdateReservation(reservation)
                         onClose()
                         dismiss()
                     }
@@ -309,10 +303,10 @@ struct EditReservationView: View {
 
                 }
                 print(
-                    store.tableAssignmentService.availableTables(
+                    env.tableAssignment.availableTables(
                         for: reservation,
-                        reservations: store.getReservations(),
-                        tables: layoutServices.getTables()
+                        reservations: env.store.getReservations(),
+                        tables: env.layoutServices.getTables()
                     ))
                 print("Selected Forced Table ID: \(String(describing: selectedForcedTableID))")
 
@@ -349,7 +343,7 @@ struct EditReservationView: View {
             let reservationEnd = reservation.endTimeDate else { return }
 
         for table in reservation.tables {
-            layoutServices.unlockTable(
+            env.layoutServices.unlockTable(
                 tableID: table.id, start: reservationStart, end: reservationEnd)
         }
 
@@ -367,30 +361,33 @@ struct EditReservationView: View {
 
     private func performSaveReservation() {
         if reservation.reservationType == .waitingList {
-            reservation.tables.removeAll()
+            reservation.tables = []
 
-            reservationService.updateReservation(reservation)
-            reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
-            
+            env.reservationService.checkBeforeUpdate(reservation: reservation)
+            onChanged(reservation)
 
-            print("Updated tables of \(reservation.name): \(reservation.tables)")
-            print("Updated status of \(reservation.name): \(reservation.status)")
+            onClose()
+            dismiss()
+            return
+        }
+        
+        if reservation.status == .canceled {
+            reservation.tables = []
 
+            env.reservationService.checkBeforeUpdate(reservation: reservation)
             onChanged(reservation)
             onClose()
             dismiss()
+            return
         }
 
         if reservation.reservationType != .waitingList {
-            let assignmentResult = layoutServices.assignTables(
+            let assignmentResult = env.layoutServices.assignTables(
                 for: reservation, selectedTableID: selectedForcedTableID)
             switch assignmentResult {
             case .success(let assignedTables):
                 reservation.tables = assignedTables
-                reservationService.updateReservation(reservation)
-
-                reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
-                
+                env.reservationService.checkBeforeUpdate(reservation: reservation)
                 onChanged(reservation)
                 onClose()
                 dismiss()
@@ -411,7 +408,7 @@ struct EditReservationView: View {
             }
         }
     }
-
+        
     private func adjustNotesForStatus() {
         // Define a pattern that finds our "tag" substrings, for example "[...];"
         let tagPattern = #"\[[^\]]*\];"#  // Match a "[", any number of non-"]", then "];"

@@ -6,10 +6,7 @@ struct BackupListView: View {
     @State private var selectedBackup: String?
     @State private var showConfirmation = false
     
-    @EnvironmentObject var backupService: FirebaseBackupService
-    @EnvironmentObject var reservationService: ReservationService
-    @EnvironmentObject var resCache: CurrentReservationsCache
-    @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var env: AppDependencies
     
     @Binding var showRestoreSheet: Bool
 
@@ -54,14 +51,14 @@ struct BackupListView: View {
                 Button("Annulla", role: .cancel) { }
                 Button("Ripristina", role: .destructive) {
                     if let fileName = selectedBackup {
-                        backupService.restoreBackup(fileName: fileName) {
+                        env.backupService.restoreBackup(fileName: fileName) {
                             print("Reservation service save called")
-                            reservationService.saveReservationsToDisk()
+                            env.reservationService.saveReservationsToDisk()
                             let today = Calendar.current.startOfDay(for: Date())
                             print("Rescache preloadDates called")
-                            print("Reservations in store: \(store.reservations.count)")
-                            resCache.preloadDates(around: today, range: 5, reservations: store.reservations)
-                            reservationService.automaticBackup()
+                            print("Reservations in store: \(env.store.reservations.count)")
+                            env.resCache.preloadDates(around: today, range: 5, reservations: env.store.reservations)
+                            env.reservationService.automaticBackup()
                             showRestoreSheet = false
                         }
                     }
@@ -76,7 +73,7 @@ struct BackupListView: View {
     }
     
     private func fetchBackupList() {
-        backupService.listBackups { result in
+        env.backupService.listBackups { result in
             switch result {
             case .success(let files):
                 let formattedFiles = files.compactMap { fileName -> (String, String, Date?, Int?)? in
@@ -111,7 +108,7 @@ struct BackupListView: View {
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
 
         // Download the backup file from Firebase Storage
-        backupService.downloadBackup(fileName: fileName, to: tempURL) { result in
+        env.backupService.downloadBackup(fileName: fileName, to: tempURL) { result in
             switch result {
             case .success:
                 do {

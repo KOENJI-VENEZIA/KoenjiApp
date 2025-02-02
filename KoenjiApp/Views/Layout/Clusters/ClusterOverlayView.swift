@@ -7,20 +7,21 @@
 import SwiftUI
 
 struct ClusterOverlayView: View {
+    @EnvironmentObject var env: AppDependencies
+    @EnvironmentObject var appState: AppState
+
+    @Environment(LayoutUnitViewModel.self) var unitView
+
     let cluster: CachedCluster
     let selectedCategory: Reservation.ReservationCategory
     let overlayFrame: CGRect
     @Binding var statusChanged: Int
-    @Binding var showInspector: Bool
     @Binding var selectedReservation: Reservation?
     
     @State private var systemTime: Date = Date()
     
     @State private var nearEndReservation: Reservation?
     
-    @EnvironmentObject var resCache: CurrentReservationsCache
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var reservationService: ReservationService
     
     @State var currentReservation: Reservation? = nil
     
@@ -94,17 +95,17 @@ struct ClusterOverlayView: View {
         .background(.clear)
         .onAppear {
             updateNearEndReservation()
-            currentReservation = resCache.activeReservations.first(where: { $0.id == cluster.reservationID.id })
+            currentReservation = env.resCache.activeReservations.first(where: { $0.id == cluster.reservationID.id })
         }
         .onChange(of: appState.selectedDate) {
             updateNearEndReservation()
             currentReservation = cluster.tableIDs.compactMap {
-                resCache.reservation(forTable: $0, datetime: appState.selectedDate, category: selectedCategory)
+                env.resCache.reservation(forTable: $0, datetime: appState.selectedDate, category: selectedCategory)
             }.first
         }
         .onChange(of: statusChanged) {
             currentReservation = cluster.tableIDs.compactMap {
-                resCache.reservation(forTable: $0, datetime: appState.selectedDate, category: selectedCategory)
+                env.resCache.reservation(forTable: $0, datetime: appState.selectedDate, category: selectedCategory)
             }.first
             
             print("Current reservation status: \(currentReservation?.status ?? .pending)")
@@ -114,7 +115,7 @@ struct ClusterOverlayView: View {
 
     // MARK: - Precompute Reservation States
     private func updateNearEndReservation() {
-        if resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {$0.id == cluster.reservationID.id }) {
+        if env.resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {$0.id == cluster.reservationID.id }) {
             nearEndReservation = cluster.reservationID
         }
     }
@@ -122,7 +123,7 @@ struct ClusterOverlayView: View {
     private func handleDoubleTap() {
         // Check if the table is occupied by filtering active reservations.
        
-        showInspector = true
+        unitView.showInspector = true
         selectedReservation = cluster.reservationID
         
     }
@@ -140,12 +141,12 @@ struct ClusterOverlayView: View {
             currentReservation.status = .showedUp
 
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            reservationService.updateReservation(oldReservation, newReservation: currentReservation)  // Ensure the data store is updated
+            env.reservationService.checkBeforeUpdate(reservation: oldReservation, newReservation: currentReservation)  // Ensure the data store is updated
             statusChanged += 1
             
         } else {
             // Case 2: Determine if the reservation is late or pending
-            if resCache.lateReservations(currentTime: appState.selectedDate).first(where: {
+            if env.resCache.lateReservations(currentTime: appState.selectedDate).first(where: {
                 $0.id == currentReservation.id
             }) != nil {
                 currentReservation.status = .late
@@ -154,7 +155,7 @@ struct ClusterOverlayView: View {
             }
 
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            reservationService.updateReservation(oldReservation, newReservation: currentReservation)  // Ensure the data store is updated
+            env.reservationService.checkBeforeUpdate(reservation: oldReservation, newReservation: currentReservation)  // Ensure the data store is updated
             statusChanged += 1
 
         }

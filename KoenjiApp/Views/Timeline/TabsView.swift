@@ -15,11 +15,9 @@ enum Tabs: Equatable, Hashable, CaseIterable {
 
 struct TabsView: View {
     // - MARK: Dependencies
-    @EnvironmentObject var resCache: CurrentReservationsCache
+    @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var store: ReservationStore
-    @EnvironmentObject var layoutServices: LayoutServices
-    @EnvironmentObject var reservationService: ReservationService
+
     @Environment(\.colorScheme) var colorScheme
 
     @State var toolbarManager = ToolbarStateManager()
@@ -139,8 +137,12 @@ struct TabsView: View {
             }
             .sheet(isPresented: $showingAddReservationSheet) {
                 AddReservationView(
-                    passedTable: nil
+                    passedTable: nil,
+                    onAdded: { newReservation in
+                        appState.changedReservation = newReservation}
                 )
+                .environmentObject(appState)
+                .environmentObject(env)
                 .presentationBackground(.thinMaterial)
             }
             .onAppear {
@@ -150,7 +152,7 @@ struct TabsView: View {
                     appState.selectedCategory = .dinner
                 }
 
-                reservations = resCache.reservations(for: appState.selectedDate).filter {
+                reservations = env.resCache.reservations(for: appState.selectedDate).filter {
                     reservation in
                     reservation.category == appState.selectedCategory
                         && reservation.status != .canceled
@@ -167,12 +169,21 @@ struct TabsView: View {
                     appState.selectedCategory = .dinner
                 }
 
-                reservations = resCache.reservations(for: appState.selectedDate).filter {
+                reservations = env.resCache.reservations(for: appState.selectedDate).filter {
                     reservation in
                     reservation.category == appState.selectedCategory
                         && reservation.status != .canceled
                         && reservation.reservationType != .waitingList
                 }
+            }
+            .onChange(of: appState.selectedDate) { _, newDate in
+                reservations = env.resCache.reservations(for: appState.selectedDate).filter {
+                    reservation in
+                    reservation.category == appState.selectedCategory
+                        && reservation.status != .canceled
+                        && reservation.reservationType != .waitingList
+                }
+                env.resCache.preloadDates(around: newDate, range: 5, reservations: env.store.reservations)
             }
 
         } else {
@@ -324,7 +335,6 @@ struct TabsView: View {
         }
         .popover(isPresented: $appState.showingDatePicker) {
             DatePickerView()
-                .environmentObject(appState)
                 .frame(width: 300, height: 350)  // Adjust as needed
 
         }

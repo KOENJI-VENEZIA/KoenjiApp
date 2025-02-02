@@ -2,15 +2,9 @@ import PhotosUI
 import SwiftUI
 
 struct AddReservationView: View {
-    @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var resCache: CurrentReservationsCache
-    @EnvironmentObject var tableStore: TableStore
-    @EnvironmentObject var reservationService: ReservationService
-    @EnvironmentObject var clusterStore: ClusterStore
-    @EnvironmentObject var clusterServices: ClusterServices
-    @EnvironmentObject var layoutServices: LayoutServices
-    @EnvironmentObject var gridData: GridData
+
     @Environment(\.dismiss) var dismiss
 
     // MARK: - State
@@ -28,8 +22,7 @@ struct AddReservationView: View {
     @State private var startTimeString: String = "12:00"
 
     @State private var selectedForcedTableID: Int? = nil
-    @State private var activeAlert: AddReservationAlertType? = nil
-    @State private var alertMessage: String = ""
+
 
     @State private var isSaving = false
 
@@ -43,16 +36,10 @@ struct AddReservationView: View {
     @State var category: Reservation.ReservationCategory = .lunch
     @State var startTime: Date = Date()
     var passedTable: TableModel?
-
+    var onAdded: (Reservation) -> Void
+    
     @State private var availableTables: [(table: TableModel, isCurrentlyAssigned: Bool)] = []
 
-    init(
-        passedTable: TableModel?
-    ) {
-        self.passedTable = passedTable
-        
-        UITableView.appearance().backgroundColor = .clear
-    }
     // MARK: - Body
     var body: some View {
         NavigationView {
@@ -283,7 +270,7 @@ struct AddReservationView: View {
                     .disabled(category == .noBookingZone)
                 }
             }
-            .alert(item: $activeAlert) { alertType in
+            .alert(item: $env.pushAlerts.activeAddAlert) { alertType in
                 switch alertType {
                 case .mondayConfirmation:
                     return Alert(
@@ -330,10 +317,10 @@ struct AddReservationView: View {
                     category: appState.selectedCategory)
 
 //                appState.selectedCategory = categoryForTimeInterval(time: startTime)
-                availableTables = store.tableAssignmentService.availableTables(
+                availableTables = env.tableAssignment.availableTables(
                     for: createTemporaryReservation(),
-                    reservations: store.getReservations(),
-                    tables: layoutServices.getTables()
+                    reservations: env.store.getReservations(),
+                    tables: env.layoutServices.getTables()
                 )
 
                 if passedTable != nil {
@@ -468,7 +455,7 @@ struct AddReservationView: View {
 
         let weekday = Calendar.current.component(.weekday, from: appState.selectedDate)
         if weekday == 2 {  // Monday
-            activeAlert = .mondayConfirmation
+            env.pushAlerts.activeAddAlert = .mondayConfirmation
             isSaving = false
             return
         }
@@ -478,11 +465,11 @@ struct AddReservationView: View {
 
     private func validateInputs() -> Bool {
         if name.trimmingCharacters(in: .whitespaces).isEmpty {
-            activeAlert = .error("Il nome non può essere lasciato vuoto.")
+            env.pushAlerts.activeAddAlert = .error("Il nome non può essere lasciato vuoto.")
             return false
         }
         if phone.trimmingCharacters(in: .whitespaces).isEmpty {
-            activeAlert = .error("Il contatto non può essere lasciato vuoto.")
+            env.pushAlerts.activeAddAlert = .error("Il contatto non può essere lasciato vuoto.")
             return false
         }
         return true
@@ -490,44 +477,63 @@ struct AddReservationView: View {
 
     private func performSaveReservation() {
         var newReservation = createTemporaryReservation()
-        if newReservation.reservationType == .waitingList {
+        if newReservation.reservationType == .waitingList || newReservation.status == .canceled {
             DispatchQueue.main.async {
                 newReservation.tables = []
-                resCache.addOrUpdateReservation(newReservation)
-                store.finalizeReservation(newReservation)
-                reservationService.saveReservationsToDisk(includeMock: true)
+                checkBeforeSaving(newReservation: newReservation)
             }
             isSaving = false
+            onAdded(newReservation)
             dismiss()
+            return
         } else {
-            let assignmentResult = layoutServices.assignTables(
+            let assignmentResult = env.layoutServices.assignTables(
                 for: newReservation, selectedTableID: selectedForcedTableID)
             switch assignmentResult {
             case .success(let assignedTables):
                 DispatchQueue.main.async {
                     // do actual saving logic here
                     newReservation.tables = assignedTables
-                    resCache.addOrUpdateReservation(newReservation)
-                    store.finalizeReservation(newReservation)
-                    reservationService.saveReservationsToDisk(includeMock: true)
-                    reservationService.automaticBackup()
+                    checkBeforeSaving(newReservation: newReservation)
                 }
                 isSaving = false
+                onAdded(newReservation)
                 dismiss()
+                return
             case .failure(let error):
                 switch error {
                 case .noTablesLeft:
-                    activeAlert = .error("Non ci sono tavoli disponibili.")
+                    env.pushAlerts.activeAddAlert = .error("Non ci sono tavoli disponibili.")
                 case .insufficientTables:
-                    activeAlert = .error("Non ci sono abbastanza tavoli per la prenotazione.")
+                    env.pushAlerts.activeAddAlert = .error("Non ci sono abbastanza tavoli per la prenotazione.")
                 case .tableNotFound:
-                    activeAlert = .error("Tavolo selezionato non trovato.")
+                    env.pushAlerts.activeAddAlert = .error("Tavolo selezionato non trovato.")
                 case .tableLocked:
-                    activeAlert = .error("Il tavolo scelto è occupato o bloccato.")
+                    env.pushAlerts.activeAddAlert = .error("Il tavolo scelto è occupato o bloccato.")
                 case .unknown:
-                    activeAlert = .error("Errore sconosciuto.")
+                    env.pushAlerts.activeAddAlert = .error("Errore sconosciuto.")
                 }
                 return
+            }
+        }
+    }
+    
+    private func checkBeforeSaving(newReservation: Reservation) {
+        env.reservationService.automaticBackup()
+        let localBackupTimestamp = Date() // or the timestamp of your local data
+        env.backupService.uploadBackupWithConflictCheck(fileURL: env.backupService.localBackupFileURL ?? nil,
+          localTimestamp: localBackupTimestamp,
+        alertManager: env.pushAlerts) { result in
+            switch result {
+            case .success:
+                // Proceed with saving to disk and any further actions
+                env.resCache.addOrUpdateReservation(newReservation)
+                env.store.finalizeReservation(newReservation)
+                env.reservationService.saveReservationsToDisk(includeMock: true)
+                print("Backup uploaded successfully.")
+            case .failure(let error):
+                // The alert manager has been updated; you can also handle error logging here.
+                print("Backup upload failed: \(error.localizedDescription)")
             }
         }
     }
@@ -604,14 +610,4 @@ extension ReservationOption {
     }
 }
 
-enum AddReservationAlertType: Identifiable {
-    case mondayConfirmation
-    case error(String)  // store an error message
 
-    var id: String {
-        switch self {
-        case .mondayConfirmation: return "mondayConfirmation"
-        case .error(let message): return "error_\(message)"
-        }
-    }
-}

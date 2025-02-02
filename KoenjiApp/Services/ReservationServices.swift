@@ -23,14 +23,14 @@ class ReservationService: ObservableObject {
     private let layoutServices: LayoutServices
     private let tableAssignmentService: TableAssignmentService
     private let backupService: FirebaseBackupService
-    
+    private let pushAlerts: PushAlerts
     private var imageCache: [UUID: UIImage] = [:]
 
-    private let appState: AppState // Use the shared AppState
+    
 
     // MARK: - Initializer
     @MainActor
-    init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, backupService: FirebaseBackupService, appState: AppState) {
+    init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, backupService: FirebaseBackupService, pushAlerts: PushAlerts) {
         self.store = store
         self.resCache = resCache
         self.clusterStore = clusterStore
@@ -39,8 +39,8 @@ class ReservationService: ObservableObject {
         self.layoutServices = layoutServices
         self.tableAssignmentService = tableAssignmentService
         self.backupService = backupService
-        self.appState = appState
-
+        self.pushAlerts = pushAlerts
+        
         self.layoutServices.loadFromDisk()
         self.clusterServices.loadClustersFromDisk()
         
@@ -103,6 +103,8 @@ class ReservationService: ObservableObject {
                 
                 // Invalidate cluster cache only if tables changed
                 self.invalidateClusterCache(for: updatedReservation)
+            } else if newTableIDs == [] {
+                oldTableIDs.forEach { self.layoutServices.unmarkTable($0) }
             } else {
                 print("No table change detected for reservation \(updatedReservation.id). Skipping table update.")
             }
@@ -117,9 +119,36 @@ class ReservationService: ObservableObject {
         resCache.addOrUpdateReservation(updatedReservation)
         store.finalizeReservation(updatedReservation)
         saveReservationsToDisk()
-        automaticBackup()
     }
     
+    @MainActor
+    func checkBeforeUpdate(reservation: Reservation, newReservation: Reservation? = nil, at index: Int? = nil) {
+        automaticBackup()
+        let localBackupTimestamp = Date() // or the timestamp of your local data
+        backupService.uploadBackupWithConflictCheck(fileURL: backupService.localBackupFileURL ?? nil,
+          localTimestamp: localBackupTimestamp,
+        alertManager: pushAlerts) { result in
+            switch result {
+            case .success:
+                // Proceed with saving to disk and any further actions
+                self.backupService.uploadBackup(fileURL: self.backupService.localBackupFileURL ?? nil) { result in
+                    switch result {
+                    case .success:
+                        print("Automatic backup successful.")
+                    case .failure(let error):
+                        print("Automatic backup failed: \(error)")
+                    }
+                }
+                self.updateReservation(reservation, newReservation: newReservation, at: index)
+                self.updateActiveReservationAdjacencyCounts(for: reservation)
+                
+                print("Backup uploaded successfully.")
+            case .failure(let error):
+                // The alert manager has been updated; you can also handle error logging here.
+                print("Backup upload failed: \(error.localizedDescription)")
+            }
+        }
+    }
 
     
     /// Deletes reservations and invalidates the associated cluster cache.
@@ -145,8 +174,38 @@ class ReservationService: ObservableObject {
         }
     }
     
+    @MainActor
+    func handleConfirm(_ reservation: Reservation) {
+        var updatedReservation = reservation
+        if updatedReservation.reservationType == .waitingList || updatedReservation.status == .canceled {
+            let assignmentResult = layoutServices.assignTables(for: updatedReservation, selectedTableID: nil)
+            switch assignmentResult {
+            case .success(let assignedTables):
+                DispatchQueue.main.async {
+                    // do actual saving logic here
+                    updatedReservation.tables = assignedTables
+                    updatedReservation.reservationType = .inAdvance
+                    updatedReservation.status = .pending
+                    self.updateReservation(updatedReservation)
 
-
+                }
+            case .failure(let error):
+                switch error {
+                    case .noTablesLeft:
+                    pushAlerts.alertMessage = "Non ci sono tavoli disponibili."
+                    case .insufficientTables:
+                    pushAlerts.alertMessage = "Non ci sono abbastanza tavoli per la prenotazione."
+                    case .tableNotFound:
+                    pushAlerts.alertMessage = "Tavolo selezionato non trovato."
+                    case .tableLocked:
+                    pushAlerts.alertMessage = "Il tavolo scelto è occupato o bloccato."
+                    case .unknown:
+                    pushAlerts.alertMessage = "Errore sconosciuto."
+                    }
+                    pushAlerts.showAlert = true
+            }
+        }
+    }
     
 
     
@@ -208,7 +267,7 @@ class ReservationService: ObservableObject {
     @MainActor
     func loadReservationsFromDisk() {
         withAnimation {
-            appState.isWritingToFirebase = true
+            backupService.isWritingToFirebase = true
         }
         let fileURL = getReservationsFileURL()
         
@@ -234,7 +293,7 @@ class ReservationService: ObservableObject {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             withAnimation {
-                self.appState.isWritingToFirebase = false
+                self.backupService.isWritingToFirebase = false
             }
         }
     }
@@ -242,7 +301,7 @@ class ReservationService: ObservableObject {
     @MainActor
     func saveReservationsToDisk(includeMock: Bool = false) {
         withAnimation {
-            appState.isWritingToFirebase = true
+            backupService.isWritingToFirebase = true
         }
         let fileURL = getReservationsFileURL()
         let encoder = JSONEncoder()
@@ -262,7 +321,7 @@ class ReservationService: ObservableObject {
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             withAnimation {
-                self.appState.isWritingToFirebase = false
+                self.backupService.isWritingToFirebase = false
             }
         }
     }
@@ -270,7 +329,7 @@ class ReservationService: ObservableObject {
     @MainActor
     func exportReservations(completion: @escaping (URL?) -> Void) {
         withAnimation {
-            appState.isWritingToFirebase = true
+            backupService.isWritingToFirebase = true
         }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601 // Ensure ISO 8601 consistency
@@ -297,7 +356,7 @@ class ReservationService: ObservableObject {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             withAnimation {
-                self.appState.isWritingToFirebase = false
+                self.backupService.isWritingToFirebase = false
             }
         }
     }
@@ -701,16 +760,18 @@ extension ReservationService {
                     print("Failed to export reservations for backup.")
                     return
                 }
+                
+                self.backupService.localBackupFileURL = fileURL
 
-                // Upload the file to Firebase Storage
-                self.backupService.uploadBackup(fileURL: fileURL) { result in
-                    switch result {
-                    case .success:
-                        print("Automatic backup successful.")
-                    case .failure(let error):
-                        print("Automatic backup failed: \(error)")
-                    }
-                }
+//                // Upload the file to Firebase Storage
+//                self.backupService.uploadBackup(fileURL: fileURL) { result in
+//                    switch result {
+//                    case .success:
+//                        print("Automatic backup successful.")
+//                    case .failure(let error):
+//                        print("Automatic backup failed: \(error)")
+//                    }
+//                }
             }
         }
 

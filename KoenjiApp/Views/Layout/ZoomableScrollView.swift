@@ -1,15 +1,13 @@
 import SwiftUI
 
 struct ZoomableScrollView<Content: View>: UIViewRepresentable {
-    @EnvironmentObject private var gridData: GridData
+    @Environment(LayoutUnitViewModel.self) var unitView
     private var content: Content
-    @Binding private var scale: CGFloat
     
     init(
-        scale: Binding<CGFloat>,
+        
         @ViewBuilder content: () -> Content
     ) {
-        self._scale = scale
         self.content = content()
     }
 
@@ -45,7 +43,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
     func makeCoordinator() -> Coordinator {
         return Coordinator(
             hostingController: UIHostingController(rootView: self.content),
-            scale: $scale
+            unitView: unitView
         )
     }
 
@@ -58,14 +56,13 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
 
     class Coordinator: NSObject, UIScrollViewDelegate {
         var hostingController: UIHostingController<Content>
-        @Binding var scale: CGFloat
-
+        let unitView: LayoutUnitViewModel
         init(
             hostingController: UIHostingController<Content>,
-            scale: Binding<CGFloat>
+            unitView: LayoutUnitViewModel
         ) {
             self.hostingController = hostingController
-            self._scale = scale
+            self.unitView = unitView
         }
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
@@ -75,7 +72,7 @@ struct ZoomableScrollView<Content: View>: UIViewRepresentable {
         
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
             DispatchQueue.main.async {
-                self.scale = scrollView.zoomScale
+                self.unitView.scale = scrollView.zoomScale
                 // Enable or disable scrolling based on the zoom scale
                 scrollView.isScrollEnabled = scrollView.zoomScale > 1
             }

@@ -40,6 +40,7 @@ struct Reservation: Identifiable, Hashable, Codable {
     var notes: String?
     var tables: [TableModel]
     let creationDate: Date
+    var lastEditedOn: Date      // ← New property to track when the reservation was last edited.
     var isMock: Bool = false // Distinguish mock data
     var assignedEmoji: String?
     var imageData: Data? // Store image data for the reservation
@@ -82,6 +83,7 @@ struct Reservation: Identifiable, Hashable, Codable {
             case notes
             case tables
             case creationDate
+            case lastEditedOn   // ← Added key
             case isMock
             case assignedEmoji
             case imageData
@@ -134,6 +136,7 @@ struct Reservation: Identifiable, Hashable, Codable {
         notes: String? = nil,
         tables: [TableModel] = [],
         creationDate: Date = Date(),
+        lastEditedOn: Date? = nil, // ← Optional new parameter
         isMock: Bool = false,
         assignedEmoji: String = "",
         imageData: Data? = nil
@@ -153,6 +156,7 @@ struct Reservation: Identifiable, Hashable, Codable {
         self.notes = notes
         self.tables = tables
         self.creationDate = creationDate
+        self.lastEditedOn = lastEditedOn ?? creationDate
         self.isMock = isMock
         self.assignedEmoji = assignedEmoji
         self.imageData = imageData
@@ -217,17 +221,23 @@ extension Reservation {
             notes = try container.decodeIfPresent(String.self, forKey: .notes)
             tables = try container.decode([TableModel].self, forKey: .tables)
             if let timestamp = try? container.decode(Double.self, forKey: .creationDate) {
-                creationDate = Date(timeIntervalSince1970: timestamp)
-            } else if let dateString = try? container.decode(String.self, forKey: .creationDate),
-                      let parsedDate = ISO8601DateFormatter().date(from: dateString) {
-                creationDate = parsedDate
-            } else {
-                throw DecodingError.dataCorruptedError(
-                    forKey: .creationDate,
-                    in: container,
-                    debugDescription: "creationDate is neither a Double (timestamp) nor a valid ISO8601 string."
-                )
-            }
+                    creationDate = Date(timeIntervalSince1970: timestamp)
+                } else if let dateStr = try? container.decode(String.self, forKey: .creationDate),
+                          let parsedDate = ISO8601DateFormatter().date(from: dateStr) {
+                    creationDate = parsedDate
+                } else {
+                    throw DecodingError.dataCorruptedError(
+                        forKey: .creationDate,
+                        in: container,
+                        debugDescription: "creationDate is neither a Double (timestamp) nor a valid ISO8601 string."
+                    )
+                }
+                // Try to decode lastEditedOn; if missing, default to creationDate.
+                if let lastEdited = try container.decodeIfPresent(Date.self, forKey: .lastEditedOn) {
+                    lastEditedOn = lastEdited
+                } else {
+                    lastEditedOn = creationDate
+                }
             // Provide a default value for `isMock` if the key is missing
             isMock = try container.decodeIfPresent(Bool.self, forKey: .isMock) ?? false
             assignedEmoji = try container.decodeIfPresent(String.self, forKey: .assignedEmoji)
@@ -266,6 +276,7 @@ extension Reservation {
         try container.encodeIfPresent(notes, forKey: .notes)
         try container.encode(tables, forKey: .tables)
         try container.encode(creationDate, forKey: .creationDate)
+        try container.encode(lastEditedOn, forKey: .lastEditedOn)  // ← Encode the new property.
         try container.encode(isMock, forKey: .isMock)
         try container.encode(assignedEmoji, forKey: .assignedEmoji)
         try container.encode(imageData, forKey: .imageData)

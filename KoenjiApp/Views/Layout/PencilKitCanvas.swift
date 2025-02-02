@@ -23,8 +23,8 @@ class SharedToolPicker: ObservableObject {
 
 struct PencilKitCanvas: UIViewRepresentable {
     @EnvironmentObject var drawingModel: DrawingModel
+    @Environment(LayoutUnitViewModel.self) var unitView
     let sharedToolPicker = SharedToolPicker.shared
-    @Binding var toolPickerShows: Bool
 
     enum Layer {
           case layer1
@@ -32,10 +32,6 @@ struct PencilKitCanvas: UIViewRepresentable {
         case layer3
       }
     var layer: Layer
-    var gridWidth: CGFloat?
-    var gridHeight: CGFloat?
-    var canvasSize: CGSize?
-    var isEditable: Bool
 
     class Coordinator: NSObject, PKCanvasViewDelegate {
         var parent: PencilKitCanvas
@@ -50,10 +46,6 @@ struct PencilKitCanvas: UIViewRepresentable {
                     self.parent = parent
                     self._toolPickerShows = toolPickerShows
                 }
-        
-//        func setExclusionArea(_ area: CGRect) {
-//            self.exclusionAreaModel.exclusionRect = area
-//            }
 
         func setupToolPicker(for canvasView: PKCanvasView) {
             if canvasView.window != nil {
@@ -94,7 +86,9 @@ struct PencilKitCanvas: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        return Coordinator(parent: self, toolPickerShows: $toolPickerShows)
+        return Coordinator(parent: self, toolPickerShows: Binding<Bool> (
+            get: { unitView.toolPickerShows },
+            set: { unitView.toolPickerShows = $0 }))
 
     }
     
@@ -104,7 +98,7 @@ struct PencilKitCanvas: UIViewRepresentable {
         let canvasView = PKCanvasView()
         canvasView.delegate = context.coordinator
         canvasView.drawing = getCurrentLayerDrawing() // Set initial drawing for the layer
-        canvasView.isUserInteractionEnabled = isEditable
+        canvasView.isUserInteractionEnabled = unitView.isScribbleModeEnabled
         canvasView.tool = sharedToolPicker.toolPicker.selectedTool
 
         canvasView.backgroundColor = UIColor.clear
@@ -113,19 +107,6 @@ struct PencilKitCanvas: UIViewRepresentable {
             context.coordinator.setupToolPicker(for: canvasView)
         }
         
-        // For Layer 1: Exclude the grid area from being drawable
-//            if layer == .layer1, let gridWidth = gridWidth, let gridHeight = gridHeight, let canvasSize = canvasSize {
-//                let gridRect = CGRect(
-//                    x: (canvasSize.width - gridWidth) / 2,
-//                    y: (canvasSize.height - gridHeight) / 2,
-//                    width: gridWidth,
-//                    height: gridHeight
-//                )
-//
-//                // Apply exclusion logic to skip grid strokes
-//                context.coordinator.setExclusionArea(gridRect)
-//            }
-
         return canvasView
     }
     
@@ -146,11 +127,11 @@ struct PencilKitCanvas: UIViewRepresentable {
             context.coordinator.isUpdatingFromModel = false
         }
 
-        uiView.isUserInteractionEnabled = isEditable
+        uiView.isUserInteractionEnabled = unitView.isScribbleModeEnabled
         
-        sharedToolPicker.toolPicker.setVisible(toolPickerShows, forFirstResponder: uiView)
+        sharedToolPicker.toolPicker.setVisible(unitView.toolPickerShows, forFirstResponder: uiView)
         sharedToolPicker.toolPicker.addObserver(uiView)
-        if toolPickerShows {
+        if unitView.toolPickerShows {
             uiView.becomeFirstResponder()
         } else {
             uiView.resignFirstResponder()

@@ -2,18 +2,10 @@ import SwiftUI
 import FirebaseAuth
 
 struct ContentView: View {
-    @EnvironmentObject var store: ReservationStore
-    @EnvironmentObject var resCache: CurrentReservationsCache
-    @EnvironmentObject var tableStore: TableStore
-    @EnvironmentObject var reservationService: ReservationService
-    @EnvironmentObject var clusterStore: ClusterStore
-    @EnvironmentObject var clusterServices: ClusterServices
-    @EnvironmentObject var layoutServices: LayoutServices
+    @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var gridData: GridData
-    @EnvironmentObject var backupService: FirebaseBackupService
-    @EnvironmentObject var scribbleService: ScribbleService
-    @State var listView: ListViewModel
+    @Environment(\.scenePhase) private var scenePhase
+
 
     @Environment(\.locale) var locale // Access the current locale set by .italianLocale()
 
@@ -33,8 +25,6 @@ struct ContentView: View {
             {
                 // The Sidebar
                 SidebarView(
-                    layoutServices: layoutServices,
-                    listView: listView,
                     selectedReservation: $selectedReservation,
                     currentReservation: $currentReservation,
                     selectedCategory: $selectedCategory,
@@ -72,9 +62,13 @@ struct ContentView: View {
                 if isLoggedIn {
                     authenticateUser()
                 }
+                checkForLatestBackup()
+
             }
-            .onChange(of: appState.columnVisibility) { oldState, newState in
-                store.isSidebarVisible = (newState == .all)
+            .onChange(of: scenePhase) { old, newPhase in
+                if newPhase == .active {
+                    checkForLatestBackup()
+                }
             }
             
             LoginView()
@@ -95,6 +89,70 @@ struct ContentView: View {
             }
         }
     }
+    
+    private func checkForLatestBackup() {
+        guard !appState.isRestoring else { return }
+        appState.isRestoring = true
+            
+            // 1. List backups
+            env.backupService.listBackups { result in
+                switch result {
+                case .success(let files):
+                    // 2. Sort backups by date (most recent first)
+                    let sortedFiles = files.compactMap { fileName -> (fileName: String, date: Date)? in
+                        if let date = extractDate(from: fileName) {
+                            return (fileName, date)
+                        }
+                        return nil
+                    }
+                    .sorted { $0.date > $1.date }
+                    
+                    guard let latestBackup = sortedFiles.first else {
+                        appState.isRestoring = false
+                        return
+                    }
+                    
+                    // Optionally: Check if the latest backup is “newer” than your current data.
+                    // You might compare dates or a version number stored in your app.
+                    // For this example we assume you always want to restore the latest backup.
+                    
+                    // 3. Restore the latest backup
+                    env.backupService.restoreBackup(fileName: latestBackup.fileName) {
+                        // When restoration is complete, update reservations, etc.
+                        env.reservationService.saveReservationsToDisk()
+                        let today = Calendar.current.startOfDay(for: Date())
+                        env.resCache.preloadDates(around: today, range: 5, reservations: env.store.reservations)
+                        
+                        // (Optionally, you can trigger another automatic backup right away)
+                        env.reservationService.automaticBackup()
+                        
+                        // Done with restoration
+                        appState.isRestoring = false
+                    }
+                    
+                case .failure(let error):
+                    print("Failed to fetch backups: \(error.localizedDescription)")
+                    appState.isRestoring = false
+                }
+            }
+        }
+        
+        /// Returns a Date from a backup file name using your existing logic.
+        private func extractDate(from fileName: String) -> Date? {
+            let pattern = #"ReservationsBackup\.json_(\d{4}-\d{2}-\d{2})_(\d{2}:\d{2})"#
+            let regex = try? NSRegularExpression(pattern: pattern)
+            if let match = regex?.firstMatch(in: fileName, range: NSRange(fileName.startIndex..., in: fileName)) {
+                if let dateRange = Range(match.range(at: 1), in: fileName),
+                   let timeRange = Range(match.range(at: 2), in: fileName) {
+                    let dateString = fileName[dateRange]
+                    let timeString = fileName[timeRange]
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "yyyy-MM-dd HH:mm"
+                    return formatter.date(from: "\(dateString) \(timeString)")
+                }
+            }
+            return nil
+        }
    
 }
 

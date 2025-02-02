@@ -19,8 +19,8 @@ struct DebugConfigView: View {
     @State private var isImporting = false
     @State private var importedDocument: ReservationsDocument?
 
-    @EnvironmentObject var store: ReservationStore
-    @EnvironmentObject var reservationService: ReservationService
+    @EnvironmentObject var env: AppDependencies
+
     var body: some View {
         NavigationView {
             Form {
@@ -115,7 +115,7 @@ struct DebugConfigView: View {
 
     private func getReservations() -> [Reservation] {
         // Replace this with your actual reservations from ReservationService
-        return store.reservations
+        return env.store.reservations
 
     }
 

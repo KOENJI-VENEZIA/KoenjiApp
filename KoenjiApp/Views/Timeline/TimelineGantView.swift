@@ -10,8 +10,9 @@ import Foundation
 struct TimelineGantView: View {
 
     // MARK: - Dependencies
-    @EnvironmentObject var resCache: CurrentReservationsCache
+    @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
+
     @State private var reservations: [Reservation] = []
     @Binding var columnVisibility: NavigationSplitViewVisibility
 
@@ -57,7 +58,7 @@ struct TimelineGantView: View {
                 reservationCountText()
             }
         }
-        .onChange(of: resCache.cache) { calculateReservations() }
+        .onChange(of: env.resCache.cache) { calculateReservations() }
         .onChange(of: appState.selectedDate) { calculateReservations() }
         .onAppear {
             calculateReservations()
@@ -232,7 +233,7 @@ extension TimelineGantView {
     
     /// Calculates the reservations to display based on the selected date and category.
     private func calculateReservations() {
-        reservations = resCache.reservations(for: appState.selectedDate).filter { reservation in
+        reservations = env.resCache.reservations(for: appState.selectedDate).filter { reservation in
             reservation.category == appState.selectedCategory &&
             reservation.status != .canceled &&
             reservation.reservationType != .waitingList

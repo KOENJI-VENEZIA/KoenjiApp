@@ -8,16 +8,17 @@
 import SwiftUI
 
 struct ReservationInfoCard: View {
-    @EnvironmentObject var store: ReservationStore
+    @EnvironmentObject var env: AppDependencies
+    @Environment(LayoutUnitViewModel.self) var unitView
+
     let reservationID: UUID
     var onClose: () -> Void
     var onEdit: (Reservation) -> Void
     
-    @Binding var isShowingFullImage: Bool
 
 
     var body: some View {
-        if let reservation = store.reservations.first(where: { $0.id == reservationID }) {
+        if let reservation = env.store.reservations.first(where: { $0.id == reservationID }) {
 
             VStack(alignment: .leading, spacing: 20) {
                 ScrollView {
@@ -53,10 +54,13 @@ struct ReservationInfoCard: View {
                                             .padding()
                                             .onTapGesture {
                                                 withAnimation {
-                                                    isShowingFullImage = true // Show the full image when tapped
+                                                    unitView.isShowingFullImage = true // Show the full image when tapped
                                                 }
                                             }
-                                            .sheet(isPresented: $isShowingFullImage) {
+                                            .sheet(isPresented: Binding<Bool>(
+                                                get: { unitView.isShowingFullImage },
+                                                set: { unitView.isShowingFullImage = $0 }
+                                            )) {
                                                 VStack {
                                                     Spacer()
                                                     reservationImage

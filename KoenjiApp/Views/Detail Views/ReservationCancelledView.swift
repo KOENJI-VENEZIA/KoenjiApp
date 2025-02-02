@@ -1,5 +1,5 @@
 //
-//  ReservationWaitingListView.swift
+//  ReservationCancelledView.swift
 //  KoenjiApp
 //
 //  Created by Matteo Nassini on 19/1/25.
@@ -7,27 +7,23 @@
 
 import SwiftUI
 
-struct ReservationWaitingListView: View {
-    @EnvironmentObject var store: ReservationStore
-    @EnvironmentObject var resCache: CurrentReservationsCache
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var reservationService: ReservationService
-    @EnvironmentObject var layoutServices: LayoutServices
+struct ReservationCancelledView: View {
+    @EnvironmentObject var env: AppDependencies
+
     @State private var selection = Set<UUID>()  // Multi-select
-    @State private var showAlert: Bool = false
-    @State private var alertMessage: String = ""
     @Environment(\.colorScheme) var colorScheme
 
-
+    let activeReservations: [Reservation]
+    var currentTime: Date
     var onClose: () -> Void
     var onEdit: (Reservation) -> Void
-    var onConfirm: (Reservation) -> Void
+    var onRestore: (Reservation) -> Void
     
     var body: some View {
         VStack {
             
             List(selection: $selection) {
-                let reservations = resCache.activeReservations
+                let reservations = reservations(at: currentTime)
                 let filtered = filterReservations(reservations)
                 let grouped = groupByCategory(filtered)
                 if !grouped.isEmpty {
@@ -37,7 +33,7 @@ struct ReservationWaitingListView: View {
                                 Text(groupKey)
                                     .font(.title2)
                                     .foregroundStyle(colorScheme == .dark ? .white : .black)
-                                Text("\(grouped[groupKey]?.count ?? 0) in lista d'attesa")
+                                Text("\(grouped[groupKey]?.count ?? 0) cancellazioni")
                                     .font(.title2)
                                     .foregroundStyle(colorScheme == .dark ? .white : .black)
                                     .frame(maxWidth: .infinity, alignment: .trailing)
@@ -56,16 +52,10 @@ struct ReservationWaitingListView: View {
                                 )
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button {
-                                        handleDelete(reservation)
+                                        handleRestore(reservation)
+                                        onRestore(reservation)
                                     } label: {
-                                        Label("Cancella", systemImage: "x.circle.fill")
-                                    }
-                                    .tint(Color(hex: "#5c140f"))
-                                    Button {
-                                        handleConfirm(reservation)
-                                        onConfirm(reservation)
-                                    } label: {
-                                        Label("Inserisci", systemImage: "arrowshape.turn.up.backward.2.circle.fill")
+                                        Label("Ripristina", systemImage: "arrowshape.turn.up.backward.2.circle.fill")
                                     }
                                     .tint(.blue)
                                 }
@@ -82,7 +72,7 @@ struct ReservationWaitingListView: View {
                         }
                     }
                 } else {
-                    Text("(Nessuna prenotazione in lista d'attesa)" )
+                    Text("(Nessuna cancellazione)" )
                         .font(.headline)
                         .padding()
                         .multilineTextAlignment(.center)
@@ -96,7 +86,7 @@ struct ReservationWaitingListView: View {
                 }
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
-
+                
             }
             .scrollContentBackground(.hidden) // Removes the List's default background (iOS 16+)
             .listStyle(GroupedListStyle())
@@ -109,19 +99,12 @@ struct ReservationWaitingListView: View {
             .frame(maxWidth: .infinity, alignment: .center)
             .padding()
         }
-        .alert(isPresented: $showAlert) {
-            Alert(
-                title: Text("Errore:"),
-                message: Text(alertMessage),
-                dismissButton: .default(Text("OK"))
-            )
-        }
         
     }
     
     private func handleDeleteFromGroup(groupKey: String, offsets: IndexSet) {
         // 1) Access the grouped reservations
-        let reservations = resCache.activeReservations
+        let reservations = reservations(at: currentTime)
         var grouped = groupByCategory(reservations)
         
         // 2) The reservations in this group
@@ -130,13 +113,11 @@ struct ReservationWaitingListView: View {
             let toDelete = offsets.map { reservationsInGroup[$0] }
             // 4) Actually remove them from your store
             for reservation in toDelete {
-                if let idx = store.reservations.firstIndex(where: {
+                if let idx = env.store.reservations.firstIndex(where: {
                     $0.id == reservation.id
-                }), var reservation = store.reservations.first(where: { $0.id == reservation.id}) {
-                    reservation.status = .canceled
-                    reservation.tables = []
-                    reservationService.updateReservation(reservation,
-                        at: idx)
+                }) {
+                    env.reservationService.deleteReservations(
+                        at: IndexSet(integer: idx))
                 }
             }
             // 5) Optionally remove them from `grouped[groupKey]` if you want to keep a local copy
@@ -166,7 +147,7 @@ struct ReservationWaitingListView: View {
     }
     
     func reservations(at date: Date) -> [Reservation] {
-        store.reservations.filter { reservation in
+        env.store.reservations.filter { reservation in
             guard let reservationDate = reservation.normalizedDate else { return false }// Skip reservations with invalid times
             return reservationDate.isSameDay(as: date)
         }
@@ -174,51 +155,29 @@ struct ReservationWaitingListView: View {
     
     func filterReservations(_ reservations: [Reservation]) -> [Reservation] {
         reservations.filter { reservation in
-            return reservation.reservationType == .waitingList
+            return reservation.status == .canceled
         }
     }
     
     private func handleDelete(_ reservation: Reservation) {
-
-        if let idx = store.reservations.firstIndex(where: {
+        if let idx = env.store.reservations.firstIndex(where: {
             $0.id == reservation.id
-        }), var reservation = store.reservations.first(where: { $0.id == reservation.id}) {
-            reservation.status = .canceled
-            reservation.tables = []
-            reservationService.updateReservation(reservation,
-                at: idx)
+        }) {
+            env.reservationService.deleteReservations(at: IndexSet(integer: idx))
         }
     }
     
-    private func handleConfirm(_ reservation: Reservation) {
+    private func handleRestore(_ reservation: Reservation) {
         var updatedReservation = reservation
-        if updatedReservation.reservationType == .waitingList {
-        let assignmentResult = layoutServices.assignTables(for: updatedReservation, selectedTableID: nil)
-            switch assignmentResult {
-            case .success(let assignedTables):
-                DispatchQueue.main.async {
-                    // do actual saving logic here
-                    updatedReservation.tables = assignedTables
-                    updatedReservation.reservationType = .inAdvance
-                    updatedReservation.status = .pending
-                    reservationService.updateReservation(updatedReservation)
-
-                }
-            case .failure(let error):
-                switch error {
-                    case .noTablesLeft:
-                        alertMessage = "Non ci sono tavoli disponibili."
-                    case .insufficientTables:
-                        alertMessage = "Non ci sono abbastanza tavoli per la prenotazione."
-                    case .tableNotFound:
-                        alertMessage = "Tavolo selezionato non trovato."
-                    case .tableLocked:
-                        alertMessage = "Il tavolo scelto è occupato o bloccato."
-                    case .unknown:
-                        alertMessage = "Errore sconosciuto."
-                    }
-                    showAlert = true
+        if updatedReservation.status == .canceled {
+            withAnimation {
+                updatedReservation.status = .pending
             }
         }
+        env.reservationService.checkBeforeUpdate(
+            reservation: updatedReservation)
     }
+    
+
 }
+

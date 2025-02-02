@@ -15,15 +15,6 @@ struct ShareModal: View {
     var body: some View {
         let image = cachedScreenshot?.screenshot()!
         ZStack {
-            // Darkened background
-            //            Color.black.opacity(0.4)
-            //                .ignoresSafeArea()
-            //                .onTapGesture {
-            //                    withAnimation {
-            //                        isPresented = false
-            //                    }
-            //                }
-
             // Modal content
             VStack {
                 Spacer()

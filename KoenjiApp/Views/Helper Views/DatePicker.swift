@@ -11,8 +11,10 @@ struct DatePickerView: View {
     @Binding var filteredDate: Date
     @Binding var hasSelectedStartDate: Bool
     @Binding var hasSelectedEndDate: Bool
+    @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
-    
+
+
     init(filteredDate: Binding<Date> = Binding.constant(Date()), hasSelectedStartDate: Binding<Bool> = Binding.constant(false), hasSelectedEndDate: Binding<Bool> = Binding.constant(false)) {
         self._filteredDate = filteredDate
         self._hasSelectedStartDate = hasSelectedStartDate

@@ -8,7 +8,6 @@
 import SwiftUI
 
 class AppState: ObservableObject {
-    @Published var isWritingToFirebase = false
     @Published var inspectorColor: Color = Color.inspector_generic
     @Published var selectedDate: Date = Date()
     @Published var selectedCategory: Reservation.ReservationCategory
@@ -17,6 +16,7 @@ class AppState: ObservableObject {
     @Published var changedReservation: Reservation? = nil
     @Published var showingEditReservation: Bool = false
     @Published var currentReservation: Reservation? = nil
+    @Published var isRestoring = false
 
     @State var dates: [Date] = []
     @State var selectedIndex: Int = 15
