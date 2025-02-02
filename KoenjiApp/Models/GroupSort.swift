@@ -37,4 +37,5 @@ enum FilterOption: String, CaseIterable {
     case canceled = "Cancellazioni"
     case toHandle = "In sospeso"
     case deleted = "Eliminate"
+    case waitingList = "Waiting List"
 }

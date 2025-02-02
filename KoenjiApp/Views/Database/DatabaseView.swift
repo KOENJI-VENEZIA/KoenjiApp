@@ -238,7 +238,7 @@ extension DatabaseView {
                 Text("Filtra per...")
                     .font(.headline)
                     .padding(.bottom, 4)
-                ForEach([FilterOption.none, FilterOption.canceled, FilterOption.toHandle, FilterOption.deleted], id: \.self) { option in
+                ForEach([FilterOption.none, FilterOption.canceled, FilterOption.waitingList, FilterOption.toHandle, FilterOption.deleted], id: \.self) { option in
                     Button(action: { env.listView.toggleFilter(option) }) {
                         HStack {
                             Text(option.rawValue)
@@ -463,6 +463,9 @@ extension DatabaseView {
                 }
                 if filters.contains(.deleted) {
                     matches = matches && (reservation.status == .deleted)
+                }
+                if filters.contains(.waitingList) {
+                    matches = matches && (reservation.reservationType == .waitingList)
                 }
                 if filters.contains(.people) {
                     matches = matches && (reservation.numberOfPersons == filterPeople)

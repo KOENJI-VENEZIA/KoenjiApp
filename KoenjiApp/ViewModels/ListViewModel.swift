@@ -77,9 +77,7 @@ class ListViewModel {
     
     @MainActor func handleCancel(_ reservation: Reservation) {
 
-        if let idx = store.reservations.firstIndex(where: {
-            $0.id == reservation.id
-        }), var reservation = store.reservations.first(where: { $0.id == reservation.id }) {
+        if var reservation = store.reservations.first(where: { $0.id == reservation.id }) {
             reservation.status = .canceled
             reservation.tables = []
             reservationService.updateReservation(
@@ -97,8 +95,7 @@ class ListViewModel {
 
     @MainActor
     func handleRecover(_ reservation: Reservation) {
-        if let idx = store.reservations.firstIndex(where: { $0.id == reservation.id }),
-           var reservation = store.reservations.first(where: { $0.id == reservation.id }) {
+           if var reservation = store.reservations.first(where: { $0.id == reservation.id }) {
             reservation.status = .pending
             let assignmentResult = layoutServices.assignTables(
                 for: reservation, selectedTableID: nil)
@@ -143,13 +140,16 @@ class ListViewModel {
     
     func toggleFilter(_ option: FilterOption) {
         switch option {
-        case .none, .canceled, .toHandle, .deleted:
+        case .none, .canceled, .toHandle, .deleted, .waitingList:
             // If selecting .none or .canceled, clear all and only add the selected one
             selectedFilters = [option]
         case .people, .date:
             // Allow multiselect for .people and .date
             selectedFilters.remove(.none)
             selectedFilters.remove(.canceled)
+            selectedFilters.remove(.toHandle)
+            selectedFilters.remove(.deleted)
+            selectedFilters.remove(.waitingList)
             if selectedFilters.contains(option) {
                 selectedFilters.remove(option)
             } else {

@@ -38,10 +38,10 @@ struct TabsView: View {
 
                     TabView(selection: $selectedTab) {
                         Tab("Pranzo", systemImage: "sun.max.circle", value: .lunch) {
-                            TimelineGantView(columnVisibility: $columnVisibility)
+                            TimelineGantView(reservations: reservations, columnVisibility: $columnVisibility)
                         }
                         Tab("Cena", systemImage: "moon.circle.fill", value: .dinner) {
-                            TimelineGantView(columnVisibility: $columnVisibility)
+                            TimelineGantView(reservations: reservations, columnVisibility: $columnVisibility)
                         }
 
                     }
@@ -152,12 +152,7 @@ struct TabsView: View {
                     appState.selectedCategory = .dinner
                 }
 
-                reservations = env.resCache.reservations(for: appState.selectedDate).filter {
-                    reservation in
-                    reservation.category == appState.selectedCategory
-                        && reservation.status != .canceled
-                        && reservation.reservationType != .waitingList
-                }
+                updateActiveReservations()
 
                 bindableDate = appState.selectedDate
 
@@ -169,20 +164,12 @@ struct TabsView: View {
                     appState.selectedCategory = .dinner
                 }
 
-                reservations = env.resCache.reservations(for: appState.selectedDate).filter {
-                    reservation in
-                    reservation.category == appState.selectedCategory
-                        && reservation.status != .canceled
-                        && reservation.reservationType != .waitingList
-                }
+                updateActiveReservations()
+
             }
+            .onChange(of: env.resCache.cache) { updateActiveReservations() }
             .onChange(of: appState.selectedDate) { _, newDate in
-                reservations = env.resCache.reservations(for: appState.selectedDate).filter {
-                    reservation in
-                    reservation.category == appState.selectedCategory
-                        && reservation.status != .canceled
-                        && reservation.reservationType != .waitingList
-                }
+                updateActiveReservations()
                 env.resCache.preloadDates(around: newDate, range: 5, reservations: env.store.reservations)
             }
 
@@ -403,6 +390,17 @@ struct TabsView: View {
             if let newTime = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) {
                 appState.selectedDate = DateHelper.combine(date: Date(), time: newTime)
             }
+        }
+    }
+    
+    private func updateActiveReservations() {
+        reservations = env.resCache.reservations(for: appState.selectedDate).filter {
+            reservation in
+            reservation.category == appState.selectedCategory
+            && reservation.status != .canceled
+            && reservation.status != .deleted
+            && reservation.status != .toHandle
+            && reservation.reservationType != .waitingList
         }
     }
 }

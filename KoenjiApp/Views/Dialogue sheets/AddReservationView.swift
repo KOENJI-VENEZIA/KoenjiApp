@@ -481,7 +481,7 @@ struct AddReservationView: View {
 
     private func performSaveReservation() {
         var newReservation = createTemporaryReservation()
-        if newReservation.reservationType == .waitingList || newReservation.status == .canceled {
+        if newReservation.reservationType == .waitingList || newReservation.status == .canceled || newReservation.status == .deleted || newReservation.status == .toHandle {
             DispatchQueue.main.async {
                 newReservation.tables = []
                 checkBeforeSaving(newReservation: newReservation)

@@ -25,7 +25,7 @@ struct AppNotification: Identifiable, Equatable {
     let title: String
     let message: String
     let date: Date = Date()
-    let reservation: Reservation? = nil
+    let reservation: Reservation?
     let type: NotificationType
 }
 
@@ -47,8 +47,8 @@ final class NotificationManager: ObservableObject {
     }
     
     @MainActor
-    func addNotification(title: String, message: String, type: NotificationType) async {
-        let newNotification = AppNotification(title: title, message: message, type: type)
+    func addNotification(title: String, message: String, type: NotificationType, reservation: Reservation? = nil) async {
+        let newNotification = AppNotification(title: title, message: message, reservation: reservation, type: type)
         notifications.append(newNotification)
 
         let content = UNMutableNotificationContent()
@@ -56,7 +56,7 @@ final class NotificationManager: ObservableObject {
         content.body = message
         content.sound = .default
 
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false) // Debug with 3s delay
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 3, repeats: false) // Debug with 3s delay
         let request = UNNotificationRequest(identifier: newNotification.id.uuidString,
                                             content: content,
                                             trigger: trigger)

@@ -39,6 +39,7 @@ struct TableView: View {
 
     @GestureState private var dragOffset: CGSize = .zero
     @State private var cachedRemainingTime: String?
+    @State private var lastRefreshDate: Date? = Date.distantPast
 
     // MARK: Computed Properties
     private var cellSize: CGFloat { env.gridData.cellSize }
@@ -522,6 +523,14 @@ extension TableView {
 
 extension TableView {
     private func updateResData(_ date: Date, refreshedKey: String, forceUpdate: Bool = false) {
+        
+        let now = Date()
+        // if we already refreshed in last 0.5 seconds, skip
+        guard now.timeIntervalSince(lastRefreshDate ?? Date()) > 0.5 else {
+            return
+        }
+        lastRefreshDate = now
+        
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
         formatter.timeZone = TimeZone(identifier: "UTC")
@@ -563,24 +572,25 @@ extension TableView {
 
         print("🕒 Time remaining until reservation ends: \(timeRemaining) seconds")
 
-        let lastNotification = notifsManager.notifications.first(where: {
+        if let lastNotification = notifsManager.notifications.first(where: {
             $0.type == .nearEnd && $0.reservation == tableView.currentActiveReservation
-        })
-
-        guard  date == appState.systemTime, date.timeIntervalSince(lastNotification?.date ?? Date()) >= 60 * 5 else {
-            print("Not enough time since last notified. Skipping notification!")
-            return
+        }) {
+            guard date.timeIntervalSince(lastNotification.date) >= 60 * 5 else {
+                print("Not enough time since last notified. Skipping notification!")
+                return
+            }
         }
         
-        guard tableView.currentActiveReservation != nil else { return }
+        guard let reservation = tableView.currentActiveReservation else { return }
 
         if timeRemaining <= 30 * 60 && timeRemaining > 0 {
             Task {
+                
                 await notifsManager.addNotification(
                     title: "Prenotazione in scadenza",
                     message:
                         "Prenotazione a nome di \(tableView.currentActiveReservation?.name ?? "Errore") sta per terminare (-\(Int(timeRemaining / 60)) minuti).",
-                    type: .nearEnd
+                    type: .nearEnd, reservation: reservation
                 )
             }
         }
@@ -590,6 +600,8 @@ extension TableView {
         if let reservation = env.resCache.reservation(
             forTable: table.id, datetime: date, category: appState.selectedCategory),
             reservation.status != .canceled,
+           reservation.status != .deleted,
+           reservation.status != .toHandle,
             reservation.reservationType != .waitingList
         {
             tableView.currentActiveReservation = reservation
@@ -599,27 +611,47 @@ extension TableView {
     }
 
     private func updateLateReservation(_ date: Date) {
+        // 1) Check if the current reservation is late.
+        print("Called updateLateReservation!")
+        print("Notifications: \(notifsManager.notifications)")
         if let reservation = tableView.currentActiveReservation,
-            env.resCache.lateReservations(currentTime: date).contains(where: {
-                $0.id == reservation.id
-            }
-            )
-        {
+           env.resCache.lateReservations(currentTime: date).contains(where: { $0.id == reservation.id }) {
+
             tableView.lateReservation = reservation
-            let lastNotification = notifsManager.notifications.first(where: {
-                $0.type == .nearEnd && $0.reservation == reservation
-            })
 
-            guard date == appState.systemTime, date.timeIntervalSince(lastNotification?.date ?? Date()) >= 60 * 5 else {
-                print("Not enough time since last notified. Skipping notification!")
-                return
-            }
+            print("Notifications 2: \(notifsManager.notifications)")
 
-            Task { @MainActor in
-                await notifsManager.addNotification(
-                    title: "\(reservation.name): ritardo",
-                    message: "Prenotazione a nome di \(reservation.name) è in ritardo.", type: .late
-                )
+            // 2) Look for a *late* notification, not .nearEnd.
+            if let lastNotification = notifsManager.notifications.first(where: {
+                $0.type == .late && $0.reservation == reservation
+            }) {
+                // 3) Compare "now" minus "last notification time":
+                let timeElapsed = date.timeIntervalSince(lastNotification.date)
+                print("Time elapsed = \(timeElapsed)")
+                guard timeElapsed >= 5 * 60 else {
+                    print("Not enough time since last notified. Skipping notification!")
+                    return
+                }
+                
+                
+                // 4) Otherwise, send a new .late notification
+                Task { @MainActor in
+                    await notifsManager.addNotification(
+                        title: "\(reservation.name): ritardo",
+                        message: "Prenotazione a nome di \(reservation.name) è in ritardo.",
+                        type: .late,
+                        reservation: reservation
+                    )
+                }
+            } else {
+                Task { @MainActor in
+                    await notifsManager.addNotification(
+                        title: "\(reservation.name): ritardo",
+                        message: "Prenotazione a nome di \(reservation.name) è in ritardo.",
+                        type: .late,
+                        reservation: reservation
+                    )
+                }
             }
 
         } else {

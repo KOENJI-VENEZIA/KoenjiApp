@@ -13,7 +13,7 @@ struct TimelineGantView: View {
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
 
-    @State private var reservations: [Reservation] = []
+    var reservations: [Reservation]
     @Binding var columnVisibility: NavigationSplitViewVisibility
 
     // MARK: - Layout Constants
@@ -58,10 +58,7 @@ struct TimelineGantView: View {
                 reservationCountText()
             }
         }
-        .onChange(of: env.resCache.cache) { calculateReservations() }
-        .onChange(of: appState.selectedDate) { calculateReservations() }
         .onAppear {
-            calculateReservations()
             logReservationsPerTable()
         }
     }
@@ -232,13 +229,7 @@ extension TimelineGantView {
     }
     
     /// Calculates the reservations to display based on the selected date and category.
-    private func calculateReservations() {
-        reservations = env.resCache.reservations(for: appState.selectedDate).filter { reservation in
-            reservation.category == appState.selectedCategory &&
-            reservation.status != .canceled &&
-            reservation.reservationType != .waitingList
-        }
-    }
+    
     
     /// Calculates the left padding (in points) for a reservation view on a specific table.
     private func calculatePadding(for reservation: Reservation, _ table: Int) -> CGFloat {
@@ -317,12 +308,12 @@ struct RectangleReservationBackground: View {
     }
 }
 
-#Preview {
-    @Previewable @StateObject var resCache = CurrentReservationsCache()
-    @Previewable @StateObject var appState = AppState()
-    @Previewable @State var columnVisibility: NavigationSplitViewVisibility = .all
-
-    TimelineGantView(columnVisibility: $columnVisibility)
-        .environmentObject(resCache)
-        .environmentObject(appState)
-}
+//#Preview {
+//    @Previewable @StateObject var resCache = CurrentReservationsCache()
+//    @Previewable @StateObject var appState = AppState()
+//    @Previewable @State var columnVisibility: NavigationSplitViewVisibility = .all
+//
+//    TimelineGantView(reservations: columnVisibility: $columnVisibility)
+//        .environmentObject(resCache)
+//        .environmentObject(appState)
+//}

@@ -15,6 +15,8 @@ struct ContentView: View {
     @State private var currentReservation: Reservation? = nil
     @State private var selectedCategory: Reservation.ReservationCategory? 
     @State private var showInspector: Bool = false       // Controls Inspector visibility
+    @State private var lastChecked: Date? = nil
+    
     @AppStorage("isLoggedIn") private var isLoggedIn = false
 
    
@@ -62,7 +64,6 @@ struct ContentView: View {
                 if isLoggedIn {
                     authenticateUser()
                 }
-//                DispatchQueue.main.async {
                     checkForLatestBackup()
                 Task {
                     await env.backupService.notifsManager.requestNotificationAuthorization()
@@ -125,12 +126,18 @@ struct ContentView: View {
                     env.backupService.restoreBackup(fileName: latestBackup.fileName) {
                         Task {
                             // Now you can await asynchronous methods:
-                            await env.reservationService.checkForConflictsAndCleanup()
+                            if lastChecked == nil || Date().timeIntervalSince(lastChecked ?? Date()) >= 60 * 60 {
+                                await env.reservationService.checkForConflictsAndCleanup()
+                                lastChecked = Date()
+                            } else {
+                                print("Skipping check: not enough time has passed!")
+                            }
                             env.reservationService.saveReservationsToDisk()
                             let today = Calendar.current.startOfDay(for: Date())
                             env.resCache.preloadDates(around: today, range: 5, reservations: env.store.reservations)
                             
                             env.reservationService.automaticBackup()
+                            
                             appState.isRestoring = false
                         }
                     }

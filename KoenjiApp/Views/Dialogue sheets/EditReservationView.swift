@@ -373,12 +373,20 @@ struct EditReservationView: View {
             return
         }
         
-        if reservation.status == .canceled {
+        if reservation.status == .canceled || reservation.status == .toHandle {
             reservation.tables = []
 
             env.reservationService.updateReservation(reservation){
                 onChanged(reservation)
             }
+            onClose()
+            dismiss()
+            return
+        }
+        
+        if reservation.status == .deleted {
+            env.reservationService.deleteReservation(reservation)
+            onChanged(reservation)
             onClose()
             dismiss()
             return
