@@ -15,7 +15,6 @@ extension DatabaseView {
     }
     
     func saveDebugData() {
-        env.reservationService.saveReservationsToDisk(includeMock: true)
         print("Debug data saved to disk.")
     }
     

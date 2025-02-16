@@ -80,7 +80,7 @@ struct LayoutView: View {
                 overlays(in: geometry)
             }
             .ignoresSafeArea(edges: .bottom)
-            .navigationTitle("Layout Tavoli")
+//            .navigationTitle("Layout Tavoli")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { topBarToolbar }
             .sheet(isPresented: $unitView.showInspector, content: inspectorSheet)

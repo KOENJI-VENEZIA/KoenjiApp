@@ -79,13 +79,17 @@ struct SidebarView: View {
                     .frame(maxWidth: .infinity, alignment: .bottomLeading)
                     .opacity(0.8)
                 
-                Image("logo_image")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 200, height: 120) // Adjust size as needed
-                    .frame(maxWidth: .infinity, alignment: .bottomLeading)
-                    .padding(.horizontal)
-                    .drawingGroup()
+                HStack {
+                    Image("logo_image")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 200, height: 120) // Adjust size as needed
+                        .frame(maxWidth: .infinity, alignment: .bottomLeading)
+                        .padding(.horizontal)
+                        .drawingGroup()
+                    
+                    
+                }
             }
             .ignoresSafeArea(.keyboard)
         }

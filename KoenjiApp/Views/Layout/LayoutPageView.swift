@@ -36,7 +36,9 @@ struct LayoutPageView: View {
     @State private var resetInProgress: Bool = false
     @State private var statusChanged: Int = 0
     @State private var debounceWorkItem: DispatchWorkItem?
-
+    private var clustersForTables: [CachedCluster] {
+        clusterManager.clusters
+    }
     // MARK: - Computed Properties
     private var isCompact: Bool { horizontalSizeClass == .compact }
     private var gridWidth: CGFloat { CGFloat(env.tableStore.totalColumns) * env.gridData.cellSize }
@@ -74,8 +76,8 @@ struct LayoutPageView: View {
         .onChange(of: unitView.selectedIndex) {
             debounce {
                 env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
-                updateCachedReservation(appState.selectedDate)
-                reloadLayout(appState.selectedCategory, env.resCache.activeReservations)
+
+                reloadLayout(appState.selectedCategory, env.store.reservations)
                 env.resCache.startMonitoring(for: appState.selectedDate)
             }
         }
@@ -83,7 +85,7 @@ struct LayoutPageView: View {
             if reset {
                 isLoading = true
                 resetCurrentLayout()
-                updateCachedReservation(appState.selectedDate)
+                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     withAnimation(.easeInOut(duration: 0.5)) {
                         isLoading = false
@@ -92,37 +94,41 @@ struct LayoutPageView: View {
                 }
             }
         }
-        .onChange(of: selectedReservation) {
-            updateCachedReservation(appState.selectedDate)
-        }
+//        .onChange(of: selectedReservation) {
+//            env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
+//        }
         .onChange(of: appState.selectedCategory) { _, newCategory in
             debounce {
-                updateCachedReservation(appState.selectedDate)
-                reloadLayout(newCategory, env.resCache.activeReservations)
+                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
+                reloadLayout(newCategory, env.store.reservations)
             }
         }
         .onChange(of: appState.selectedDate) { _, newDate in
             debounce {
                 env.resCache.preloadDates(around: newDate, range: 5, reservations: env.store.reservations)
-                updateCachedReservation(newDate)
-                reloadLayout(appState.selectedCategory, env.resCache.activeReservations)
+                reloadLayout(appState.selectedCategory, env.store.reservations)
                 env.resCache.startMonitoring(for: newDate)
             }
         }
         .onChange(of: appState.showingEditReservation) {
-            debounce { updateCachedReservation(appState.selectedDate) }
+            debounce { env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations) }
         }
-        .onChange(of: appState.changedReservation) {
+//        .onChange(of: appState.changedReservation) {
+//            debounce {
+//                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
+//                reloadLayout(appState.selectedCategory, env.resCache.activeReservations)
+//                env.resCache.startMonitoring(for: appState.selectedDate)
+//            }
+//        }
+        .onReceive(env.store.$reservations) { new in
             debounce {
-                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
-                updateCachedReservation(appState.selectedDate)
-                reloadLayout(appState.selectedCategory, env.resCache.activeReservations)
-                env.resCache.startMonitoring(for: appState.selectedDate)
+                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: new)
+                reloadLayout(appState.selectedCategory, env.store.reservations, force: true)
             }
         }
-        .onChange(of: statusChanged) {
-            debounce { updateCachedReservation(appState.selectedDate) }
-        }
+//        .onChange(of: statusChanged) {
+//            debounce { env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations) }
+//        }
     }
 }
 
@@ -164,10 +170,17 @@ extension LayoutPageView {
     /// The overlay that shows all the tables and, if applicable, clusters.
     private var tablesAndClustersOverlay: some View {
         ZStack {
+            // Clusters overlay (if present)
+            if !clusterManager.clusters.isEmpty || isLoadingClusters {
+                clustersOverlay
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.5), value: isLoading)
+            }
             // Individual tables overlay
             ForEach(layoutUI.tables, id: \.id) { table in
                 TableView(
                     table: table,
+                    clusters: clustersForTables,
                     onTapEmpty: { handleEmptyTableTap(for: $0) },
                     onStatusChange: { statusChanged += 1 },
                     onEditReservation: { selectedReservation = $0 },
@@ -181,12 +194,7 @@ extension LayoutPageView {
                 .zIndex(1)
             }
 
-            // Clusters overlay (if present)
-            if !clusterManager.clusters.isEmpty || isLoadingClusters {
-                clustersOverlay
-                    .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.5), value: isLoading)
-            }
+           
         }
     }
 
@@ -209,8 +217,6 @@ extension LayoutPageView {
                 .allowsHitTesting(false)
                 .opacity(unitView.isLayoutLocked ? 1 : 0)
                 .animation(.easeInOut(duration: 0.5), value: unitView.isLayoutLocked)
-                .onAppear { updateTableVisibility(for: clusterTables) }
-                .onChange(of: unitView.isLayoutLocked) { updateTableVisibility(for: clusterTables) }
 
                 ClusterOverlayView(
                     cluster: cluster,
@@ -233,17 +239,6 @@ extension LayoutPageView {
         )
         .background(Color.clear)
         .zIndex(2)
-    }
-
-    /// Updates table visibility based on the layout lock.
-    private func updateTableVisibility(for tables: [TableModel]) {
-        for table in tables {
-            if !unitView.isLayoutLocked {
-                layoutUI.setTableVisible(table)
-            } else {
-                layoutUI.setTableInvisible(table)
-            }
-        }
     }
 
     /// Toggles the full-screen mode.
@@ -288,22 +283,18 @@ extension LayoutPageView {
             )
         }
         env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
-        updateCachedReservation(appState.selectedDate)
-        reloadLayout(appState.selectedCategory, env.resCache.activeReservations)
+        reloadLayout(appState.selectedCategory, env.store.reservations)
+        clusterManager.loadClusters()
         env.resCache.startMonitoring(for: appState.selectedDate)
         currentDrawing.layer1 = newDrawingModel.layer1
         currentDrawing.layer2 = newDrawingModel.layer2
         currentDrawing.layer3 = newDrawingModel.layer3
     }
 
-    private func updateCachedReservation(_ date: Date) {
-        env.resCache.activeReservations = env.resCache.reservations(for: date)
-            .filter { $0.status != .canceled || $0.reservationType != .waitingList }
-    }
 
     private func onTableUpdated(_ updatedTable: TableModel) {
         updateAdjacencyCounts(for: updatedTable)
-        updateClustersIfNeeded(for: env.resCache.activeReservations, tables: layoutUI.tables)
+        updateClustersIfNeeded(for: env.store.reservations, tables: layoutUI.tables)
         env.layoutServices.saveTables(layoutUI.tables, for: appState.selectedDate, category: appState.selectedCategory)
     }
 
@@ -365,23 +356,24 @@ extension LayoutPageView {
         print("Drawing layers updated for category: \(selectedCategory).")
     }
 
-    private func reloadLayout(_ selectedCategory: Reservation.ReservationCategory, _ activeReservations: [Reservation]) {
+    private func reloadLayout(_ selectedCategory: Reservation.ReservationCategory, _ activeReservations: [Reservation], force: Bool = false) {
         Task {
             DispatchQueue.main.async {
-                updateCachedReservation(appState.selectedDate)
-                updateTablesIfNeeded(for: appState.selectedCategory)
+                updateTablesIfNeeded(for: appState.selectedCategory, force: force)
                 updateClustersIfNeeded(for: activeReservations, tables: layoutUI.tables)
                 updateDrawingLayersIfNeeded(for: selectedCategory)
             }
         }
     }
 
-    private func updateTablesIfNeeded(for selectedCategory: Reservation.ReservationCategory) {
+    private func updateTablesIfNeeded(for selectedCategory: Reservation.ReservationCategory, force: Bool = false) {
         let currentTables = layoutUI.tables
         let newTables = env.layoutServices.loadTables(
             for: appState.selectedDate, category: selectedCategory
         )
-        guard currentTables != newTables else { return }
+        if !force {
+            guard currentTables != newTables else { return }
+        }
         withAnimation { layoutUI.tables = newTables }
     }
 

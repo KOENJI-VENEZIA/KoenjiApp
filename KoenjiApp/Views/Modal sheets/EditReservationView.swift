@@ -394,7 +394,7 @@ struct EditReservationView: View {
 
         if reservation.reservationType != .waitingList {
             let assignmentResult = env.layoutServices.assignTables(
-                for: reservation, selectedTableID: selectedForcedTableID)
+                for: reservation, selectedTableID: nil)
             switch assignmentResult {
             case .success(let assignedTables):
                 reservation.tables = assignedTables

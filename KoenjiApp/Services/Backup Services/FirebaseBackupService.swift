@@ -18,7 +18,7 @@ class FirebaseBackupService: ObservableObject {
     @Published var isWritingToFirebase = false
     @Published var localBackupFileURL: URL? = nil
     
-    private let db: Firestore
+    let db: Firestore!
     private let storage: Storage
     private let store: ReservationStore
     let notifsManager: NotificationManager

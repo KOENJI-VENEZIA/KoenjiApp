@@ -1,4 +1,5 @@
 import SwiftUI
+import SQLite
 
 class CurrentReservationsCache: ObservableObject {
     @Published var cache: [Date: [Reservation]] = [:]  // Cache now uses Date as the key
@@ -8,7 +9,14 @@ class CurrentReservationsCache: ObservableObject {
     var timer: Timer?
     let calendar = Calendar.current
     @Published var activeReservations: [Reservation] = []
+    let reservationsTable = Table("reservations")
 
+    let idColumn = Expression<String>("id")
+    let categoryColumn = Expression<String>("category")
+    let dateStringColumn = Expression<String>("dateString")
+    let startTimeColumn = Expression<String>("startTime")
+    let endTimeColumn = Expression<String>("endTime")
+    let tablesColumn = Expression<String>("tables") // JSON text
 
     // MARK: - Cache Management
     func preloadDates(around selectedDate: Date, range: Int, reservations: [Reservation]) {
@@ -32,7 +40,7 @@ class CurrentReservationsCache: ObservableObject {
         populateCache(for: Array(newDates), reservations: reservations)
 
         print(
-            "DEBUG: successfully preloaded dates (\(preloadedDates.count) dates) around selected date \(selectedDate)!"
+            "DEBUG: successfully preloaded dates (\(preloadedDates.count) dates) around selected date \(DateHelper.formatDate(selectedDate)) with \(reservations.count) reservations!"
         )
     }
 
@@ -157,9 +165,32 @@ class CurrentReservationsCache: ObservableObject {
         let normalizedDate = calendar.startOfDay(for: date)  // Normalize to start of the day
         return cache[normalizedDate] ?? []
     }
+    
+    @MainActor
+    func fetchReservations(for date: Date) -> [Reservation] {
+        // Format the target date in the same format as stored.
+        let targetDateString = DateHelper.formatDate(date)
+        
+        // Build the query filtering by dateString.
+        let query = reservationsTable.filter(Expression<String>("dateString") == targetDateString)
+        
+        var results: [Reservation] = []
+        do {
+            for row in try SQLiteManager.shared.db.prepare(query) {
+                if let reservation = ReservationMapper.reservation(from: row) {
+                    results.append(reservation)
+                }
+            }
+        } catch {
+            print("Error fetching reservations for \(targetDateString): \(error)")
+        }
+        return results
+    }
+
 
     /// Retrieves reservations for a specific table, date, and time
     /// Retrieves a single reservation for a specific table, date, and time
+    @MainActor
     func reservation(forTable tableID: Int, datetime: Date, category: Reservation.ReservationCategory) -> Reservation? {
         let normalizedDate = calendar.startOfDay(for: datetime)  // Normalize to start of the day
         guard let normalizedTime = calendar.date(
@@ -174,7 +205,7 @@ class CurrentReservationsCache: ObservableObject {
         // Normalize time to the nearest minute
 
         // Retrieve reservations for the given date
-        let reservationsForDate = cache[normalizedDate] ?? []
+        let reservationsForDate = fetchReservations(for: datetime)
 
         // Find the current active reservation with the specified category
         let currentReservation = reservationsForDate.first { reservation in

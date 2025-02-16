@@ -41,6 +41,12 @@ struct DebugConfigView: View {
                     } label: {
                         Label("Resetta Dati", systemImage: "trash")
                     }
+                    
+                    Button {
+                        env.reservationService.migrateJSONBackupFromFirebase()
+                    } label: {
+                        Label("Converti backup", systemImage: "square.and.arrow.down.on.square")
+                    }
 
                     Button {
                         onSaveDebugData()
@@ -67,23 +73,6 @@ struct DebugConfigView: View {
                             systemImage: "arrow.triangle.2.circlepath")
                     }
 
-                    Button("Export Reservations") {
-                        prepareExport()
-
-                        isExporting = true
-                    }.fileExporter(
-                        isPresented: $isExporting,
-                        document: document,
-                        contentType: .json,
-                        defaultFilename: "ReservationsBackup"
-                    ) { result in
-                        switch result {
-                        case .success(let url):
-                            print("File exported successfully to \(url).")
-                        case .failure(let error):
-                            print(error.localizedDescription)
-                        }
-                    }
 
                 }
             }

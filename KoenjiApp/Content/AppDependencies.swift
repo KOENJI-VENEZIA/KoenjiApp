@@ -1,5 +1,5 @@
-import SwiftUI
 import Firebase
+import SwiftUI
 
 final class AppDependencies: ObservableObject {
     // Dependencies that are ObservableObjects can be stored as plain properties.
@@ -21,7 +21,7 @@ final class AppDependencies: ObservableObject {
     init() {
         // Configure Firebase first.
         FirebaseApp.configure()
-        
+
         // Initialize dependencies
         self.store = ReservationStore()
         self.tableAssignment = TableAssignmentService()
@@ -44,7 +44,8 @@ final class AppDependencies: ObservableObject {
             layoutServices: layoutServices
         )
         self.gridData = GridData(store: store)
-        self.backupService = FirebaseBackupService(store: store, notifsManager: NotificationManager.shared)
+        self.backupService = FirebaseBackupService(
+            store: store, notifsManager: NotificationManager.shared)
         self.pushAlerts = PushAlerts()
         self.reservationService = ReservationService(
             store: store,

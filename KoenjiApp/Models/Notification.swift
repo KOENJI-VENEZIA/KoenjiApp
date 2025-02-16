@@ -1,0 +1,46 @@
+//
+//  AppNotification.swift
+//  KoenjiApp
+//
+//  Created by Matteo Nassini on 4/2/25.
+//
+
+import SwiftUI
+
+enum NotificationType: Equatable {
+    case late
+    case nearEnd
+    case canceled
+    case restored
+    case waitingList
+    case sync
+}
+
+/// A simple model representing a notification within your app.
+struct AppNotification: Identifiable, Equatable, Hashable {
+    let id = UUID()
+    let title: String
+    let message: String
+    let date: Date = Date()
+    let reservation: Reservation?
+    let type: NotificationType
+}
+
+extension NotificationType {
+    var localized: String {
+        switch self {
+            case .late:
+            return "ritardo"
+        case .nearEnd:
+            return "scadenza"
+        case .canceled:
+            return "cancellaz."
+        case .restored:
+            return "ripristino"
+        case .waitingList:
+            return "waitinglist"
+        case .sync:
+            return "sincro"
+        }
+    }
+}

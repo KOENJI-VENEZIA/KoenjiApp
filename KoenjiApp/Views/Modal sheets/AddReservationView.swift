@@ -31,10 +31,7 @@ struct AddReservationView: View {
     @State private var imageData: Data? = nil
     @State private var showImagePicker = false
     @State private var showImageField = false
-
-    // MARK: - Bindings from parent
     @State var category: Reservation.ReservationCategory = .lunch
-    @State var startTime: Date = Date()
     var passedTable: TableModel?
     var onAdded: (Reservation) -> Void
     
@@ -305,13 +302,14 @@ struct AddReservationView: View {
                 }
             }
             .onAppear {
-                startTime = appState.selectedDate
-                print("Passed value: \(DateHelper.formatTime(startTime))")
+                
+                adjustTimesForCategory()
+                
                 print("Start time before: \(startTimeString)")
                 print("End time before: \(endTimeString)")
                 // Initialize time strings if empty
 
-                startTimeString = DateHelper.formatTime(startTime)
+               
                 endTimeString = TimeHelpers.calculateEndTime(
                     startTime: startTimeString,
                     category: appState.selectedCategory)
@@ -331,9 +329,6 @@ struct AddReservationView: View {
                 print("End time after: \(endTimeString)")
 
             }
-//            .onChange(of: appState.selectedCategory) { old, new in
-//                category = new
-//            }
             .onChange(of: selectedPhotoItem) { old, newItem in
                 if let newItem {
                     Task {
@@ -384,7 +379,7 @@ struct AddReservationView: View {
         case .dinner:
             startTimeString = "18:00"
         case .noBookingZone:
-            startTimeString = DateHelper.formatTime(startTime)
+            startTimeString = DateHelper.formatTime(appState.selectedDate)
         }
         endTimeString = TimeHelpers.calculateEndTime(
             startTime: startTimeString,
@@ -482,12 +477,10 @@ struct AddReservationView: View {
     private func performSaveReservation() {
         var newReservation = createTemporaryReservation()
         if newReservation.reservationType == .waitingList || newReservation.status == .canceled || newReservation.status == .deleted || newReservation.status == .toHandle {
-            DispatchQueue.main.async {
-                newReservation.tables = []
-                checkBeforeSaving(newReservation: newReservation)
-            }
+            newReservation.tables = []
             isSaving = false
             onAdded(newReservation)
+            env.reservationService.addReservation(newReservation)
             dismiss()
             return
         } else {
@@ -495,13 +488,10 @@ struct AddReservationView: View {
                 for: newReservation, selectedTableID: selectedForcedTableID)
             switch assignmentResult {
             case .success(let assignedTables):
-                DispatchQueue.main.async {
-                    // do actual saving logic here
-                    newReservation.tables = assignedTables
-                    checkBeforeSaving(newReservation: newReservation)
-                }
+                newReservation.tables = assignedTables
                 isSaving = false
                 onAdded(newReservation)
+                env.reservationService.addReservation(newReservation)
                 dismiss()
                 return
             case .failure(let error):
@@ -522,25 +512,6 @@ struct AddReservationView: View {
         }
     }
     
-    private func checkBeforeSaving(newReservation: Reservation) {
-        env.reservationService.automaticBackup()
-        let localBackupTimestamp = Date() // or the timestamp of your local data
-        env.backupService.uploadBackupWithConflictCheck(fileURL: env.backupService.localBackupFileURL ?? nil,
-          localTimestamp: localBackupTimestamp,
-        alertManager: env.pushAlerts) { result in
-            switch result {
-            case .success:
-                // Proceed with saving to disk and any further actions
-                env.resCache.addOrUpdateReservation(newReservation)
-                env.store.finalizeReservation(newReservation)
-                env.reservationService.saveReservationsToDisk(includeMock: true)
-                print("Backup uploaded successfully.")
-            case .failure(let error):
-                // The alert manager has been updated; you can also handle error logging here.
-                print("Backup upload failed: \(error.localizedDescription)")
-            }
-        }
-    }
 
 }
 

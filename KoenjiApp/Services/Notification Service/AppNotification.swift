@@ -10,25 +10,6 @@ import Foundation
 import UserNotifications
 import SwiftUI
 
-enum NotificationType: Equatable {
-    case late
-    case nearEnd
-    case canceled
-    case restored
-    case waitingList
-    case sync
-}
-
-/// A simple model representing a notification within your app.
-struct AppNotification: Identifiable, Equatable {
-    let id = UUID()
-    let title: String
-    let message: String
-    let date: Date = Date()
-    let reservation: Reservation?
-    let type: NotificationType
-}
-
 /// A manager to handle scheduling local notifications and keeping an in‑app log.
 @MainActor
 final class NotificationManager: ObservableObject {
@@ -56,14 +37,14 @@ final class NotificationManager: ObservableObject {
         content.body = message
         content.sound = .default
 
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 3, repeats: false) // Debug with 3s delay
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false) // Debug with 3s delay
         let request = UNNotificationRequest(identifier: newNotification.id.uuidString,
                                             content: content,
                                             trigger: trigger)
 
         do {
             try await UNUserNotificationCenter.current().add(request)
-            print("✅ Notification scheduled: \(title) - Will appear in 3 seconds")
+            print("✅ Notification scheduled: \(title)")
         } catch {
             print("❌ Error scheduling notification: \(error.localizedDescription)")
         }

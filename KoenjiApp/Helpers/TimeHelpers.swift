@@ -50,6 +50,20 @@ struct TimeHelpers {
         }
         return nil
     }
+    
+    static func elapsedTimeString(date: Date, currentTime: Date) -> String {
+        let calendar = Calendar.current
+        
+        let diff = calendar.dateComponents([.hour, .minute], from: date, to: currentTime)
+        let hours = diff.hour ?? 0
+        let minutes = diff.minute ?? 0
+        
+        if hours != 0 {
+            return "\(hours)h fa"
+        } else {
+            return "\(minutes)m fa"
+        }
+    }
 
     static func availableTimeString(endTime: String, startTime: String) -> String? {
         let formatter = DateFormatter()

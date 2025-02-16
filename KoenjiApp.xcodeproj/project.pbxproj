@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A00FDDF82D5C002200AE4CEA /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = A00FDDF72D5C002200AE4CEA /* SQLite */; };
 		A03B7B652D43B00000FF8FF7 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B642D43B00000FF8FF7 /* FirebaseAnalytics */; };
 		A03B7B672D43B00000FF8FF7 /* FirebaseAnalyticsOnDeviceConversion in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B662D43B00000FF8FF7 /* FirebaseAnalyticsOnDeviceConversion */; };
 		A03B7B692D43B00000FF8FF7 /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */ = {isa = PBXBuildFile; productRef = A03B7B682D43B00000FF8FF7 /* FirebaseAnalyticsWithoutAdIdSupport */; };
@@ -16,6 +17,7 @@
 		A07145E92D4BC28100B6918A /* SwipeActions in Frameworks */ = {isa = PBXBuildFile; productRef = A07145E82D4BC28100B6918A /* SwipeActions */; };
 		A0C598AA2D427F43004A3423 /* EmojiPalette in Frameworks */ = {isa = PBXBuildFile; productRef = A0C598A92D427F43004A3423 /* EmojiPalette */; };
 		A0C599D82D42B0FD004A3423 /* Launchscreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */; };
+		A0E4F26B2D55627F00C159B2 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = A0E4F26A2D55627F00C159B2 /* KeychainAccess */; };
 		A0FBB6942D41743700A5783E /* ScreenshotSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = A0FBB6932D41743700A5783E /* ScreenshotSwiftUI */; };
 /* End PBXBuildFile section */
 
@@ -67,10 +69,12 @@
 				A03B7B692D43B00000FF8FF7 /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */,
 				A0C598AA2D427F43004A3423 /* EmojiPalette in Frameworks */,
 				A03B7B652D43B00000FF8FF7 /* FirebaseAnalytics in Frameworks */,
+				A0E4F26B2D55627F00C159B2 /* KeychainAccess in Frameworks */,
 				A03B7B732D43B18900FF8FF7 /* FirebaseStorage in Frameworks */,
 				A03B7B672D43B00000FF8FF7 /* FirebaseAnalyticsOnDeviceConversion in Frameworks */,
 				A03B7B712D43B18200FF8FF7 /* FirebaseFirestore in Frameworks */,
 				A07145E92D4BC28100B6918A /* SwipeActions in Frameworks */,
+				A00FDDF82D5C002200AE4CEA /* SQLite in Frameworks */,
 				A03B7B792D43B93D00FF8FF7 /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -133,6 +137,8 @@
 				A03B7B722D43B18900FF8FF7 /* FirebaseStorage */,
 				A03B7B782D43B93D00FF8FF7 /* FirebaseAuth */,
 				A07145E82D4BC28100B6918A /* SwipeActions */,
+				A0E4F26A2D55627F00C159B2 /* KeychainAccess */,
+				A00FDDF72D5C002200AE4CEA /* SQLite */,
 			);
 			productName = KoenjiApp;
 			productReference = A0775E242D1CAA1F00068B00 /* KoenjiApp.app */;
@@ -167,6 +173,8 @@
 				A0C598A82D427F43004A3423 /* XCRemoteSwiftPackageReference "EmojiPalette" */,
 				A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				A07145E72D4BC28100B6918A /* XCRemoteSwiftPackageReference "SwipeActions" */,
+				A0E4F2692D55627F00C159B2 /* XCRemoteSwiftPackageReference "KeychainAccess" */,
+				A00FDDF62D5C002200AE4CEA /* XCRemoteSwiftPackageReference "SQLite.swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A0775E252D1CAA1F00068B00 /* Products */;
@@ -431,6 +439,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		A00FDDF62D5C002200AE4CEA /* XCRemoteSwiftPackageReference "SQLite.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stephencelis/SQLite.swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.15.3;
+			};
+		};
 		A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -455,6 +471,14 @@
 				minimumVersion = 1.0.0;
 			};
 		};
+		A0E4F2692D55627F00C159B2 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess.git";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
 		A0FBB6922D41743700A5783E /* XCRemoteSwiftPackageReference "ScreenshotSwiftUI" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/gualtierofrigerio/ScreenshotSwiftUI.git";
@@ -466,6 +490,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A00FDDF72D5C002200AE4CEA /* SQLite */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A00FDDF62D5C002200AE4CEA /* XCRemoteSwiftPackageReference "SQLite.swift" */;
+			productName = SQLite;
+		};
 		A03B7B642D43B00000FF8FF7 /* FirebaseAnalytics */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A03B7B632D43B00000FF8FF7 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
@@ -505,6 +534,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A0C598A82D427F43004A3423 /* XCRemoteSwiftPackageReference "EmojiPalette" */;
 			productName = EmojiPalette;
+		};
+		A0E4F26A2D55627F00C159B2 /* KeychainAccess */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A0E4F2692D55627F00C159B2 /* XCRemoteSwiftPackageReference "KeychainAccess" */;
+			productName = KeychainAccess;
 		};
 		A0FBB6932D41743700A5783E /* ScreenshotSwiftUI */ = {
 			isa = XCSwiftPackageProductDependency;

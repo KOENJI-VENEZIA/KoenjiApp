@@ -18,19 +18,31 @@ extension LayoutView {
             }
         }
         ToolbarItem(placement: .topBarLeading) {
-            Button(action: debugCache) {
-                Label("Debug Cache", systemImage: "ladybug.slash.fill")
+            Button {
+                print("Hello")
+            }
+            label: {
+               Image(systemName: "app.badge")
             }
             .id(unitView.refreshID)
         }
         ToolbarItem(placement: .topBarLeading) {
-            Button(action: { withAnimation { unitView.isPresented.toggle() } }) {
-                Label("Share Layout", systemImage: "square.and.arrow.up")
+            Button {
+                debugCache()
+            } label: {
+                Image(systemName: "ladybug.slash.fill")
             }
             .id(unitView.refreshID)
         }
         ToolbarItem(placement: .topBarLeading) {
-            Button(action: {
+            Button { withAnimation { unitView.isPresented.toggle() }
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+            }
+            .id(unitView.refreshID)
+        }
+        ToolbarItem(placement: .topBarLeading) {
+            Button{
                 withAnimation {
                     env.scribbleService.deleteAllScribbles()
                     UserDefaults.standard.removeObject(forKey: "cachedScribbles")
@@ -38,20 +50,19 @@ extension LayoutView {
                     currentDrawing.layer2 = PKDrawing()
                     currentDrawing.layer3 = PKDrawing()
                 }
-            }) {
-                Label("Delete Current Scribble", systemImage: "trash")
+            } label: {
+                Image(systemName: "trash")
             }
             .id(unitView.refreshID)
         }
         ToolbarItem(placement: .topBarLeading) {
-            Button(action: {
+            Button {
                 withAnimation {
                     unitView.isScribbleModeEnabled.toggle()
                     unitView.toolPickerShows.toggle()
                 }
-            }) {
-                Label(unitView.isScribbleModeEnabled ? "Exit Scribble Mode" : "Enable Scribble",
-                      systemImage: unitView.isScribbleModeEnabled ? "pencil.slash" : "pencil")
+            } label: {
+                Image(systemName: unitView.isScribbleModeEnabled ? "pencil.slash" : "pencil.and.outline")
             }
             .id(unitView.refreshID)
         }

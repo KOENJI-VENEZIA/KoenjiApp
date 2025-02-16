@@ -20,7 +20,7 @@ class AppState: ObservableObject {
 
     @State var dates: [Date] = []
     @State var selectedIndex: Int = 15
-    @State var showingDatePicker: Bool = false
+    @Published var showingDatePicker: Bool = false
     @State var showingAddReservationSheet: Bool = false
     @Published var isFullScreen = false
     @Published var columnVisibility: NavigationSplitViewVisibility = .all

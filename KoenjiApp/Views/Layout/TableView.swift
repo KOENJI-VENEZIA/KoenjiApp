@@ -28,6 +28,7 @@ struct TableView: View {
     private let normalizedTimeCache = NormalizedTimeCache()
 
     let table: TableModel
+    let clusters: [CachedCluster]
     let onTapEmpty: (TableModel) -> Void
     let onStatusChange: () -> Void
     let onEditReservation: (Reservation) -> Void
@@ -41,6 +42,9 @@ struct TableView: View {
     @State private var cachedRemainingTime: String?
     @State private var lastRefreshDate: Date? = Date.distantPast
 
+    @State private var isVisible: Bool = true
+    
+    
     // MARK: Computed Properties
     private var cellSize: CGFloat { env.gridData.cellSize }
 
@@ -88,19 +92,24 @@ struct TableView: View {
         .onAppear {
             updateResData(appState.selectedDate, refreshedKey: "onAppear", forceUpdate: true)
         }
-        .onChange(of: statusChanged) {
-            updateResData(appState.selectedDate, refreshedKey: "statusChanged", forceUpdate: true)
-        }
         .onChange(of: unitView.showInspector) {
             updateResData(appState.selectedDate, refreshedKey: "showInspector")
         }
-        .onChange(of: appState.changedReservation) {
-            updateResData(
-                appState.selectedDate, refreshedKey: "changedReservation", forceUpdate: true)
+        .onChange(of: unitView.isLayoutLocked) {
+            updateTableVisibility()
         }
+//        .onChange(of: appState.changedReservation) {
+//            updateResData(
+//                appState.selectedDate, refreshedKey: "changedReservation", forceUpdate: true)
+//        }
         .onChange(of: appState.selectedDate) {
             updateResData(
                 appState.selectedDate, refreshedKey: "appState.selectedDate", forceUpdate: true)
+        }
+        .onReceive(env.store.$reservations) { new in
+            print("DEBUG: env.store.$reservations sent changes!")
+            updateResData(
+                appState.selectedDate, refreshedKey: "env.store.reservations")
         }
         .onChange(of: appState.selectedCategory) {
             updateResData(
@@ -109,9 +118,9 @@ struct TableView: View {
         .onChange(of: tableView.selectedEmoji) {
             handleEmojiAssignment(tableView.currentActiveReservation, tableView.selectedEmoji)
         }
-        .onChange(of: tableView.currentActiveReservation?.status) {
-            updateResData(appState.selectedDate, refreshedKey: "status")
-        }
+//        .onChange(of: tableView.currentActiveReservation?.status) {
+//            updateResData(appState.selectedDate, refreshedKey: "status")
+//        }
 
     }
 }
@@ -141,8 +150,8 @@ extension TableView {
                     .easeInOut(duration: 0.5), value: tableView.currentActiveReservation?.status)
         }
         .transition(.opacity)
-        .opacity(table.isVisible ? 1 : 0)
-        .animation(.easeInOut(duration: 0.5), value: table.isVisible)
+        .opacity(isVisible ? 1 : 0)
+        .animation(.easeInOut(duration: 0.5), value: isVisible)
         .contextMenu {
             Button {
                 print(
@@ -262,14 +271,12 @@ extension TableView {
 
             Group {
                 reservationInfo(
-                    reservation: tableView.currentActiveReservation,
                     tableWidth: tableFrame.width,
                     tableHeight: tableFrame.height
                 )
                 .opacity(tableView.currentActiveReservation != nil ? 1 : 0)
 
                 upcomingReservationPlaceholder(
-                    reservation: tableView.firstUpcomingReservation,
                     tableWidth: tableFrame.width,
                     tableHeight: tableFrame.height
                 )
@@ -334,9 +341,9 @@ extension TableView {
     // MARK: - Reservation Text Overlays
     @ViewBuilder
     private func reservationInfo(
-        reservation: Reservation?, tableWidth: CGFloat, tableHeight: CGFloat
+        tableWidth: CGFloat, tableHeight: CGFloat
     ) -> some View {
-        if let reservation = reservation {
+        if let reservation = tableView.currentActiveReservation {
             VStack(spacing: 2) {
                 Text(reservation.name)
                     .bold()
@@ -400,9 +407,9 @@ extension TableView {
 
     @ViewBuilder
     private func upcomingReservationPlaceholder(
-        reservation: Reservation?, tableWidth: CGFloat, tableHeight: CGFloat
+        tableWidth: CGFloat, tableHeight: CGFloat
     ) -> some View {
-        if let reservation = reservation {
+        if let reservation = tableView.firstUpcomingReservation {
             VStack(spacing: 2) {
                 Text(reservation.name)
                     .bold()
@@ -522,8 +529,25 @@ extension TableView {
 // MARK: - Helper Methods & Reservation Updates
 
 extension TableView {
-    private func updateResData(_ date: Date, refreshedKey: String, forceUpdate: Bool = false) {
+    private func updateTableVisibility() {
+        print("DEBUG: updating table visibility")
+        print("DEBUG: clusters \(clusters)")
         
+        for cluster in clusters {
+            if cluster.tableIDs.first(where: { $0 == table.id}) != nil && cluster.date.isSameDay(as: appState.selectedDate) && unitView.isLayoutLocked {
+                print("DEBUG: setting table to hidden")
+                isVisible = false
+            } else if cluster.tableIDs.first(where: { $0 == table.id}) != nil && !unitView.isLayoutLocked {
+                print("DEBUG: setting table to visible")
+                isVisible = true
+            } else {
+                isVisible = true
+            }
+        }
+    }
+    
+    private func updateResData(_ date: Date, refreshedKey: String, forceUpdate: Bool = false) {
+        updateTableVisibility()
         let now = Date()
         // if we already refreshed in last 0.5 seconds, skip
         guard now.timeIntervalSince(lastRefreshDate ?? Date()) > 0.5 else {
@@ -539,20 +563,20 @@ extension TableView {
         let key =
             "\(formattedDate)-\(refreshedKey)-\(appState.selectedCategory.rawValue)-\(table.id)"
 
-        if !forceUpdate {
-            if tableView.currentActiveReservation != nil || tableView.lateReservation != nil
-                || tableView.firstUpcomingReservation != nil || tableView.nearEndReservation != nil
-            {
-
-                guard !appState.lastRefreshedKeys.contains(key) else {
-                    print("⚠️ Skipping update, key already exists!")
-                    return
-                }
-            }
-        }
-        print("New key: \(key)")
-        appState.lastRefreshedKeys.append(key)
-        print("Key added!")
+//        if !forceUpdate {
+//            if tableView.currentActiveReservation != nil || tableView.lateReservation != nil
+//                || tableView.firstUpcomingReservation != nil || tableView.nearEndReservation != nil
+//            {
+//
+//                guard !appState.lastRefreshedKeys.contains(key) else {
+//                    print("⚠️ Skipping update, key already exists!")
+//                    return
+//                }
+//            }
+//        }
+//        print("New key: \(key)")
+//        appState.lastRefreshedKeys.append(key)
+//        print("Key added!")
 
         updateCachedReservation(date)
         updateFirstUpcoming(date)
@@ -701,7 +725,6 @@ extension TableView {
         env.reservationService.updateReservation(reservationActive) {
             appState.changedReservation = reservationActive
         }
-        statusChanged += 1
         onStatusChange()
     }
 
@@ -717,8 +740,7 @@ extension TableView {
                     activeReservation, newReservation: currentReservation) {
                         appState.changedReservation = currentReservation
                     }
-            statusChanged += 1
-        } else {
+        } else if currentReservation.status == .showedUp {
             currentReservation.status =
                 (tableView.lateReservation?.id == currentReservation.id ? .late : .pending)
             print("2 - Status in HandleTap: \(currentReservation.status)")
@@ -726,7 +748,6 @@ extension TableView {
                     activeReservation, newReservation: currentReservation) {
                         appState.changedReservation = currentReservation
                     }
-            statusChanged += 1
         }
     }
 

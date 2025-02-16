@@ -45,6 +45,7 @@ struct TabsView: View {
                         }
 
                     }
+                    .ignoresSafeArea(.all)
 
                     ZStack {
                         ToolbarExtended(
@@ -96,7 +97,7 @@ struct TabsView: View {
                         )
                 }
             }
-            .navigationTitle("Timeline tavoli")
+//            .navigationTitle("Timeline tavoli")
             .navigationBarTitleDisplayMode(.inline)
             .ignoresSafeArea(.all)
             .toolbar {
@@ -116,6 +117,22 @@ struct TabsView: View {
                             systemImage: appState.isFullScreen
                                 ? "arrow.down.right.and.arrow.up.left"
                                 : "arrow.up.left.and.arrow.down.right")
+                    }
+                }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        print("Hello")
+                    }
+                    label: {
+                       Image(systemName: "app.badge")
+                    }
+                }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        print("Hello")
+                    }
+                    label: {
+                        Image(systemName: "ladybug.slash.fill")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -156,6 +173,10 @@ struct TabsView: View {
 
                 bindableDate = appState.selectedDate
 
+            }
+            .onChange(of: env.store.reservations) {
+                updateActiveReservations()
+                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
             }
             .onChange(of: selectedTab) {
                 if selectedTab == .lunch {
@@ -309,6 +330,7 @@ struct TabsView: View {
 
             Button(action: {
                 appState.showingDatePicker = true
+                print("Pressed date picker button!")
             }) {
                 Image(systemName: "calendar.circle.fill")
                     .resizable()

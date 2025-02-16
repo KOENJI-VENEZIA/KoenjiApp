@@ -23,8 +23,8 @@ struct ClusterOverlayView: View {
     @State private var nearEndReservation: Reservation?
     
     
-    @State var currentReservation: Reservation? = nil
-    
+    @State private var currentReservation: Reservation?
+        
     
     var body: some View {
         ZStack {
@@ -36,17 +36,16 @@ struct ClusterOverlayView: View {
                 .position(x: overlayFrame.midX, y: overlayFrame.midY)
 
             // Checkmark overlay for "showed up" status
-            if currentReservation?.status == .showedUp {
                 Image(systemName: "checkmark.circle.fill")
                     .resizable()
                     .foregroundColor(.green)
                     .scaledToFit()
                     .frame(width: 17, height: 17)
                     .position(x: cluster.frame.minX + 13, y: cluster.frame.minY + 13)
-            }
+                    .opacity(currentReservation?.status == .showedUp ? 1 : 0)
 
             // Emoji overlay
-            if let emoji = currentReservation?.assignedEmoji {
+            if let emoji = currentReservation?.assignedEmoji, emoji != "" {
                 Text(emoji)
                     .font(.system(size: 20))
                     .frame(maxWidth: 23, maxHeight: 23)
@@ -54,7 +53,6 @@ struct ClusterOverlayView: View {
             }
 
             // Warning overlay for reservations running late
-            if currentReservation?.status == .late {
                 Image(systemName: "clock.badge.exclamationmark.fill")
                     .resizable()
                     .scaledToFit()
@@ -62,10 +60,9 @@ struct ClusterOverlayView: View {
                     .foregroundColor(.yellow)
                     .symbolRenderingMode(.multicolor)
                     .position(x: cluster.frame.minX + 15, y: cluster.frame.minY + 15)
-            }
+                    .opacity(currentReservation?.status == .late ? 1 : 0)
 
             // Warning overlay for "time's up"
-            if nearEndReservation != nil {
                 Image(systemName: "figure.walk.motion.trianglebadge.exclamationmark")
                     .resizable()
                     .scaledToFit()
@@ -74,7 +71,7 @@ struct ClusterOverlayView: View {
                     .symbolRenderingMode(.palette)
                     .position(x: cluster.frame.maxX - 15, y: cluster.frame.maxY - 15)
                     .zIndex(2)
-            }
+                    .opacity(nearEndReservation != nil ? 1 : 0)
         }
         .gesture(
             TapGesture(count: 2)
@@ -95,19 +92,18 @@ struct ClusterOverlayView: View {
         .background(.clear)
         .onAppear {
             updateNearEndReservation()
-            currentReservation = env.resCache.activeReservations.first(where: { $0.id == cluster.reservationID.id })
+            updateReservation()
         }
         .onChange(of: appState.selectedDate) {
             updateNearEndReservation()
-            currentReservation = cluster.tableIDs.compactMap {
-                env.resCache.reservation(forTable: $0, datetime: appState.selectedDate, category: selectedCategory)
-            }.first
+            updateReservation()
+
+        }
+        .onReceive(env.store.$reservations) { new in
+            updateReservation()
         }
         .onChange(of: statusChanged) {
-            currentReservation = cluster.tableIDs.compactMap {
-                env.resCache.reservation(forTable: $0, datetime: appState.selectedDate, category: selectedCategory)
-            }.first
-            
+            updateReservation()
             print("Current reservation status: \(currentReservation?.status ?? .pending)")
         }
         .animation(.easeInOut(duration: 0.5), value: currentReservation?.status)
@@ -120,6 +116,11 @@ struct ClusterOverlayView: View {
         }
     }
     
+    private func updateReservation() {
+        currentReservation = env.resCache.reservation(
+            forTable: cluster.tableIDs.first!, datetime: appState.selectedDate, category: appState.selectedCategory)
+    }
+    
     private func handleDoubleTap() {
         // Check if the table is occupied by filtering active reservations.
        
@@ -128,39 +129,30 @@ struct ClusterOverlayView: View {
         
     }
     
-    private func handleTap(_ activeReservation: Reservation?) {
-        guard let activeReservation = activeReservation else { return }
-
-        let oldReservation = activeReservation
+    private func handleTap(_ activeReservation: Reservation) {
+        guard activeReservation == activeReservation else { return }
         var currentReservation = activeReservation
-
+        let lateReservation = env.resCache.lateReservations(currentTime: appState.selectedDate).first(where: {
+            $0.id == currentReservation.id
+        })
         print("1 - Status in HandleTap: \(currentReservation.status)")
-
         if currentReservation.status == .pending || currentReservation.status == .late {
-            // Case 1: Update to .showedUp
             currentReservation.status = .showedUp
-
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            env.reservationService.updateReservation(oldReservation, newReservation: currentReservation) { // Ensure the data store is updated
-                statusChanged += 1
-            }
-            
-        } else {
-            // Case 2: Determine if the reservation is late or pending
-            if env.resCache.lateReservations(currentTime: appState.selectedDate).first(where: {
-                $0.id == currentReservation.id
-            }) != nil {
-                currentReservation.status = .late
-            } else {
-                currentReservation.status = .pending
-            }
-
+            env.reservationService.updateReservation(
+                    activeReservation, newReservation: currentReservation) {
+                        appState.changedReservation = currentReservation
+                    }
+        } else if currentReservation.status == .showedUp {
+            currentReservation.status =
+            (lateReservation?.id == currentReservation.id ? .late : .pending)
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            env.reservationService.updateReservation(oldReservation, newReservation: currentReservation) {  // Ensure the data store is updated
-                statusChanged += 1
-            }
-
+            env.reservationService.updateReservation(
+                    activeReservation, newReservation: currentReservation) {
+                        appState.changedReservation = currentReservation
+                    }
         }
     }
 }
+
 

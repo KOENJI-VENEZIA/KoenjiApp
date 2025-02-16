@@ -50,13 +50,9 @@ struct DatabaseView: View {
 
         mainContent
             .id(refreshID)
-            .navigationTitle("Tutte le prenotazioni")
+//            .navigationTitle("Tutte le prenotazioni")
             .toolbar { toolbarContent }
             .sheet(item: $env.listView.activeSheet, content: sheetContent)
-            .sheet(isPresented: $env.listView.showRestoreSheet) {
-                BackupListView(showRestoreSheet: $env.listView.showRestoreSheet)
-                    .presentationBackground(.thinMaterial)
-            }
             .sheet(item: $env.listView.currentReservation, content: editReservationSheet)
             .alert(item: $env.listView.activeAlert, content: activeAlertContent)
             .alert(isPresented: $env.listView.showingResetConfirmation, content: resetConfirmationAlert)
@@ -93,7 +89,7 @@ extension DatabaseView {
     private var mainContent: some View {
         reservationsList
             .searchable(text: $env.listView.searchText,
-                        placement: .toolbar,
+                        placement: .navigationBarDrawer(displayMode: .always),
                         prompt: "Cerca prenotazioni")
             .autocapitalization(.none)
             .disableAutocorrection(true)
@@ -197,9 +193,17 @@ extension DatabaseView {
         }
         ToolbarItem(placement: .topBarLeading) {
             Button {
-                withAnimation { env.listView.showRestoreSheet = true }
+                print("Hello")
+            }
+            label: {
+               Image(systemName: "app.badge")
+            }
+        }
+        ToolbarItem(placement: .topBarLeading) {
+            Button {
+                env.listView.activeSheet = .debugConfig
             } label: {
-                Label("Show Restore Sheet", systemImage: "externaldrive.fill.badge.timemachine")
+                Image(systemName: "ladybug.slash.fill")
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -310,16 +314,10 @@ extension DatabaseView {
                 env.listView.activeSheet = .addReservation
             } label: {
                 Image(systemName: "plus")
+                    .font(.title2)
             }
         }
-        ToolbarItem(placement: .topBarTrailing) {
-            Button("Debug Config") {
-                env.listView.activeSheet = .debugConfig
-            }
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-            EditButton()
-        }
+        
     }
     
     // MARK: - Sheets & Alerts

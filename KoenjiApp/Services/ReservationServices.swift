@@ -15,20 +15,21 @@ import SwiftUI
 /// This class interacts with the `ReservationStore` for managing reservation data.
 class ReservationService: ObservableObject {
     // MARK: - Dependencies
-    private let store: ReservationStore
+    let store: ReservationStore
     private let resCache: CurrentReservationsCache
     private let clusterStore: ClusterStore
     private let clusterServices: ClusterServices
     private let tableStore: TableStore
     private let layoutServices: LayoutServices
     private let tableAssignmentService: TableAssignmentService
-    private let backupService: FirebaseBackupService
+    let backupService: FirebaseBackupService
     private let pushAlerts: PushAlerts
     private var imageCache: [UUID: UIImage] = [:]
     let notifsManager: NotificationManager
     @Published var changedReservation: Reservation? = nil
     
-
+    var listener: ListenerRegistration?
+    
     // MARK: - Initializer
     @MainActor
     init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, backupService: FirebaseBackupService, pushAlerts: PushAlerts, notifsManager: NotificationManager = NotificationManager.shared) {
@@ -46,12 +47,17 @@ class ReservationService: ObservableObject {
         self.layoutServices.loadFromDisk()
         self.clusterServices.loadClustersFromDisk()
         
-        self.loadReservationsFromDisk()
+        self.startReservationsListener()
+        self.loadReservationsFromSQLite()
         
         let today = Calendar.current.startOfDay(for: Date())
         self.resCache.preloadDates(around: today, range: 5, reservations: self.store.reservations)
 //        self.preloadActiveReservationCache(around: today, forDaysBefore: 5, afterDays: 5)
     }
+    
+    deinit {
+            listener?.remove()
+        }
     
     // MARK: - Placeholder Methods for CRUD Operations
 
@@ -62,21 +68,84 @@ class ReservationService: ObservableObject {
     /// This method simply appends it and marks its tables as occupied.
     @MainActor
     func addReservation(_ reservation: Reservation) {
+        // Update Database
+        SQLiteManager.shared.insertReservation(reservation)
+
+        // Manage in-store memory
            DispatchQueue.main.async {
+               self.resCache.addOrUpdateReservation(reservation)
                self.store.reservations.append(reservation)
                self.store.reservations = Array(self.store.reservations)
                self.changedReservation = reservation
                reservation.tables.forEach { self.layoutServices.markTable($0, occupied: true) }
                self.invalidateClusterCache(for: reservation)
-               self.saveReservationsToDisk()
-               print("Added reservation \(reservation.id).")
+               print("Added reservation \(reservation.id) with tables \(reservation.tables).")
                
            }
+        
+        // Push changes to Firestore
+        #if DEBUG
+        let dbRef = backupService.db.collection("reservations")
+        #else
+        let dbRef = backupService.db.collection("reservations_release")
+        #endif
+        let data = convertReservationToDictionary(reservation: reservation)
+            // Using the reservation’s UUID string as the document ID:
+            dbRef.document(reservation.id.uuidString).setData(data) { error in
+                if let error = error {
+                    print("Error pushing reservation to Firebase: \(error)")
+                } else {
+                    print("Reservation pushed to Firebase successfully.")
+                }
+            }
        }
+    
+    @MainActor
+    func addReservations(_ reservations: [Reservation]) {
+        for reservation in reservations {
+            SQLiteManager.shared.insertReservation(reservation)
+        }
+    }
+    
+    @MainActor
+    private func convertReservationToDictionary(reservation: Reservation) -> [String: Any] {
+        return [
+            "id": reservation.id.uuidString,
+            "name": reservation.name,
+            "phone": reservation.phone,
+            "numberOfPersons": reservation.numberOfPersons,
+            "dateString": reservation.dateString,
+            "category": reservation.category.rawValue,
+            "startTime": reservation.startTime,
+            "endTime": reservation.endTime,
+            "acceptance": reservation.acceptance.rawValue,
+            "status": reservation.status.rawValue,
+            "reservationType": reservation.reservationType.rawValue,
+            "group": reservation.group,
+            "notes": reservation.notes as Any,
+            "tables": reservation.tables.map { table in
+                return [
+                    "id": table.id,
+                    "name": table.name,
+                    "maxCapacity": table.maxCapacity,
+                    "row": table.row,
+                    "column": table.column,
+                    "adjacentCount": table.adjacentCount,
+                    "activeReservationAdjacentCount": table.activeReservationAdjacentCount,
+                    "isVisible": table.isVisible
+                ]
+            },            "creationDate": reservation.creationDate.timeIntervalSince1970,
+            "lastEditedOn": reservation.lastEditedOn.timeIntervalSince1970,
+            "isMock": reservation.isMock,
+            "assignedEmoji": reservation.assignedEmoji as Any,
+            "imageData": reservation.imageData as Any,
+            "colorHue": reservation.colorHue
+        ]
+    }
     
     /// Updates an existing reservation, refreshes the cache, and reassigns tables if needed.
     @MainActor
-    func updateReservation(_ oldReservation: Reservation, newReservation: Reservation? = nil, at index: Int? = nil/*, dateString: String? = "", startTime: String? = "", endTime: String? = ""*/, completion: @escaping () -> Void) {
+    func updateReservation(_ oldReservation: Reservation, newReservation: Reservation? = nil, at index: Int? = nil/*, dateString: String? = "", startTime: String? = "", endTime: String? = ""*/, shouldPersist: Bool = true, completion: @escaping () -> Void) {
         // Remove from active cache
         self.invalidateClusterCache(for: oldReservation)
         resCache.removeReservation(oldReservation)
@@ -91,6 +160,8 @@ class ReservationService: ObservableObject {
                 print("Error: Reservation with ID \(oldReservation.id) not found.")
                 return
             }
+            
+            SQLiteManager.shared.insertReservation(updatedReservation)
             
             self.store.reservations[reservationIndex] = updatedReservation
             self.store.reservations = Array(self.store.reservations)
@@ -120,11 +191,29 @@ class ReservationService: ObservableObject {
                 print("No table change detected for reservation \(updatedReservation.id). Skipping table update.")
             }
 
+
+            
             // Update the reservation in the store
-            self.checkBeforeUpdate()
             self.resCache.addOrUpdateReservation(updatedReservation)
-            self.store.finalizeReservation(updatedReservation)
-            self.saveReservationsToDisk()
+            if shouldPersist {
+                self.store.finalizeReservation(updatedReservation)
+                // Update database
+                // Pushes to Firestore
+                #if DEBUG
+                let dbRef = self.backupService.db.collection("reservations")
+                #else
+                let dbRef = self.backupService.db.collection("reservations_release")
+                #endif
+                let data = self.convertReservationToDictionary(reservation: updatedReservation)
+                    // Using the reservation’s UUID string as the document ID:
+                dbRef.document(updatedReservation.id.uuidString).setData(data) { error in
+                        if let error = error {
+                            print("Error pushing reservation to Firebase: \(error)")
+                        } else {
+                            print("Reservation pushed to Firebase successfully.")
+                        }
+                    }
+            }
             print("Updated reservation \(updatedReservation.id).")
             
         }
@@ -133,57 +222,9 @@ class ReservationService: ObservableObject {
         
         
     }
-    
-    @MainActor
-    func checkBeforeUpdate() {
-        automaticBackup()
-        let localBackupTimestamp = Date() // or the timestamp of your local data
-        backupService.uploadBackupWithConflictCheck(fileURL: backupService.localBackupFileURL ?? nil,
-          localTimestamp: localBackupTimestamp,
-        alertManager: pushAlerts) { result in
-            switch result {
-            case .success:
-                
-                self.backupService.uploadBackup(fileURL: self.backupService.localBackupFileURL ?? nil) { result in
-                    switch result {
-                    case .success:
-                        print("Automatic backup successful.")
-                    case .failure(let error):
-                        print("Automatic backup failed: \(error)")
-                    }
-                }
-                
-                print("Backup uploaded successfully.")
-            case .failure(let error):
-                // The alert manager has been updated; you can also handle error logging here.
-                print("Backup upload failed: \(error.localizedDescription)")
-            }
-        }
-    }
+
 
     
-    /// Deletes reservations and invalidates the associated cluster cache.
-//    @MainActor
-//    func deleteReservations(at offsets: IndexSet) {
-//        DispatchQueue.main.async {
-//            offsets.forEach { index in
-//                let reservation = self.store.reservations[index]
-//
-//                // 1) Remove from activeReservationCache
-//                self.resCache.removeReservation(reservation)
-//
-//                // 2) Unlock the tables, invalidate cluster cache, etc.
-//                reservation.tables.forEach { self.layoutServices.unmarkTable($0) }
-//                self.invalidateClusterCache(for: reservation)
-//            }
-//
-//            // 3) Remove from the reservations array
-//            self.store.reservations.remove(atOffsets: offsets)
-//
-//            // 4) Save changes to disk
-//            self.saveReservationsToDisk()
-//        }
-//    }
     
     @MainActor
     func handleConfirm(_ reservation: Reservation) {
@@ -221,13 +262,56 @@ class ReservationService: ObservableObject {
     }
     
 
-    
+    @MainActor
+    func clearAllDataFromFirestore(completion: @escaping (Error?) -> Void) {
+        let db = Firestore.firestore()
+        #if DEBUG
+        let reservationsRef = db.collection("reservations")
+        #else
+        let reservationsRef = db.collection("reservations_release")
+        #endif
+        reservationsRef.getDocuments { snapshot, error in
+            if let error = error {
+                print("Error fetching documents for deletion: \(error)")
+                completion(error)
+                return
+            }
+            
+            guard let snapshot = snapshot else {
+                completion(nil)
+                return
+            }
+            
+            let batch = db.batch()
+            snapshot.documents.forEach { document in
+                batch.deleteDocument(document.reference)
+            }
+            
+            batch.commit { error in
+                if let error = error {
+                    print("Error committing batch deletion: \(error)")
+                } else {
+                    print("Successfully deleted all reservations from Firestore.")
+                }
+                completion(error)
+            }
+        }
+    }
     
     @MainActor func clearAllData() {
         store.reservations.removeAll() // Clear in-memory reservations
         
-        saveReservationsToDisk(includeMock: true) // Overwrite stored data
+        SQLiteManager.shared.deleteAllReservations()
         flushAllCaches() // Clear any cached layouts or data
+        
+        clearAllDataFromFirestore { error in
+               if let error = error {
+                   print("Error clearing Firestore data: \(error)")
+               } else {
+                   print("All Firestore data cleared successfully.")
+               }
+           }
+        
         print("ReservationService: All data has been cleared.")
     }
     
@@ -274,129 +358,90 @@ class ReservationService: ObservableObject {
         return filteredReservations
     }
     
-    // MARK: - Placeholder Methods for Persistence
+    // MARK: - Methods for Database Persistence
     
-    /// Loads reservations from persistent storage.
     @MainActor
-    func loadReservationsFromDisk() {
+    func loadReservationsFromSQLite() {
         withAnimation {
             backupService.isWritingToFirebase = true
         }
-        let fileURL = getReservationsFileURL()
         
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            print("No reservation file found at: \(fileURL.path)")
-            return
+        let reservations = SQLiteManager.shared.fetchReservations()
+        store.reservations = reservations
+        
+        print("Reservations loaded from SQLite successfully.")
+        print("Loaded n. reservations: \(store.reservations.count)")
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation {
+                self.backupService.isWritingToFirebase = false
+            }
         }
+    }
+    
+    /// Downloads the backup file from Firebase Storage and migrates it.
+    @MainActor
+    func migrateJSONBackupFromFirebase() {
+        // Create a reference to your backup file using its gs:// URL.
+        let backupRef = Storage.storage().reference(forURL: "gs://koenji-app.firebasestorage.app/debugBackups/ReservationsBackup.json_2025-01-30_19:02")
         
+        // Define a maximum download size (e.g., 10 MB).
+        let maxDownloadSize: Int64 = 10 * 1024 * 1024
+        
+        // Fetch the data.
+        backupRef.getData(maxSize: maxDownloadSize) { data, error in
+            if let error = error {
+                print("Error downloading JSON backup: \(error)")
+                return
+            }
+            
+            guard let data = data else {
+                print("No data returned from Firebase Storage")
+                return
+            }
+            
+            // Now migrate using the downloaded data.
+            self.migrateJSONBackup(from: data)
+        }
+    }
+
+    /// Decodes the JSON backup data and inserts each reservation.
+    @MainActor
+    func migrateJSONBackup(from data: Data) {
         do {
-            let data = try Data(contentsOf: fileURL)
             let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601 // Ensure ISO 8601 consistency
+            decoder.dateDecodingStrategy = .iso8601
+            let reservationsFromJSON = try decoder.decode([Reservation].self, from: data)
             
-            // Decode reservations
-            let decodedReservations = try decoder.decode([Reservation].self, from: data)
+            // Insert each reservation into SQLite and push to Firebase if needed.
+            insertReservationsAndPushToFirebase(reservationsFromJSON)
             
-            
-            // Save normalized reservations to the store
-            store.setReservations(decodedReservations)
-            print("Reservations loaded and normalized successfully.")
         } catch {
-            print("Error loading reservations from disk: \(error)")
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation {
-                self.backupService.isWritingToFirebase = false
-            }
-        }
-    }
-
-    @MainActor
-    func saveReservationsToDisk(includeMock: Bool = false) {
-        withAnimation {
-            backupService.isWritingToFirebase = true
-        }
-        let fileURL = getReservationsFileURL()
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601 // Ensure ISO 8601 consistency
-        
-        do {
-            let filteredReservations = includeMock
-                ? store.reservations // Include mocks if specified
-                : store.reservations.filter { !$0.isMock }
-            
-            let data = try encoder.encode(filteredReservations)
-            try data.write(to: fileURL, options: .atomic)
-            print("Reservations saved successfully.")
-        } catch {
-            print("Error saving reservations to disk: \(error)")
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation {
-                self.backupService.isWritingToFirebase = false
-            }
+            print("Error decoding JSON backup: \(error)")
         }
     }
     
     @MainActor
-    func exportReservations(completion: @escaping (URL?) -> Void) {
-        withAnimation {
-            backupService.isWritingToFirebase = true
-        }
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601 // Ensure ISO 8601 consistency
-
-        // Map reservations to their lightweight versions
-        let lightweightReservations = store.reservations.map { $0.toLightweight() }
-
-        do {
-            // Encode the lightweight reservations to JSON
-            let data = try encoder.encode(lightweightReservations)
-
-            // Create a temporary file URL
-            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("ReservationsBackup.json")
-
-            // Write the JSON data to the file
-            try data.write(to: tempURL, options: .atomic)
-            print("Reservations exported successfully to \(tempURL).")
-
-            // Pass the file URL to the completion handler
-            completion(tempURL)
-        } catch {
-            print("Error exporting reservations: \(error)")
-            completion(nil)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation {
-                self.backupService.isWritingToFirebase = false
+    func insertReservationsAndPushToFirebase(_ reservations: [Reservation]) {
+        // Optionally, wrap this in a SQLite transaction if you have many records.
+        for reservation in reservations {
+            // Insert into SQLite:
+            SQLiteManager.shared.insertReservation(reservation)
+            
+            // Push to Firebase:
+            #if DEBUG
+            let dbRef = Firestore.firestore().collection("reservations")
+            #else
+            let dbRef = Firestore.firestore().collection("reservations_release")
+            #endif
+            let data = convertReservationToDictionary(reservation: reservation)
+            dbRef.document(reservation.id.uuidString).setData(data) { error in
+                if let error = error {
+                    print("Error pushing reservation \(reservation.id) to Firebase: \(error)")
+                } else {
+                    print("Reservation \(reservation.id) migrated successfully to Firebase.")
+                }
             }
-        }
-    }
-    
-    /// Imports reservations from a JSON file.
-    @MainActor func importReservations(from url: URL, completion: @escaping (Bool) -> Void) {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601 // Ensure ISO 8601 consistency
-
-        do {
-            // Read the data from the selected file
-            let data = try Data(contentsOf: url)
-            
-            // Decode the JSON data into an array of reservations
-            let importedReservations = try decoder.decode([Reservation].self, from: data)
-            
-            // Replace the current reservations with the imported ones
-            store.reservations = importedReservations
-            
-            // Save the imported reservations to disk
-            saveReservationsToDisk()
-            
-            print("Reservations imported successfully.")
-            completion(true)
-        } catch {
-            print("Error importing reservations: \(error)")
-            completion(false)
         }
     }
     
@@ -450,8 +495,6 @@ extension ReservationService {
         addReservation(mockReservation1)
         addReservation(mockReservation2)
         
-        
-        saveReservationsToDisk() // Save after mocking
     }
 }
 
@@ -507,7 +550,6 @@ extension ReservationService {
         // 4. Save data to disk after all tasks complete
         self.resCache.preloadDates(around: startDate, range: daysToSimulate, reservations: store.reservations)
             self.layoutServices.saveToDisk()
-            self.saveReservationsToDisk(includeMock: true)
             print("Finished generating reservations.")
     }
 
@@ -764,56 +806,6 @@ extension ReservationService {
     }
 }
 
-// MARK: - Automatic Firebase Backup Service
-extension ReservationService {
-    
-    @MainActor func automaticBackup() {
-            // Export reservations to a local file
-            exportReservations { fileURL in
-                guard let fileURL = fileURL else {
-                    print("Failed to export reservations for backup.")
-                    return
-                }
-                
-                self.backupService.localBackupFileURL = fileURL
-
-//                // Upload the file to Firebase Storage
-//                self.backupService.uploadBackup(fileURL: fileURL) { result in
-//                    switch result {
-//                    case .success:
-//                        print("Automatic backup successful.")
-//                    case .failure(let error):
-//                        print("Automatic backup failed: \(error)")
-//                    }
-//                }
-            }
-        }
-
-    @MainActor
-    func restoreBackup(completion: @escaping (Bool) -> Void) {
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("ReservationsBackup.json")
-        self.backupService.downloadLatestBackup(to: tempURL) { result in
-            switch result {
-            case .success:
-                
-                    self.importReservations(from: tempURL, completion: completion)
-                
-            case .failure(let error):
-                print("Restore backup failed: \(error)")
-                completion(false)
-            }
-        }
-    }
-    
-    func scheduleAutomaticBackup() {
-        // Backup once a day
-        Timer.scheduledTimer(withTimeInterval: 86400, repeats: true) { _ in
-            Task { @MainActor in
-                self.automaticBackup()
-            }
-        }
-    }
-}
 
 // MARK: - Conflict Manager
 extension ReservationService {
@@ -867,7 +859,7 @@ extension ReservationService {
             // Sort events by time. If two events have the same time, process the addition before the removal.
             events.sort {
                 if $0.time == $1.time {
-                    return $0.guestDelta > $1.guestDelta
+                    return $0.guestDelta < $1.guestDelta
                 }
                 return $0.time < $1.time
             }
@@ -889,7 +881,7 @@ extension ReservationService {
                     conflictFound = true
                     // Overbooking occurred at event.time. Among the currently overlapping reservations, choose
                     // the candidate with the latest lastEditedOn.
-                    if let candidate = currentOverlapping.max(by: { $0.lastEditedOn < $1.lastEditedOn }) {
+                    if let candidate = currentOverlapping.max(by: { $0.creationDate < $1.creationDate }) {
                         overbookingConflicts[candidate.id] = candidate
                         print("Overcapacity conflict in group \(key.day) \(key.category) at time \(event.time): candidate reservation \(candidate.id)")
                     }
@@ -921,7 +913,7 @@ extension ReservationService {
             // Notify the user that conflicts have been detected.
             await notifsManager.addNotification(
                 title: "Errore di sincronizzazione",
-                message: "Trovato possibile overbooking o inconsistenza. Risoluzione automatica in corso: controlla tra le prenotazioni in sospeso!",
+                message: "Trovato n. \(overbookingConflicts.count) possibili overbooking e/o n. \(inconsistencyConflicts.count) inconsistenze. Risoluzione automatica in corso: controlla tra le prenotazioni in sospeso al termine del processo!",
                 type: .sync
             )
 
@@ -929,8 +921,13 @@ extension ReservationService {
             if !overbookingConflicts.isEmpty {
                 for (_, res) in overbookingConflicts {
                     print("Cleaning overbooking conflict: Deleting reservation \(res.id)")
-                    separateReservation(res)
-                    updateReservation(res) {
+                    let notesToAdd = "Hai aggiunto questa prenotazione senza che ci fossero abbastanza tavoli disponibili al momento dell'inserimento. Sei sicuro di averla presa correttamente? I tavoli che avevi tentato di assegnare erano: [  \(res.tables.map { String($0.id) }.joined(separator: ", ")) ]"
+                    let updatedRes = separateReservation(res, notesToAdd: notesToAdd)
+                    // Optionally, update the reservation in the store array if needed:
+                    if let index = store.reservations.firstIndex(where: { $0.id == res.id }) {
+                        store.reservations[index] = updatedRes
+                    }
+                    updateReservation(updatedRes, shouldPersist: false) {
                         print("Updated reservations.")
                     }
                 }
@@ -942,11 +939,11 @@ extension ReservationService {
                 var res = store.reservations[index]
                 if inconsistencyConflicts.keys.contains(res.id) {
                     // If a canceled or waiting list reservation still has tables, clear them.
-                    if (res.status == .canceled || res.reservationType == .waitingList) && !res.tables.isEmpty {
+                    if (res.status == .canceled || res.status == .toHandle || res.reservationType == .waitingList) && !res.tables.isEmpty {
                         print("Cleaning inconsistency: Clearing tables for reservation \(res.id) (status: \(res.status), type: \(res.reservationType))")
                         res.tables = []
                         store.reservations[index] = res
-                        updateReservation(res) {
+                        updateReservation(res, shouldPersist: false) {
                             print("Updated reservations.")
                         }
                     }
@@ -960,7 +957,7 @@ extension ReservationService {
                             res.reservationType = .inAdvance
                             res.status = .pending
                             store.reservations[index] = res
-                            updateReservation(res) {
+                            updateReservation(res, shouldPersist: false) {
                                 print("Updated reservations.")
                             }
                             await notifsManager.addNotification(
@@ -970,8 +967,9 @@ extension ReservationService {
                             )
                         case .failure:
                             print("Assignment failed for reservation \(res.id). Treating as overbooking.")
-                           separateReservation(res)
-                            updateReservation(res) {
+                            let notesToAdd = "Tentativo di inserire automaticamente la prenotazione fallito. Potrebbe trattarsi di overbooking. Sei sicuro di aver preso la prenotazione in modo corretto? La prenotazione non aveva tavoli assegnati: potrebbe trattarsi di una cancellazione, o una in lista d'attesa."
+                            let updatedRes = separateReservation(res, notesToAdd: notesToAdd)
+                            updateReservation(updatedRes, shouldPersist: false) {
                                 print("Updated reservations.")
                             }
                         }
@@ -980,7 +978,12 @@ extension ReservationService {
             }
 
             // After cleanup, persist changes.
-            self.saveReservationsToDisk()
+            await notifsManager.addNotification(
+                title: "Sincronizzazione",
+                message: "Risoluzione automatica completata. Backup e salvataggio automatico in corso...",
+                type: .sync
+            )
+        
         } else {
             await notifsManager.addNotification(
                 title: "Sincronizzazione",
@@ -995,14 +998,12 @@ extension ReservationService {
     
     /// “Deletes” a reservation by marking it with “NA” values and clearing its tables and notes.
     @MainActor
-    func separateReservation(_ reservation: Reservation) {
+    func separateReservation(_ reservation: Reservation, notesToAdd: String = "") -> Reservation {
         var updatedReservation = reservation  // Create a mutable copy
-        updatedReservation.reservationType = .na
-        updatedReservation.status = .toHandle
-        updatedReservation.acceptance = .na
-        updatedReservation.tables = []
-        updatedReservation.notes = "[in sospeso];"
-    
+        let finalNotes = notesToAdd == "" ? "" : "\(notesToAdd)\n\n"
+        updatedReservation.status = .pending
+        updatedReservation.notes = "\(finalNotes)[da controllare];"
+        return updatedReservation
     }
     
     @MainActor

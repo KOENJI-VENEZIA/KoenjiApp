@@ -24,7 +24,7 @@ struct ReservationsInfoListView: View {
 //            Color.clear.ignoresSafeArea()
             
             List(selection: $selection) {
-                let reservations = env.resCache.activeReservations
+                let reservations = reservations(at: appState.selectedDate)
                 let filtered = filterReservations(reservations)
                 let grouped = groupByCategory(filtered)
                 if !grouped.isEmpty {
@@ -44,15 +44,6 @@ struct ReservationsInfoListView: View {
                                 .padding(.vertical, 4)
                         ) {
                             ForEach(grouped[groupKey] ?? []) { reservation in
-                                let whichIconForStatus = {
-                                    if reservation.status == .pending { return "checkmark.circle" } else if reservation.status == .late { return "clock.badge.exclamationmark.fill" } else if reservation.status == .showedUp { return "stopwatch.fill" } else {
-                                        return "questionmark.circle.fill"
-                                    }
-                                }()
-                                
-                                let whichColorForStatus = {
-                                    if reservation.status == .pending || reservation.status == .late { return Color.green } else if reservation.status == .showedUp { return Color.gray} else { return Color.gray}
-                                }()
                                 
                                 ReservationRows(
                                     reservation: reservation,
@@ -73,12 +64,11 @@ struct ReservationsInfoListView: View {
                                     .tint(Color(hex: "#5c140f"))
                                     
                                     Button {
-                                        markReservationStatus(reservation)
                                         onEdit(reservation)
                                     } label: {
-                                        Label("Stato", systemImage: whichIconForStatus)
+                                        Label("Modifica", systemImage: "square.and.pencil")
                                     }
-                                    .tint(whichColorForStatus)
+                                    .tint(.gray)
                                     
                                     Button {
                                         showReservationInTime(reservation)
