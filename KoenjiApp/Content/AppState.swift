@@ -17,6 +17,7 @@ class AppState: ObservableObject {
     @Published var showingEditReservation: Bool = false
     @Published var currentReservation: Reservation? = nil
     @Published var isRestoring = false
+    @Published var canSave = true
 
     @State var dates: [Date] = []
     @State var selectedIndex: Int = 15

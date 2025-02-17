@@ -18,6 +18,9 @@ struct ContentView: View {
     @State private var lastChecked: Date? = nil
     
     @AppStorage("isLoggedIn") private var isLoggedIn = false
+    @AppStorage("userIdentifier") private var userIdentifier = ""
+    @AppStorage("userName") var userName: String = ""
+    @AppStorage("deviceUUID") var deviceUUID: String = ""
 
    
     var body: some View {
@@ -61,11 +64,52 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.5), value: isLoggedIn)
             .onAppear {
                 
+                if deviceUUID.isEmpty {
+                    deviceUUID = UUID().uuidString
+                    print("Generated new deviceUUID: \(deviceUUID)")
+                } else {
+                    print("Using existing deviceUUID: \(deviceUUID)")
+                }
+                
                 if isLoggedIn {
                     authenticateUser()
+                    
+                   
+                    
+                }
+                
+                if var session = SessionStore.shared.sessions.first(where: { $0.id == userIdentifier} ) {
+                    session.uuid = deviceUUID
+                    env.reservationService.upsertSession(session)
+                } else {
+                    let session = Session(
+                        id: userIdentifier,
+                        uuid: deviceUUID,
+                        userName: userName,
+                        isEditing: false,
+                        lastUpdate: Date(),
+                        isActive: true
+                    )
+                    
+                    print("Created new session")
+                    env.reservationService.upsertSession(session)
                 }
                 Task {
                     await env.backupService.notifsManager.requestNotificationAuthorization()
+                }
+            }
+            .onChange(of: scenePhase) { old, new in
+                
+                if new == .background {
+                    if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
+                        session.isActive = false
+                        env.reservationService.upsertSession(session)
+                    }
+                } else {
+                    if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
+                        session.isActive = true
+                        env.reservationService.upsertSession(session)
+                    }
                 }
             }
             

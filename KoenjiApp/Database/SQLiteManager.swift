@@ -39,6 +39,15 @@ class SQLiteManager {
     let colorHue = Expression<Double>("colorHue")
     // You can add additional columns (or serialize complex types like `tables` into JSON)
     
+    
+    let sessionsTable = Table("sessions")
+    let sessionId = Expression<String>("id")
+    let sessionUUID = Expression<String?>("uuid")
+    let sessionUserName = Expression<String>("userName")
+    let sessionIsEditing = Expression<Bool>("isEditing")
+    let sessionLastUpdate = Expression<Date>("lastUpdate")
+    let sessionIsActive = Expression<Bool>("isActive")
+    
     private init() {
         do {
             let documentDirectory = try FileManager.default.url(for: .documentDirectory,
@@ -48,10 +57,12 @@ class SQLiteManager {
             let dbURL = documentDirectory.appendingPathComponent("reservations.sqlite3")
             db = try Connection(dbURL.path)
             createReservationsTable()
+            createSessionsTable()
         } catch {
             print("SQLite init error: \(error)")
         }
     }
+    
     
     private func createReservationsTable() {
         do {
@@ -82,6 +93,21 @@ class SQLiteManager {
         }
     }
     
+    
+    private func createSessionsTable() {
+        do {
+            try db.run(sessionsTable.create(ifNotExists: true) { table in
+                table.column(sessionId, primaryKey: true)
+                table.column(sessionUUID)
+                table.column(sessionUserName)
+                table.column(sessionIsEditing)
+                table.column(sessionLastUpdate)
+                table.column(sessionIsActive)
+            })
+        } catch {
+            print("Error creating sessions table: \(error)")
+        }
+    }
     // MARK: - CRUD Methods
     
     /// Inserts a Reservation into the database.
@@ -117,6 +143,22 @@ class SQLiteManager {
        } catch {
            print("SQLite Insert/Replace error: \(error)")
        }
+    }
+    
+    func insertSession(_ session: Session) {
+        do {
+            let insert = sessionsTable.insert(or: .replace,
+                sessionId <- session.id,
+                sessionUUID <- session.uuid,
+                sessionUserName <- session.userName,
+                sessionIsEditing <- session.isEditing,
+                sessionLastUpdate <- session.lastUpdate,
+                sessionIsActive <- session.isActive
+            )
+            try db.run(insert)
+        } catch {
+            print("SQLite Insert/Replace session error: \(error)")
+        }
     }
     
     /// Updates an existing Reservation in the database.
@@ -164,6 +206,15 @@ class SQLiteManager {
         }
     }
     
+    func deleteSession(withID sessionID: String) {
+        do {
+            let row = sessionsTable.filter(id == sessionID)
+            try db.run(row.delete())
+        } catch {
+            print("SQLite Delete error: \(error)")
+        }
+    }
+    
     func deleteAllReservations() {
         do {
             // This deletes all rows in the table.
@@ -174,6 +225,14 @@ class SQLiteManager {
         }
     }
     
+    func deleteAllSessions() {
+        do {
+            try db.run(sessionsTable.delete())
+            print("All sessions have been deleted from SQLite.")
+        } catch {
+            print("Error deleting all reservations: \(error)")
+        }
+    }
     
     
     /// Fetches all Reservations from the database.
@@ -193,4 +252,19 @@ class SQLiteManager {
         }
         let uniqueReservations = Dictionary(grouping: reservations, by: { $0.id }).compactMap { $0.value.first }
         return uniqueReservations    }
+    
+    func fetchSessions() -> [Session] {
+        var sessions: [Session] = []
+        do {
+            for row in try db.prepare(sessionsTable) {
+                print("DEBUG: Checking row \(row)...")
+                if let session = SessionMapper.session(from: row) {
+                    sessions.append(session)
+                }
+            }
+        } catch {
+            print("DEBUG: SQLite Fetch error: \(error)")
+        }
+        return sessions
+    }
 }

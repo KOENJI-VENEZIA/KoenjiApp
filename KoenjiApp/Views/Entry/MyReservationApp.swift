@@ -12,6 +12,8 @@ struct MyReservationApp: App {
        
         let appState = AppState()
         _appState = StateObject(wrappedValue: appState)
+        
+        checkForAppUpgrade()
     }
     
     var body: some Scene {
@@ -31,6 +33,24 @@ struct MyReservationApp: App {
                 .environmentObject(env.scribbleService)
                 .environmentObject(env.tableAssignment)
                 .environmentObject(appState)
+        }
+    }
+    
+    func checkForAppUpgrade() {
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        let storedVersion = UserDefaults.standard.string(forKey: "appVersion") ?? "0"
+        
+        if currentVersion != storedVersion {
+            // App has been upgraded, so clear stored login credentials.
+            UserDefaults.standard.removeObject(forKey: "isLoggedIn")
+            UserDefaults.standard.removeObject(forKey: "userIdentifier")
+            
+            // Optionally, you can clear other sensitive data as well.
+            
+            // Update the stored app version
+            UserDefaults.standard.set(currentVersion, forKey: "appVersion")
+            
+            print("App upgraded. Cleared login credentials.")
         }
     }
 }

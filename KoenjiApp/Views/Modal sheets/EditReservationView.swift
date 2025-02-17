@@ -2,7 +2,11 @@ import PhotosUI
 import SwiftUI
 
 struct EditReservationView: View {
+    @AppStorage("deviceUUID") private var deviceUUID = ""
+
     @EnvironmentObject var env: AppDependencies
+    @EnvironmentObject var appState: AppState
+
 
     @Environment(\.dismiss) var dismiss
     @Environment(\.locale) var locale
@@ -264,6 +268,7 @@ struct EditReservationView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Annulla") {
                         env.resCache.addOrUpdateReservation(reservation)
+                        updateSession()
                         onClose()
                         dismiss()
                     }
@@ -284,7 +289,12 @@ struct EditReservationView: View {
                             performSaveReservation()
                         }
                     )
-
+                case .editing:
+                    return Alert(
+                        title: Text("Attentione!"),
+                        message: Text(env.pushAlerts.alertMessage),
+                        dismissButton: .default(Text("Annulla"))
+                    )
                 case .error(let message):
                     return Alert(
                         title: Text("Errore:"),
@@ -309,6 +319,7 @@ struct EditReservationView: View {
                         tables: env.layoutServices.getTables()
                     ))
                 print("Selected Forced Table ID: \(String(describing: selectedForcedTableID))")
+                updateSession(true)
 
             }
             .onChange(of: selectedPhotoItem) { old, newItem in
@@ -335,9 +346,29 @@ struct EditReservationView: View {
             }
         }
     }
+    
+    private func updateSession(_ isEditing: Bool = false) {
+        if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
+            session.isEditing = isEditing
+            env.reservationService.upsertSession(session)
+        }
+    }
+    
+    private func validateEdit() {
+        if SessionStore.shared.sessions.contains( where: {$0.isEditing == true && $0.uuid != deviceUUID}) {
+            appState.canSave = false
+            env.pushAlerts.alertMessage = "Un altro utente sta effettuando modifiche. Impossibile salvare. Attendere."
+            activeAlert = .editing
+            
+        } else {
+            appState.canSave = true
+        }
+    }
 
     private func saveChanges() {
         guard validateInputs() else { return }
+        validateEdit()
+        guard appState.canSave else { return }
 
         guard let reservationStart = reservation.startTimeDate,
             let reservationEnd = reservation.endTimeDate else { return }

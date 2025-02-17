@@ -14,7 +14,7 @@ extension ReservationService {
         #else
         let dbRef = backupService.db.collection("reservations_release")
         #endif
-        listener = dbRef.addSnapshotListener { [weak self] snapshot, error in
+        reservationListener = dbRef.addSnapshotListener { [weak self] snapshot, error in
             if let error = error {
                 print("Error listening for reservations: \(error)")
                 return
@@ -60,9 +60,8 @@ extension ReservationService {
                 let group = data["group"] as? Bool,
                 let creationTimestamp = data["creationDate"] as? TimeInterval,
                 let lastEditedTimestamp = data["lastEditedOn"] as? TimeInterval,
-                let isMock = data["isMock"] as? Bool,
-                let colorHue = data["colorHue"] as? Double
-            else {
+                let isMock = data["isMock"] as? Bool
+        else {
                 return nil
             }
             
@@ -101,4 +100,57 @@ extension ReservationService {
                 imageData: data["imageData"] as? Data
             )
         }
+}
+
+extension ReservationService {
+    @MainActor
+    func startSessionListener() {
+    #if DEBUG
+    let dbRef = backupService.db.collection("sessions")
+    #else
+    let dbRef = backupService.db.collection("sessions_release")
+    #endif
+        sessionListener = dbRef.addSnapshotListener { [weak self] snapshot, error in
+            if let error = error {
+                print("Error listening for sessions: \(error)")
+                return
+            }
+            guard let snapshot = snapshot else { return }
+            
+            var sessionsById: [String: Session] = [:]
+            for document in snapshot.documents {
+                let data = document.data()
+                if let session = self?.convertDictionaryToSession(data: data) {
+                    sessionsById[session.uuid] = session
+                    // Also upsert into SQLite:
+                    SQLiteManager.shared.insertSession(session)
+                }
+            }
+            // Replace the entire in-memory store with unique values:
+            DispatchQueue.main.async {
+                SessionStore.shared.setSessions(Array(sessionsById.values))
+                print("Listener updated sessions. Count: \(sessionsById.values.count)")
+            }
+        }
+    }
+    
+    private func convertDictionaryToSession(data: [String: Any]) -> Session? {
+        guard
+            let id = data["id"] as? String,
+            let uuid = data["uuid"] as? String,
+            let userName = data["userName"] as? String,
+            let isEditing = data["isEditing"] as? Bool,
+            let lastUpdateTimestamp = data["lastUpdate"] as? TimeInterval,
+            let isActive = data["isActive"] as? Bool
+        else { return nil }
+        
+        return Session(
+            id: id,
+            uuid: uuid,
+            userName: userName,
+            isEditing: isEditing,
+            lastUpdate: Date(timeIntervalSince1970: lastUpdateTimestamp),
+            isActive: isActive
+        )
+    }
 }

@@ -18,11 +18,13 @@ class PushAlerts {
 
 enum AddReservationAlertType: Identifiable {
     case mondayConfirmation
+    case editing
     case error(String)  // store an error message
 
     var id: String {
         switch self {
         case .mondayConfirmation: return "mondayConfirmation"
+        case .editing: return "editing"
         case .error(let message): return "error_\(message)"
         }
     }

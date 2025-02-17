@@ -49,6 +49,7 @@ struct DatabaseView: View {
     var body: some View {
 
         mainContent
+            .ignoresSafeArea(edges: .bottom)
             .id(refreshID)
 //            .navigationTitle("Tutte le prenotazioni")
             .toolbar { toolbarContent }
@@ -87,12 +88,20 @@ extension DatabaseView {
     
     /// The main content: a searchable reservations list.
     private var mainContent: some View {
-        reservationsList
-            .searchable(text: $env.listView.searchText,
-                        placement: .navigationBarDrawer(displayMode: .always),
-                        prompt: "Cerca prenotazioni")
-            .autocapitalization(.none)
-            .disableAutocorrection(true)
+        ZStack(alignment: .bottomLeading) {
+            reservationsList
+                .searchable(text: $env.listView.searchText,
+                            placement: .navigationBarDrawer(displayMode: .always),
+                            prompt: "Cerca prenotazioni")
+                .autocapitalization(.none)
+                .disableAutocorrection(true)
+            
+            SessionsView()
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.5), value: SessionStore.shared.sessions)
+                .padding(.leading, 16)
+                .padding(.bottom, 16)
+        }
     }
     
 
@@ -383,6 +392,12 @@ extension DatabaseView {
     private func activeAlertContent(for alertType: AddReservationAlertType) -> Alert {
         switch alertType {
         case .mondayConfirmation:
+            return Alert(
+                title: Text("Nothing"),
+                message: Text("Nothing"),
+                dismissButton: .default(Text("OK"))
+            )
+        case .editing:
             return Alert(
                 title: Text("Nothing"),
                 message: Text("Nothing"),

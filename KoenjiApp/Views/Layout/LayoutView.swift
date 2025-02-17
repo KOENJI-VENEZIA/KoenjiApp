@@ -173,7 +173,7 @@ extension LayoutView {
     }
     
     private func overlays(in geometry: GeometryProxy) -> some View {
-        ZStack {
+        ZStack(alignment: .bottomLeading) {
             ToolbarMinimized()
                 .opacity(!toolbarManager.isToolbarVisible && !unitView.isScribbleModeEnabled ? 1 : 0)
                 .ignoresSafeArea(.keyboard)
@@ -202,6 +202,13 @@ extension LayoutView {
                 .opacity(env.backupService.isWritingToFirebase ? 1.0 : 0.0)
                 .animation(.easeInOut(duration: 0.3), value: env.backupService.isWritingToFirebase)
                 .allowsHitTesting(env.backupService.isWritingToFirebase)
+            
+            SessionsView()
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.5), value: SessionStore.shared.sessions)
+                .padding(.leading, 16)
+                .padding(.bottom, 16)
+            
             
             LockOverlay(isLayoutLocked: unitView.isLayoutLocked)
                 .position(x: geometry.size.width / 2, y: geometry.size.height * 0.04)

@@ -10,8 +10,10 @@ import AuthenticationServices
 import SwiftUI
 
 class AppleSignInViewModel: NSObject, ObservableObject {
-    @AppStorage("isLoggedIn") private var isLoggedIn = false
-    
+    @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
+    @AppStorage("userIdentifier") var userIdentifier: String = ""  // Persist the identifier
+    @AppStorage("userName") var userName: String = ""
+
     func signInWithApple() {
         let request = ASAuthorizationAppleIDProvider().createRequest()
         request.requestedScopes = [.fullName, .email]
@@ -29,11 +31,12 @@ extension AppleSignInViewModel: ASAuthorizationControllerDelegate {
             isLoggedIn = true
             
             // You can retrieve the Apple ID's email and full name (first time sign-in)
-            let userIdentifier = appleIDCredential.user
+            userIdentifier = appleIDCredential.user
             let email = appleIDCredential.email ?? "Unknown email"
             let fullName = appleIDCredential.fullName?.givenName ?? "User"
+            userName = fullName
             
-            print("Apple Sign-In Success: \(fullName), Email: \(email), ID: \(userIdentifier)")
+            print("Apple Sign-In Success: \(userName), Email: \(email), ID: \(userIdentifier)")
         }
     }
     

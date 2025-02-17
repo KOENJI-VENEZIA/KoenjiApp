@@ -33,7 +33,7 @@ struct TabsView: View {
         // TabView for "Lunch" and "Dinner" selection
         if #available(iOS 18.0, *) {
             GeometryReader { geometry in
-                ZStack {
+                ZStack(alignment: .bottomLeading) {
                     Color.clear
 
                     TabView(selection: $selectedTab) {
@@ -95,6 +95,14 @@ struct TabsView: View {
                         .simultaneousGesture(
                             toolbarManager.toolbarGesture(geometry: geometry)
                         )
+                    
+                    SessionsView()
+                        .transition(.opacity)
+                        .animation(.easeInOut(duration: 0.5), value: SessionStore.shared.sessions)
+                        .padding(.leading, 16)
+                        .padding(.bottom, 16)
+
+
                 }
             }
 //            .navigationTitle("Timeline tavoli")

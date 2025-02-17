@@ -28,7 +28,8 @@ class ReservationService: ObservableObject {
     let notifsManager: NotificationManager
     @Published var changedReservation: Reservation? = nil
     
-    var listener: ListenerRegistration?
+    var reservationListener: ListenerRegistration?
+    var sessionListener: ListenerRegistration?
     
     // MARK: - Initializer
     @MainActor
@@ -46,9 +47,12 @@ class ReservationService: ObservableObject {
         
         self.layoutServices.loadFromDisk()
         self.clusterServices.loadClustersFromDisk()
+        self.migrateDatabaseIfNeeded()
         
         self.startReservationsListener()
+        self.startSessionListener()
         self.loadReservationsFromSQLite()
+        self.loadSessionsFromSQLite()
         
         let today = Calendar.current.startOfDay(for: Date())
         self.resCache.preloadDates(around: today, range: 5, reservations: self.store.reservations)
@@ -56,11 +60,61 @@ class ReservationService: ObservableObject {
     }
     
     deinit {
-            listener?.remove()
+        reservationListener?.remove()
+        sessionListener?.remove()
         }
+    
+    @MainActor
+    func migrateDatabaseIfNeeded() {
+        do {
+            // Get the current database version.
+            let currentVersion = try SQLiteManager.shared.db.scalar("PRAGMA user_version") as? Int64 ?? 0
+            let targetVersion: Int64 = 2  // Increment this whenever you change your schema
+            
+            if currentVersion < targetVersion {
+                // Example: For version 2, add the sessionUUID column to sessions table.
+                if currentVersion < 2 {
+                    // Execute raw SQL to add a new column.
+                    try SQLiteManager.shared.db.run("ALTER TABLE sessions ADD COLUMN uuid TEXT")
+                    print("Migration: Added uuid column to sessions table.")
+                }
+                
+                // Update the database version.
+                try SQLiteManager.shared.db.run("PRAGMA user_version = \(targetVersion)")
+            }
+        } catch {
+            print("Database migration error: \(error)")
+        }
+    }
     
     // MARK: - Placeholder Methods for CRUD Operations
 
+    @MainActor
+    func upsertSession(_ session: Session) {
+        SQLiteManager.shared.insertSession(session)
+        
+        DispatchQueue.main.async {
+            SessionStore.shared.sessions.append(session)
+            SessionStore.shared.sessions = Array(SessionStore.shared.sessions)
+        }
+        
+        // Push changes to Firestore
+        #if DEBUG
+        let dbRef = backupService.db.collection("sessions")
+        #else
+        let dbRef = backupService.db.collection("sessions_release")
+        #endif
+        let data = convertSessionToDictionary(session: session)
+            // Using the reservation’s UUID string as the document ID:
+        dbRef.document(session.uuid).setData(data) { error in
+                if let error = error {
+                    print("Error pushing session to Firebase: \(error)")
+                } else {
+                    print("Session pushed to Firebase successfully.")
+                }
+            }
+        
+    }
     
     /// Adds a new reservation.
     /// Assumes the reservation's `tables` have already been assigned
@@ -108,6 +162,18 @@ class ReservationService: ObservableObject {
     }
     
     @MainActor
+    private func convertSessionToDictionary(session: Session) -> [String: Any] {
+        return [
+            "id": session.id,
+            "uuid": session.uuid,
+            "userName": session.userName,
+            "isEditing": session.isEditing,
+            "lastUpdate": session.lastUpdate.timeIntervalSince1970,
+            "isActive": session.isActive
+        ]
+    }
+    
+    @MainActor
     private func convertReservationToDictionary(reservation: Reservation) -> [String: Any] {
         return [
             "id": reservation.id.uuidString,
@@ -142,7 +208,7 @@ class ReservationService: ObservableObject {
             "colorHue": reservation.colorHue
         ]
     }
-    
+
     /// Updates an existing reservation, refreshes the cache, and reassigns tables if needed.
     @MainActor
     func updateReservation(_ oldReservation: Reservation, newReservation: Reservation? = nil, at index: Int? = nil/*, dateString: String? = "", startTime: String? = "", endTime: String? = ""*/, shouldPersist: Bool = true, completion: @escaping () -> Void) {
@@ -371,6 +437,25 @@ class ReservationService: ObservableObject {
         
         print("Reservations loaded from SQLite successfully.")
         print("Loaded n. reservations: \(store.reservations.count)")
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation {
+                self.backupService.isWritingToFirebase = false
+            }
+        }
+    }
+    
+    @MainActor
+    func loadSessionsFromSQLite() {
+        withAnimation {
+            backupService.isWritingToFirebase = true
+        }
+
+        let sessions = SQLiteManager.shared.fetchSessions()
+        SessionStore.shared.sessions = sessions
+        
+        print("Sessions loaded from SQLite successfully.")
+        print("Loaded n. sessions: \(SessionStore.shared.sessions.count)")
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             withAnimation {

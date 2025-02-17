@@ -2,6 +2,8 @@ import PhotosUI
 import SwiftUI
 
 struct AddReservationView: View {
+    @AppStorage("deviceUUID") private var deviceUUID = ""
+
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
 
@@ -256,12 +258,15 @@ struct AddReservationView: View {
             .navigationTitle("Nuova Prenotazione")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Annulla") { dismiss() }
+                    Button("Annulla") {
+                        updateSession()
+                        dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Salva") {
                         guard !isSaving else { return }
                         isSaving = true
+                        updateSession()
                         saveReservation()
                     }
                     .disabled(category == .noBookingZone)
@@ -279,7 +284,14 @@ struct AddReservationView: View {
                             performSaveReservation()
                         }
                     )
-
+                    
+                case .editing:
+                    return Alert(
+                        title: Text("Attentione!"),
+                        message: Text(env.pushAlerts.alertMessage),
+                        dismissButton: .default(Text("Annulla"))
+                    )
+                    
                 case .error(let message):
                     return Alert(
                         title: Text("Errore:"),
@@ -327,6 +339,8 @@ struct AddReservationView: View {
 
                 print("Start time after: \(startTimeString)")
                 print("End time after: \(endTimeString)")
+                
+                updateSession(true)
 
             }
             .onChange(of: selectedPhotoItem) { old, newItem in
@@ -352,6 +366,24 @@ struct AddReservationView: View {
 
     // MARK: - Helpers
 
+    private func updateSession(_ isEditing: Bool = false) {
+        if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
+            session.isEditing = isEditing
+            env.reservationService.upsertSession(session)
+        }
+    }
+    
+    private func validateEdit() {
+        if SessionStore.shared.sessions.contains( where: {$0.isEditing == true && $0.uuid != deviceUUID}) {
+            appState.canSave = false
+            env.pushAlerts.alertMessage = "Un altro utente sta effettuando modifiche. Impossibile salvare. Attendere."
+            env.pushAlerts.activeAddAlert = .editing
+            
+        } else {
+            appState.canSave = true
+        }
+    }
+    
     private func createTemporaryReservation() -> Reservation {
         Reservation(
             id: UUID(),
@@ -448,6 +480,13 @@ struct AddReservationView: View {
 
     private func saveReservation() {
         guard validateInputs() else {
+            isSaving = false
+            return
+        }
+        
+        validateEdit()
+        
+        guard appState.canSave else {
             isSaving = false
             return
         }

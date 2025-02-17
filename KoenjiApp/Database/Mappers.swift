@@ -53,3 +53,19 @@ struct ReservationMapper {
         )
     }
 }
+
+@MainActor
+struct SessionMapper {
+    
+    static func session(from row: Row) -> Session? {
+        return Session(
+            id: row[SQLiteManager.shared.sessionId],
+            uuid: row[SQLiteManager.shared.sessionUUID] ?? "null",
+            userName: row[SQLiteManager.shared.sessionUserName],
+            isEditing: row[SQLiteManager.shared.sessionIsEditing],
+            lastUpdate: row[SQLiteManager.shared.sessionLastUpdate],
+            isActive: row[SQLiteManager.shared.sessionIsActive]
+        )
+        
+    }
+}
