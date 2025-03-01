@@ -7,12 +7,17 @@
 
 import Foundation
 import SwiftUI
+import OSLog
 
 class ClusterStore: ObservableObject {
     nonisolated(unsafe) static let shared = ClusterStore(store: ReservationStore.shared, tableStore: TableStore.shared, layoutServices: LayoutServices(store: ReservationStore.shared, tableStore: TableStore.shared, tableAssignmentService: TableAssignmentService()))
     private let store: ReservationStore
     private let tableStore: TableStore
     private let layoutServices: LayoutServices
+    private let logger = Logger(
+        subsystem: "com.koenjiapp",
+        category: "ClusterStore"
+    )
 
     
     struct ClusterCacheEntry {
@@ -34,18 +39,18 @@ class ClusterStore: ObservableObject {
         clusterCache = clusters.mapValues { clusters in
             ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
         }
-        print("Cluster cache updated with \(clusters.count) entries.")
+        logger.info("Cluster cache updated with \(clusters.count) entries")
     }
     
     func invalidateClusterCache(for date: Date, category: Reservation.ReservationCategory) {
         let key = layoutServices.keyFor(date: date, category: category)
         clusterCache.removeValue(forKey: key)
-        print("Cluster cache invalidated for key: \(key)")
+        logger.debug("Cluster cache invalidated for key: \(key)")
     }
     
     func invalidateAllClusterCaches() {
         clusterCache.removeAll()
-        print("All cluster caches invalidated.")
+        logger.notice("All cluster caches invalidated")
     }
     
 }

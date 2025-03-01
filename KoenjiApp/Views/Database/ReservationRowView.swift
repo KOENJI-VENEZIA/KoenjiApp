@@ -26,7 +26,7 @@ struct ReservationRowView: View {
         ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 12.0)
                 .fill(.thinMaterial)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: 100, maxHeight: 100)
             SwipeView() {
                 VStack(alignment: .leading, spacing: 4) {
                     if searchText.isEmpty {
@@ -56,7 +56,7 @@ struct ReservationRowView: View {
                             .foregroundStyle(.blue)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .frame(maxWidth: 100, maxHeight: 100, alignment: .leading)
                 .padding()
                 .contentShape(Rectangle())
             } trailingActions: { _ in

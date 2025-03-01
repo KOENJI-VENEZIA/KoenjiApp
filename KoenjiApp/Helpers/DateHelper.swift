@@ -7,9 +7,12 @@
 
 
 import Foundation
+import OSLog
 
 struct DateHelper {
     
+    static let logger = Logger(subsystem: "com.koenjiapp", category: "DateHelper")
+
     nonisolated(unsafe) private static var combineDateAndTimeCache = NSCache<NSString, NSDate>()
 
     // Singleton DateFormatter instances
@@ -74,7 +77,7 @@ struct DateHelper {
         // Convert strings to Date objects
         guard let startDate = dateFormatter.date(from: startTime),
               let endDate = dateFormatter.date(from: endTime) else {
-            print("Invalid time format")
+            logger.warning("Invalid time format")
             return nil
         }
 
@@ -85,28 +88,32 @@ struct DateHelper {
     }
     
     static func combineDateAndTime(date: Date, timeString: String) -> Date? {
-           // Create a cache key based on the date and time string
-           let cacheKey = "\(date.timeIntervalSince1970)-\(timeString)" as NSString
+        let cacheKey = "\(date.timeIntervalSince1970)-\(timeString)" as NSString
 
-           // Check if the result is already cached
-           if let cachedDate = combineDateAndTimeCache.object(forKey: cacheKey) {
-               return cachedDate as Date
-           }
+        if let cachedDate = combineDateAndTimeCache.object(forKey: cacheKey) {
+            logger.debug("Using cached combined date/time for: \(timeString)")
+            return cachedDate as Date
+        }
 
-           // Parse the time string into a Date object (only time components)
-           guard let time = parseTime(timeString) else { return nil }
+        guard let time = parseTime(timeString) else {
+            logger.error("Failed to parse time string: \(timeString)")
+            return nil
+        }
 
-           // Extract the time components from the parsed time
-           guard let timeComponents = extractTime(time: time) else { return nil }
+        guard let timeComponents = extractTime(time: time) else {
+            logger.error("Failed to extract time components from: \(time)")
+            return nil
+        }
 
-           // Combine the date and time components
-           guard let combinedDate = combinedInputTime(time: timeComponents, date: date) else { return nil }
+        guard let combinedDate = combinedInputTime(time: timeComponents, date: date) else {
+            logger.error("Failed to combine time components with date")
+            return nil
+        }
 
-           // Cache the result for future use
-           combineDateAndTimeCache.setObject(combinedDate as NSDate, forKey: cacheKey)
-
-           return combinedDate
-       }
+        combineDateAndTimeCache.setObject(combinedDate as NSDate, forKey: cacheKey)
+        logger.debug("Successfully combined date and time: \(combinedDate)")
+        return combinedDate
+    }
     
     static func extractTime(time: Date) -> DateComponents? {
         let calendar = Calendar.current
@@ -174,10 +181,13 @@ struct DateHelper {
     }
     
     static func combineDateAndTimeStrings(dateString: String, timeString: String) -> Date {
-        guard let date = parseDate(dateString) else { return Date() }
+        guard let date = parseDate(dateString) else {
+            logger.error("Failed to parse date string: \(dateString)")
+            return Date()
+        }
         guard let combinedDate = combineDateAndTime(date: date, timeString: timeString) else {
-            print("Warning: Failed to combine date (\(dateString)) and time (\(timeString)). Using current date as fallback.")
-            return Date() // Fallback to the current date and time
+            logger.warning("Failed to combine date (\(dateString)) and time (\(timeString)). Using current date as fallback.")
+            return Date()
         }
         return combinedDate
     }
@@ -210,16 +220,16 @@ struct DateHelper {
           let startHour = range.0
           let endHour = range.1
 
-          // Random hour and minute within the range
           let randomHour = Int.random(in: startHour...endHour)
           let randomMinute = Int.random(in: 0...59)
 
-          // Combine random hour and minute with the given date
           var components = calendar.dateComponents([.year, .month, .day], from: date)
           components.hour = randomHour
           components.minute = randomMinute
 
-          return calendar.date(from: components) ?? date
+          let result = calendar.date(from: components) ?? date
+          logger.debug("Generated random time: \(formatTime(result)) for date: \(formatDate(date))")
+          return result
       }
     
    static func timeUntilReservation(currentTime: Date,
@@ -241,13 +251,13 @@ struct DateHelper {
         
         // Parse the reservation date.
         guard let reservationDate = dateFormatter.date(from: reservationDateString) else {
-            print("Failed to parse reservation date string: \(reservationDateString)")
+            logger.warning("Failed to parse reservation date string: \(reservationDateString)")
             return nil
         }
         
         // Parse the reservation start time.
         guard let reservationTime = timeFormatter.date(from: reservationStartTimeString) else {
-            print("Failed to parse reservation time string: \(reservationStartTimeString)")
+            logger.warning("Failed to parse reservation time string: \(reservationStartTimeString)")
             return nil
         }
         
@@ -261,7 +271,7 @@ struct DateHelper {
         
         // Combine into a full Date for the reservation start.
         guard let reservationStartDate = calendar.date(from: reservationDateComponents) else {
-            print("Failed to combine date and time into a reservation start date.")
+            logger.warning("Failed to combine date and time into a reservation start date.")
             return nil
         }
         

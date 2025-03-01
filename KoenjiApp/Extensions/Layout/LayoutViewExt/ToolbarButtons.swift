@@ -9,6 +9,7 @@ import SwiftUI
 
 extension LayoutView {
     
+    
     var dateBackward: some View {
         VStack {
             Text("-1 gg.")
@@ -122,8 +123,11 @@ extension LayoutView {
                 guard
                     let combinedTime = DateHelper.combineDateAndTime(
                         date: day, timeString: lunchTime)
-                else { return }
-                print("DEBUG: Returned combined date for new category: \(combinedTime)")
+                else {
+                    LayoutView.logger.error("Failed to combine date and time for lunch button")
+                    return
+                }
+                LayoutView.logger.debug("Setting lunch time: \(combinedTime)")
                 withAnimation {
                     appState.selectedCategory = .lunch
                     appState.selectedDate = combinedTime
@@ -184,10 +188,10 @@ extension LayoutView {
             // Reset to Default or System Time
             Button(action: {
                 withAnimation {
-                    let currentSystemTime = Date()  // Reset to system time
+                    let currentSystemTime = Date()
                     appState.selectedDate = DateHelper.combine(
                         date: appState.selectedDate, time: currentSystemTime)
-                    print("Time reset to \(appState.selectedDate)")
+                    LayoutView.logger.debug("Reset time to current system time: \(appState.selectedDate)")
                     unitView.isManuallyOverridden = false
                 }
     

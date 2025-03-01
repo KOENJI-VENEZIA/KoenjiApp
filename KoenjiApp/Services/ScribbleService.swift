@@ -7,8 +7,16 @@
 
 import Foundation
 import PencilKit
+import OSLog
+
+
 
 class ScribbleService: ObservableObject {
+    let logger = Logger(
+        subsystem: "com.koenjiapp",
+        category: "ScribbleService"
+    )
+    
     private let layoutServices: LayoutServices
     @Published var cachedScribbles: [String: [String: PKDrawing]] = [:]
     private let scribbleQueue = DispatchQueue(label: "com.koenjiapp.scribbleQueue")
@@ -21,16 +29,16 @@ class ScribbleService: ObservableObject {
     // MARK: - Save Scribble
     func saveDrawing(_ drawing: PKDrawing, for key: String, layer: String) {
         if !validateDrawingData(drawing) {
-            print("Invalid drawing detected; skipping save.")
+            logger.error("Invalid drawing detected for key: \(key), layer: \(layer)")
             return
         }
         scribbleQueue.sync {
-            
             if cachedScribbles[key] == nil {
                 cachedScribbles[key] = [:]
             }
             cachedScribbles[key]?[layer] = drawing
             saveToDisk()
+            logger.debug("Drawing saved successfully for key: \(key), layer: \(layer)")
         }
     }
 
@@ -44,12 +52,12 @@ class ScribbleService: ObservableObject {
     // MARK: - Disk Persistence
     
     func validateDrawingData(_ drawing: PKDrawing) -> Bool {
-            let data = drawing.dataRepresentation()
-            guard let decodedDrawing = try? PKDrawing(data: data) else {
-                print("Failed to decode drawing from data.")
-                return false
-            }
-            return decodedDrawing == drawing
+        let data = drawing.dataRepresentation()
+        guard let decodedDrawing = try? PKDrawing(data: data) else {
+            logger.error("Failed to decode drawing from data")
+            return false
+        }
+        return decodedDrawing == drawing
     }
     
     private func saveToDisk() {
@@ -61,9 +69,9 @@ class ScribbleService: ObservableObject {
             }
             let data = try encoder.encode(serializedData)
             UserDefaults.standard.set(data, forKey: "cachedScribbles")
-            print("Scribbles saved successfully.")
+            logger.info("Scribbles saved successfully to disk")
         } catch {
-            print("Failed to save scribbles: \(error)")
+            logger.error("Failed to save scribbles: \(error.localizedDescription)")
         }
     }
 
@@ -75,18 +83,18 @@ class ScribbleService: ObservableObject {
                     try layers.mapValues { value in
                         guard let data = Data(base64Encoded: value) else { throw NSError() }
                         guard let drawing = try? PKDrawing(data: data) else {
-                            print("Invalid drawing data for layer: \(value)")
+                            logger.warning("Invalid drawing data for layer: \(value)")
                             return PKDrawing() // Fallback to an empty drawing
                         }
                         return drawing
                     }
                 }
-                print("Scribbles loaded successfully: \(cachedScribbles.keys)")
+                logger.info("Scribbles loaded successfully. Found keys: \(self.cachedScribbles.keys)")
             } catch {
-                print("Failed to load scribbles: \(error)")
+                logger.error("Failed to load scribbles: \(error)")
             }
         } else {
-            print("No cached scribbles found.")
+            logger.notice("No cached scribbles found")
         }
     }
     
@@ -109,16 +117,16 @@ class ScribbleService: ObservableObject {
     func deleteAllScribbles() {
         cachedScribbles.removeAll()
         UserDefaults.standard.removeObject(forKey: "cachedScribbles")
-        print("All scribbles have been deleted.")
+        logger.notice("All scribbles have been deleted")
     }
     
     func saveScribbleForCurrentLayout(_ currentDrawing: DrawingModel, _ currentLayoutKey: String) {
-        print("Generated currentLayoutKey: \(currentLayoutKey)")
+        logger.debug("Saving scribbles for layout key: \(currentLayoutKey)")
 
         saveDrawing(currentDrawing.layer1, for: currentLayoutKey, layer: "layer1")
         saveDrawing(currentDrawing.layer2, for: currentLayoutKey, layer: "layer2")
         saveDrawing(currentDrawing.layer3, for: currentLayoutKey, layer: "layer3")
 
-        print("Scribbles saved successfully for key: \(currentLayoutKey)")
+        logger.info("All layers saved successfully for layout key: \(currentLayoutKey)")
     }
 }

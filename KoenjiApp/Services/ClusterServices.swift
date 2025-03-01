@@ -6,8 +6,10 @@
 //
 
 import Foundation
+import OSLog
 
 class ClusterServices: ObservableObject {
+    let logger = Logger(subsystem: "com.koenjiapp", category: "ClusterServices")
     private let store: ReservationStore
     let clusterStore: ClusterStore          // single source of truth
     private let tableStore: TableStore
@@ -27,14 +29,14 @@ class ClusterServices: ObservableObject {
     @MainActor
     func loadClusters(for date: Date, category: Reservation.ReservationCategory) -> [CachedCluster] {
         let key = layoutServices.keyFor(date: date, category: category)
-        print("Loading clusters for key: \(key)")
+        logger.info("Loading clusters for key: \(key)")
 
         // Attempt to load from the cache
         if let entry = clusterStore.clusterCache[key] {
             DispatchQueue.main.async {
                 self.clusterStore.clusterCache[key]?.lastAccessed = Date() // Update access timestamp
-                print("Loaded clusters from cache for key: \(key)")
-                print("Loaded clusters: \(entry.clusters.count)")
+                self.logger.info("Loaded clusters from cache for key: \(key)")
+                self.logger.debug("Loaded clusters: \(entry.clusters.count)")
             }
             return entry.clusters
         }
@@ -43,19 +45,19 @@ class ClusterServices: ObservableObject {
         let fallbackKey = findClosestPriorClusterKey(for: date, category: category)
         if let fallbackClusters = fallbackKey.flatMap({ clusterStore.clusterCache[$0]?.clusters }) {
             clusterStore.clusterCache[key] = ClusterStore.ClusterCacheEntry(clusters: fallbackClusters, lastAccessed: Date()) // Copy clusters
-            print("Copied clusters from fallback key: \(fallbackKey ?? "none") to key: \(key)")
+            logger.debug("Copied clusters from fallback key: \(fallbackKey ?? "none") to key: \(key)")
             return fallbackClusters
         }
 
         // Final fallback: Return empty clusters
-        print("No clusters found for key: \(key). Returning empty list.")
+        logger.info("No clusters found for key: \(key). Returning empty list.")
         return []
     }
     
     func saveClusters(_ clusters: [CachedCluster], for date: Date, category: Reservation.ReservationCategory) {
         let key = layoutServices.keyFor(date: date, category: category)
             self.clusterStore.clusterCache[key] = ClusterStore.ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
-            print("Clusters saved for key: \(key)")
+            logger.info("Clusters saved for key: \(key)")
             self.propagateClusterChange(from: key, clusters: clusters)
             self.enforceLRUCacheLimit()
             self.saveClustersToDisk()
@@ -69,7 +71,7 @@ class ClusterServices: ObservableObject {
     func updateClusters(_ clusters: [CachedCluster], for date: Date, category: Reservation.ReservationCategory) {
         let key = layoutServices.keyFor(date: date, category: category)
         clusterStore.clusterCache[key] = ClusterStore.ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
-        print("Updated clusters for key: \(key)")
+        logger.info("Updated clusters for key: \(key)")
 
         // Propagate changes to future timeslots
         propagateClusterChange(from: key, clusters: clusters)
@@ -80,7 +82,7 @@ class ClusterServices: ObservableObject {
     func resetClusters(for date: Date, category: Reservation.ReservationCategory) {
         let key = layoutServices.keyFor(date: date, category: category)
         clusterStore.clusterCache[key] = ClusterStore.ClusterCacheEntry(clusters: [], lastAccessed: Date())
-        print("Reset clusters for key: \(key)")
+        logger.info("Reset clusters for key: \(key)")
 
         // Propagate reset to future timeslots
         propagateClusterReset(from: key)
@@ -95,9 +97,9 @@ class ClusterServices: ObservableObject {
             }
             if let data = try? encoder.encode(cachedClusters) {
                 UserDefaults.standard.set(data, forKey: "clusterCache")
-                print("Cluster cache saved successfully.")
+                logger.debug("Cluster cache saved successfully.")
             } else {
-                print("Failed to encode cluster cache.")
+                logger.error("Failed to encode cluster cache.")
             }
         }
     
@@ -108,9 +110,9 @@ class ClusterServices: ObservableObject {
                 clusterStore.clusterCache = cachedClusters.mapValues { clusters in
                     ClusterStore.ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
                 }
-                print("Cluster cache loaded successfully.")
+                logger.debug("Cluster cache loaded successfully.")
             } else {
-                print("No cluster cache found.")
+                logger.info("No cluster cache found.")
             }
         }
     
@@ -126,7 +128,7 @@ class ClusterServices: ObservableObject {
         let futureKeys = allKeys.sorted().filter { $0 > key }
         for futureKey in futureKeys where clusterStore.clusterCache[futureKey] == nil {
             clusterStore.clusterCache[futureKey] = ClusterStore.ClusterCacheEntry(clusters: [], lastAccessed: Date())
-            print("Reset clusters for future key: \(futureKey)")
+            logger.info("Reset clusters for future key: \(futureKey)")
         }
     }
 
@@ -137,7 +139,7 @@ class ClusterServices: ObservableObject {
         let futureKeys = allKeys.sorted().filter { $0 > key }
         for futureKey in futureKeys where clusterStore.clusterCache[futureKey] == nil {
             clusterStore.clusterCache[futureKey] = ClusterStore.ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
-            print("Propagated clusters to future key: \(futureKey)")
+            logger.info("Propagated clusters to future key: \(futureKey)")
         }
     }
     
@@ -160,7 +162,7 @@ class ClusterServices: ObservableObject {
         let keysToRemove = sortedKeys.prefix(clusterStore.clusterCache.count - clusterStore.maxCacheEntries)
             keysToRemove.forEach { key in
                 clusterStore.clusterCache.removeValue(forKey: key)
-                print("Removed LRU cache entry for key: \(key)")
+                logger.info("Removed LRU cache entry for key: \(key)")
             }
         }
     

@@ -44,7 +44,7 @@ struct ClusterView: View {
         ZStack {
             if nearEndReservation == nil {
                 RoundedRectangle(cornerRadius: 12.0)
-                    .fill(cluster.reservationID.assignedColor.opacity(0.7))
+                    .fill(cluster.reservationID.assignedColor.opacity(0.2))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12.0)
                             .stroke(
@@ -56,7 +56,7 @@ struct ClusterView: View {
                     .position(x: overlayFrame.midX, y: overlayFrame.midY)
             } else {
                 RoundedRectangle(cornerRadius: 12.0)
-                    .fill(cluster.reservationID.assignedColor.opacity(0.7))
+                    .fill(cluster.reservationID.assignedColor.opacity(0.2))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8.0)
                             .stroke(.red,

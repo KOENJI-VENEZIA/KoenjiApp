@@ -1,11 +1,13 @@
 import Foundation
 import SwiftUI
 import SwipeActions
+import OSLog
 
 // MARK: - Main Reservation List View
 
 struct DatabaseView: View {
-    
+    let logger = Logger(subsystem: "com.koenjiapp", category: "DatabaseView")
+
     // MARK: Environment Objects & Dependencies
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
@@ -110,9 +112,7 @@ extension DatabaseView {
     /// The reservations list with sections based on grouping.
     private var reservationsList: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
-                
-                
+            LazyVStack(alignment: .leading, spacing: 16, pinnedViews: .sectionHeaders) {
                 let grouped = groupReservations(
                     reservations: filtered,
                     by: env.listView.groupOption,
@@ -123,13 +123,34 @@ extension DatabaseView {
                 
                 ForEach(sortedGrouped, id: \.id) { group in
                     Section(header: groupHeader(for: group)) {
-                        ForEach(group.reservations) { reservation in
-                            row(for: reservation, group: group)
+                        let columns = [
+                            GridItem(.adaptive(minimum: 300, maximum: 400), spacing: 12)
+                        ]
+                        
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            ForEach(group.reservations) { reservation in
+                                ReservationCard(
+                                    reservation: reservation,
+                                    notesAlertShown: $env.listView.showingNotesAlert,
+                                    notesToShow: $env.listView.notesToShow,
+                                    currentReservation: $env.listView.currentReservation,
+                                    onTap: { env.listView.handleEditTap(reservation) },
+                                    onCancel: { env.listView.handleCancel(reservation) },
+                                    onRecover: { env.listView.handleRecover(reservation) },
+                                    onDelete: { env.listView.handleDelete(reservation) },
+                                    onEdit: { env.listView.currentReservation = reservation },
+                                    searchText: env.listView.searchText
+                                )
+                                .onTapGesture {
+                                    env.listView.selectedReservationID = reservation.id
+                                    env.listView.activeSheet = .inspector(reservation.id)
+                                }
+                            }
                         }
+                        .padding(.horizontal, 8)
                     }
                 }
             }
-
         }
     }
     
@@ -141,52 +162,17 @@ extension DatabaseView {
                 .frame(maxWidth: .infinity)
             HStack(spacing: 25) {
                 Text(group.label)
-                    .font(.headline)
+                    .font(.title3)
+                    .fontWeight(.bold)
                 let reservationsLunch = filterForCategory(group.reservations, .lunch)
                 let reservationsDinner = filterForCategory(group.reservations, .dinner)
-                Text("\(group.reservations.count) \(TextHelper.pluralized("prenotazione", "prenotazioni", group.reservations.count)) (\(reservationsLunch.count) per pranzo, \(reservationsDinner.count) per cena)")
-                    .font(.headline)
+                Text("Tot. \(group.reservations.count) (\(reservationsLunch.count) pranzo, \(reservationsDinner.count) cena)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
             .padding()
         }
         .frame(maxWidth: .infinity, maxHeight: 60)
-    }
-    
-    /// A row view for an individual reservation.
-    private func row(for reservation: Reservation, group: GroupedReservations) -> some View {
-        ZStack {
-            if reservation.status == .canceled {
-                Color.gray.opacity(0.5)
-                    .edgesIgnoringSafeArea(.all)
-            } else if reservation.status == .toHandle {
-                Color.yellow.opacity(0.5)
-                    .edgesIgnoringSafeArea(.all)
-            } else if reservation.status == .deleted {
-                Color.red.opacity(0.5)
-                    .edgesIgnoringSafeArea(.all)
-            } else {
-                reservation.assignedColor.opacity(0.5)
-                    .edgesIgnoringSafeArea(.all)
-            }
-            
-            ReservationRowView(
-                reservation: reservation,
-                notesAlertShown: $env.listView.showingNotesAlert,
-                notesToShow: $env.listView.notesToShow,
-                currentReservation: $env.listView.currentReservation,
-                onTap: { env.listView.handleEditTap(reservation) },
-                onCancel: { env.listView.handleCancel(reservation) },
-                onRecover: { env.listView.handleRecover(reservation) },
-                onDelete: { env.listView.handleDelete(reservation) },
-                onEdit: { env.listView.currentReservation = reservation },
-                searchText: env.listView.searchText
-            )
-            .id(reservation.id)
-            .onTapGesture {
-                env.listView.selectedReservationID = reservation.id
-                env.listView.activeSheet = .inspector(reservation.id)
-            }
-        }
     }
     
     /// Toolbar content with buttons, menus, and popovers.

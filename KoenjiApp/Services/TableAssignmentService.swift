@@ -1,9 +1,16 @@
 import Foundation
+import OSLog
 
 /// Service responsible for handling table assignment logic.
 class TableAssignmentService: ObservableObject {
     // MARK: - Dependencies
     let tableAssignmentOrder: [String] = ["T1", "T2", "T3", "T4", "T6", "T7", "T5"]
+
+    // MARK: - Private Properties
+    let logger = Logger(
+        subsystem: "com.koenjiapp",
+        category: "TableAssignmentService"
+    )
 
     // MARK: - Public Methods
 
@@ -60,10 +67,10 @@ class TableAssignmentService: ObservableObject {
         tables: [TableModel]
     ) -> [TableModel]? {
         guard let reservationDate = reservation.normalizedDate else {
-            print("Failed to parse reservation date string: \(reservation.normalizedDate ?? Date()) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
+            logger.error("Failed to parse reservation date for reservation ID: \(reservation.id)")
             return nil
         }
-        print("Parsed reservation date: \(reservationDate) for reservation ID: \(reservation.id) [assignTablesPreferContiguous() from TableAssignmentService]")
+        logger.debug("Processing reservation date: \(reservationDate) for reservation ID: \(reservation.id)")
         // Try to find a single contiguous block
         if let contiguousBlock = findContiguousBlock(
             reservation: reservation,
@@ -71,11 +78,11 @@ class TableAssignmentService: ObservableObject {
             orderedTables: sortTables(tables),
             reservationDate: reservationDate
         ) {
-            print("Found contiguous block for reservation ID: \(reservation.id). Assigned tables: \(contiguousBlock.map { $0.name }) [assignTablesPreferContiguous() from TableAssignmentService]")
+            logger.info("Found contiguous block for reservation ID: \(reservation.id). Tables: \(contiguousBlock.map { $0.name }.joined(separator: ", "))")
             return contiguousBlock
         }
 
-        print("No contiguous block found for reservation ID: \(reservation.id). Proceeding to fallback. [assignTablesPreferContiguous() from TableAssignmentService]")
+        logger.debug("No contiguous block found for reservation ID: \(reservation.id). Using fallback assignment.")
 
         // Fallback to automatic assignment
         return assignTablesInOrder(for: reservation, reservations: reservations, tables: tables, reservationDate: reservationDate)
@@ -118,7 +125,7 @@ class TableAssignmentService: ObservableObject {
     ) -> Bool {
         guard let start = DateHelper.combineDateAndTime(date: date, timeString: startTime),
               let end = DateHelper.combineDateAndTime(date: date, timeString: endTime) else {
-            print("Failed to combine date and time for startTime: \(startTime), endTime: \(endTime)")
+            logger.error("Failed to combine date and time. Start: \(startTime), End: \(endTime)")
             return false
         }
 
@@ -133,7 +140,7 @@ class TableAssignmentService: ObservableObject {
                   let reservationStart = reservation.startTimeDate,
                   let reservationEnd = reservation.endTimeDate,
                   reservation.tables.contains(where: { $0.id == table.id }) else {
-                print("Failed to parse reservation: \(reservation.name)")
+                logger.warning("Failed to parse reservation details for: \(reservation.name)")
                 return false
             }
             
@@ -177,9 +184,12 @@ class TableAssignmentService: ObservableObject {
         ) {
             assignedTables.append(table)
             assignedCapacity += table.maxCapacity
-            if assignedCapacity >= neededCapacity { return assignedTables }
+            if assignedCapacity >= neededCapacity { 
+                logger.debug("Successfully assigned \(assignedTables.count) tables with capacity \(assignedCapacity)")
+                return assignedTables 
+            }
         }
-        print("Failed to assign tables in order [assignTablesInOrder() from TableAssignmentService]")
+        logger.warning("Failed to assign tables in order. Required capacity: \(neededCapacity), Found: \(assignedCapacity)")
         return nil
     }
 

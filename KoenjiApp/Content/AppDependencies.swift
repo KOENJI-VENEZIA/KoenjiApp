@@ -1,8 +1,10 @@
 import Firebase
 import SwiftUI
+import OSLog
 
 final class AppDependencies: ObservableObject {
-    // Dependencies that are ObservableObjects can be stored as plain properties.
+    let logger = Logger(subsystem: "com.koenjiapp", category: "AppDependencies")
+    // MARK: - Dependencies
     var store: ReservationStore
     var tableAssignment: TableAssignmentService
     var resCache: CurrentReservationsCache
@@ -19,8 +21,11 @@ final class AppDependencies: ObservableObject {
 
     @MainActor
     init() {
-        // Configure Firebase first.
+        logger.debug("Initializing app dependencies")
+        
+        // Configure Firebase
         FirebaseApp.configure()
+        logger.info("Firebase configured")
 
         // Initialize dependencies
         self.store = ReservationStore()
@@ -64,5 +69,7 @@ final class AppDependencies: ObservableObject {
             store: store,
             layoutServices: layoutServices
         )
+        
+        logger.info("All dependencies initialized successfully")
     }
 }

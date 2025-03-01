@@ -8,8 +8,14 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import os
 
 struct ExportReservationsView: UIViewControllerRepresentable {
+    private static let logger = Logger(
+        subsystem: "com.koenjiapp",
+        category: "ExportReservationsView"
+    )
+    
     let fileURL: URL
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
@@ -22,19 +28,25 @@ struct ExportReservationsView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
 
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(parent: self)
     }
 
     class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let parent: ExportReservationsView
+        
+        init(parent: ExportReservationsView) {
+            self.parent = parent
+        }
+        
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             // Confirm the file was saved
             if let savedURL = urls.first {
-                print("File saved to: \(savedURL.path)")
+                ExportReservationsView.logger.notice("File exported successfully to: \(savedURL.path)")
             }
         }
 
         func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-            print("Export canceled by user.")
+            ExportReservationsView.logger.notice("Export canceled by user")
         }
     }
 }

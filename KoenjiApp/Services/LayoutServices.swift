@@ -9,8 +9,15 @@
 
 import Foundation
 import SwiftUI
+import os
 
 class LayoutServices: ObservableObject {
+    // MARK: - Private Properties
+    private static let logger = Logger(
+        subsystem: "com.koenjiapp",
+        category: "LayoutServices"
+    )
+    
     let store: ReservationStore
     let tableStore: TableStore          // single source of truth
     private let tableAssignmentService: TableAssignmentService
@@ -53,13 +60,13 @@ class LayoutServices: ObservableObject {
     /// Loads tables for a specific date and category.
     func loadTables(for date: Date, category: Reservation.ReservationCategory) -> [TableModel] {
         let fullKey = keyFor(date: date, category: category)
-        print("Loading tables for key: \(fullKey)")
+        Self.logger.debug("Loading tables for key: \(fullKey)")
 
         // Check if the exact layout exists
         if let tables = cachedLayouts[fullKey] {
             // Assign to self.tables *on the main thread*
                 self.tables = tables
-                print("Loaded exact layout for key: \(fullKey)")
+                Self.logger.debug("Loaded exact layout for key: \(fullKey)")
             return tables
         }
 
@@ -70,16 +77,14 @@ class LayoutServices: ObservableObject {
             cachedLayouts[fullKey] = fallbackTables
             
                 self.tables = fallbackTables
-                print("Copied fallback layout from key: \(fallbackKey ?? "none") to key: \(fullKey)")
+                Self.logger.debug("Copied fallback layout from key: \(fallbackKey ?? "none") to key: \(fullKey)")
             return fallbackTables
         }
 
         // Final fallback: Initialize with base tables
-
-        
-            self.cachedLayouts[fullKey] = self.tableStore.baseTables
-            self.tables = self.tableStore.baseTables
-            print("Initialized new layout for key: \(fullKey) with base tables")
+        self.cachedLayouts[fullKey] = self.tableStore.baseTables
+        self.tables = self.tableStore.baseTables
+        Self.logger.debug("Initialized new layout for key: \(fullKey) with base tables")
         return self.tableStore.baseTables
     }
     
@@ -91,12 +96,11 @@ class LayoutServices: ObservableObject {
         return sortedKeys.last { $0 < "\(formattedDate)-\(category.rawValue)" }
     }
     
-    
     /// Saves tables for a specific date and category.
     func saveTables(_ tables: [TableModel], for date: Date, category: Reservation.ReservationCategory) {
         let fullKey = keyFor(date: date, category: category)
         cachedLayouts[fullKey] = tables
-        print("Saved tables for key: \(fullKey)")
+        Self.logger.debug("Saved tables for key: \(fullKey)")
 
         // Propagate changes to future timeslots
         propagateLayoutChange(from: fullKey, tables: tables)
@@ -107,9 +111,9 @@ class LayoutServices: ObservableObject {
         let encoder = JSONEncoder()
         if let data = try? encoder.encode(cachedLayouts) {
             UserDefaults.standard.set(data, forKey: "cachedLayouts")
-            print("Layouts saved successfully.")
+            Self.logger.info("Layouts saved successfully")
         } else {
-            print("Failed to encode cached layouts.")
+            Self.logger.error("Failed to encode cached layouts")
         }
     }
     
@@ -120,7 +124,7 @@ class LayoutServices: ObservableObject {
         let futureKeys = allKeys.sorted().filter { $0 > key }
         for futureKey in futureKeys where cachedLayouts[futureKey] == nil {
             cachedLayouts[futureKey] = tables
-            print("Propagated layout to future key: \(futureKey)")
+            Self.logger.debug("Propagated layout to future key: \(futureKey)")
         }
     }
     
@@ -130,7 +134,7 @@ class LayoutServices: ObservableObject {
         // Reset the layout for this specific key
         cachedLayouts[fullKey] = tableStore.baseTables
         tables = tableStore.baseTables
-        print("Reset tables for key: \(fullKey) to base tables.")
+        Self.logger.notice("Reset tables for key: \(fullKey) to base tables")
 
         // Propagate reset to future timeslots
         propagateLayoutReset(from: fullKey)
@@ -144,18 +148,18 @@ class LayoutServices: ObservableObject {
         let futureKeys = allKeys.sorted().filter { $0 > key }
         for futureKey in futureKeys where cachedLayouts[futureKey] == nil {
             cachedLayouts[futureKey] = tableStore.baseTables
-            print("Reset future key: \(futureKey) to base tables.")
+            Self.logger.debug("Reset future key: \(futureKey) to base tables")
         }
     }
-    
     
     func loadFromDisk() {
         if let data = UserDefaults.standard.data(forKey: "cachedLayouts"),
            let decoded = try? JSONDecoder().decode([String: [TableModel]].self, from: data) {
                setCachedLayouts(decoded)
-            print("Cached layouts loaded successfully: \(cachedLayouts.keys)")
+               let layoutCount = decoded.keys.count  // Store count in local variable
+               Self.logger.info("Cached layouts loaded successfully: \(layoutCount) layouts")
         } else {
-            print("No cached layouts found.")
+            Self.logger.warning("No cached layouts found")
         }
     }
     
@@ -246,21 +250,21 @@ class LayoutServices: ObservableObject {
                 }
                 return .success(assignedTables)
             } else {
-                // Distinguish not enough capacity from unknown error, if you’d like:
+                // Distinguish not enough capacity from unknown error, if you'd like:
                 return .failure(.insufficientTables)
             }
         }
     }
     
     func generateAndCacheLayout(for layoutKey: String, date: Date, category: Reservation.ReservationCategory) -> [TableModel]? {
-        print("Generating layout for key: \(layoutKey)")
+        Self.logger.debug("Generating layout for key: \(layoutKey)")
         let layout = loadTables(for: date, category: category) // Your layout generation logic
         
         if !layout.isEmpty {
             cachedLayouts[layoutKey] = layout
-            print("Layout cached for key: \(layoutKey)")
+            Self.logger.debug("Layout cached for key: \(layoutKey)")
         } else {
-            print("Failed to generate layout for key: \(layoutKey)")
+            Self.logger.warning("Failed to generate layout for key: \(layoutKey)")
         }
         return layout
     }
@@ -314,26 +318,26 @@ class LayoutServices: ObservableObject {
 extension LayoutServices {
     /// Checks if a table can be placed at a new position for a given date and category.
     func canPlaceTable(_ table: TableModel, for date: Date, category: Reservation.ReservationCategory, activeTables: [TableModel]) -> Bool {
-        print("Checking placement for table: \(table.name) at row: \(table.row), column: \(table.column), width: \(table.width), height: \(table.height)")
+        Self.logger.debug("Checking placement for table: \(table.name) at row: \(table.row), column: \(table.column), width: \(table.width), height: \(table.height)")
         
         // Ensure the table is within grid bounds
         guard table.row >= 0, table.column >= 0,
               table.row + table.height <= tableStore.totalRows,
               table.column + table.width <= tableStore.totalColumns else {
-            print("Table \(table.name) is out of bounds.")
+            Self.logger.notice("Table \(table.name) is out of bounds")
             return false
         }
                 
         // Check for overlap with existing tables
         for existingTable in activeTables where existingTable.id != table.id {
-            print("Comparing with existing table: \(existingTable.name) at row: \(existingTable.row), column: \(existingTable.column), width: \(existingTable.width), height: \(existingTable.height)")
+            Self.logger.debug("Comparing with existing table: \(existingTable.name) at row: \(existingTable.row), column: \(existingTable.column), width: \(existingTable.width), height: \(existingTable.height)")
             if tablesIntersect(existingTable, table) {
-                print("Table \(table.name) intersects with \(existingTable.name). Cannot place.")
+                Self.logger.notice("Table \(table.name) intersects with \(existingTable.name). Cannot place")
                 return false
             }
         }
         
-        print("Table \(table.name) can be placed.")
+        Self.logger.debug("Table \(table.name) can be placed")
         return true
     }
     
@@ -377,31 +381,27 @@ extension LayoutServices {
 
         // Unmark the table's current position
         unmarkTable(table)
-        print("moveTable: Attempting to move \(table.name) to (\(clampedRow), \(clampedCol))")
+        Self.logger.debug("Attempting to move \(table.name) to (\(clampedRow), \(clampedCol))")
 
         // Check if the new position is valid
         if canPlaceTable(newTable) {
-            print("moveTable: Can place table \(table.name) at (\(clampedRow), \(clampedCol))")
+            Self.logger.debug("Can place table \(table.name) at (\(clampedRow), \(clampedCol))")
 
             // Perform the move
-            
-                withAnimation(.easeInOut(duration: 0.5)) {
-                    if let idx = self.tables.firstIndex(where: { $0.id == table.id }) {
-                        self.tables[idx] = newTable
-                    }
-                
+            withAnimation(.easeInOut(duration: 0.5)) {
+                if let idx = self.tables.firstIndex(where: { $0.id == table.id }) {
+                    self.tables[idx] = newTable
+                }
                 self.markTable(newTable, occupied: true)
             }
-            print("moveTable: Moved \(table.name) to (\(clampedRow), \(clampedCol)) successfully.")
+            Self.logger.info("Moved \(table.name) to (\(clampedRow), \(clampedCol)) successfully")
             return .move
         } else {
             // Invalid move; re-mark the original table's position
-            
-                withAnimation(.spring) {
-                    self.markTable(table, occupied: true)
-                }
-            
-            print("moveTable: Cannot place \(table.name) at (\(clampedRow), \(clampedCol)). Move failed.")
+            withAnimation(.spring) {
+                self.markTable(table, occupied: true)
+            }
+            Self.logger.notice("Cannot place \(table.name) at (\(clampedRow), \(clampedCol)). Move failed")
             return .invalid
         }
     }
@@ -419,13 +419,12 @@ extension LayoutServices {
         let table2MinY = table2.row
         let table2MaxY = table2.row + table2.height
 
-        // Log details for debugging
-        print("Table 1: (\(table1MinX), \(table1MaxX)) x (\(table1MinY), \(table1MaxY))")
-        print("Table 2: (\(table2MinX), \(table2MaxX)) x (\(table2MinY), \(table2MaxY))")
+        Self.logger.debug("Checking intersection - Table 1: (\(table1MinX), \(table1MaxX)) x (\(table1MinY), \(table1MaxY))")
+        Self.logger.debug("Checking intersection - Table 2: (\(table2MinX), \(table2MaxX)) x (\(table2MinY), \(table2MaxY))")
 
         // Check for no overlap scenarios
         let intersects = !(table1MaxX <= table2MinX || table1MinX >= table2MaxX || table1MaxY <= table2MinY || table1MinY >= table2MaxY)
-        print("Intersect Result: \(intersects)")
+        Self.logger.debug("Intersection result: \(intersects)")
         return intersects
     }
 
@@ -441,14 +440,15 @@ extension LayoutServices {
     // MARK: - Helpers
 
     func markTable(_ table: TableModel, occupied: Bool) {
-        print("Marking table \(table.id) at \(table.row), \(table.column) with occupied=\(occupied)")
+        Self.logger.debug("Marking table \(table.id) at \(table.row), \(table.column) with occupied=\(occupied)")
         
-        print("Tables and grid state after operation:")
-        print(tables)
+        let tableCount = tables.count
+        Self.logger.debug("Tables and grid state after operation: \(tableCount) tables")
+        
         for r in table.row..<(table.row + table.height) {
             for c in table.column..<(table.column + table.width) {
                 guard r >= 0, r < tableStore.grid.count, c >= 0, c < tableStore.grid[0].count else {
-                    print("markTable: Skipping out-of-bounds position (\(r), \(c))")
+                    Self.logger.warning("Skipping out-of-bounds position (\(r), \(c))")
                     continue }
                 tableStore.grid[r][c] = occupied ? table.id : nil
             }
@@ -470,18 +470,16 @@ extension LayoutServices {
     }
     
     func markTablesInGrid() {
-        print("Marking tables in grid...")
+        Self.logger.debug("Marking tables in grid...")
         tableStore.grid = Array(
             repeating: Array(repeating: nil, count: tableStore.totalColumns),
             count: tableStore.totalRows
         )
-        print("Tables in array:")
 
         for table in tables {
-            print("Table \(table.id): \(table.row), \(table.column), \(table.width)x\(table.height)")
+            Self.logger.debug("Table \(table.id): \(table.row), \(table.column), \(table.width)x\(table.height)")
             markTable(table, occupied: true)
-            print("Marked table \(table.id) at row \(table.row), column \(table.column)")
-
+            Self.logger.debug("Marked table \(table.id) at row \(table.row), column \(table.column)")
         }
     }
     
@@ -492,15 +490,14 @@ extension LayoutServices {
         var adjacentCount = 0
         var adjacentDetails: [TableModel.TableSide: TableModel] = [:]
 
-
-        print("Active tables: \(activeTables.map { "Table \($0.id) at (\($0.row), \($0.column))" })")
-        print("Checking neighbors for table \(table.id) at row \(table.row), column \(table.column):")
+        Self.logger.debug("Active tables: \(activeTables.map { "Table \($0.id) at (\($0.row), \($0.column))" })")
+        Self.logger.debug("Checking neighbors for table \(table.id) at row \(table.row), column \(table.column)")
 
         for side in TableModel.TableSide.allCases {
             let offset = side.offset()
             let neighborPosition = (row: table.row + offset.rowOffset, col: table.column + offset.colOffset)
 
-            print("Neighbor position: \(neighborPosition.row), \(neighborPosition.col) for side \(side)")
+            Self.logger.debug("Checking neighbor position: \(neighborPosition.row), \(neighborPosition.col) for side \(String(describing: side))")
 
             if let neighborTable = activeTables.first(where: { neighbor in
                 // Ensure the neighbor is not the current table
@@ -516,13 +513,13 @@ extension LayoutServices {
                 // Correctly track the table that overlaps
                 adjacentCount += 1
                 adjacentDetails[side] = neighborTable
-                print("Found adjacent table \(neighborTable.id) at side \(side).")
+                Self.logger.debug("Found adjacent table \(neighborTable.id) at side \(String(describing: side))")
             } else {
-                print("No active table found at neighbor position.")
+                Self.logger.debug("No active table found at neighbor position")
             }
         }
 
-        print("Adjacent tables for table \(table.id): \(adjacentCount), details: \(adjacentDetails.map { ($0.key, $0.value.id) })")
+        Self.logger.debug("Adjacent tables for table \(table.id): count=\(adjacentCount), details: \(adjacentDetails.map { ($0.key, $0.value.id) })")
         return (adjacentCount, adjacentDetails)
     }
     
@@ -547,11 +544,11 @@ extension LayoutServices {
 
             if !sharedReservations.isEmpty {
                 sharedReservationTables.append(adjacentTable)
-                print("Shared reservation with table \(adjacentTable.id).")
+                Self.logger.debug("Found shared reservation with table \(adjacentTable.id)")
             }
         }
 
-        print("Shared reservation tables for table \(table.id): \(sharedReservationTables.map { $0.id })")
+        Self.logger.debug("Shared reservation tables for table \(table.id): \(sharedReservationTables.map { $0.id })")
         return sharedReservationTables
     }
     
@@ -560,26 +557,26 @@ extension LayoutServices {
     // Lookup a table by grid position
     func fetchTable(row: Int, column: Int, combinedDateTime: Date, activeTables: [TableModel]) -> TableModel? {
         guard row >= 0, column >= 0 else {
-            print("fetchTable: Invalid grid position (\(row), \(column))")
+            Self.logger.warning("Invalid grid position (\(row), \(column))")
             return nil
         }
 
-        print("fetchTable: Checking for table at (\(row), \(column))")
+        Self.logger.debug("Checking for table at (\(row), \(column))")
 
         // Check active tables first
         if let activeTable = activeTables.first(where: { $0.row == row && $0.column == column }) {
-            print("fetchTable: Found active table \(activeTable.id) at (\(row), \(column))")
+            Self.logger.debug("Found active table \(activeTable.id) at (\(row), \(column))")
             return activeTable
         }
 
         // Fallback to tables managed by the store
         let storeTables = store.reservations.flatMap { $0.tables }
         if let table = storeTables.first(where: { $0.row == row && $0.column == column }) {
-            print("fetchTable: Found table \(table.id) in store at (\(row), \(column))")
+            Self.logger.debug("Found table \(table.id) in store at (\(row), \(column))")
             return table
         }
 
-        print("fetchTable: No table found at (\(row), \(column))")
+        Self.logger.debug("No table found at (\(row), \(column))")
         return nil
     }
 
@@ -590,8 +587,7 @@ extension LayoutServices {
         if let tables = cachedLayouts[key] {
             return tables
         } else {
-            // If no layout exists for this date and category, fallback to base tables
-            print("No cached tables found for \(key). Returning base tables.")
+            Self.logger.notice("No cached tables found for \(key). Returning base tables")
             return tableStore.baseTables
         }
     }

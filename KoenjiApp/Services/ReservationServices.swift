@@ -10,6 +10,7 @@ import UIKit
 import FirebaseFirestore
 import FirebaseStorage
 import SwiftUI
+import OSLog
 
 /// A service class responsible for high-level operations on reservations.
 /// This class interacts with the `ReservationStore` for managing reservation data.
@@ -27,6 +28,8 @@ class ReservationService: ObservableObject {
     private var imageCache: [UUID: UIImage] = [:]
     let notifsManager: NotificationManager
     @Published var changedReservation: Reservation? = nil
+    
+    let logger = Logger(subsystem: "com.koenjiapp", category: "ReservationService")
     
     var reservationListener: ListenerRegistration?
     var sessionListener: ListenerRegistration?
@@ -76,14 +79,14 @@ class ReservationService: ObservableObject {
                 if currentVersion < 2 {
                     // Execute raw SQL to add a new column.
                     try SQLiteManager.shared.db.run("ALTER TABLE sessions ADD COLUMN uuid TEXT")
-                    print("Migration: Added uuid column to sessions table.")
+                    logger.info("Migration: Added uuid column to sessions table.")
                 }
                 
                 // Update the database version.
                 try SQLiteManager.shared.db.run("PRAGMA user_version = \(targetVersion)")
             }
         } catch {
-            print("Database migration error: \(error)")
+            logger.error("Database migration error: \(error)")
         }
     }
     
@@ -106,11 +109,11 @@ class ReservationService: ObservableObject {
         #endif
         let data = convertSessionToDictionary(session: session)
             // Using the reservation’s UUID string as the document ID:
-        dbRef.document(session.uuid).setData(data) { error in
+        dbRef.document(session.uuid).setData(data) { [self] error in
                 if let error = error {
-                    print("Error pushing session to Firebase: \(error)")
+                    self.logger.error("Error pushing session to Firebase: \(error)")
                 } else {
-                    print("Session pushed to Firebase successfully.")
+                    self.logger.debug("Session pushed to Firebase successfully.")
                 }
             }
         
@@ -133,7 +136,7 @@ class ReservationService: ObservableObject {
                self.changedReservation = reservation
                reservation.tables.forEach { self.layoutServices.markTable($0, occupied: true) }
                self.invalidateClusterCache(for: reservation)
-               print("Added reservation \(reservation.id) with tables \(reservation.tables).")
+               self.logger.debug("Added reservation \(reservation.id) with tables \(reservation.tables).")
                
            }
         
@@ -147,9 +150,9 @@ class ReservationService: ObservableObject {
             // Using the reservation’s UUID string as the document ID:
             dbRef.document(reservation.id.uuidString).setData(data) { error in
                 if let error = error {
-                    print("Error pushing reservation to Firebase: \(error)")
+                    self.logger.error("Error pushing reservation to Firebase: \(error)")
                 } else {
-                    print("Reservation pushed to Firebase successfully.")
+                    self.logger.debug("Reservation pushed to Firebase successfully.")
                 }
             }
        }
@@ -223,7 +226,7 @@ class ReservationService: ObservableObject {
             let reservationIndex = index ?? self.store.reservations.firstIndex(where: { $0.id == oldReservation.id })
 
             guard let reservationIndex else {
-                print("Error: Reservation with ID \(oldReservation.id) not found.")
+                self.logger.error("Error: Reservation with ID \(oldReservation.id) not found.")
                 return
             }
             
@@ -232,7 +235,7 @@ class ReservationService: ObservableObject {
             self.store.reservations[reservationIndex] = updatedReservation
             self.store.reservations = Array(self.store.reservations)
             self.changedReservation = updatedReservation
-            print("Changed changedReservation, should update UI...")
+            self.logger.info("Changed changedReservation, should update UI...")
 
             let oldReservation = self.store.reservations[reservationIndex]
             
@@ -241,7 +244,7 @@ class ReservationService: ObservableObject {
             let newTableIDs = Set(updatedReservation.tables)
             
             if oldTableIDs != newTableIDs {
-                print("Table change detected for reservation \(updatedReservation.id). Updating tables...")
+                self.logger.debug("Table change detected for reservation \(updatedReservation.id). Updating tables...")
 
                 // Unmark only if tables have changed
                 oldTableIDs.subtracting(newTableIDs).forEach { self.layoutServices.unmarkTable($0) }
@@ -254,7 +257,7 @@ class ReservationService: ObservableObject {
             } else if newTableIDs == [] {
                 oldTableIDs.forEach { self.layoutServices.unmarkTable($0) }
             } else {
-                print("No table change detected for reservation \(updatedReservation.id). Skipping table update.")
+                self.logger.info("No table change detected for reservation \(updatedReservation.id). Skipping table update.")
             }
 
 
@@ -274,13 +277,13 @@ class ReservationService: ObservableObject {
                     // Using the reservation’s UUID string as the document ID:
                 dbRef.document(updatedReservation.id.uuidString).setData(data) { error in
                         if let error = error {
-                            print("Error pushing reservation to Firebase: \(error)")
+                            self.logger.error("Error pushing reservation to Firebase: \(error)")
                         } else {
-                            print("Reservation pushed to Firebase successfully.")
+                            self.logger.debug("Reservation pushed to Firebase successfully.")
                         }
                     }
             }
-            print("Updated reservation \(updatedReservation.id).")
+            self.logger.debug("Updated reservation \(updatedReservation.id).")
             
         }
 
@@ -305,7 +308,7 @@ class ReservationService: ObservableObject {
                     updatedReservation.reservationType = .inAdvance
                     updatedReservation.status = .pending
                     self.updateReservation(updatedReservation) {
-                        print("Updated reservations.")
+                        self.logger.info("Updated reservations.")
                     }
 
                 }
@@ -338,7 +341,7 @@ class ReservationService: ObservableObject {
         #endif
         reservationsRef.getDocuments { snapshot, error in
             if let error = error {
-                print("Error fetching documents for deletion: \(error)")
+                self.logger.error("Error fetching documents for deletion: \(error)")
                 completion(error)
                 return
             }
@@ -355,9 +358,9 @@ class ReservationService: ObservableObject {
             
             batch.commit { error in
                 if let error = error {
-                    print("Error committing batch deletion: \(error)")
+                    self.logger.error("Error committing batch deletion: \(error)")
                 } else {
-                    print("Successfully deleted all reservations from Firestore.")
+                    self.logger.debug("Successfully deleted all reservations from Firestore.")
                 }
                 completion(error)
             }
@@ -372,13 +375,13 @@ class ReservationService: ObservableObject {
         
         clearAllDataFromFirestore { error in
                if let error = error {
-                   print("Error clearing Firestore data: \(error)")
+                   self.logger.error("Error clearing Firestore data: \(error)")
                } else {
-                   print("All Firestore data cleared successfully.")
+                   self.logger.debug("All Firestore data cleared successfully.")
                }
            }
         
-        print("ReservationService: All data has been cleared.")
+        logger.info("ReservationService: All data has been cleared.")
     }
     
     /// Fetches reservations for a specific date.
@@ -399,7 +402,7 @@ class ReservationService: ObservableObject {
        /// Invalidates the cluster cache for the given reservation.
        private func invalidateClusterCache(for reservation: Reservation) {
            guard let reservationDate = reservation.normalizedDate else {
-               print("Failed to parse dateString \(reservation.normalizedDate ?? Date()). Cache invalidation skipped.")
+               self.logger.error("Failed to parse dateString \(reservation.normalizedDate ?? Date()). Cache invalidation skipped.")
                return
            }
            self.clusterStore.invalidateClusterCache(for: reservationDate, category: reservation.category)
@@ -435,8 +438,8 @@ class ReservationService: ObservableObject {
         let reservations = SQLiteManager.shared.fetchReservations()
         store.reservations = reservations
         
-        print("Reservations loaded from SQLite successfully.")
-        print("Loaded n. reservations: \(store.reservations.count)")
+        logger.info("Reservations loaded from SQLite successfully.")
+        logger.debug("Loaded n. reservations: \(self.store.reservations.count)")
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             withAnimation {
@@ -454,8 +457,8 @@ class ReservationService: ObservableObject {
         let sessions = SQLiteManager.shared.fetchSessions()
         SessionStore.shared.sessions = sessions
         
-        print("Sessions loaded from SQLite successfully.")
-        print("Loaded n. sessions: \(SessionStore.shared.sessions.count)")
+        logger.info("Sessions loaded from SQLite successfully.")
+        logger.debug("Loaded n. sessions: \(SessionStore.shared.sessions.count)")
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             withAnimation {
@@ -476,12 +479,12 @@ class ReservationService: ObservableObject {
         // Fetch the data.
         backupRef.getData(maxSize: maxDownloadSize) { data, error in
             if let error = error {
-                print("Error downloading JSON backup: \(error)")
+                self.logger.error("Error downloading JSON backup: \(error)")
                 return
             }
             
             guard let data = data else {
-                print("No data returned from Firebase Storage")
+                self.logger.warning("No data returned from Firebase Storage")
                 return
             }
             
@@ -502,7 +505,7 @@ class ReservationService: ObservableObject {
             insertReservationsAndPushToFirebase(reservationsFromJSON)
             
         } catch {
-            print("Error decoding JSON backup: \(error)")
+            self.logger.error("Error decoding JSON backup: \(error)")
         }
     }
     
@@ -522,9 +525,9 @@ class ReservationService: ObservableObject {
             let data = convertReservationToDictionary(reservation: reservation)
             dbRef.document(reservation.id.uuidString).setData(data) { error in
                 if let error = error {
-                    print("Error pushing reservation \(reservation.id) to Firebase: \(error)")
+                    self.logger.error("Error pushing reservation \(reservation.id) to Firebase: \(error)")
                 } else {
-                    print("Reservation \(reservation.id) migrated successfully to Firebase.")
+                    self.logger.debug("Reservation \(reservation.id) migrated successfully to Firebase.")
                 }
             }
         }
@@ -543,7 +546,7 @@ extension ReservationService {
     @MainActor
     private func mockData() {
         layoutServices.setTables(tableStore.baseTables)
-        print("Debug: Tables populated in mockData: \(layoutServices.tables.map { $0.name })")
+        self.logger.debug("Tables populated in mockData: \(self.layoutServices.tables.map { $0.name })")
         
         let mockReservation1 = Reservation(
             name: "Alice",
@@ -615,11 +618,11 @@ extension ReservationService {
         let notes = loadStringsFromFile(fileName: "notes").shuffled()
 
         guard !names.isEmpty, !phoneNumbers.isEmpty else {
-            print("Required resources are missing. Reservation generation aborted.")
+            self.logger.warning("Required resources are missing. Reservation generation aborted.")
             return
         }
 
-        print("Generating reservations for \(daysToSimulate) days with realistic variance (closed on Mondays).")
+        logger.info("Generating reservations for \(daysToSimulate) days with realistic variance (closed on Mondays).")
 
         // 3. Perform parallel reservation generation
         for dayOffset in 0..<daysToSimulate {
@@ -635,7 +638,7 @@ extension ReservationService {
         // 4. Save data to disk after all tasks complete
         self.resCache.preloadDates(around: startDate, range: daysToSimulate, reservations: store.reservations)
             self.layoutServices.saveToDisk()
-            print("Finished generating reservations.")
+        self.logger.info("Finished generating reservations.")
     }
 
     @MainActor
@@ -651,7 +654,7 @@ extension ReservationService {
 
         // Skip Mondays
         if dayOfWeek == 2 {
-            print("Skipping Monday: \(reservationDate)")
+            self.logger.info("Skipping Monday: \(reservationDate)")
             return
         }
 
@@ -730,7 +733,7 @@ extension ReservationService {
                             self.resCache.addOrUpdateReservation(updatedReservation)
                             self.store.reservations.append(updatedReservation)
                             self.updateReservation(updatedReservation) {
-                                print("Generated reservation: \(updatedReservation)")
+                                self.logger.info("Generated reservation: \(updatedReservation.name)")
                             }
                         }
                     case .failure(let error):
@@ -793,17 +796,17 @@ extension ReservationService {
     func loadStringsFromFile(fileName: String, folder: String? = nil) -> [String] {
         let resourceName = folder != nil ? "\(String(describing: folder))/\(fileName)" : fileName
         guard let fileURL = Bundle.main.url(forResource: resourceName, withExtension: "txt") else {
-            print("Failed to load \(fileName) from folder \(String(describing: folder)).")
+            self.logger.warning("Failed to load \(fileName) from folder \(String(describing: folder)).")
             return []
         }
         
         do {
             let content = try String(contentsOf: fileURL)
             let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
-            print("Loaded \(lines.count) lines from \(fileName) (folder: \(String(describing: folder))).")
+            self.logger.debug("Loaded \(lines.count) lines from \(fileName) (folder: \(String(describing: folder))).")
             return lines
         } catch {
-            print("Error reading \(fileName): \(error)")
+            self.logger.error("Error reading \(fileName): \(error)")
             return []
         }
     }
@@ -822,11 +825,11 @@ extension ReservationService {
                     let layoutServices = self.layoutServices // Capture layoutServices explicitly
                     Task {
                         let result = layoutServices.moveTable(randomTable, toRow: newRow, toCol: newColumn)
-                        print("Simulated moving \(randomTable.name) to (\(newRow), \(newColumn)): \(result)")
+                        self.logger.debug("Simulated moving \(randomTable.name) to (\(newRow), \(newColumn)): \(String(describing: result))")
                     }
                 }
             } catch {
-                print("Task.sleep encountered an error: \(error)")
+                self.logger.error("Task.sleep encountered an error: \(error)")
             }
         }
     }
@@ -835,7 +838,7 @@ extension ReservationService {
     func updateActiveReservationAdjacencyCounts(for reservation: Reservation) {
         guard let reservationDate = reservation.normalizedDate,
               let combinedDateTime = reservation.startTimeDate else {
-            print("Invalid reservation date or time for updating adjacency counts.")
+            self.logger.warning("Invalid reservation date or time for updating adjacency counts.")
             return
         }
 
@@ -865,7 +868,7 @@ extension ReservationService {
 
         // Save changes to disk
         layoutServices.saveToDisk()
-        print("Updated activeReservationAdjacentCount for tables in reservation \(reservation.id).")
+        self.logger.info("Updated activeReservationAdjacentCount for tables in reservation \(reservation.id).")
     }
     
 }
@@ -886,7 +889,7 @@ extension ReservationService {
             // Clear active reservation cache
             self.store.activeReservationCache.removeAll()
 
-            print("All caches flushed successfully.")
+            self.logger.info("All caches flushed successfully.")
         }
     }
 }
@@ -968,7 +971,7 @@ extension ReservationService {
                     // the candidate with the latest lastEditedOn.
                     if let candidate = currentOverlapping.max(by: { $0.creationDate < $1.creationDate }) {
                         overbookingConflicts[candidate.id] = candidate
-                        print("Overcapacity conflict in group \(key.day) \(key.category) at time \(event.time): candidate reservation \(candidate.id)")
+                        self.logger.debug("Overcapacity conflict in group \(String(describing: key.day)) \(String(describing: key.category)) at time \(event.time): candidate reservation \(candidate.id)")
                     }
                 }
             }
@@ -979,7 +982,7 @@ extension ReservationService {
                 if tableIDs.count != Set(tableIDs).count {
                     conflictFound = true
                     inconsistencyConflicts[res.id] = res
-                    print("Inconsistency conflict: Reservation \(res.id) in group \(key.day) \(key.category) has duplicate table assignments: \(tableIDs)")
+                    self.logger.warning("Inconsistency conflict: Reservation \(res.id) in group \(String(describing: key.day)) \(String(describing: key.category)) has duplicate table assignments: \(tableIDs)")
                 }
             }
         }
@@ -990,7 +993,7 @@ extension ReservationService {
             if (res.status == .canceled || res.reservationType == .waitingList) && !res.tables.isEmpty {
                 conflictFound = true
                 inconsistencyConflicts[res.id] = res
-                print("Consistency conflict: Reservation \(res.id) is \(res.status)/\(res.reservationType) but has tables assigned.")
+                self.logger.warning("Consistency conflict: Reservation \(res.id) is \(res.status.localized)/\(res.reservationType.localized) but has tables assigned.")
             }
         }
 
@@ -1005,7 +1008,7 @@ extension ReservationService {
             // --- Resolve Overbooking Conflicts ---
             if !overbookingConflicts.isEmpty {
                 for (_, res) in overbookingConflicts {
-                    print("Cleaning overbooking conflict: Deleting reservation \(res.id)")
+                    self.logger.info("Cleaning overbooking conflict: Deleting reservation \(res.id)")
                     let notesToAdd = "Hai aggiunto questa prenotazione senza che ci fossero abbastanza tavoli disponibili al momento dell'inserimento. Sei sicuro di averla presa correttamente? I tavoli che avevi tentato di assegnare erano: [  \(res.tables.map { String($0.id) }.joined(separator: ", ")) ]"
                     let updatedRes = separateReservation(res, notesToAdd: notesToAdd)
                     // Optionally, update the reservation in the store array if needed:
@@ -1013,7 +1016,7 @@ extension ReservationService {
                         store.reservations[index] = updatedRes
                     }
                     updateReservation(updatedRes, shouldPersist: false) {
-                        print("Updated reservations.")
+                        self.logger.info("Updated reservations.")
                     }
                 }
             }
@@ -1025,16 +1028,16 @@ extension ReservationService {
                 if inconsistencyConflicts.keys.contains(res.id) {
                     // If a canceled or waiting list reservation still has tables, clear them.
                     if (res.status == .canceled || res.status == .toHandle || res.reservationType == .waitingList) && !res.tables.isEmpty {
-                        print("Cleaning inconsistency: Clearing tables for reservation \(res.id) (status: \(res.status), type: \(res.reservationType))")
+                        self.logger.debug("Cleaning inconsistency: Clearing tables for reservation \(res.id) (status: \(res.status.localized), type: \(res.reservationType.localized))")
                         res.tables = []
                         store.reservations[index] = res
                         updateReservation(res, shouldPersist: false) {
-                            print("Updated reservations.")
+                            self.logger.info("Updated reservations.")
                         }
                     }
                     // Otherwise, if the reservation should have tables but has none, attempt to assign tables.
                     else if res.tables.isEmpty {
-                        print("Cleaning inconsistency: Reservation \(res.id) should have tables but has none. Attempting assignment.")
+                        self.logger.warning("Cleaning inconsistency: Reservation \(res.id) should have tables but has none. Attempting assignment.")
                         let assignmentResult = layoutServices.assignTables(for: res, selectedTableID: nil)
                         switch assignmentResult {
                         case .success(let assignedTables):
@@ -1043,7 +1046,7 @@ extension ReservationService {
                             res.status = .pending
                             store.reservations[index] = res
                             updateReservation(res, shouldPersist: false) {
-                                print("Updated reservations.")
+                                self.logger.info("Updated reservations.")
                             }
                             await notifsManager.addNotification(
                                 title: "Sincronizzazione",
@@ -1051,11 +1054,11 @@ extension ReservationService {
                                 type: .sync
                             )
                         case .failure:
-                            print("Assignment failed for reservation \(res.id). Treating as overbooking.")
+                            self.logger.error("Assignment failed for reservation \(res.id). Treating as overbooking.")
                             let notesToAdd = "Tentativo di inserire automaticamente la prenotazione fallito. Potrebbe trattarsi di overbooking. Sei sicuro di aver preso la prenotazione in modo corretto? La prenotazione non aveva tavoli assegnati: potrebbe trattarsi di una cancellazione, o una in lista d'attesa."
                             let updatedRes = separateReservation(res, notesToAdd: notesToAdd)
                             updateReservation(updatedRes, shouldPersist: false) {
-                                print("Updated reservations.")
+                                self.logger.info("Updated reservations.")
                             }
                         }
                     }
@@ -1075,7 +1078,7 @@ extension ReservationService {
                 message: "Sincronizzazione effettuata con successo. Nessun conflitto rilevato.",
                 type: .sync
             )
-            print("No conflicts found.")
+            self.logger.info("No conflicts found.")
         }
     }
     
@@ -1101,7 +1104,7 @@ extension ReservationService {
         updatedReservation.notes = "[eliminata];"
         
         updateReservation(updatedReservation) {
-            print("Updated reservation")
+            self.logger.info("Updated reservation")
         }
     }
 }

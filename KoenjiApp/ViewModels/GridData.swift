@@ -210,7 +210,8 @@ class GridData: ObservableObject {
                         borderFeatures: borderFeatures,
                         excludedRegions: excludedRegions
                 )
-                .fill(selectedCategory == .lunch ? Color(hex: "#3E3B2E") : Color(hex: "#2D2F43").opacity(0))
+//                .fill(selectedCategory == .lunch ? Color(hex: "#3E3B2E") : Color(hex: "#2D2F43").opacity(0))
+                .fill(.clear)
                 .stroke(.white, lineWidth: 2)
                 // Background color or pattern
 

@@ -1,22 +1,29 @@
 import SwiftUI
 import SQLite
+import OSLog
 
 class CurrentReservationsCache: ObservableObject {
-    @Published var cache: [Date: [Reservation]] = [:]  // Cache now uses Date as the key
-    var preloadedDates: Set<Date> = []
-    var dateFormatter: DateFormatter = DateFormatter()
-    var activeReservationsByMinute: [Date: [Date: [Reservation]]] = [:]
-    var timer: Timer?
-    let calendar = Calendar.current
+    // MARK: - Private Properties
+    let logger = Logger(subsystem: "com.koenjiapp", category: "CurrentReservationsCache")
+    // MARK: - Published Properties
+    @Published var cache: [Date: [Reservation]] = [:]
     @Published var activeReservations: [Reservation] = []
-    let reservationsTable = Table("reservations")
-
-    let idColumn = Expression<String>("id")
-    let categoryColumn = Expression<String>("category")
-    let dateStringColumn = Expression<String>("dateString")
-    let startTimeColumn = Expression<String>("startTime")
-    let endTimeColumn = Expression<String>("endTime")
-    let tablesColumn = Expression<String>("tables") // JSON text
+    
+    // MARK: - Properties
+    private var preloadedDates: Set<Date> = []
+    private var dateFormatter: DateFormatter = DateFormatter()
+    private var activeReservationsByMinute: [Date: [Date: [Reservation]]] = [:]
+    private var timer: Timer?
+    private let calendar = Calendar.current
+    
+    // MARK: - Database Properties
+    private let reservationsTable = Table("reservations")
+    private let idColumn = Expression<String>("id")
+    private let categoryColumn = Expression<String>("category")
+    private let dateStringColumn = Expression<String>("dateString")
+    private let startTimeColumn = Expression<String>("startTime")
+    private let endTimeColumn = Expression<String>("endTime")
+    private let tablesColumn = Expression<String>("tables")
 
     // MARK: - Cache Management
     func preloadDates(around selectedDate: Date, range: Int, reservations: [Reservation]) {
@@ -36,24 +43,18 @@ class CurrentReservationsCache: ObservableObject {
         }
 
         preloadedDates = newDates
-        
         populateCache(for: Array(newDates), reservations: reservations)
 
-        print(
-            "DEBUG: successfully preloaded dates (\(preloadedDates.count) dates) around selected date \(DateHelper.formatDate(selectedDate)) with \(reservations.count) reservations!"
-        )
+        logger.info("Preloaded \(self.preloadedDates.count) dates around \(DateHelper.formatDate(selectedDate)) with \(reservations.count) reservations")
     }
 
-    /// Populates cache for a list of dates
     func populateCache(for dates: [Date], reservations: [Reservation]) {
         for date in dates {
             let dateString = DateHelper.formatDate(date)
             let reservationsForDate = reservations.filter { $0.dateString == dateString }
             cache[date] = reservationsForDate
         }
-        print(
-            "DEBUG: successfully populated cache for selected dates (\(dates.count) dates) and reservations (\(reservations.count) reservations)!"
-        )
+        logger.info("Populated cache for \(dates.count) dates with \(reservations.count) reservations")
     }
 
     /// Calculates a range of dates around a selected date
@@ -67,27 +68,34 @@ class CurrentReservationsCache: ObservableObject {
         return dateSet
     }
 
-    // MARK: - Precompute Active Reservations
-
-    /// Precomputes active reservations for every minute of a day
+    // MARK: - Active Reservations Management
     func precomputeActiveReservations(for date: Date) {
-        guard let reservationsForDate = cache[date] else { return }
+        guard let reservationsForDate = cache[date] else {
+            logger.warning("No reservations found for date: \(DateHelper.formatDate(date))")
+            return
+        }
 
         var activeReservations: [Date: [Reservation]] = [:]
-
         for reservation in reservationsForDate {
-            var current = reservation.startTimeDate ?? Date()
-            while current < reservation.endTimeDate ?? Date() {
+            guard let startTime = reservation.startTimeDate,
+                  let endTime = reservation.endTimeDate else {
+                logger.error("Invalid time data for reservation: \(reservation.id)")
+                continue
+            }
+            
+            var current = startTime
+            while current < endTime {
                 let normalizedMinute = calendar.date(bySetting: .second, value: 0, of: current)!
                 if activeReservations[normalizedMinute] == nil {
                     activeReservations[normalizedMinute] = []
                 }
                 activeReservations[normalizedMinute]?.append(reservation)
-                current.addTimeInterval(60)  // Advance by 1 minute
+                current.addTimeInterval(60)
             }
         }
 
         activeReservationsByMinute[date] = activeReservations
+        logger.debug("Precomputed active reservations for \(DateHelper.formatDate(date))")
     }
 
     /// Retrieves active reservations for a specific time
@@ -96,31 +104,20 @@ class CurrentReservationsCache: ObservableObject {
         return activeReservationsByMinute[date]?[normalizedMinute] ?? []
     }
 
-    // MARK: - Monitoring Significant Changes
-
-    /// Starts monitoring for significant changes for a specific date
+    // MARK: - Monitoring
     func startMonitoring(for date: Date) {
-        stopMonitoring()  // Stop existing timer if any
-        print("DEBUG: stopped monitoring...")
+        logger.debug("Stopped previous monitoring")
+        
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             self?.checkForSignificantChanges(date: date)
         }
-        print("DEBUG: started monitoring for date \(date)...")
-
+        logger.info("Started monitoring for date: \(DateHelper.formatDate(date))")
     }
 
-    /// Stops the timer monitoring
-    func stopMonitoring() {
-        timer?.invalidate()
-        timer = nil
-    }
-
-    /// Checks for significant changes in reservations
     private func checkForSignificantChanges(date: Date) {
         let currentTime = Date()
         let activeReservations = activeReservations(for: date, at: currentTime)
 
-        // Check for significant events
         let reservationsEndingSoon = activeReservations.filter {
             $0.endTimeDate?.timeIntervalSince(currentTime) ?? 0 <= 30 * 60
         }
@@ -130,10 +127,9 @@ class CurrentReservationsCache: ObservableObject {
                 && $0.status != .showedUp
         }
 
-        // Notify the UI if there are changes
         if !reservationsEndingSoon.isEmpty || !reservationsLate.isEmpty {
-                print("DEBUG: significant changes have been detected!")
-                objectWillChange.send()
+            logger.notice("Significant changes detected - Late: \(reservationsLate.count), Ending Soon: \(reservationsEndingSoon.count)")
+            objectWillChange.send()
         }
     }
 
@@ -168,10 +164,7 @@ class CurrentReservationsCache: ObservableObject {
     
     @MainActor
     func fetchReservations(for date: Date) -> [Reservation] {
-        // Format the target date in the same format as stored.
         let targetDateString = DateHelper.formatDate(date)
-        
-        // Build the query filtering by dateString.
         let query = reservationsTable.filter(Expression<String>("dateString") == targetDateString)
         
         var results: [Reservation] = []
@@ -181,47 +174,42 @@ class CurrentReservationsCache: ObservableObject {
                     results.append(reservation)
                 }
             }
+            logger.debug("Fetched \(results.count) reservations for \(targetDateString)")
         } catch {
-            print("Error fetching reservations for \(targetDateString): \(error)")
+            logger.error("Failed to fetch reservations for \(targetDateString): \(error.localizedDescription)")
         }
         return results
     }
-
 
     /// Retrieves reservations for a specific table, date, and time
     /// Retrieves a single reservation for a specific table, date, and time
     @MainActor
     func reservation(forTable tableID: Int, datetime: Date, category: Reservation.ReservationCategory) -> Reservation? {
-        let normalizedDate = calendar.startOfDay(for: datetime)  // Normalize to start of the day
+        let normalizedDate = calendar.startOfDay(for: datetime)
         guard let normalizedTime = calendar.date(
             bySettingHour: calendar.component(.hour, from: datetime),
             minute: calendar.component(.minute, from: datetime),
             second: 0,
             of: datetime
         ) else {
-            print("DEBUG: Failed to normalize datetime: \(datetime)")
+            logger.error("Failed to normalize datetime: \(datetime)")
             return nil
         }
-        // Normalize time to the nearest minute
 
-        // Retrieve reservations for the given date
         let reservationsForDate = fetchReservations(for: datetime)
-
-        // Find the current active reservation with the specified category
         let currentReservation = reservationsForDate.first { reservation in
             reservation.tables.contains { $0.id == tableID }
             && normalizedTime >= (reservation.startTimeDate ?? Date())
             && normalizedTime <= (reservation.endTimeDate ?? Date())
-            && (reservation.category == category)  // **Include category in the filter**
+            && (reservation.category == category)
         }
 
         if let reservation = currentReservation {
-            print("DEBUG: retrieved reservation \(reservation.name) at table \(tableID) on \(datetime)")
-            return reservation
+            logger.debug("Found reservation '\(reservation.name)' at table \(tableID) for \(datetime)")
         } else {
-            print("DEBUG: no reservation found at table \(tableID) on \(datetime)")
-            return nil
+            logger.debug("No reservation found at table \(tableID) for \(datetime)")
         }
+        return currentReservation
     }
 
     /// Adds or updates a reservation
@@ -230,35 +218,32 @@ class CurrentReservationsCache: ObservableObject {
         if var reservationsForDate = cache[normalizedDate] {
             if let index = reservationsForDate.firstIndex(where: { $0.id == reservation.id }) {
                 reservationsForDate[index] = reservation
+                logger.info("Updated existing reservation: \(reservation.id)")
             } else {
                 reservationsForDate.append(reservation)
+                logger.info("Added new reservation: \(reservation.id)")
             }
-            print("DEBUG: found some new reservations to add to cache. Adding...")
             cache[normalizedDate] = reservationsForDate
         } else {
-            print("DEBUG: found ALL new reservations to add. Adding...")
             cache[normalizedDate] = [reservation]
+            logger.info("Created new cache entry for date with reservation: \(reservation.id)")
         }
 
-        // Recompute active reservations for the updated day
         precomputeActiveReservations(for: normalizedDate)
     }
 
     /// Removes a specific reservation
     func removeReservation(_ reservation: Reservation) {
-        let normalizedDate = Calendar.current.startOfDay(for: reservation.startTimeDate ?? Date())
+        let normalizedDate = calendar.startOfDay(for: reservation.startTimeDate ?? Date())
         cache[normalizedDate]?.removeAll(where: { $0.id == reservation.id })
-        print("DEBUG: successfully removed reservation \(reservation.name) from cache!")
-        // Recompute active reservations for the updated day
+        logger.info("Removed reservation: \(reservation.id) from cache")
         precomputeActiveReservations(for: normalizedDate)
     }
 
     /// Removes a reservation by its ID
     func removeReservation(byId id: UUID, for date: Date) {
         cache[date]?.removeAll(where: { $0.id == id })
-        print("DEBUG: successfully removed reservation from cache!")
-
-        // Recompute active reservations for the updated day
+        logger.info("Removed reservation ID: \(id) from cache")
         precomputeActiveReservations(for: date)
     }
 
@@ -266,13 +251,13 @@ class CurrentReservationsCache: ObservableObject {
     func clearCache(for date: Date) {
         cache.removeValue(forKey: date)
         activeReservationsByMinute.removeValue(forKey: date)
-        print("DEBUG: successfully cleared all cache for date \(date)!")
+        logger.notice("Cleared cache for date: \(DateHelper.formatDate(date))")
     }
 
     func clearAllCache() {
         cache.removeAll()
         activeReservationsByMinute.removeAll()
-        print("DEBUG: successfully cleared all cache!")
+        logger.notice("Cleared all cache data")
     }
 
     // MARK: - Minute-Level Precision Checks
@@ -283,7 +268,7 @@ class CurrentReservationsCache: ObservableObject {
             reservation.startTimeDate?.addingTimeInterval(15 * 60) ?? Date() < currentTime
             && reservation.status != .showedUp
         }
-        print("DEBUG: found \(lateReservations.count) late reservations!")
+        logger.info("Found \(lateReservations.count) late reservations")
         return lateReservations
     }
 
@@ -293,7 +278,7 @@ class CurrentReservationsCache: ObservableObject {
             reservation.endTimeDate?.timeIntervalSince(currentTime) ?? 0 <= 30 * 60
                 && reservation.endTimeDate ?? Date() > currentTime
         }
-        print("DEBUG: found \(nearingEndReservations.count) reservations nearing their end!")
+        logger.info("Found \(nearingEndReservations.count) reservations nearing end")
         return nearingEndReservations
     }
 
@@ -304,8 +289,8 @@ class CurrentReservationsCache: ObservableObject {
         time: Date,
         category: Reservation.ReservationCategory
     ) -> Reservation? {
-        let normalizedDate = calendar.startOfDay(for: date)  // Normalize to start of the day
-        let normalizedTime = calendar.date(bySetting: .second, value: 0, of: time) ?? time  // Normalize time to the nearest minute
+        let normalizedDate = calendar.startOfDay(for: date)
+        let normalizedTime = calendar.date(bySetting: .second, value: 0, of: time) ?? time
 
         // Define category-specific time windows
         let lunchStartTime = calendar.date(
@@ -317,7 +302,8 @@ class CurrentReservationsCache: ObservableObject {
         let dinnerEndTime = calendar.date(
             bySettingHour: 23, minute: 45, second: 0, of: normalizedDate)!
 
-        // Determine the time window for the given category
+        let categoryCopy: Reservation.ReservationCategory = category
+        
         let (startTime, endTime): (Date, Date) = {
             switch category {
             case .lunch:
@@ -325,34 +311,32 @@ class CurrentReservationsCache: ObservableObject {
             case .dinner:
                 return (dinnerStartTime, dinnerEndTime)
             default:
-                return (normalizedTime, normalizedTime)  // Invalid category
+                logger.warning("Invalid category specified: \(categoryCopy.localized)")
+                return (normalizedTime, normalizedTime)
             }
         }()
 
-        // Retrieve reservations for the given date
         let reservationsForDate = cache[normalizedDate] ?? []
-        print("Reservations for date \(normalizedDate): \(reservationsForDate.count)")
+        logger.debug("Searching upcoming reservations for table \(tableID) on \(DateHelper.formatDate(date)). Found \(reservationsForDate.count) total reservations")
 
-        // Find the first upcoming reservation
-        let firstUp =
-            reservationsForDate
+        let firstUpcoming = reservationsForDate
             .filter { reservation in
                 reservation.tables.contains { $0.id == tableID }
                     && (reservation.startTimeDate ?? Date()) > normalizedTime
                     && (reservation.startTimeDate ?? Date()) > startTime
                     && (reservation.startTimeDate ?? Date()) <= endTime
                     && normalizedTime <= (reservation.endTimeDate ?? Date())
-                    
             }
             .sorted { $0.startTimeDate ?? Date() < $1.startTimeDate ?? Date() }
             .first
-        if firstUp != nil {
 
-            return firstUp
+        if let reservation = firstUpcoming {
+            logger.debug("Found upcoming reservation: \(reservation.name) at \(reservation.startTime)")
         } else {
-            print("DEBUG: no upcoming reservations found.")
-            return nil
+            logger.debug("No upcoming reservations found for table \(tableID, privacy: .public) in \(category.localized) period")
         }
+        
+        return firstUpcoming
     }
 
 }

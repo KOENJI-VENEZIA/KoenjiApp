@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseAuth
+import OSLog
 
 struct ContentView: View {
     @EnvironmentObject var env: AppDependencies
@@ -22,7 +23,10 @@ struct ContentView: View {
     @AppStorage("userName") var userName: String = ""
     @AppStorage("deviceUUID") var deviceUUID: String = ""
 
-   
+    let logger = Logger(subsystem: "com.koenjiapp", category: "ContentView")
+    private let lastActiveKey = "lastActiveTimestamp"
+    private let maxInactiveInterval: TimeInterval = 30 // seconds
+    
     var body: some View {
         ZStack{
             
@@ -63,6 +67,8 @@ struct ContentView: View {
             .transition(.opacity.combined(with: .scale))
             .animation(.easeInOut(duration: 0.5), value: isLoggedIn)
             .onAppear {
+                checkLastActiveTimestamp()
+                startActivityMonitoring()
                 
                 if deviceUUID.isEmpty {
                     deviceUUID = UUID().uuidString
@@ -103,11 +109,13 @@ struct ContentView: View {
                 if new == .background {
                     if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
                         session.isActive = false
+                        session.isEditing = false 
                         env.reservationService.upsertSession(session)
                     }
                 } else {
                     if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
                         session.isActive = true
+                        session.isEditing = false 
                         env.reservationService.upsertSession(session)
                     }
                 }
@@ -129,6 +137,27 @@ struct ContentView: View {
             } else {
                 print("User authenticated: \(authResult?.user.uid ?? "No UID")")
             }
+        }
+    }
+    
+    private func checkLastActiveTimestamp() {
+        if let lastTimestamp = UserDefaults.standard.object(forKey: lastActiveKey) as? Date {
+            let inactiveInterval = Date().timeIntervalSince(lastTimestamp)
+            if inactiveInterval > maxInactiveInterval {
+                // App was likely terminated abnormally
+                if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID }) {
+                    session.isActive = false
+                    env.reservationService.upsertSession(session)
+                    logger.warning("Session marked inactive due to abnormal termination. Inactive duration: \(Int(inactiveInterval))s")
+                }
+            }
+        }
+    }
+    
+    private func startActivityMonitoring() {
+        // Update timestamp every few seconds
+        Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
+            UserDefaults.standard.set(Date(), forKey: lastActiveKey)
         }
     }
     

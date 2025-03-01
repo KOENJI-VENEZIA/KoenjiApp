@@ -5,6 +5,7 @@
 //  Created by Matteo Nassini on 15/2/25.
 //
 import Foundation
+import OSLog
 
 extension ReservationService {
     @MainActor
@@ -16,7 +17,7 @@ extension ReservationService {
         #endif
         reservationListener = dbRef.addSnapshotListener { [weak self] snapshot, error in
             if let error = error {
-                print("Error listening for reservations: \(error)")
+                self?.logger.error("Error listening for reservations: \(error)")
                 return
             }
             guard let snapshot = snapshot else { return }
@@ -33,7 +34,7 @@ extension ReservationService {
             // Replace the entire in-memory store with unique values:
             DispatchQueue.main.async {
                 self?.store.setReservations(Array(reservationsByID.values))
-                print("Listener updated reservations. Count: \(reservationsByID.values.count)")
+                self?.logger.debug("Listener updated reservations. Count: \(reservationsByID.values.count)")
             }
         }
     }
@@ -112,7 +113,7 @@ extension ReservationService {
     #endif
         sessionListener = dbRef.addSnapshotListener { [weak self] snapshot, error in
             if let error = error {
-                print("Error listening for sessions: \(error)")
+                self?.logger.error("Error listening for sessions: \(error)")
                 return
             }
             guard let snapshot = snapshot else { return }
@@ -129,7 +130,7 @@ extension ReservationService {
             // Replace the entire in-memory store with unique values:
             DispatchQueue.main.async {
                 SessionStore.shared.setSessions(Array(sessionsById.values))
-                print("Listener updated sessions. Count: \(sessionsById.values.count)")
+                self?.logger.debug("Listener updated sessions. Count: \(sessionsById.values.count)")
             }
         }
     }

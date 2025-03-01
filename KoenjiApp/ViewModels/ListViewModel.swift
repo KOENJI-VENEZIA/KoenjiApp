@@ -28,8 +28,8 @@ enum ActiveSheet: Identifiable {
 class ListViewModel {
     var searchText: String = ""
     var selectedFilters: Set<FilterOption> = [.none]
-    var sortOption: SortOption? = .removeSorting
-    var groupOption: GroupOption = .none
+    var sortOption: SortOption? = .chronologically
+    var groupOption: GroupOption = .day
     var selectedReservationID: UUID?
     var showingNotesAlert: Bool = false
     var showingFilters: Bool = false

@@ -1,12 +1,17 @@
 import PhotosUI
 import SwiftUI
+import os
 
 struct EditReservationView: View {
+    private static let logger = Logger(
+        subsystem: "com.koenjiapp",
+        category: "EditReservationView"
+    )
+
     @AppStorage("deviceUUID") private var deviceUUID = ""
 
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
-
 
     @Environment(\.dismiss) var dismiss
     @Environment(\.locale) var locale
@@ -25,245 +30,251 @@ struct EditReservationView: View {
     @State private var imageData: Data? = nil
     @State private var showImagePicker = false
     @State private var showImageField = false
+    @State private var imageButtonTitle = "Aggiungi immagine"
 
     var onClose: () -> Void
     var onChanged: (Reservation) -> Void
 
     var body: some View {
         NavigationView {
-            Form {
-
-                Section("Obbligatori") {
-                    TextField("Nome", text: $reservation.name)
-                    TextField("Contatto", text: $reservation.phone)
-                        .keyboardType(.phonePad)
-                    Stepper(
-                        "Numero Clienti: \(reservation.numberOfPersons)",
-                        value: $reservation.numberOfPersons, in: 2...14)
-
-                    DatePicker(
-                        "Seleziona Data", selection: $selectedDate, displayedComponents: .date
-                    )
-                    .onChange(of: selectedDate) { oldDate, newDate in
-                        reservation.dateString = DateHelper.formatDate(newDate)
-                    }
-                    .onAppear {
-                        // Initialize selectedDate based on reservation.dateString
-                        if let reservationDate = reservation.normalizedDate {
-                            selectedDate = reservationDate
-                        }
-                        print("Selected date: \(selectedDate)")
-                    }
-
-                    Picker("Tipologia", selection: $reservation.reservationType) {
-                        ForEach(Reservation.ReservationType.allCases, id: \.self) { type in
-                            Text(type.localized.capitalized).tag(type)
-                        }
-                    }
-                    .onAppear {
-                        adjustNotesForStatus()
-
-                    }
-                    .onChange(of: reservation.reservationType) {
-                        adjustNotesForStatus()
-                        if reservation.reservationType == .waitingList {
-                            reservation.status = .na
-                        }
-                    }
-
-                    Picker("Stato", selection: $reservation.status) {
-                        ForEach(Reservation.ReservationStatus.allCases, id: \.self) { type in
-                            Text(type.localized.capitalized).tag(type)
-                        }
-                    }
-                    .onAppear {
-                        adjustNotesForStatus()
-
-                    }
-                    .onChange(of: reservation.status) {
-                        adjustNotesForStatus()
-                    }
-
-                    Picker("Accettazione", selection: $reservation.acceptance) {
-                        ForEach(Reservation.Acceptance.allCases, id: \.self) { type in
-                            Text(type.localized.capitalized).tag(type)
-                        }
-                    }
-                    .onAppear {
-                        adjustNotesForStatus()
-
-                    }
-                    .onChange(of: reservation.acceptance) {
-                        adjustNotesForStatus()
-                    }
-
-                    Picker("Tavolo", selection: $selectedForcedTableID) {
-                        Text("Auto Assegna").tag(nil as Int?)
-                        ForEach(
-                            env.tableAssignment.availableTables(
-                                for: reservation,
-                                reservations: env.store.getReservations(),
-                                tables: env.layoutServices.getTables()
-                            ), id: \.table.id
-                        ) { entry in
-                            Text(
-                                entry.isCurrentlyAssigned
-                                    ? "\(entry.table.name) (già assegnato)" : entry.table.name
-                            )
-                            .tag(entry.table.id as Int?)
-                        }
-                    }
-
-                    Picker("Categoria", selection: $reservation.category) {
-                        Text("Pranzo").tag(Reservation.ReservationCategory.lunch)
-                        Text("Cena").tag(Reservation.ReservationCategory.dinner)
-                        Text("Pomeriggio").tag(Reservation.ReservationCategory.noBookingZone)
-                    }
-                    .onChange(of: reservation.category) { adjustTimesForCategory() }
-
-                    TimeSelectionView(
-                        selectedTime: $reservation.startTime, category: reservation.category
-                    )
-                    .onChange(of: reservation.startTime) { oldStartTime, newStartTime in
-                        reservation.endTime = TimeHelpers.calculateEndTime(
-                            startTime: newStartTime, category: reservation.category)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .center)
-
-                    EndTimeSelectionView(
-                        selectedTime: $reservation.endTime, category: reservation.category
-                    )
-                    .frame(maxWidth: .infinity, alignment: .center)
-
-                }
-
-                Section("Facoltativo: Immagine") {
-                    VStack {
-                        HStack {
-                            Button(action: {
-                                withAnimation {
-                                    showImageField.toggle()
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Main card content
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Header with name
+                        TextField("Nome", text: $reservation.name)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .textFieldStyle(.roundedBorder)
+                        
+                        // Status badges
+                        HStack(spacing: 8) {
+                            Menu {
+                                ForEach(Reservation.ReservationStatus.allCases, id: \.self) { status in
+                                    Button(action: {
+                                        reservation.status = status
+                                        adjustNotesForStatus()
+                                    }) {
+                                        Label(status.localized, systemImage: statusIcon(for: status))
+                                    }
                                 }
-                            }) {
-                                Label(
-                                    "",
-                                    systemImage: showImageField ? "chevron.up" : "chevron.down")
+                            } label: {
+                                statusBadge(status: reservation.status)
                             }
-                            .buttonStyle(BorderlessButtonStyle())
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                            if !showImageField {
-                                Group {
-                                    if let reservationImage = reservation.image {
-                                        ZStack {
-                                            reservationImage
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(width: 50, height: 50)
-                                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 12)
-                                                        .stroke(Color.gray, lineWidth: 1)
-                                                )
-                                                .clipped()
-                                                .transition(
-                                                    .move(edge: .bottom).combined(with: .opacity)
-                                                ) // Add transition
+                            
+                            Menu {
+                                ForEach(Reservation.ReservationCategory.allCases, id: \.self) { category in
+                                    Button(action: {
+                                        reservation.category = category
+                                        adjustTimesForCategory()
+                                    }) {
+                                        Label(category.localized, systemImage: category == .lunch ? "sun.max.fill" : "moon.fill")
+                                    }
+                                }
+                            } label: {
+                                categoryBadge(category: reservation.category)
+                            }
+                            
+                            Menu {
+                                ForEach(Reservation.ReservationType.allCases, id: \.self) { type in
+                                    Button(action: {
+                                        reservation.reservationType = type
+                                        adjustNotesForStatus()
+                                    }) {
+                                        Label(type.localized, systemImage: type == .inAdvance ? "calendar" : "figure.walk")
+                                    }
+                                }
+                            } label: {
+                                typeBadge(type: reservation.reservationType)
+                            }
+                        }
+                        
+                        Divider()
+                            .padding(.vertical, 8)
+                        
+                        // Primary info with icons in a grid
+                        let columns = [GridItem(.adaptive(minimum: 180, maximum: .infinity), spacing: 12)]
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                            editableDetailTag(
+                                icon: "person.2.fill",
+                                title: "Persone",
+                                color: .blue
+                            ) {
+                                HStack {
+                                    Text("\(reservation.numberOfPersons)")
+                                        .font(.body)
+                                    Spacer()
+                                    Stepper("", value: $reservation.numberOfPersons, in: 2...14)
+                                        .labelsHidden()
+                                }
+                            }
+                            
+                            editableDetailTag(
+                                icon: "phone.fill",
+                                title: "Telefono",
+                                color: .green
+                            ) {
+                                TextField("", text: $reservation.phone)
+                                    .keyboardType(.phonePad)
+                            }
+                            
+                            
+                            
+                            editableDetailTag(
+                                icon: "clock.fill",
+                                title: "Dalle",
+                                color: .purple
+                            ) {
+                                Menu {
+                                    ForEach(getTimeSlots(for: reservation.category), id: \.self) { time in
+                                        Button(action: {
+                                            reservation.startTime = time
+                                            // Update end time based on start time
+                                            reservation.endTime = TimeHelpers.calculateEndTime(
+                                                startTime: time,
+                                                category: reservation.category
+                                            )
+                                        }) {
+                                            Text(time)
                                         }
-                                    } else {
-                                        Image(systemName: "photo.badge.plus")  // Placeholder image
+                                    }
+                                } label: {
+                                    Text(reservation.startTime)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                            
+                            editableDetailTag(
+                                icon: "clock.badge.checkmark",
+                                title: "Alle",
+                                color: .purple
+                            ) {
+                                Menu {
+                                    ForEach(getEndTimeSlots(startTime: reservation.startTime, category: reservation.category), id: \.self) { time in
+                                        Button(action: {
+                                            reservation.endTime = time
+                                        }) {
+                                            Text(time)
+                                        }
+                                    }
+                                } label: {
+                                    Text(reservation.endTime)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                            
+                            editableDetailTag(
+                                icon: "calendar",
+                                title: "Data",
+                                color: .orange
+                            ) {
+                                DatePicker("", selection: $selectedDate, displayedComponents: .date)
+                                    .labelsHidden()
+                            }
+                            
+                            editableDetailTag(
+                                icon: "tablecells",
+                                title: "Tavoli",
+                                color: .indigo
+                            ) {
+                                Picker("", selection: $selectedForcedTableID) {
+                                    Text("Auto Assegna").tag(nil as Int?)
+                                    ForEach(env.tableAssignment.availableTables(
+                                        for: reservation,
+                                        reservations: env.store.getReservations(),
+                                        tables: env.layoutServices.getTables()
+                                    ), id: \.table.id) { entry in
+                                        Text(entry.isCurrentlyAssigned ? "\(entry.table.name) (già assegnato)" : entry.table.name)
+                                            .tag(entry.table.id as Int?)
+                                    }
+                                }
+                            }
+                            
+                            
+                        }
+                        
+                        // Notes section
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Note", systemImage: "note.text")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            TextEditor(text: $reservation.notes.orEmpty())
+                                .frame(minHeight: 100)
+                                .padding(8)
+                                .background(Color.gray.opacity(0.1))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        
+                        // Image section
+                            VStack(alignment: .leading, spacing: 12) {
+                                Label("Immagine", systemImage: "photo")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                
+                                if let image = reservation.image {
+                                    ZStack(alignment: .topTrailing) {
+                                        image
                                             .resizable()
                                             .scaledToFit()
-                                            .frame(width: 50, height: 50)
-                                            .opacity(0.5)
-                                            .padding(5)
-                                            .transition(
-                                                .move(edge: .bottom).combined(with: .opacity))  // Add transition
+                                            .frame(maxHeight: 200)
+                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        
+                                        Button(action: {
+                                            selectedPhotoItem = nil
+                                            reservation.imageData = nil
+                                        }) {
+                                            Image(systemName: "minus.circle.fill")
+                                                .foregroundStyle(.red)
+                                                .background(.white)
+                                                .clipShape(Circle())
+                                        }
+                                        .padding(8)
+                                    }
+                                    
+                                    PhotosPicker(
+                                        selection: $selectedPhotoItem,
+                                        matching: .images,
+                                        photoLibrary: .shared()
+                                    ) {
+                                        Label(
+                                            "Cambia immagine",
+                                            systemImage: "photo.badge.plus"
+                                        )
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundStyle(.blue)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    }
+                                } else {
+                                    PhotosPicker(
+                                        selection: $selectedPhotoItem,
+                                        matching: .images,
+                                        photoLibrary: .shared()
+                                    ) {
+                                        Label(
+                                            "Aggiungi immagine",
+                                            systemImage: "photo.badge.plus"
+                                        )
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundStyle(.blue)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
                                     }
                                 }
                             }
-
-                            Group {
-                                if showImageField {
-                                    if let reservationImage = reservation.image {
-                                        ZStack {
-                                            PhotosPicker(
-                                                selection: $selectedPhotoItem,
-                                                matching: .images,
-                                                photoLibrary: .shared()
-                                            ) {
-                                                reservationImage
-                                                    .resizable()
-                                                    .scaledToFill()
-                                                    .frame(width: 300, height: 300)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 12))  // Rounded corners
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 12)
-                                                            .stroke(Color.gray, lineWidth: 1)  // Optional border
-                                                    )
-                                                    .clipped()
-                                                    .padding(5)
-                                            }
-                                            .buttonStyle(BorderlessButtonStyle())
-                                            .transition(.move(edge: .bottom).combined(with: .opacity))  // Add transition
-                                            
-                                            Button(action: {
-                                                withAnimation {
-                                                    selectedPhotoItem = nil // Clear the image data
-                                                    reservationImageData = nil
-                                                    reservation.imageData = nil // Clear the image data in the reservation
-
-                                                }
-                                            }) {
-                                                Image(systemName: "minus.circle.fill")
-                                                    .resizable()
-                                                    .foregroundColor(.red) // Destructive color
-                                                    .frame(width: 30, height: 30)
-                                                    .overlay(
-                                                        Circle()
-                                                            .stroke(Color.gray, lineWidth: 1)
-                                                        )
-                                            }
-                                            .buttonStyle(BorderlessButtonStyle())
-                                            .offset(x: 130, y: -130)
-                                            .padding(5) // Add padding to position the button inside the corner
-                                            .zIndex(2)
-                                        }
-                                    } else {
-                                        PhotosPicker(
-                                            selection: $selectedPhotoItem,
-                                            matching: .images,
-                                            photoLibrary: .shared()
-                                        ) {
-                                            Text("Scegli un'immagine...")
-                                                .padding(5)
-                                                .background(Color.blue)
-                                                .foregroundColor(.white)
-                                                .cornerRadius(8)
-                                        }
-                                        .frame(height: 50)
-                                        .buttonStyle(BorderlessButtonStyle())
-                                        .frame(maxWidth: .infinity, alignment: .trailing)
-                                        .transition(.move(edge: .bottom).combined(with: .opacity))  // Add transition
-                                    }
-                                }
-
-                            }
-                        }
-                        .listRowBackground(Color.clear)  // Removes background
-                        .frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .animation(.easeInOut(duration: 0.5), value: showImageField)  // Apply animation when `showImageField` changes
+                    .padding(16)
+                    .background(reservation.assignedColor.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-
-                Section("Facoltativo: Note") {
-                    TextEditor(text: $reservation.notes.orEmpty())
-                        .frame(minHeight: 80)
-                }
+                .padding(16)
             }
+            .navigationTitle("Modifica Prenotazione")
+            .navigationBarTitleDisplayMode(.inline)
             .scrollContentBackground(.hidden)
-            .navigationTitle("Modifica - \(reservation.name)")
+            .background(Color.clear)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Annulla") {
@@ -274,7 +285,10 @@ struct EditReservationView: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Salva") { saveChanges() }
+                    Button("Salva") {
+                        updateSession()
+                        saveChanges()
+                    }
                 }
             }
             .alert(item: $activeAlert) { alertType in
@@ -282,8 +296,7 @@ struct EditReservationView: View {
                 case .mondayConfirmation:
                     return Alert(
                         title: Text("Attenzione!"),
-                        message: Text(
-                            "Stai cercando di prenotare di lunedì. Sei sicuro di voler continuare?"),
+                        message: Text("Stai cercando di prenotare di lunedì. Sei sicuro di voler continuare?"),
                         primaryButton: .destructive(Text("Annulla")),
                         secondaryButton: .default(Text("Prosegui")) {
                             performSaveReservation()
@@ -303,48 +316,118 @@ struct EditReservationView: View {
                     )
                 }
             }
-            .onAppear {
-                if let reservationData = reservation.imageData {
-                    reservationImageData = reservationData
-                }
-                loadInitialDate()
-                if let firstTable = reservation.tables.first {
-                    selectedForcedTableID = firstTable.id
-
-                }
-                print(
-                    env.tableAssignment.availableTables(
-                        for: reservation,
-                        reservations: env.store.getReservations(),
-                        tables: env.layoutServices.getTables()
-                    ))
-                print("Selected Forced Table ID: \(String(describing: selectedForcedTableID))")
-                updateSession(true)
-
-            }
             .onChange(of: selectedPhotoItem) { old, newItem in
                 if let newItem {
                     Task {
                         do {
-                            // Load the image as Data
                             if let data = try await newItem.loadTransferable(type: Data.self),
-                                let uiImage = UIImage(data: data)
-                            {
-                                // Convert to SwiftUI Image and update
-                                self.selectedImage = Image(uiImage: uiImage)
-
-                                // Save the image to the reservation
-                                reservation.imageData = data
+                               let uiImage = UIImage(data: data) {
+                                await MainActor.run {
+                                    self.selectedImage = Image(uiImage: uiImage)
+                                    reservation.imageData = data
+                                    imageButtonTitle = "Cambia immagine"
+                                }
                             }
                         } catch {
-                            print("Error loading image: \(error)")
+                            Self.logger.error("Error loading image: \(error.localizedDescription)")
                         }
                     }
-                } else {
-                    reservation.imageData = nil
                 }
             }
+            .onAppear {
+                imageButtonTitle = reservation.imageData != nil ? "Cambia immagine" : "Aggiungi immagine"
+                loadInitialDate()
+                if let firstTable = reservation.tables.first {
+                    selectedForcedTableID = firstTable.id
+                }
+                updateSession(true)
+            }
         }
+    }
+    
+    private func editableDetailTag<Content: View>(
+        icon: String,
+        title: String,
+        color: Color,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.body)
+                    .foregroundStyle(color)
+                    .frame(width: 24)
+                    .alignmentGuide(.firstTextBaseline) { d in
+                        d[.bottom] - 3
+                    }
+                
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            content()
+                .frame(height: 32)
+                .padding(.leading, 32)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.gray.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+    
+    private func statusIcon(for status: Reservation.ReservationStatus) -> String {
+        switch status {
+        case .showedUp: return "checkmark.circle.fill"
+        case .canceled: return "xmark.circle.fill"
+        case .pending: return "clock.fill"
+        default: return "exclamationmark.circle.fill"
+        }
+    }
+    
+    private func statusBadge(status: Reservation.ReservationStatus) -> some View {
+        Label {
+            Text(status.localized)
+                .font(.caption.weight(.semibold))
+        } icon: {
+            Image(systemName: status == .showedUp ? "checkmark.circle.fill" : 
+                             status == .canceled ? "xmark.circle.fill" :
+                             status == .pending ? "clock.fill" :
+                             "exclamationmark.circle.fill")
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(status.color.opacity(0.12))
+        .foregroundColor(status.color)
+        .clipShape(Capsule())
+    }
+    
+    private func categoryBadge(category: Reservation.ReservationCategory) -> some View {
+        Label {
+            Text(category.localized)
+                .font(.caption.weight(.semibold))
+        } icon: {
+            Image(systemName: category == .lunch ? "sun.max.fill" : "moon.fill")
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(category.color.opacity(0.12))
+        .foregroundColor(category.color)
+        .clipShape(Capsule())
+    }
+    
+    private func typeBadge(type: Reservation.ReservationType) -> some View {
+        Label {
+            Text(type.localized)
+                .font(.caption.weight(.semibold))
+        } icon: {
+            Image(systemName: type == .inAdvance ? "calendar" : "figure.walk")
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(type.color.opacity(0.12))
+        .foregroundColor(type.color)
+        .clipShape(Capsule())
     }
     
     private func updateSession(_ isEditing: Bool = false) {
@@ -525,8 +608,59 @@ struct EditReservationView: View {
 
     private func loadInitialDate() {
         selectedDate = reservation.normalizedDate ?? Date()
-        print("Selected date: \(selectedDate)")
+        Self.logger.debug("Initial date set to: \(selectedDate)")
+    }
 
+    private func getTimeSlots(for category: Reservation.ReservationCategory) -> [String] {
+        switch category {
+        case .lunch:
+            return stride(from: 11, through: 14, by: 0.25).map {
+                let hour = Int($0)
+                let minute = Int(($0.truncatingRemainder(dividingBy: 1) * 60).rounded())
+                return String(format: "%02d:%02d", hour, minute)
+            }
+        case .dinner:
+            return stride(from: 18, through: 21, by: 0.25).map {
+                let hour = Int($0)
+                let minute = Int(($0.truncatingRemainder(dividingBy: 1) * 60).rounded())
+                return String(format: "%02d:%02d", hour, minute)
+            }
+        case .noBookingZone:
+            return stride(from: 0, through: 23, by: 0.25).map {
+                let hour = Int($0)
+                let minute = Int(($0.truncatingRemainder(dividingBy: 1) * 60).rounded())
+                return String(format: "%02d:%02d", hour, minute)
+            }
+        }
+    }
+    
+    private func getEndTimeSlots(startTime: String, category: Reservation.ReservationCategory) -> [String] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        
+        guard let start = formatter.date(from: startTime) else { return [] }
+        
+        let calendar = Calendar.current
+        let endLimit: Date
+        
+        switch category {
+        case .lunch:
+            endLimit = calendar.date(bySettingHour: 16, minute: 0, second: 0, of: start) ?? start
+        case .dinner:
+            endLimit = calendar.date(bySettingHour: 23, minute: 0, second: 0, of: start) ?? start
+        case .noBookingZone:
+            endLimit = calendar.date(byAdding: .hour, value: 24, to: start) ?? start
+        }
+        
+        var timeSlots: [String] = []
+        var currentTime = calendar.date(byAdding: .minute, value: 15, to: start) ?? start
+        
+        while currentTime <= endLimit {
+            timeSlots.append(formatter.string(from: currentTime))
+            currentTime = calendar.date(byAdding: .minute, value: 15, to: currentTime) ?? currentTime
+        }
+        
+        return timeSlots
     }
 
 }

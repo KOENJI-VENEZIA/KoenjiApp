@@ -6,12 +6,17 @@
 //
 import SwiftUI
 import Foundation
+import os
 
 struct TimelineGantView: View {
 
     // MARK: - Dependencies
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
+    private static let logger = Logger(
+        subsystem: "com.koenjiapp",
+        category: "TimelineGantView"
+    )
 
     var reservations: [Reservation]
     @Binding var columnVisibility: NavigationSplitViewVisibility
@@ -24,7 +29,7 @@ struct TimelineGantView: View {
 
     // Computed grid rows for the LazyHGrid
     private var gridRows: [GridItem] {
-        Array(repeating: GridItem(.fixed(40), spacing: 30), count: gridRowCount)
+        Array(repeating: GridItem(.fixed(60), spacing: 20), count: gridRowCount)
     }
     
     // MARK: - Time & Category Computations
@@ -59,6 +64,7 @@ struct TimelineGantView: View {
             }
         }
         .onAppear {
+            
             logReservationsPerTable()
         }
     }
@@ -100,12 +106,12 @@ extension TimelineGantView {
     
     /// Displays the table headers.
     private func tableHeadersView() -> some View {
-        LazyHGrid(rows: gridRows, spacing: 30) {
-            Text("TAVOLI")
+        LazyHGrid(rows: gridRows, spacing: 20) {
+            Text("TAV.")
                 .font(.headline)
                 .padding()
             ForEach(0..<7) { tableID in
-                Text("TAVOLO \(tableID + 1)")
+                Text("T\(tableID + 1)")
                     .padding()
             }
         }
@@ -126,25 +132,20 @@ extension TimelineGantView {
     private func backgroundGridView() -> some View {
         HStack(spacing: 0) {
             ForEach(0..<totalColumns, id: \.self) { _ in
-                ZStack {
+                VStack(spacing: 0) {
                     Rectangle()
+                        .fill(Color.clear)
+                        .frame(width: 0.5, height: 60)
+                    Rectangle()
+                        .stroke(Color.gray.opacity(0.3),
+                                style: StrokeStyle(
+                                    lineWidth: 0.8,
+                                    dash: [2, 3]
+                                ))
                         .frame(width: 1)
-                        .foregroundColor(.clear)
-                    VStack {
-                        Rectangle()
-                            .fill(Color.clear)
-                            .frame(width: 0.5, height: 60)
-                        Rectangle()
-                            .stroke(Color.gray.opacity(0.5),
-                                    style: StrokeStyle(lineWidth: 0.5, dash: [2, 4]))
-                            .frame(width: 1, height: UIScreen.main.bounds.height * 0.6)
-                            .frame(maxHeight: .infinity, alignment: .center)
-                            .padding(.bottom)
-                    }
+                        .frame(height: UIScreen.main.bounds.height * 0.8)
                 }
-                Rectangle()
-                    .fill(Color.clear)
-                    .frame(width: cellSize)
+                .frame(width: cellSize)
             }
         }
     }
@@ -165,14 +166,8 @@ extension TimelineGantView {
                 let totalMinutes = columnIndex * 15
                 let currentHour = startHour + (totalMinutes / 60)
                 let currentMinute = totalMinutes % 60
-                ZStack {
-                    // A simple background; adjust spacing as needed
-                    HStack {
-                        Rectangle().frame(width: 1)
-                        Rectangle().fill(Color.clear).frame(width: cellSize - 9)
-                    }
-                    Text(String(format: "%02d:%02d", currentHour, currentMinute))
-                }
+                Text(String(format: "%02d:%02d", currentHour, currentMinute))
+                    .frame(width: cellSize)
             }
         }
     }
@@ -180,22 +175,27 @@ extension TimelineGantView {
     /// Displays the reservations for each table.
     private func reservationsRows() -> some View {
         ForEach(0..<tables, id: \.self) { tableID in
-            ZStack(alignment: .leading) {
-                ForEach(filteredReservations(for: tableID + 1)) { reservation in
-                    RectangleReservationBackground(
-                        reservation: reservation,
-                        duration: calculateWidth(for: reservation),
-                        padding: calculatePadding(for: reservation, tableID + 1)
-                    )
-                    .gesture(
-                        TapGesture(count: 2)
-                            .onEnded {
-                                appState.currentReservation = reservation
-                                appState.showingEditReservation = true
-                            }
-                    )
+            HStack {
+                ZStack(alignment: .leading) {
+                    let tableReservations = filteredReservations(for: tableID + 1)
+                    ForEach(tableReservations) { reservation in
+                        RectangleReservationBackground(
+                            reservation: reservation,
+                            duration: calculateWidth(for: reservation),
+                            padding: calculatePadding(for: reservation, tableID + 1),
+                            tableID: tableID + 1
+                        )
+                        .gesture(
+                            TapGesture(count: 2)
+                                .onEnded {
+                                    appState.currentReservation = reservation
+                                    appState.showingEditReservation = true
+                                }
+                        )
+                    }
                 }
             }
+            .frame(height: 60)
         }
     }
     
@@ -223,7 +223,7 @@ extension TimelineGantView {
                 reservation.tables.contains { $0.id == (table + 1) }
             }
             for res in tableReservations {
-                print("Res. name \(res.name) starting at \(res.startTime) or \(DateHelper.formatTime(res.startTimeDate ?? Date()))")
+                Self.logger.debug("Table \(table + 1): Reservation '\(res.name)' starting at \(res.startTime) (\(DateHelper.formatTime(res.startTimeDate ?? Date())))")
             }
         }
     }
@@ -245,7 +245,7 @@ extension TimelineGantView {
         let combinedCategoryDate = DateHelper.combine(date: appState.selectedDate, time: categoryDate)
         let paddingTime = startDate.timeIntervalSince(combinedCategoryDate)  // in seconds
         let totalMinutes = paddingTime / 60.0
-        return totalMinutes <= 0 ? 0 : (CGFloat(totalMinutes) / 15.0) * cellSize
+        return totalMinutes <= 0 ? (cellSize / 2.0) : ((CGFloat(totalMinutes) / 15.0) * cellSize) + (cellSize / 2.0)
     }
     
     /// Calculates the width (in points) for a reservation view based on its duration.
@@ -258,53 +258,159 @@ extension TimelineGantView {
 
 // MARK: - RectangleReservationBackground Subview
 struct RectangleReservationBackground: View {
+    @EnvironmentObject var env: AppDependencies
+    @EnvironmentObject var appState: AppState
+    
     let reservation: Reservation
     let duration: CGFloat
     let padding: CGFloat
+    let tableID: Int
     private let cellHeight: CGFloat = 60
     
+    private var shouldShowReservation: Bool {
+        reservation.tables.map(\.id).min() == tableID
+    }
+    
+    private var isTableOccupied: Bool {
+        reservation.tables.map(\.id).contains(tableID) && !shouldShowReservation
+    }
+    
     var body: some View {
-        HStack(spacing: 0) {
-            if padding > 0 {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.clear)
-                    .frame(width: padding, height: cellHeight)
-                    .frame(maxHeight: .infinity, alignment: .leading)
-            }
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(reservation.assignedColor.opacity(0.5))
-                    .stroke(Color.gray.opacity(0.5), lineWidth: 0.2)
-                    .frame(width: duration, height: cellHeight)
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(.thinMaterial)
-                        .frame(width: duration - 20, height: 40)
-                    GeometryReader { geo in
-                        HStack(spacing: 10) {
-                            Text("\(reservation.name),")
-                                .font(.title3)
-                                .bold()
-                            Text("\(reservation.numberOfPersons) p.")
-                                .font(.headline)
-                            Text("|")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                            Text("dalle \(reservation.startTime)")
-                                .font(.headline)
-                        }
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .layoutPriority(1)
-                        .frame(maxWidth: geo.size.width - 20, alignment: .center)
-                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
+        Group {
+            if shouldShowReservation || isTableOccupied {
+                HStack(spacing: 0) {
+                    if padding > 0 {
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(width: padding)
+                    }
+                    
+                    if isTableOccupied {
+                        // Occupancy indicator for spanned tables
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(reservation.assignedColor.opacity(0.2))
+                            .frame(width: duration, height: 30)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(
+                                        reservation.assignedColor.opacity(0.4),
+                                        style: StrokeStyle(
+                                            lineWidth: 1,
+                                            dash: [4, 8],
+                                            dashPhase: 10
+                                        )
+                                    )
+                            )
+                            .overlay(
+                                // Add reservation name to occupied table indicator
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.up.left")
+                                        .font(.caption)
+                                    Text(reservation.name)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal, 8)
+                            )
+                    } else {
+                        // Main reservation card
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(reservation.assignedColor.opacity(0.2))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            )
+                            .overlay(
+                                // Card content
+                                VStack(alignment: .leading, spacing: 6) {
+                                    // Top row with name and status
+                                    HStack(spacing: 8) {
+                                        Text(reservation.name)
+                                            .font(.headline)
+                                            .bold()
+                                            .lineLimit(1)
+                                        
+                                        Spacer()
+                                        
+                                        // Status badge
+                                        Label(reservation.status.localized, systemImage: statusIcon(for: reservation.status))
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(reservation.status.color.opacity(0.12))
+                                            .foregroundColor(reservation.status.color)
+                                            .clipShape(Capsule())
+                                    }
+                                    
+                                    // Bottom row with details
+                                    HStack(spacing: 12) {
+                                        Label("\(reservation.numberOfPersons)p", systemImage: "person.2.fill")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                        
+                                        Text("•")
+                                            .foregroundStyle(.secondary)
+                                        
+                                        Label("\(reservation.startTime)-\(reservation.endTime)", systemImage: "clock.fill")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                        
+                                        if reservation.tables.count > 1 {
+                                            Text("•")
+                                                .foregroundStyle(.secondary)
+                                            
+                                            Label("\(reservation.tables.count) tavoli", systemImage: "tablecells")
+                                                .font(.subheadline)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                            )
+                            .frame(width: duration)
+                            .contextMenu {
+                                Button {
+                                    print("DEBUG: Reservation details for \(reservation.name)")
+                                } label: {
+                                    Label("Debug Print", systemImage: "ladybug.slash.fill")
+                                }
+
+                                Divider()
+
+                                Button {
+                                    // Handle emoji picker
+                                    // Note: You'll need to add state for emoji picker
+                                } label: {
+                                    Label("Scegli Emoji", systemImage: "ellipsis.circle")
+                                }
+
+                                Divider()
+
+                                Button("Cancellazione") {
+                                    var updatedReservation = reservation
+                                    if updatedReservation.status != .canceled {
+                                        updatedReservation.status = .canceled
+                                    }
+                                    env.reservationService.updateReservation(updatedReservation) {
+                                        appState.changedReservation = updatedReservation
+                                    }
+                                }
+                            }
                     }
                 }
-                .frame(width: duration, height: cellHeight)
+                .frame(height: isTableOccupied ? 30 : cellHeight)
             }
         }
-        .animation(.easeInOut(duration: 0.5), value: reservation)
-        .background(Color.clear)
+    }
+    
+    private func statusIcon(for status: Reservation.ReservationStatus) -> String {
+        switch status {
+        case .showedUp: return "checkmark.circle.fill"
+        case .canceled: return "xmark.circle.fill"
+        case .pending: return "clock.fill"
+        default: return "exclamationmark.circle.fill"
+        }
     }
 }
 

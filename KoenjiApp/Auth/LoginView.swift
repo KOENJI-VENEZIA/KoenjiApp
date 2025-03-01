@@ -1,9 +1,12 @@
 import SwiftUI
 import AuthenticationServices
+import OSLog
 
 struct LoginView: View {
-    @StateObject private var viewModel = AppleSignInViewModel()
     
+    @StateObject private var viewModel = AppleSignInViewModel()
+    let logger = Logger(subsystem: "com.koenjiapp", category: "LoginView")
+
     var body: some View {
         ZStack {
             Color.sidebar_generic
@@ -24,9 +27,10 @@ struct LoginView: View {
                 } onCompletion: { result in
                     switch result {
                     case .success(let authResults):
-                        print("Apple Sign-In Successful: \(authResults)")
+                        logger.info("Apple Sign-In UI completion successful")
+                        logger.debug("Auth Results: \(String(describing: authResults))")
                     case .failure(let error):
-                        print("Apple Sign-In Failed: \(error.localizedDescription)")
+                        logger.error("Apple Sign-In UI failed: \(error.localizedDescription)")
                     }
                 }
                 .frame(width: UIScreen.main.bounds.width * 0.2, height: 50)

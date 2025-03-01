@@ -6,8 +6,12 @@
 //
 
 import SwiftUI
+import OSLog
 
 class AppState: ObservableObject {
+    let logger = Logger(subsystem: "com.koenjiapp", category: "AppState")
+
+    // MARK: - Published Properties
     @Published var inspectorColor: Color = Color.inspector_generic
     @Published var selectedDate: Date = Date()
     @Published var selectedCategory: Reservation.ReservationCategory
@@ -18,41 +22,39 @@ class AppState: ObservableObject {
     @Published var currentReservation: Reservation? = nil
     @Published var isRestoring = false
     @Published var canSave = true
-
-    @State var dates: [Date] = []
-    @State var selectedIndex: Int = 15
     @Published var showingDatePicker: Bool = false
-    @State var showingAddReservationSheet: Bool = false
     @Published var isFullScreen = false
     @Published var columnVisibility: NavigationSplitViewVisibility = .all
-    
     @Published var rotationAngle: Double = 0
     @Published var isContentReady = false
-    
-    @Published var lastRefreshedKeys: [String] = [] // ✅ Now SwiftUI tracks it
+    @Published var lastRefreshedKeys: [String] = []
 
+    // MARK: - State Properties
+    @State var dates: [Date] = []
+    @State var selectedIndex: Int = 15
+    @State var showingAddReservationSheet: Bool = false
 
     init(selectedCategory: Reservation.ReservationCategory = .lunch) {
-        self.selectedCategory = selectedCategory // Ensure category is correct at initialization
+        self.selectedCategory = selectedCategory
         self.selectedCategory = updateCategoryForDate()
+        logger.info("AppState initialized with category: \(selectedCategory.localized)")
     }
 
     private func updateCategoryForDate() -> Reservation.ReservationCategory {
         let calendar = Calendar.current
-
-        // Extract hour and minute from the selectedDate
         let hour = calendar.component(.hour, from: selectedDate)
         let minute = calendar.component(.minute, from: selectedDate)
 
-        // Determine the category based on the time
+        let category: Reservation.ReservationCategory
         if hour >= 12 && (hour < 15 || (hour == 15 && minute == 0)) {
-            return .lunch
+            category = .lunch
         } else if hour >= 18 && (hour < 23 || (hour == 23 && minute <= 45)) {
-            return .dinner
+            category = .dinner
         } else {
-            return .noBookingZone
+            category = .noBookingZone
         }
+        
+        logger.debug("Updated category to \(category.localized) for time \(hour):\(minute)")
+        return category
     }
-    
-    
 }

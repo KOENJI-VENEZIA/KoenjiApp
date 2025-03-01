@@ -1,5 +1,6 @@
 import FirebaseFirestore
 import FirebaseStorage
+import OSLog
 
 /// An error representing a backup conflict.
 enum BackupConflictError: Error, LocalizedError {
@@ -17,7 +18,8 @@ enum BackupConflictError: Error, LocalizedError {
 class FirebaseBackupService: ObservableObject {
     @Published var isWritingToFirebase = false
     @Published var localBackupFileURL: URL? = nil
-    
+    let logger = Logger(subsystem: "com.koenjiapp", category: "FirebaseBackupService")
+
     let db: Firestore!
     private let storage: Storage
     private let store: ReservationStore
@@ -77,7 +79,7 @@ class FirebaseBackupService: ObservableObject {
                     completion(false)
                 }
             case .failure(let error):
-                print("Error listing backups: \(error.localizedDescription)")
+                self.logger.error("Error listing backups: \(error.localizedDescription)")
                 completion(false) // In case of error, assume no conflict.
             }
         }
@@ -167,13 +169,13 @@ class FirebaseBackupService: ObservableObject {
         downloadBackup(fileName: fileName, to: localURL) { result in
             switch result {
             case .success:
-                print("Backup downloaded successfully to: \(localURL)")
+                self.logger.info("Backup downloaded successfully to: \(localURL)")
                 self.importReservations(from: localURL)
                 DispatchQueue.main.async {
                     completion() // Notify when done
                 }
             case .failure(let error):
-                print("Error downloading backup: \(error.localizedDescription)")
+                self.logger.error("Error downloading backup: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     completion() // Call completion to avoid being stuck
                 }
@@ -183,25 +185,25 @@ class FirebaseBackupService: ObservableObject {
     
     
     private func importReservations(from url: URL) {
-        print("Attempting to import file at URL: \(url)")
+        logger.debug("Attempting to import file at URL: \(url)")
         do {
             let data = try Data(contentsOf: url)
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             
             let reservations = try decoder.decode([Reservation].self, from: data)
-            print("Reservations decoded successfully: \(reservations.count) entries.")
+            logger.debug("Reservations decoded successfully: \(reservations.count) entries.")
             handleImportedReservations(reservations)
         } catch let decodingError as DecodingError {
-            print("Decoding error: \(decodingError)")
+            logger.error("Decoding error: \(decodingError)")
         } catch {
-            print("Failed to import reservations: \(error.localizedDescription)")
+            logger.error("Failed to import reservations: \(error.localizedDescription)")
         }
     }
     
     
     private func handleImportedReservations(_ importedReservations: [Reservation]) {
-        print("Imported \(importedReservations.count) reservations (merge mode).")
+        logger.info("Imported \(importedReservations.count) reservations (merge mode).")
         
         // Build a dictionary of imported reservations for quick lookup.
         // In case of duplicate IDs, choose the one with the later lastEditedOn date.
@@ -233,13 +235,13 @@ class FirebaseBackupService: ObservableObject {
         }
         
         if changesOccurred {
-            print("Reservations updated. Now there are \(store.reservations.count) reservations.")
+            logger.info("Reservations updated. Now there are \(self.store.reservations.count) reservations.")
 //             Notify the user that reservations have been updated.
             Task { @MainActor in
                 await NotificationManager.shared.addNotification(title: "Prenotazioni aggiornate", message: "Nuove modifiche rilevate: sincronizzazione completata.", type: .sync)
             }
         } else {
-            print("No changes detected; store.reservations remains unchanged.")
+            logger.info("No changes detected; store.reservations remains unchanged.")
         }
     }
     

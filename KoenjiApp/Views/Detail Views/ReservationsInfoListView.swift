@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Foundation
+import SwipeActions
 
 struct ReservationsInfoListView: View {
     @EnvironmentObject var env: AppDependencies
@@ -27,92 +28,95 @@ struct ReservationsInfoListView: View {
                 let reservations = reservations(at: appState.selectedDate)
                 let filtered = filterReservations(reservations)
                 let grouped = groupByCategory(filtered)
-                if !grouped.isEmpty {
-                    ForEach(grouped.keys.sorted(by: >), id: \.self) { groupKey in
-                        Section(
-                            header: HStack(spacing: 10) {
-                                Text(groupKey)
-                                    .font(.title2)
-                                    .foregroundStyle(colorScheme == .dark ? .white : .black)
-                                Text("\(grouped[groupKey]?.count ?? 0) \(TextHelper.pluralized("prenotazione", "prenotazioni", grouped[groupKey]?.count ?? 0))")
-
-                                    .font(.title2)
-                                    .foregroundStyle(colorScheme == .dark ? .white : .black)
-                                    .frame(maxWidth: .infinity, alignment: .trailing)
-                            }
-                                .background(.clear)
-                                .padding(.vertical, 4)
-                        ) {
-                            ForEach(grouped[groupKey] ?? []) { reservation in
-                                
-                                ReservationRows(
-                                    reservation: reservation,
-                                    onSelected: { newReservation in
-                                        onEdit(newReservation)
+                
+                ForEach(grouped.keys.sorted(by: >), id: \.self) { groupKey in
+                    Section(
+                        header: HStack(spacing: 10) {
+                            Text(groupKey)
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundStyle(colorScheme == .dark ? .white : .black)
+                            Text("\(grouped[groupKey]?.count ?? 0) \(TextHelper.pluralized("prenotazione", "prenotazioni", grouped[groupKey]?.count ?? 0))")
+                                .font(.title2)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                        }
+                        .background(.clear)
+                        .padding(.vertical, 4)
+                    ) {
+                        if let reservationsInGroup = grouped[groupKey] {
+                            ForEach(reservationsInGroup) { reservation in
+                                SwipeView {
+                                    ReservationRows(
+                                        reservation: reservation,
+                                        onSelected: { newReservation in
+                                            onEdit(newReservation)
+                                        }
+                                    )
+                                    .onTapGesture(count: 2) {
+                                        onEdit(reservation)
                                     }
-                                )
-                                .onTapGesture(count: 2) {
-                                    onEdit(reservation)
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button {
+                                } trailingActions: { _ in
+                                    SwipeAction (
+                                        systemImage: "x.circle.fill",
+                                        backgroundColor: Color(hex: "#5c140f").opacity(0.2)
+                                        
+                                    ) {
                                         handleCancelled(reservation)
                                         onCancelled(reservation)
-                                    } label: {
-                                        Label("Cancellazione", systemImage: "x.circle.fill")
                                     }
-                                    .tint(Color(hex: "#5c140f"))
                                     
-                                    Button {
+                                    SwipeAction (
+                                        systemImage: "square.and.pencil",
+                                        backgroundColor: .gray.opacity(0.2)
+                                        
+                                    ) {
                                         onEdit(reservation)
-                                    } label: {
-                                        Label("Modifica", systemImage: "square.and.pencil")
                                     }
-                                    .tint(.gray)
                                     
-                                    Button {
+                                    SwipeAction (
+                                        systemImage: "arrowshape.turn.up.backward.badge.clock",
+                                        backgroundColor: .indigo.opacity(0.2)
+                                        
+                                    ) {
                                         showReservationInTime(reservation)
-                                    } label: {
-                                        Label("Mostra", systemImage: "arrowshape.turn.up.backward.badge.clock.fill")
                                     }
-                                    .tint(.indigo)
+                                    
                                 }
-                                .listRowSeparator(.visible) // Ensure dividers are visible
-//                                .listRowSeparatorTint(Color.white, edges: .bottom) // Customize divider color
-                                
+                                .swipeActionCornerRadius(12)
+                                .swipeMinimumDistance(40)
+                                .swipeActionsMaskCornerRadius(12)
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                .listRowBackground(Color.clear)
                             }
-                            .listRowBackground(Color.clear)
-                            
-                            
                         }
                     }
-                } else {
-                    Text("(Nessuna prenotazione per la giornata)" )
-                        .font(.headline)
-                        .padding()
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .listRowBackground(Color.clear)
                 }
                 
-                Section {
-                    
+                if grouped.isEmpty {
+                    Section {
+                        Text("Nessuna prenotazione per la giornata")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .listRowBackground(Color.clear)
+                            .padding()
+                    }
                 }
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                
             }
-            .scrollContentBackground(.hidden) // Removes the List's default background (iOS 16+)
-            .listStyle(GroupedListStyle())
+            .listStyle(PlainListStyle())
+            .scrollContentBackground(.hidden)
             
             Button(action: onClose) {
                 Text("Chiudi")
                     .font(.headline)
+                    .frame(maxWidth: .infinity)
                     .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
             }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding()
+            .padding(16)
         }
+        .background(Color.clear)
     }
     
 //    private func handleDeleteFromGroup(groupKey: String, offsets: IndexSet) {
@@ -221,50 +225,49 @@ struct ReservationRows: View {
     var onSelected: (Reservation) -> Void
     var body: some View {
          
-        ZStack {
-            VStack{
-                HStack {
-                    Text("\(reservation.name), \(reservation.numberOfPersons) p.")
-                        .font(.headline)
-                        .bold()
-                        .lineLimit(1) // Restrict to one line
-                        .truncationMode(.tail) // Show "..." at the end if truncated
-                    Spacer()
-                    
-                    Text("\(reservation.reservationType != .waitingList ? reservation.status.localized.capitalized : "N/A")")
+        VStack(spacing: 12) {
+            HStack {
+                Text("\(reservation.name), \(reservation.numberOfPersons) p.")
+                    .font(.headline)
+                    .bold()
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer()
+                
+                Label(reservation.status.localized.capitalized, systemImage: statusIcon(for: reservation.status))
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(reservation.status.color.opacity(0.12))
+                    .foregroundColor(reservation.status.color)
+                    .clipShape(Capsule())
+            }
+            
+            HStack {
+                Label("\(reservation.startTime) - \(reservation.endTime)", systemImage: "clock.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                
+                if !reservation.tables.isEmpty {
+                    Label(reservation.tables.map(\.name).joined(separator: ", "), systemImage: "tablecells")
                         .font(.subheadline)
-                        .lineLimit(1) // Restrict to one line
-                        .truncationMode(.tail) // Show "..." at the end if truncated
-
-                }
-                HStack {
-                    
-                    Text("\(reservation.startTime) - \(reservation.endTime)")
-                        .font(.subheadline)
-
-                    
-                    Spacer()
-                    
-                        Text("Tavoli: \(reservation.tables.map(\.name).joined(separator: ", "))")
-                        .font(.subheadline)
-
+                        .foregroundStyle(.secondary)
                 }
             }
         }
-        .padding(2)
-//        .contentShape(Rectangle())  // Make the entire row tappable
-//        .background(
-//                RoundedRectangle(cornerRadius: 12) // Add a rounded rectangle
-//                    .fill(Color.accentColor.opacity(0.4))
-//            )
-        .contextMenu {
-            Button("Modifica") {
-                onSelected(reservation)
-                
-            }
-            Button("Elimina", role: .destructive) {
-                //placeholder
-            }
+        .padding(12)
+        .background(reservation.assignedColor.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.vertical, 4)
+    }
+    
+    private func statusIcon(for status: Reservation.ReservationStatus) -> String {
+        switch status {
+        case .showedUp: return "checkmark.circle.fill"
+        case .canceled: return "xmark.circle.fill"
+        case .pending: return "clock.fill"
+        default: return "exclamationmark.circle.fill"
         }
     }
 }

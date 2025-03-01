@@ -9,21 +9,45 @@
 import Foundation
 import UserNotifications
 import SwiftUI
+import OSLog
 
 /// A manager to handle scheduling local notifications and keeping an in‑app log.
 @MainActor
 final class NotificationManager: ObservableObject {
     @Published var notifications: [AppNotification] = []
     
+    let logger = Logger(subsystem: "com.koenjiapp", category: "NotificationManager")
+    
+    // Dictionary to track last notification times for each reservation and type
+    private var lastNotificationTimes: [String: Date] = [:]
+
     static let shared = NotificationManager()
-        /// Adds a new notification to the in‑app log and schedules a local notification.
+    
+    /// Checks if enough time has passed to send another notification
+    func canSendNotification(for reservationId: UUID, type: NotificationType, minimumInterval: TimeInterval) async -> Bool {
+        let key = "\(reservationId)-\(type.localized)"
+        
+        if let lastTime = lastNotificationTimes[key] {
+            let timeSinceLastNotification = Date().timeIntervalSince(lastTime)
+            if timeSinceLastNotification < minimumInterval {
+                logger.debug("Skipping notification: minimum interval not reached for reservation \(reservationId)")
+                return false
+            }
+        }
+        
+        // Update the last notification time
+        lastNotificationTimes[key] = Date()
+        return true
+    }
+
+    /// Adds a new notification to the in‑app log and schedules a local notification.
     
     func requestNotificationAuthorization() async {
         do {
             let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
-            print("Notification permission granted: \(granted)")
+            logger.info("Notification permission granted: \(granted)")
         } catch {
-            print("❌ Notification permission error: \(error.localizedDescription)")
+            logger.error("Notification permission error: \(error.localizedDescription)")
         }
     }
     
@@ -44,9 +68,9 @@ final class NotificationManager: ObservableObject {
 
         do {
             try await UNUserNotificationCenter.current().add(request)
-            print("✅ Notification scheduled: \(title)")
+            logger.info("Notification scheduled: \(title)")
         } catch {
-            print("❌ Error scheduling notification: \(error.localizedDescription)")
+            logger.error("Error scheduling notification: \(error.localizedDescription)")
         }
     }
     

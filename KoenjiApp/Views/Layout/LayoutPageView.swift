@@ -7,9 +7,15 @@
 import PencilKit
 import ScreenshotSwiftUI
 import SwiftUI
+import os
 
 struct LayoutPageView: View {
     // MARK: - Dependencies
+    private static let logger = Logger(
+        subsystem: "com.koenjiapp",
+        category: "LayoutPageView"
+    )
+    
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
 
@@ -155,7 +161,7 @@ extension LayoutPageView {
     /// The grid background with a tap gesture to toggle full-screen.
     private var gridBackgroundView: some View {
         env.gridData.gridBackground(selectedCategory: appState.selectedCategory)
-            .background(backgroundColor.opacity(0.2))
+//            .background(backgroundColor.opacity(0.2))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .gesture(
                 TapGesture(count: 3)
@@ -353,7 +359,7 @@ extension LayoutPageView {
         if currentDrawing.layer3 != currentDrawingModel.layer3 {
             currentDrawing.layer3 = currentDrawingModel.layer3
         }
-        print("Drawing layers updated for category: \(selectedCategory).")
+        Self.logger.debug("Drawing layers updated for category: \(selectedCategory.rawValue)")
     }
 
     private func reloadLayout(_ selectedCategory: Reservation.ReservationCategory, _ activeReservations: [Reservation], force: Bool = false) {
@@ -378,7 +384,7 @@ extension LayoutPageView {
     }
 
     private func resetCurrentLayout() {
-        print("Resetting layout... [resetCurrentLayout()]")
+        Self.logger.notice("Resetting current layout...")
         resetInProgress = true
         let key = env.layoutServices.keyFor(date: appState.selectedDate, category: appState.selectedCategory)
         withAnimation {

@@ -7,9 +7,13 @@
 
 import Foundation
 import SwiftUI
-
+import OSLog
 /// Represents a reservation in the system.
 struct Reservation: Identifiable, Hashable, Codable {
+    // Static logger instead of instance logger
+    private static let logger = Logger(subsystem: "com.koenjiapp", category: "Reservation")
+    
+    // MARK: - Public Properties
     let id: UUID
     var name: String
     var phone: String
@@ -169,10 +173,16 @@ struct Reservation: Identifiable, Hashable, Codable {
 
         
         // Initialize cached dates
-                self.updateCachedDates()
+        self.updateCachedDates()
                 
-                // Additional Initialization Logic
-                self.determineReservationType()
+        // Additional Initialization Logic
+        self.determineReservationType()
+        
+        // Store values in local constants before logging to avoid capturing self
+        let nameCopy = name
+        let dateStringCopy = dateString
+        let startTimeCopy = startTime
+        Self.logger.debug("Created reservation: \(nameCopy) for \(dateStringCopy) at \(startTimeCopy)")
     }
     
     var startTimeDate: Date? {
@@ -290,22 +300,36 @@ extension Reservation {
     
     /// Updates the cached date properties based on the current date and time strings.
        mutating private func updateCachedDates() {
-           // Combine date and time strings into Date objects
-           let combinedStart = DateHelper.combine(date: DateHelper.parseDate(dateString) ?? Date(),
-                                                 time: DateHelper.parseTime(startTime) ?? Date())
-           let combinedEnd = DateHelper.combine(date: DateHelper.parseDate(dateString) ?? Date(),
-                                               time: DateHelper.parseTime(endTime) ?? Date())
+           guard let date = DateHelper.parseDate(dateString) else {
+               // Store the value before logging to avoid capturing mutating self
+               let dateStringCopy = dateString
+               Self.logger.error("Failed to parse date string: \(dateStringCopy)")
+               return
+           }
            
-           // Normalize the combined dates (e.g., set seconds to zero)
-           cachedStartTimeDate = DateHelper.normalizeTime(time: combinedStart)
-           cachedEndTimeDate = DateHelper.normalizeTime(time: combinedEnd)
-           cachedNormalizedDate = DateHelper.normalizedInputTime(date: DateHelper.parseDate(dateString) ?? Date())
+           guard let start = DateHelper.parseTime(startTime),
+                 let end = DateHelper.parseTime(endTime) else {
+               // Store the values before logging to avoid capturing mutating self
+               let startTimeCopy = startTime
+               let endTimeCopy = endTime
+               Self.logger.error("Failed to parse time strings - Start: \(startTimeCopy), End: \(endTimeCopy)")
+               return
+           }
+           
+           cachedStartTimeDate = DateHelper.normalizeTime(time: DateHelper.combine(date: date, time: start))
+           cachedEndTimeDate = DateHelper.normalizeTime(time: DateHelper.combine(date: date, time: end))
+           cachedNormalizedDate = DateHelper.normalizedInputTime(date: date)
+           
+           // Store the value before logging to avoid capturing mutating self
+           let nameCopy = name
+           Self.logger.debug("Updated cached dates for reservation: \(nameCopy)")
        }
        
        /// Determines the reservation type based on creation date and reservation date.
        mutating private func determineReservationType() {
            guard let reservationDate = DateHelper.parseDate(dateString),
                  let combinedStartDate = startTimeDate else {
+               Self.logger.warning("Unable to determine reservation type, defaulting to inAdvance")
                self.reservationType = .inAdvance
                return
            }
@@ -314,8 +338,10 @@ extension Reservation {
            if calendar.isDate(creationDate, inSameDayAs: reservationDate) &&
                creationDate >= combinedStartDate {
                self.reservationType = .walkIn
+               Self.logger.debug("Determined reservation type: walkIn")
            } else {
                self.reservationType = .inAdvance
+               Self.logger.debug("Determined reservation type: inAdvance")
            }
        }
        

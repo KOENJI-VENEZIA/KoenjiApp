@@ -7,56 +7,54 @@
 
 import Foundation
 import SwiftUI
+import OSLog
 
 class ReservationStore: ObservableObject {
+    // MARK: - Private Properties
+    private let logger = Logger(
+        subsystem: "com.koenjiapp",
+        category: "ReservationStore"
+    )
+    
+    // MARK: - Static Properties
     nonisolated(unsafe) static let shared = ReservationStore()
-       
-       // MARK: - Properties
-    // Constants
+    
+    // MARK: - Constants
     let reservationsFileName = "reservations.json"
     
-    // Locking mechanism for tables
+    // MARK: - Properties
     var lockedTableIDs: Set<Int> = []
-
-    
-    // Published Variables
     @Published var reservations: [Reservation] = []
     @Published var activeReservations: [Reservation] = []
-
     var activeReservationCache: [ActiveReservationCacheKey: Reservation] = [:]
     var cachePreloadedFrom: Date?
-    
-    // Private Variables
     var grid: [[Int?]] = []
 }
- 
-    // MARK: - Getters and Setters
+
+// MARK: - Getters and Setters
 extension ReservationStore {
     func getReservations() -> [Reservation] {
+        logger.debug("Fetching all reservations. Count: \(self.reservations.count)")
         return self.reservations
     }
     
     func setReservations(_ reservations: [Reservation]) {
-            self.reservations = reservations
+        logger.info("Updating reservations store with \(reservations.count) reservations")
+        self.reservations = reservations
     }
 }
-
-
 
 extension ReservationStore {
     // MARK: - Locking Assignment
     func finalizeReservation(_ reservation: Reservation) {
-        // Mark tables as reserved in persistent storage, if needed
-        // Unlock tables after finalization
         if let index = reservations.firstIndex(where: { $0.id == reservation.id }) {
-            reservations[index] = reservation // Update the reservation
+            reservations[index] = reservation
+            logger.info("Updated existing reservation: \(reservation.id)")
         } else {
-            // If the reservation is new, append it
             reservations.append(reservation)
+            logger.info("Added new reservation: \(reservation.id)")
         }
-        
     }
-  
 }
 
 

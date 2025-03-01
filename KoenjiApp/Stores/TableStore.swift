@@ -10,11 +10,22 @@
 
 import Foundation
 import SwiftUI
+import OSLog
 
 class TableStore: ObservableObject {
+    // MARK: - Private Properties
+    private let logger = Logger(
+        subsystem: "com.koenjiapp",
+        category: "TableStore"
+    )
+    
+    // MARK: - Static Properties
     nonisolated(unsafe) static let shared = TableStore(store: ReservationStore.shared)
+    
+    // MARK: - Dependencies
     private let store: ReservationStore
     
+    // MARK: - Properties
     let baseTables = [
         TableModel(id: 1, name: "T1", maxCapacity: 2, row: 1, column: 14),
         TableModel(id: 2, name: "T2", maxCapacity: 2, row: 1, column: 10),
@@ -34,6 +45,7 @@ class TableStore: ObservableObject {
     init(store: ReservationStore)
     {
         self.store = store
+        self.logger.debug("TableStore initialized with \(self.baseTables.count) base tables")
     }
     
     

@@ -19,9 +19,8 @@ extension LayoutView {
         }
         ToolbarItem(placement: .topBarLeading) {
             Button {
-                print("Hello")
-            }
-            label: {
+                LayoutView.logger.debug("Top toolbar action triggered")
+            } label: {
                Image(systemName: "app.badge")
             }
             .id(unitView.refreshID)
@@ -85,14 +84,15 @@ extension LayoutView {
             }
             .id(unitView.refreshID)
         }
-        ToolbarItem(placement: .topBarTrailing) {
-            addReservationButton.id(unitView.refreshID)
-        }
+        
         ToolbarItem(placement: .topBarTrailing) {
             Button(action: { withAnimation { unitView.showInspector.toggle() } }) {
                 Label("Toggle Inspector", systemImage: "info.circle")
             }
             .id(unitView.refreshID)
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            addReservationButton.id(unitView.refreshID)
         }
     }
     

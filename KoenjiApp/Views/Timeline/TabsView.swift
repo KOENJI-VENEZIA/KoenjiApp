@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import os
 
 enum Tabs: Equatable, Hashable, CaseIterable {
     case lunch
@@ -20,6 +21,7 @@ struct TabsView: View {
 
     @Environment(\.colorScheme) var colorScheme
 
+    @State var unitView = LayoutUnitViewModel()
     @State var toolbarManager = ToolbarStateManager()
     @State private var selectedTab: Tabs = .lunch
     @State var reservations: [Reservation] = []
@@ -28,34 +30,48 @@ struct TabsView: View {
 
     @Binding var columnVisibility: NavigationSplitViewVisibility
 
+    // MARK: - Dependencies
+    private static let logger = Logger(
+        subsystem: "com.koenjiapp",
+        category: "TabsView"
+    )
+
     // MARK: - Body
     var body: some View {
-        // TabView for "Lunch" and "Dinner" selection
-        if #available(iOS 18.0, *) {
-            GeometryReader { geometry in
-                ZStack(alignment: .bottomLeading) {
-                    Color.clear
-
-                    TabView(selection: $selectedTab) {
-                        Tab("Pranzo", systemImage: "sun.max.circle", value: .lunch) {
-                            TimelineGantView(reservations: reservations, columnVisibility: $columnVisibility)
-                        }
-                        Tab("Cena", systemImage: "moon.circle.fill", value: .dinner) {
-                            TimelineGantView(reservations: reservations, columnVisibility: $columnVisibility)
-                        }
-
-                    }
+        GeometryReader { geometry in
+            ZStack(alignment: .bottomLeading) {
+                Color.clear
+                
+                // Main content
+                TimelineGantView(reservations: reservations, columnVisibility: $columnVisibility)
                     .ignoresSafeArea(.all)
 
-                    ZStack {
-                        ToolbarExtended(
-                            geometry: geometry, toolbarState: $toolbarManager.toolbarState,
-                            small: true)
+                ZStack {
+                    ToolbarExtended(
+                        geometry: geometry, toolbarState: $toolbarManager.toolbarState,
+                        small: true)
 
-                        // MARK: Toolbar Content
-                        toolbarContent(in: geometry, selectedDate: appState.selectedDate)
-                    }
-                    .opacity(toolbarManager.isToolbarVisible ? 1 : 0)
+                    // MARK: Toolbar Content
+                    toolbarContent(in: geometry, selectedDate: appState.selectedDate)
+                }
+                .opacity(toolbarManager.isToolbarVisible ? 1 : 0)
+                .ignoresSafeArea(.keyboard)
+                .position(
+                    toolbarManager.isDragging
+                        ? toolbarManager.dragAmount
+                        : toolbarManager.calculatePosition(geometry: geometry)
+                )
+                .animation(
+                    toolbarManager.isDragging ? .none : .spring(),
+                    value: toolbarManager.isDragging
+                )
+                .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
+                .gesture(
+                    toolbarManager.toolbarGesture(geometry: geometry)
+                )
+
+                ToolbarMinimized()
+                    .opacity(!toolbarManager.isToolbarVisible ? 1 : 0)
                     .ignoresSafeArea(.keyboard)
                     .position(
                         toolbarManager.isDragging
@@ -68,142 +84,124 @@ struct TabsView: View {
                     )
                     .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
                     .gesture(
+                        TapGesture()
+                            .onEnded {
+                                withAnimation {
+                                    toolbarManager.isToolbarVisible = true
+                                }
+                            }
+                    )
+                    .simultaneousGesture(
                         toolbarManager.toolbarGesture(geometry: geometry)
                     )
-
-                    ToolbarMinimized()
-                        .opacity(!toolbarManager.isToolbarVisible ? 1 : 0)
-                        .ignoresSafeArea(.keyboard)
-                        .position(
-                            toolbarManager.isDragging
-                                ? toolbarManager.dragAmount
-                                : toolbarManager.calculatePosition(geometry: geometry)
-                        )  // depends on pinned side
-                        .animation(
-                            toolbarManager.isDragging ? .none : .spring(),
-                            value: toolbarManager.isDragging
-                        )
-                        .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
-                        .gesture(
-                            TapGesture()
-                                .onEnded {
-                                    withAnimation {
-                                        toolbarManager.isToolbarVisible = true
-                                    }
-                                }
-                        )
-                        .simultaneousGesture(
-                            toolbarManager.toolbarGesture(geometry: geometry)
-                        )
-                    
-                    SessionsView()
-                        .transition(.opacity)
-                        .animation(.easeInOut(duration: 0.5), value: SessionStore.shared.sessions)
-                        .padding(.leading, 16)
-                        .padding(.bottom, 16)
-
-
+                
+                SessionsView()
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.5), value: SessionStore.shared.sessions)
+                    .padding(.leading, 16)
+                    .padding(.bottom, 16)
+            }
+        }
+        .task {
+            // Initialize category and time on first load
+            if appState.selectedCategory == .noBookingZone {
+                let calendar = Calendar.current
+                let hour = calendar.component(.hour, from: Date())
+                
+                // Set initial category and time based on current hour
+                if hour < 15 {
+                    if let lunchTime = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) {
+                        appState.selectedCategory = .lunch
+                        appState.selectedDate = DateHelper.combine(date: Date(), time: lunchTime)
+                    }
+                } else {
+                    if let dinnerTime = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) {
+                        appState.selectedCategory = .dinner
+                        appState.selectedDate = DateHelper.combine(date: Date(), time: dinnerTime)
+                    }
+                }
+                updateActiveReservations()
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .ignoresSafeArea(.all)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: {
+                    withAnimation {
+                        appState.isFullScreen.toggle()
+                        columnVisibility = appState.isFullScreen ? .detailOnly : .all
+                    }
+                }) {
+                    Label(
+                        "Toggle Full Screen",
+                        systemImage: appState.isFullScreen
+                            ? "arrow.down.right.and.arrow.up.left"
+                            : "arrow.up.left.and.arrow.down.right")
                 }
             }
-//            .navigationTitle("Timeline tavoli")
-            .navigationBarTitleDisplayMode(.inline)
-            .ignoresSafeArea(.all)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: {
+            
+            ToolbarItem(placement: .topBarLeading) {
+                categoryButtons
+            }
+            
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack(spacing: 16) {
+                    Button {
                         withAnimation {
-                            appState.isFullScreen.toggle()
-                            if appState.isFullScreen {
-                                columnVisibility = .detailOnly
-                            } else {
-                                columnVisibility = .all
-                            }
+                            unitView.showInspector.toggle()
                         }
-                    }) {
-                        Label(
-                            "Toggle Full Screen",
-                            systemImage: appState.isFullScreen
-                                ? "arrow.down.right.and.arrow.up.left"
-                                : "arrow.up.left.and.arrow.down.right")
+                    } label: {
+                        Label("Inspector", systemImage: "info.circle")
                     }
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        print("Hello")
-                    }
-                    label: {
-                       Image(systemName: "app.badge")
-                    }
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        print("Hello")
-                    }
-                    label: {
-                        Image(systemName: "ladybug.slash.fill")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
+                    
                     addReservationButton
                 }
-
             }
-            .sheet(item: $appState.currentReservation) { reservation in
-                EditReservationView(
-                    reservation: reservation,
-                    onClose: {
-                        appState.showingEditReservation = false
-                    },
-                    onChanged: { reservation in
-                        appState.changedReservation = reservation
-                    }
-                )
-                .presentationBackground(.thinMaterial)
-            }
-            .sheet(isPresented: $showingAddReservationSheet) {
-                AddReservationView(
-                    passedTable: nil,
-                    onAdded: { newReservation in
-                        appState.changedReservation = newReservation}
-                )
-                .environmentObject(appState)
-                .environmentObject(env)
-                .presentationBackground(.thinMaterial)
-            }
-            .onAppear {
-                if selectedTab == .lunch {
-                    appState.selectedCategory = .lunch
-                } else {
-                    appState.selectedCategory = .dinner
+        }
+        .sheet(item: $appState.currentReservation) { reservation in
+            EditReservationView(
+                reservation: reservation,
+                onClose: {
+                    appState.showingEditReservation = false
+                },
+                onChanged: { reservation in
+                    appState.changedReservation = reservation
                 }
-
-                updateActiveReservations()
-
-                bindableDate = appState.selectedDate
-
-            }
-            .onChange(of: env.store.reservations) {
-                updateActiveReservations()
-                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
-            }
-            .onChange(of: selectedTab) {
-                if selectedTab == .lunch {
-                    appState.selectedCategory = .lunch
-                } else {
-                    appState.selectedCategory = .dinner
+            )
+            .presentationBackground(.thinMaterial)
+        }
+        .sheet(isPresented: $showingAddReservationSheet) {
+            AddReservationView(
+                passedTable: nil,
+                onAdded: { newReservation in
+                    appState.changedReservation = newReservation
                 }
-
-                updateActiveReservations()
-
-            }
-            .onChange(of: env.resCache.cache) { updateActiveReservations() }
-            .onChange(of: appState.selectedDate) { _, newDate in
-                updateActiveReservations()
-                env.resCache.preloadDates(around: newDate, range: 5, reservations: env.store.reservations)
-            }
-
-        } else {
-            // Fallback on earlier versions
+            )
+            .environmentObject(appState)
+            .environmentObject(env)
+            .presentationBackground(.thinMaterial)
+        }
+        .sheet(isPresented: $unitView.showInspector) {
+            InspectorSideView(selectedReservation: $appState.currentReservation)
+                .presentationBackground(.thinMaterial)
+                .environment(unitView)
+        }
+        .onAppear {
+            updateActiveReservations()
+            bindableDate = appState.selectedDate
+        }
+        .onChange(of: env.store.reservations) {
+            updateActiveReservations()
+            env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
+        }
+        .onChange(of: appState.selectedCategory) {
+            updateActiveReservations()
+        }
+        .onChange(of: env.resCache.cache) { updateActiveReservations() }
+        .onChange(of: appState.selectedDate) { _, newDate in
+            updateActiveReservations()
+            env.resCache.preloadDates(around: newDate, range: 5, reservations: env.store.reservations)
         }
     }
 
@@ -368,6 +366,38 @@ struct TabsView: View {
         }
         .disabled(appState.selectedCategory == .noBookingZone)
         .foregroundColor(appState.selectedCategory == .noBookingZone ? .gray : .accentColor)
+    }
+
+    private var categoryButtons: some View {
+        HStack(spacing: 8) {
+            Button(action: {
+                withAnimation {
+                    let lunchTime = "12:00"
+                    let day = appState.selectedDate
+                    guard let combinedTime = DateHelper.combineDateAndTime(date: day, timeString: lunchTime)
+                    else { return }
+                    appState.selectedCategory = .lunch
+                    appState.selectedDate = combinedTime
+                }
+            }) {
+                Label("Pranzo", systemImage: "sun.max.circle.fill")
+                    .foregroundStyle(appState.selectedCategory == .lunch ? .primary : .secondary)
+            }
+
+            Button(action: {
+                withAnimation {
+                    let dinnerTime = "18:00"
+                    let day = appState.selectedDate
+                    guard let combinedTime = DateHelper.combineDateAndTime(date: day, timeString: dinnerTime)
+                    else { return }
+                    appState.selectedCategory = .dinner
+                    appState.selectedDate = combinedTime
+                }
+            }) {
+                Label("Cena", systemImage: "moon.circle.fill")
+                    .foregroundStyle(appState.selectedCategory == .dinner ? .primary : .secondary)
+            }
+        }
     }
 
     // MARK: - View Specific Methods

@@ -71,15 +71,15 @@ struct TableView: View {
         // Determine fill color and an ID suffix for matched geometry
         let (fillColor, idSuffix): (Color, String) = {
             if isDragging, let activeRes = tableView.currentActiveReservation {
-                return (activeRes.assignedColor.opacity(0.5), "dragging_1")
+                return (activeRes.assignedColor.opacity(0.1), "dragging_1")
             } else if isDragging, tableView.currentActiveReservation == nil {
-                return (Color(hex: "#AEAB7D").opacity(0.5), "dragging_2")
+                return (Color(hex: "#AEAB7D").opacity(0.1), "dragging_2")
             } else if let activeRes = tableView.currentActiveReservation {
-                return (activeRes.assignedColor.opacity(0.7), "reserved")
+                return (activeRes.assignedColor.opacity(0.2), "reserved")
             } else if isLayoutLocked, let activeRes = tableView.currentActiveReservation {
-                return (activeRes.assignedColor.opacity(0.7), "locked")
+                return (activeRes.assignedColor.opacity(0.2), "locked")
             } else {
-                return (Color(hex: "#A3B7D2").opacity(0.2), "default")
+                return (Color(hex: "#A3B7D2").opacity(0.1), "default")
             }
         }()
 
@@ -588,34 +588,26 @@ extension TableView {
     private func updateRemainingTime(_ date: Date) {
         cachedRemainingTime = TimeHelpers.remainingTimeString(
             endTime: tableView.currentActiveReservation?.endTimeDate ?? Date(),
-            currentTime: appState.selectedDate
+            currentTime: date
         )
 
         let reservationEnd = tableView.currentActiveReservation?.endTimeDate ?? Date()
-        let timeRemaining = reservationEnd.timeIntervalSince(appState.selectedDate)  // Get time difference
-
-        print("🕒 Time remaining until reservation ends: \(timeRemaining) seconds")
-
-        if let lastNotification = notifsManager.notifications.first(where: {
-            $0.type == .nearEnd && $0.reservation == tableView.currentActiveReservation
-        }) {
-            guard date.timeIntervalSince(lastNotification.date) >= 60 * 5 else {
-                print("Not enough time since last notified. Skipping notification!")
-                return
-            }
-        }
+        let timeRemaining = reservationEnd.timeIntervalSince(date)
         
         guard let reservation = tableView.currentActiveReservation else { return }
-
-        if timeRemaining <= 30 * 60 && timeRemaining > 0 {
+        
+        // Only send near-end notification if time remaining is between 25-30 minutes
+        if timeRemaining <= 30 * 60 && timeRemaining > 25 * 60 {
+            // Use the shared notification manager to check and track notification times
             Task {
-                
-                await notifsManager.addNotification(
-                    title: "Prenotazione in scadenza",
-                    message:
-                        "Prenotazione a nome di \(tableView.currentActiveReservation?.name ?? "Errore") sta per terminare (-\(Int(timeRemaining / 60)) minuti).",
-                    type: .nearEnd, reservation: reservation
-                )
+                if await notifsManager.canSendNotification(for: reservation.id, type: .nearEnd, minimumInterval: 10 * 60) {
+                    await notifsManager.addNotification(
+                        title: "Prenotazione in scadenza",
+                        message: "Prenotazione a nome di \(reservation.name) sta per terminare (-\(Int(timeRemaining / 60)) minuti).",
+                        type: .nearEnd,
+                        reservation: reservation
+                    )
+                }
             }
         }
     }
@@ -635,40 +627,14 @@ extension TableView {
     }
 
     private func updateLateReservation(_ date: Date) {
-        // 1) Check if the current reservation is late.
-        print("Called updateLateReservation!")
-        print("Notifications: \(notifsManager.notifications)")
         if let reservation = tableView.currentActiveReservation,
-           env.resCache.lateReservations(currentTime: date).contains(where: { $0.id == reservation.id }) {
-
+           env.resCache.lateReservations(currentTime: date).contains(where: { $0.id == reservation.id })
+        {
             tableView.lateReservation = reservation
 
-            print("Notifications 2: \(notifsManager.notifications)")
-
-            // 2) Look for a *late* notification, not .nearEnd.
-            if let lastNotification = notifsManager.notifications.first(where: {
-                $0.type == .late && $0.reservation == reservation
-            }) {
-                // 3) Compare "now" minus "last notification time":
-                let timeElapsed = date.timeIntervalSince(lastNotification.date)
-                print("Time elapsed = \(timeElapsed)")
-                guard timeElapsed >= 5 * 60 else {
-                    print("Not enough time since last notified. Skipping notification!")
-                    return
-                }
-                
-                
-                // 4) Otherwise, send a new .late notification
-                Task { @MainActor in
-                    await notifsManager.addNotification(
-                        title: "\(reservation.name): ritardo",
-                        message: "Prenotazione a nome di \(reservation.name) è in ritardo.",
-                        type: .late,
-                        reservation: reservation
-                    )
-                }
-            } else {
-                Task { @MainActor in
+            Task {
+                // Use the shared notification manager to check and track notification times
+                if await notifsManager.canSendNotification(for: reservation.id, type: .late, minimumInterval: 15 * 60) {
                     await notifsManager.addNotification(
                         title: "\(reservation.name): ritardo",
                         message: "Prenotazione a nome di \(reservation.name) è in ritardo.",
@@ -677,7 +643,6 @@ extension TableView {
                     )
                 }
             }
-
         } else {
             tableView.lateReservation = nil
         }

@@ -42,220 +42,230 @@ struct AddReservationView: View {
     // MARK: - Body
     var body: some View {
         NavigationView {
-            Form {
-
-                Section("Obbligatori") {
-                    TextField("Nome", text: $name)
-                    TextField("Contatto", text: $phone)
-                        .keyboardType(.phonePad)
-                    Stepper(
-                        "Numero Clienti: \(numberOfPersons)",
-                        value: $numberOfPersons,
-                        in: 2...14)
-
-                    DatePicker(
-                        "Seleziona Data", selection: $appState.selectedDate, displayedComponents: .date
-                    )
-                    .onChange(of: appState.selectedDate) {
-                        adjustTimesForCategory()
-                    }
-
-                    Picker("Tipologia", selection: $selectedStatus) {
-                        ForEach(
-                            [
-                                ReservationOption.type(.waitingList),
-                                ReservationOption.type(.walkIn),
-                                ReservationOption.acceptance(.confirmed),
-                                ReservationOption.acceptance(.toConfirm),
-                            ], id: \.self
-                        ) { option in
-                            Text(option.title.capitalized).tag(option)
-                        }
-                    }
-                    .onAppear {
-                        adjustNotesForStatus()
-                    }
-                    .onChange(of: selectedStatus) {
-                        adjustNotesForStatus()
-                        if selectedStatus.asType == .waitingList {
-                            status = .na
-                        }
-                    }
-
-                    Picker("Tavolo", selection: $selectedForcedTableID) {
-                        Text("Auto Assegna").tag(nil as Int?)
-                        ForEach(availableTables, id: \.table.id) { entry in
-                            Text(
-                                entry.isCurrentlyAssigned
-                                    ? "\(entry.table.name) (già assegnato)"
-                                    : entry.table.name
-                            )
-                            .tag(entry.table.id as Int?)
-                        }
-                    }
-
-                    Picker("Categoria", selection: $appState.selectedCategory) {
-                        Text("Pranzo").tag(
-                            Reservation.ReservationCategory.lunch)
-                        Text("Cena").tag(
-                            Reservation.ReservationCategory.dinner)
-                        Text("Pomeriggio").tag(
-                            Reservation.ReservationCategory.noBookingZone)
-                    }
-//                    .onAppear {
-//                          DispatchQueue.main.async {
-//                              appState.selectedCategory = .lunch
-//                          }
-//                      }
-                    .onChange(of: appState.selectedCategory) { old, newValue in
-                        print("Selected category:", newValue, "Type:", type(of: newValue))
-                        adjustTimesForCategory()
-                    }
-
-                    TimeSelectionView(
-                        selectedTime: $startTimeString,
-                        category: appState.selectedCategory
-                    )
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .onChange(of: startTimeString) { _, newValue in
-                        endTimeString = TimeHelpers.calculateEndTime(
-                            startTime: newValue,
-                            category: appState.selectedCategory
-                        )
-                    }
-
-                    EndTimeSelectionView(
-                        selectedTime: $endTimeString,
-                        category: appState.selectedCategory
-                    )
-                    .frame(maxWidth: .infinity, alignment: .center)
-
-                }
-
-                Section("Facoltativo: Immagine") {
-                    VStack {
-                        HStack {
-                            Button(action: {
-                                withAnimation {
-                                    showImageField.toggle()
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Main card content
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Header with name
+                        TextField("Nome", text: $name)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .textFieldStyle(.roundedBorder)
+                        
+                        // Status badges
+                        HStack(spacing: 8) {
+                            Menu {
+                                ForEach([
+                                    ReservationOption.type(.waitingList),
+                                    ReservationOption.type(.walkIn),
+                                    ReservationOption.acceptance(.confirmed),
+                                    ReservationOption.acceptance(.toConfirm),
+                                ], id: \.self) { option in
+                                    Button(action: {
+                                        selectedStatus = option
+                                        adjustNotesForStatus()
+                                    }) {
+                                        Label(option.title.capitalized, systemImage: getStatusIcon(for: option))
+                                    }
                                 }
-                            }) {
-                                Label(
-                                    "",
-                                    systemImage: showImageField ? "chevron.up" : "chevron.down")
+                            } label: {
+                                statusBadge(status: selectedStatus)
                             }
-                            .buttonStyle(BorderlessButtonStyle())
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                            if !showImageField {
-                                Group {
-                                    if let selectedImage {
-                                        ZStack {
-                                            selectedImage
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(width: 50, height: 50)
-                                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 12)
-                                                        .stroke(Color.gray, lineWidth: 1)
-                                                )
-                                                .clipped()
-                                                .transition(
-                                                    .move(edge: .bottom).combined(with: .opacity))  // Add transition
-
+                            
+                            Menu {
+                                ForEach(Reservation.ReservationCategory.allCases, id: \.self) { category in
+                                    Button(action: {
+                                        appState.selectedCategory = category
+                                        adjustTimesForCategory()
+                                    }) {
+                                        Label(category.localized, systemImage: category == .lunch ? "sun.max.fill" : "moon.fill")
+                                    }
+                                }
+                            } label: {
+                                categoryBadge(category: appState.selectedCategory)
+                            }
+                        }
+                        
+                        Divider()
+                            .padding(.vertical, 8)
+                        
+                        // Primary info with icons in a grid
+                        let columns = [GridItem(.adaptive(minimum: 180, maximum: .infinity), spacing: 12)]
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+                            editableDetailTag(
+                                icon: "person.2.fill",
+                                title: "Persone",
+                                color: .blue
+                            ) {
+                                HStack {
+                                    Text("\(numberOfPersons)")
+                                        .font(.body)
+                                    Spacer()
+                                    Stepper("", value: $numberOfPersons, in: 2...14)
+                                        .labelsHidden()
+                                }
+                            }
+                            
+                            editableDetailTag(
+                                icon: "phone.fill",
+                                title: "Telefono",
+                                color: .green
+                            ) {
+                                TextField("Telefono", text: $phone)
+                                    .keyboardType(.phonePad)
+                            }
+                            
+                            editableDetailTag(
+                                icon: "calendar",
+                                title: "Data",
+                                color: .orange
+                            ) {
+                                DatePicker("", selection: $appState.selectedDate, displayedComponents: .date)
+                                    .labelsHidden()
+                            }
+                            
+                            editableDetailTag(
+                                icon: "clock.fill",
+                                title: "Dalle",
+                                color: .purple
+                            ) {
+                                Menu {
+                                    ForEach(getTimeSlots(for: appState.selectedCategory), id: \.self) { time in
+                                        Button(action: {
+                                            startTimeString = time
+                                            endTimeString = TimeHelpers.calculateEndTime(
+                                                startTime: time,
+                                                category: appState.selectedCategory
+                                            )
+                                        }) {
+                                            Text(time)
                                         }
-                                    } else {
-                                        Image(systemName: "photo.badge.plus")  // Placeholder image
+                                    }
+                                } label: {
+                                    Text(startTimeString)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                            
+                            editableDetailTag(
+                                icon: "tablecells",
+                                title: "Tavoli",
+                                color: .indigo
+                            ) {
+                                Picker("", selection: $selectedForcedTableID) {
+                                    Text("Auto Assegna").tag(nil as Int?)
+                                    ForEach(availableTables, id: \.table.id) { entry in
+                                        Text(entry.isCurrentlyAssigned ? "\(entry.table.name) (già assegnato)" : entry.table.name)
+                                            .tag(entry.table.id as Int?)
+                                    }
+                                }
+                            }
+                            
+                            editableDetailTag(
+                                icon: "clock.badge.checkmark",
+                                title: "Alle",
+                                color: .purple
+                            ) {
+                                Menu {
+                                    ForEach(getEndTimeSlots(startTime: startTimeString, category: appState.selectedCategory), id: \.self) { time in
+                                        Button(action: {
+                                            endTimeString = time
+                                        }) {
+                                            Text(time)
+                                        }
+                                    }
+                                } label: {
+                                    Text(endTimeString)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                        }
+                        
+                        // Notes section
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Note", systemImage: "note.text")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            TextEditor(text: $notes)
+                                .frame(minHeight: 100)
+                                .padding(8)
+                                .background(Color.gray.opacity(0.1))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        
+                        // Image section
+                        
+                            VStack(alignment: .leading, spacing: 12) {
+                                Label("Immagine", systemImage: "photo")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                
+                                if let selectedImage {
+                                    ZStack(alignment: .topTrailing) {
+                                        selectedImage
                                             .resizable()
                                             .scaledToFit()
-                                            .frame(width: 50, height: 50)
-                                            .opacity(0.5)
-                                            .padding(5)
-                                            .transition(
-                                                .move(edge: .bottom).combined(with: .opacity))  // Add transition
+                                            .frame(maxHeight: 200)
+                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                        
+                                        Button(action: {
+                                            self.selectedImage = nil
+                                            self.selectedPhotoItem = nil
+                                            self.imageData = nil
+                                        }) {
+                                            Image(systemName: "minus.circle.fill")
+                                                .foregroundStyle(.red)
+                                                .background(.white)
+                                                .clipShape(Circle())
+                                        }
+                                        .padding(8)
+                                    }
+                                    
+                                    PhotosPicker(
+                                        selection: $selectedPhotoItem,
+                                        matching: .images,
+                                        photoLibrary: .shared()
+                                    ) {
+                                        Label(
+                                            "Cambia immagine",
+                                            systemImage: "photo.badge.plus"
+                                        )
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundStyle(.blue)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    }
+                                } else {
+                                    PhotosPicker(
+                                        selection: $selectedPhotoItem,
+                                        matching: .images,
+                                        photoLibrary: .shared()
+                                    ) {
+                                        Label(
+                                            "Aggiungi immagine",
+                                            systemImage: "photo.badge.plus"
+                                        )
+                                        .frame(maxWidth: .infinity)
+                                        .padding()
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundStyle(.blue)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
                                     }
                                 }
-                            } else {
-                                Group {
-                                    if let selectedImage {
-                                        ZStack {
-                                            PhotosPicker(
-                                                selection: $selectedPhotoItem,
-                                                matching: .images,
-                                                photoLibrary: .shared()
-                                            ) {
-                                                selectedImage
-                                                    .resizable()
-                                                    .scaledToFill()
-                                                    .frame(width: 300, height: 300)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 12))  // Rounded corners
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 12)
-                                                            .stroke(Color.gray, lineWidth: 1)  // Optional border
-                                                    )
-                                                    .clipped()
-                                                    .padding(5)
-                                            }
-                                            .buttonStyle(BorderlessButtonStyle())
-                                            .transition(
-                                                .move(edge: .bottom).combined(with: .opacity))  // Add transition
-
-                                            Button(action: {
-                                                withAnimation {
-                                                    selectedPhotoItem = nil  // Clear the image data
-                                                }
-                                            }) {
-                                                Image(systemName: "minus.circle.fill")
-                                                    .resizable()
-                                                    .foregroundColor(.red)  // Destructive color
-                                                    .frame(width: 30, height: 30)
-                                                    .overlay(
-                                                        Circle()
-                                                            .stroke(Color.gray, lineWidth: 1)
-                                                    )
-                                            }
-                                            .buttonStyle(BorderlessButtonStyle())
-                                            .offset(x: 130, y: -130)
-                                            .padding(5)  // Add padding to position the button inside the corner
-                                            .zIndex(2)
-                                        }
-                                    } else {
-                                        PhotosPicker(
-                                            selection: $selectedPhotoItem,
-                                            matching: .images,
-                                            photoLibrary: .shared()
-                                        ) {
-                                            Text("Scegli un'immagine...")
-                                                .padding(5)
-                                                .background(Color.blue)
-                                                .foregroundColor(.white)
-                                                .cornerRadius(8)
-                                        }
-                                        .frame(height: 50)
-                                        .buttonStyle(BorderlessButtonStyle())
-                                        .frame(maxWidth: .infinity, alignment: .trailing)
-                                        .transition(.move(edge: .bottom).combined(with: .opacity))  // Add transition
-                                    }
-                                }
-                            }
-
+                            
                         }
-                        .listRowBackground(Color.clear)  // Removes background
-                        .frame(maxWidth: .infinity, alignment: .trailing)
                     }
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .animation(.easeInOut(duration: 0.5), value: showImageField)  // Apply animation when `showImageField` changes
+                    .padding(16)
+                    .background(Color.gray.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-
-                Section("Facoltativo: Note") {
-                    TextEditor(text: $notes)
-                        .frame(minHeight: 80)
-                }
+                .padding(16)
             }
-//            .background(.thinMaterial)
-            .scrollContentBackground(.hidden)
             .navigationTitle("Nuova Prenotazione")
+            .navigationBarTitleDisplayMode(.inline)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Annulla") {
@@ -385,6 +395,7 @@ struct AddReservationView: View {
     }
     
     private func createTemporaryReservation() -> Reservation {
+        
         Reservation(
             id: UUID(),
             name: name,
@@ -405,13 +416,13 @@ struct AddReservationView: View {
     }
 
     private func adjustTimesForCategory() {
-        switch category {
+        switch appState.selectedCategory {
         case .lunch:
             startTimeString = "12:00"
         case .dinner:
             startTimeString = "18:00"
         case .noBookingZone:
-            startTimeString = DateHelper.formatTime(appState.selectedDate)
+            startTimeString = DateHelper.formatTime(Date())
         }
         endTimeString = TimeHelpers.calculateEndTime(
             startTime: startTimeString,
@@ -490,6 +501,8 @@ struct AddReservationView: View {
             isSaving = false
             return
         }
+        
+        
 
         let weekday = Calendar.current.component(.weekday, from: appState.selectedDate)
         if weekday == 2 {  // Monday
@@ -514,6 +527,7 @@ struct AddReservationView: View {
     }
 
     private func performSaveReservation() {
+        adjustNotesForStatus()
         var newReservation = createTemporaryReservation()
         if newReservation.reservationType == .waitingList || newReservation.status == .canceled || newReservation.status == .deleted || newReservation.status == .toHandle {
             newReservation.tables = []
@@ -551,7 +565,136 @@ struct AddReservationView: View {
         }
     }
     
+    private func editableDetailTag<Content: View>(
+        icon: String,
+        title: String,
+        color: Color,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.body)
+                    .foregroundStyle(color)
+                    .frame(width: 24)
+                    .alignmentGuide(.firstTextBaseline) { d in
+                        d[.bottom] - 3
+                    }
+                
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            content()
+                .frame(height: 32)
+                .padding(.leading, 32)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.gray.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+    
+    private func statusBadge(status: ReservationOption) -> some View {
+        Label {
+            Text(status.title.capitalized)
+                .font(.caption.weight(.semibold))
+        } icon: {
+            Image(systemName: getStatusIcon(for: status))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(getStatusColor(for: status).opacity(0.12))
+        .foregroundColor(getStatusColor(for: status))
+        .clipShape(Capsule())
+    }
+    
+    private func categoryBadge(category: Reservation.ReservationCategory) -> some View {
+        Label {
+            Text(category.localized)
+                .font(.caption.weight(.semibold))
+        } icon: {
+            Image(systemName: category == .lunch ? "sun.max.fill" : "moon.fill")
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(category.color.opacity(0.12))
+        .foregroundColor(category.color)
+        .clipShape(Capsule())
+    }
+    
+    private func getStatusIcon(for option: ReservationOption) -> String {
+        switch option {
+        case .type(.waitingList): return "person.3"
+        case .type(.walkIn): return "figure.walk"
+        case .acceptance(.confirmed): return "checkmark.circle.fill"
+        case .acceptance(.toConfirm): return "clock.fill"
+        default: return "exclamationmark.circle.fill"
+        }
+    }
+    
+    private func getStatusColor(for option: ReservationOption) -> Color {
+        switch option {
+        case .type(.waitingList): return .orange
+        case .type(.walkIn): return .green
+        case .acceptance(.confirmed): return .green
+        case .acceptance(.toConfirm): return .orange
+        default: return .gray
+        }
+    }
 
+    private func getTimeSlots(for category: Reservation.ReservationCategory) -> [String] {
+        switch category {
+        case .lunch:
+            return stride(from: 11, through: 15, by: 0.25).map {
+                let hour = Int($0)
+                let minute = Int(($0.truncatingRemainder(dividingBy: 1) * 60).rounded())
+                return String(format: "%02d:%02d", hour, minute)
+            }
+        case .dinner:
+            return stride(from: 18, through: 21, by: 0.25).map {
+                let hour = Int($0)
+                let minute = Int(($0.truncatingRemainder(dividingBy: 1) * 60).rounded())
+                return String(format: "%02d:%02d", hour, minute)
+            }
+        case .noBookingZone:
+            return stride(from: 0, through: 23, by: 0.25).map {
+                let hour = Int($0)
+                let minute = Int(($0.truncatingRemainder(dividingBy: 1) * 60).rounded())
+                return String(format: "%02d:%02d", hour, minute)
+            }
+        }
+    }
+    
+    private func getEndTimeSlots(startTime: String, category: Reservation.ReservationCategory) -> [String] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        
+        guard let start = formatter.date(from: startTime) else { return [] }
+        
+        let calendar = Calendar.current
+        let endLimit: Date
+        
+        switch category {
+        case .lunch:
+            endLimit = calendar.date(bySettingHour: 15, minute: 0, second: 0, of: start) ?? start
+        case .dinner:
+            endLimit = calendar.date(bySettingHour: 23, minute: 0, second: 0, of: start) ?? start
+        case .noBookingZone:
+            endLimit = calendar.date(byAdding: .hour, value: 24, to: start) ?? start
+        }
+        
+        var timeSlots: [String] = []
+        var currentTime = calendar.date(byAdding: .minute, value: 15, to: start) ?? start
+        
+        while currentTime <= endLimit {
+            timeSlots.append(formatter.string(from: currentTime))
+            currentTime = calendar.date(byAdding: .minute, value: 15, to: currentTime) ?? currentTime
+        }
+        
+        return timeSlots
+    }
 }
 
 enum ReservationOption: Hashable {
@@ -610,7 +753,7 @@ extension ReservationOption {
         if case .status(let status) = self {
             return status
         }
-        // Provide a default if the current selection isn’t a status.
+        // Provide a default if the current selection isn't a status.
         return .pending
     }
 
@@ -618,7 +761,7 @@ extension ReservationOption {
         if case .acceptance(let acceptance) = self {
             return acceptance
         }
-        // Provide a default if the current selection isn’t acceptance.
+        // Provide a default if the current selection isn't acceptance.
         return .toConfirm
     }
 
@@ -626,9 +769,10 @@ extension ReservationOption {
         if case .type(let type) = self {
             return type
         }
-        // Provide a default if the current selection isn’t a type.
+        // Provide a default if the current selection isn't a type.
         return .inAdvance
     }
 }
+
 
 

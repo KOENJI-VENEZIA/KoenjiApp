@@ -8,11 +8,17 @@
 
 import Foundation
 import SQLite
+import OSLog
+
 typealias Expression = SQLite.Expression
 
 @MainActor
 class SQLiteManager {
+    let logger = Logger(subsystem: "com.koenjiapp", category: "SQLiteManager")
+    // MARK: - Static Properties
     static let shared = SQLiteManager()
+    
+    // MARK: - Database Properties
     var db: Connection!
     
     // Define the table and columns. (We convert UUID to String.)
@@ -51,15 +57,16 @@ class SQLiteManager {
     private init() {
         do {
             let documentDirectory = try FileManager.default.url(for: .documentDirectory,
-                                                                in: .userDomainMask,
-                                                                appropriateFor: nil,
-                                                                create: true)
+                                                              in: .userDomainMask,
+                                                              appropriateFor: nil,
+                                                              create: true)
             let dbURL = documentDirectory.appendingPathComponent("reservations.sqlite3")
             db = try Connection(dbURL.path)
             createReservationsTable()
             createSessionsTable()
+            logger.info("SQLite database initialized at: \(dbURL.path)")
         } catch {
-            print("SQLite init error: \(error)")
+            logger.error("SQLite initialization failed: \(error.localizedDescription)")
         }
     }
     
@@ -88,8 +95,9 @@ class SQLiteManager {
                 table.column(imageData)
                 table.column(colorHue)
             })
+            logger.debug("Reservations table created or verified")
         } catch {
-            print("Error creating reservations table: \(error)")
+            logger.error("Failed to create reservations table: \(error.localizedDescription)")
         }
     }
     
@@ -104,8 +112,9 @@ class SQLiteManager {
                 table.column(sessionLastUpdate)
                 table.column(sessionIsActive)
             })
+            logger.debug("Sessions table created or verified")
         } catch {
-            print("Error creating sessions table: \(error)")
+            logger.error("Failed to create sessions table: \(error.localizedDescription)")
         }
     }
     // MARK: - CRUD Methods
@@ -140,8 +149,9 @@ class SQLiteManager {
                colorHue <- reservation.colorHue
            )
            try db.run(insert)
+           logger.info("Inserted/Updated reservation: \(reservation.id)")
        } catch {
-           print("SQLite Insert/Replace error: \(error)")
+           logger.error("Failed to insert reservation: \(error.localizedDescription)")
        }
     }
     
@@ -156,8 +166,9 @@ class SQLiteManager {
                 sessionIsActive <- session.isActive
             )
             try db.run(insert)
+            logger.info("Inserted/Updated session: \(session.id)")
         } catch {
-            print("SQLite Insert/Replace session error: \(error)")
+            logger.error("Failed to insert session: \(error.localizedDescription)")
         }
     }
     
@@ -192,7 +203,7 @@ class SQLiteManager {
             )
             try db.run(update)
         } catch {
-            print("SQLite Update error: \(error)")
+            logger.error("SQLite Update error: \(error)")
         }
     }
     
@@ -201,8 +212,9 @@ class SQLiteManager {
         do {
             let row = reservationsTable.filter(id == reservationID.uuidString)
             try db.run(row.delete())
+            logger.info("Deleted reservation: \(reservationID)")
         } catch {
-            print("SQLite Delete error: \(error)")
+            logger.error("Failed to delete reservation: \(error.localizedDescription)")
         }
     }
     
@@ -211,7 +223,7 @@ class SQLiteManager {
             let row = sessionsTable.filter(id == sessionID)
             try db.run(row.delete())
         } catch {
-            print("SQLite Delete error: \(error)")
+            logger.error("SQLite Delete error: \(error)")
         }
     }
     
@@ -219,18 +231,18 @@ class SQLiteManager {
         do {
             // This deletes all rows in the table.
             try db.run(reservationsTable.delete())
-            print("All reservations have been deleted from SQLite.")
+            logger.notice("All reservations deleted from database")
         } catch {
-            print("Error deleting all reservations: \(error)")
+            logger.error("Failed to delete all reservations: \(error.localizedDescription)")
         }
     }
     
     func deleteAllSessions() {
         do {
             try db.run(sessionsTable.delete())
-            print("All sessions have been deleted from SQLite.")
+            logger.notice("All sessions deleted from database")
         } catch {
-            print("Error deleting all reservations: \(error)")
+            logger.error("Failed to delete all sessions: \(error.localizedDescription)")
         }
     }
     
@@ -240,30 +252,32 @@ class SQLiteManager {
         var reservations: [Reservation] = []
         do {
             for row in try db.prepare(reservationsTable) {
-                print("DEBUG: Checking row \(row)...")
-                // Map the row into a Reservation. Note that you may need custom logic to convert strings back to enums.
+                logger.debug("Processing row for reservation")
                 if let reservation = ReservationMapper.reservation(from: row) {
-                    print("DEBUG: Found reservation of \(reservation.name). Appending it...")
+                    logger.debug("Successfully mapped reservation: \(reservation.name)")
                     reservations.append(reservation)
                 }
             }
         } catch {
-            print("DEBUG: SQLite Fetch error: \(error)")
+            logger.error("Failed to fetch reservations: \(error.localizedDescription)")
         }
         let uniqueReservations = Dictionary(grouping: reservations, by: { $0.id }).compactMap { $0.value.first }
-        return uniqueReservations    }
+        logger.info("Fetched \(uniqueReservations.count) unique reservations")
+        return uniqueReservations
+    }
     
     func fetchSessions() -> [Session] {
         var sessions: [Session] = []
         do {
             for row in try db.prepare(sessionsTable) {
-                print("DEBUG: Checking row \(row)...")
+                logger.debug("Processing row for session")
                 if let session = SessionMapper.session(from: row) {
                     sessions.append(session)
                 }
             }
+            logger.info("Fetched \(sessions.count) sessions")
         } catch {
-            print("DEBUG: SQLite Fetch error: \(error)")
+            logger.error("Failed to fetch sessions: \(error.localizedDescription)")
         }
         return sessions
     }

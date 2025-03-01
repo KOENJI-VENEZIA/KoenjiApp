@@ -6,10 +6,16 @@
 //
 
 import Foundation
+import OSLog
 
 struct TimeHelpers {
+    
+    static let logger = Logger(subsystem: "com.koenjiapp", category: "TimeHelpers")
+
+
     static func calculateEndTime(startTime: String, category: Reservation.ReservationCategory) -> String {
         guard let start = DateHelper.parseTime(startTime) else {
+            logger.error("Failed to parse start time: \(startTime)")
             return startTime
         }
 
@@ -27,8 +33,8 @@ struct TimeHelpers {
         }
         
         end = min(end, maxEndTime)
+        logger.debug("Calculated end time: \(DateHelper.formatTime(end)) for start: \(startTime), category: \(category.localized)")
         return DateHelper.formatTime(end)
-
     }
 
     static func remainingTimeString(endTime: Date, currentTime: Date) -> String? {
@@ -98,6 +104,7 @@ struct TimeHelpers {
     
     static func parseFullDate(from dateString: String) -> Date? {
         if let cachedDate = dateCache[dateString] {
+            logger.debug("Using cached date for: \(dateString)")
             return cachedDate
         }
 
@@ -107,10 +114,10 @@ struct TimeHelpers {
 
         if let parsedDate = formatter.date(from: dateString) {
             dateCache[dateString] = parsedDate
-            print("Debug: Successfully parsed full date: \(parsedDate) from \(dateString)")
+            logger.debug("Successfully parsed date: \(dateString)")
             return parsedDate
         } else {
-            print("Debug: Failed to parse full date from \(dateString)")
+            logger.error("Failed to parse date: \(dateString)")
             return nil
         }
     }
@@ -126,5 +133,18 @@ struct TimeHelpers {
                                      of: date)
     }
 
+    static func calculateTimeDifference(startTime: String, endTime: String, dateFormat: String = "HH:mm") -> TimeInterval? {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = dateFormat
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
 
+        guard let startDate = dateFormatter.date(from: startTime),
+              let endDate = dateFormatter.date(from: endTime) else {
+            logger.error("Invalid time format - Start: \(startTime), End: \(endTime)")
+            return nil
+        }
+
+        let difference = endDate.timeIntervalSince(startDate)
+        return difference
+    }
 }
