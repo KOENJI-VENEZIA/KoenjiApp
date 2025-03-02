@@ -163,4 +163,3 @@ struct ReservationCancelledView: View {
     
 
 }
-

@@ -19,7 +19,7 @@ extension LayoutView {
         }
         ToolbarItem(placement: .topBarLeading) {
             Button {
-                LayoutView.logger.debug("Top toolbar action triggered")
+                unitView.showNotifsCenter.toggle()
             } label: {
                Image(systemName: "app.badge")
             }
@@ -33,13 +33,13 @@ extension LayoutView {
             }
             .id(unitView.refreshID)
         }
-        ToolbarItem(placement: .topBarLeading) {
-            Button { withAnimation { unitView.isPresented.toggle() }
-            } label: {
-                Image(systemName: "square.and.arrow.up")
-            }
-            .id(unitView.refreshID)
-        }
+//        ToolbarItem(placement: .topBarLeading) {
+//            Button { withAnimation { unitView.isPresented.toggle() }
+//            } label: {
+//                Image(systemName: "square.and.arrow.up")
+//            }
+//            .id(unitView.refreshID)
+//        }
         ToolbarItem(placement: .topBarLeading) {
             Button{
                 withAnimation {

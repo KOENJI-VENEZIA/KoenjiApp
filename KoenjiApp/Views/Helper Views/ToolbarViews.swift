@@ -12,6 +12,7 @@ struct ToolbarExtended: View {
     let geometry: GeometryProxy
     @Binding var toolbarState: ToolbarState
     let small: Bool
+    var timeline: Bool = false
 
     var body: some View {
 
@@ -21,9 +22,9 @@ struct ToolbarExtended: View {
                 .frame(
                     width: toolbarState != .pinnedBottom
                     ? 80  // 20% of the available width (you can tweak the factor)
-                    : (small ? geometry.size.width * 0.4 : geometry.size.width * 0.9 ),  // 90% of the available width when pinned bottom
+                    : (small ? geometry.size.width * 0.7 : geometry.size.width * 0.9 ),  // 90% of the available width when pinned bottom
                     height: toolbarState != .pinnedBottom
-                    ? (small ? geometry.size.height * 0.4 : geometry.size.height * 0.9 )  // 90% of the available height when vertical
+                    ? (small ? (timeline ? geometry.size.height * 0.4 : geometry.size.height * 0.7) : geometry.size.height * 0.9 )  // 90% of the available height when vertical
                     : 80  // 15% of the available height when horizontal
                 )
     }

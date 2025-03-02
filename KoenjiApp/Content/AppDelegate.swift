@@ -11,11 +11,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationC
     ) -> Bool {
         logger.info("Application finished launching")
 
+        // Set NotificationManager as the delegate
+        UNUserNotificationCenter.current().delegate = NotificationManager.shared
+        
         Task {
-            let center = UNUserNotificationCenter.current()
-            center.delegate = self
             do {
-                let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+                let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
                 logger.info("Notification permission status: \(granted ? "granted" : "denied")")
             } catch {
                 logger.error("Failed to request notification permission: \(error.localizedDescription)")
@@ -37,15 +38,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationC
         }
     }
     
-    /// Ensures notifications appear when the app is in the foreground
-    nonisolated func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification,
-        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
-    ) {
-        logger.debug("Received foreground notification: \(notification.request.identifier)")
-        completionHandler([.banner, .sound])
-    }
+    
 }
 
 extension UNUserNotificationCenter {

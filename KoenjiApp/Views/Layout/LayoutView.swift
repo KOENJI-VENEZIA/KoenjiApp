@@ -33,6 +33,10 @@ struct LayoutView: View {
     @Binding var selectedReservation: Reservation?
     @Binding var columnVisibility: NavigationSplitViewVisibility
     
+    var isPhone: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
+    
     // MARK: - Initializer
     init(
         appState: AppState,
@@ -94,6 +98,12 @@ struct LayoutView: View {
             .sheet(item: $appState.currentReservation, content: editReservationSheet)
             .sheet(isPresented: $unitView.showingAddReservationSheet, content: addReservationSheet)
             .sheet(isPresented: $unitView.isPresented, content: shareSheet) // to edit name
+            .sheet(isPresented: $unitView.showNotifsCenter) {
+                NotificationCenterView()
+                    .environmentObject(env)
+                    .environment(unitView)
+                    .presentationBackground(.thinMaterial)
+            }
             .onAppear { initializeView() }
             .onChange(of: scenePhase) { unitView.refreshID = UUID() }
             .onChange(of: unitView.selectedIndex) { handleSelectedIndexChange() }
@@ -172,7 +182,7 @@ extension LayoutView {
         .opacity(toolbarManager.isToolbarVisible && !unitView.isScribbleModeEnabled ? 1 : 0)
         .ignoresSafeArea(.keyboard)
         .position(
-            toolbarManager.isDragging ? toolbarManager.dragAmount : toolbarManager.calculatePosition(geometry: geometry)
+            toolbarManager.isDragging ? toolbarManager.dragAmount : toolbarManager.calculatePosition(geometry: geometry, isPhone: isPhone)
         )
         .animation(toolbarManager.isDragging ? .none : .spring(), value: toolbarManager.isDragging)
         .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
@@ -184,7 +194,7 @@ extension LayoutView {
             ToolbarMinimized()
                 .opacity(!toolbarManager.isToolbarVisible && !unitView.isScribbleModeEnabled ? 1 : 0)
                 .ignoresSafeArea(.keyboard)
-                .position(toolbarManager.isDragging ? toolbarManager.dragAmount : toolbarManager.calculatePosition(geometry: geometry))
+                .position(toolbarManager.isDragging ? toolbarManager.dragAmount : toolbarManager.calculatePosition(geometry: geometry, isPhone: isPhone))
                 .animation(toolbarManager.isDragging ? .none : .spring(), value: toolbarManager.isDragging)
                 .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
                 .gesture(

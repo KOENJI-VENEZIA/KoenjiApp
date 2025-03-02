@@ -13,8 +13,9 @@ import OSLog
 
 /// A manager to handle scheduling local notifications and keeping an in‑app log.
 @MainActor
-final class NotificationManager: ObservableObject {
+final class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     @Published var notifications: [AppNotification] = []
+    @Published var selectedReservationID: UUID?
     
     let logger = Logger(subsystem: "com.koenjiapp", category: "NotificationManager")
     
@@ -23,6 +24,10 @@ final class NotificationManager: ObservableObject {
 
     static let shared = NotificationManager()
     
+    private override init() {
+            super.init()
+            UNUserNotificationCenter.current().delegate = self
+        }
     /// Checks if enough time has passed to send another notification
     func canSendNotification(for reservationId: UUID, type: NotificationType, minimumInterval: TimeInterval) async -> Bool {
         let key = "\(reservationId)-\(type.localized)"
@@ -57,9 +62,14 @@ final class NotificationManager: ObservableObject {
         notifications.append(newNotification)
 
         let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = message
-        content.sound = .default
+          content.title = title
+          content.body = message
+          content.sound = .default
+          
+      // Include reservation ID in the user info if available
+      if let reservation = reservation {
+          content.userInfo = ["reservationID": reservation.id.uuidString]
+      }
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false) // Debug with 3s delay
         let request = UNNotificationRequest(identifier: newNotification.id.uuidString,
@@ -74,7 +84,35 @@ final class NotificationManager: ObservableObject {
         }
     }
     
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            didReceive response: UNNotificationResponse,
+                                            withCompletionHandler completionHandler: @escaping () -> Void) {
+        // Extract values before entering the Task block
+        guard let reservationIDString = response.notification.request.content.userInfo["reservationID"] as? String,
+              let reservationID = UUID(uuidString: reservationIDString) else {
+            completionHandler()
+            return
+        }
+        let notificationIdentifier = response.notification.request.identifier
+
+        Task {
+            // Dispatch work that touches actor-isolated properties onto the main actor.
+            await MainActor.run {
+                self.selectedReservationID = reservationID
+                self.logger.info("Notification tapped: \(notificationIdentifier)")
+            }
+        }
+        
+        completionHandler()
+    }
     
+    // You might also need this delegate method for when notifications are presented while app is in foreground
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                              willPresent notification: UNNotification,
+                              withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Show banner and play sound when notification arrives in foreground
+        completionHandler([.banner, .sound])
+    }
     
     /// Removes a specific notification from the in‑app log.
     @MainActor

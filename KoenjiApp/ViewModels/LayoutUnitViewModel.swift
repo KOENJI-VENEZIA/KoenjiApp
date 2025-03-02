@@ -20,6 +20,7 @@ class LayoutUnitViewModel {
     var showInspector: Bool = false
     var showingDatePicker: Bool = false
 
+    var showNotifsCenter: Bool = false
     var showingAddReservationSheet: Bool = false
     var tableForNewReservation: TableModel? = nil
 

@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseAuth
 import OSLog
+import FirebaseDatabase
 
 struct ContentView: View {
     @EnvironmentObject var env: AppDependencies
@@ -18,6 +19,7 @@ struct ContentView: View {
     @State private var showInspector: Bool = false       // Controls Inspector visibility
     @State private var lastChecked: Date? = nil
     
+
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @AppStorage("userIdentifier") private var userIdentifier = ""
     @AppStorage("userName") var userName: String = ""
@@ -63,6 +65,7 @@ struct ContentView: View {
                     
                 }
             }
+           
             .opacity(isLoggedIn ? 1 : 0)
             .transition(.opacity.combined(with: .scale))
             .animation(.easeInOut(duration: 0.5), value: isLoggedIn)
@@ -76,6 +79,7 @@ struct ContentView: View {
                 } else {
                     print("Using existing deviceUUID: \(deviceUUID)")
                 }
+                
                 
                 if isLoggedIn {
                     authenticateUser()
@@ -100,26 +104,51 @@ struct ContentView: View {
                     print("Created new session")
                     env.reservationService.upsertSession(session)
                 }
+                
+                env.reservationService.setupRealtimeDatabasePresence(for: deviceUUID)
+
+                
                 Task {
                     await env.backupService.notifsManager.requestNotificationAuthorization()
                 }
             }
-            .onChange(of: scenePhase) { old, new in
-                
-                if new == .background {
+            .onChange(of: scenePhase) { old, newPhase in
+                let sessionRef = Database.database().reference().child("sessions").child(deviceUUID)
+                if newPhase == .background {
+                    // Update Firestore directly or through your app’s service immediately
                     if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
                         session.isActive = false
-                        session.isEditing = false 
+                        session.isEditing = false
                         env.reservationService.upsertSession(session)
+                        // Also update realtime database if needed:
+                        sessionRef.child("isActive").setValue(false)
                     }
-                } else {
+                } else if newPhase == .active {
                     if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
                         session.isActive = true
-                        session.isEditing = false 
+                        session.isEditing = false
                         env.reservationService.upsertSession(session)
+                        // Also update realtime database if needed:
+                        sessionRef.child("isActive").setValue(true)
                     }
                 }
             }
+//            .onChange(of: scenePhase) { old, new in
+//                
+//                if new == .background {
+//                    if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
+//                        session.isActive = false
+//                        session.isEditing = false 
+//                        env.reservationService.upsertSession(session)
+//                    }
+//                } else {
+//                    if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
+//                        session.isActive = true
+//                        session.isEditing = false 
+//                        env.reservationService.upsertSession(session)
+//                    }
+//                }
+//            }
             
             LoginView()
                 .opacity(isLoggedIn ? 0 : 1)

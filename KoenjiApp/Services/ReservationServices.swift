@@ -8,6 +8,7 @@
 import Foundation
 import UIKit
 import FirebaseFirestore
+import Firebase
 import FirebaseStorage
 import SwiftUI
 import OSLog

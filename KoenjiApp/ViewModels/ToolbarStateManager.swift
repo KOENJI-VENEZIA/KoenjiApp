@@ -21,6 +21,9 @@ class ToolbarStateManager {
      var lastPinnedPosition: CGPoint = .zero
      var navigationDirection: NavigationDirection = .forward
 
+
+
+    
     
     @MainActor func toolbarGesture(geometry: GeometryProxy) -> some Gesture {
         DragGesture()
@@ -93,13 +96,13 @@ class ToolbarStateManager {
             }
     }
     
-    func calculatePosition(geometry: GeometryProxy) -> CGPoint {
+    func calculatePosition(geometry: GeometryProxy, isPhone: Bool = false) -> CGPoint {
         if toolbarState == .pinnedLeft {
-            return CGPoint(x: 90, y: geometry.size.height / 2)
+            return CGPoint(x: isPhone ? 45 : 45, y: geometry.size.height / 2)
         } else if toolbarState == .pinnedRight {
-            return CGPoint(x: geometry.size.width - 90, y: geometry.size.height / 2)
+            return CGPoint(x: isPhone ? geometry.size.width - 45 : geometry.size.width - 45, y: geometry.size.height / 2)
         } else if toolbarState == .pinnedBottom {
-            return CGPoint(x: geometry.size.width / 2, y: geometry.size.height - 90)
+            return CGPoint(x: geometry.size.width / 2, y: isPhone ? geometry.size.height - 45 : geometry.size.height - 45)
         } else {
             return lastPinnedPosition
         }

@@ -107,7 +107,6 @@ struct ReservationCard: View {
         .frame(height: 150)
         .background(cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(radius: 1)
     }
     
     private var statusBadge: some View {

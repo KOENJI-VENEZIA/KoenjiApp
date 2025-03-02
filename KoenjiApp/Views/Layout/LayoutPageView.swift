@@ -161,7 +161,6 @@ extension LayoutPageView {
     /// The grid background with a tap gesture to toggle full-screen.
     private var gridBackgroundView: some View {
         env.gridData.gridBackground(selectedCategory: appState.selectedCategory)
-//            .background(backgroundColor.opacity(0.2))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .gesture(
                 TapGesture(count: 3)

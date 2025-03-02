@@ -18,7 +18,7 @@ struct GroupedReservations: Identifiable {
 enum SortOption: String, CaseIterable {
     case alphabetically = "A-Z"
     case chronologically = "Per data"
-    case byNumberOfPeople = "Per numero di persone"
+    case byNumberOfPeople = "Per persone"
     case removeSorting = "Nessuno"
 }
 

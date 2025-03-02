@@ -36,6 +36,10 @@ struct TabsView: View {
         category: "TabsView"
     )
 
+    var isPhone: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
+
     // MARK: - Body
     var body: some View {
         GeometryReader { geometry in
@@ -44,12 +48,12 @@ struct TabsView: View {
                 
                 // Main content
                 TimelineGantView(reservations: reservations, columnVisibility: $columnVisibility)
-                    .ignoresSafeArea(.all)
+//                    .ignoresSafeArea(.all)
 
                 ZStack {
                     ToolbarExtended(
                         geometry: geometry, toolbarState: $toolbarManager.toolbarState,
-                        small: true)
+                        small: true, timeline: true)
 
                     // MARK: Toolbar Content
                     toolbarContent(in: geometry, selectedDate: appState.selectedDate)
@@ -59,7 +63,7 @@ struct TabsView: View {
                 .position(
                     toolbarManager.isDragging
                         ? toolbarManager.dragAmount
-                        : toolbarManager.calculatePosition(geometry: geometry)
+                    : toolbarManager.calculatePosition(geometry: geometry, isPhone: isPhone)
                 )
                 .animation(
                     toolbarManager.isDragging ? .none : .spring(),
@@ -76,7 +80,7 @@ struct TabsView: View {
                     .position(
                         toolbarManager.isDragging
                             ? toolbarManager.dragAmount
-                            : toolbarManager.calculatePosition(geometry: geometry)
+                        : toolbarManager.calculatePosition(geometry: geometry, isPhone: isPhone)
                     )
                     .animation(
                         toolbarManager.isDragging ? .none : .spring(),
@@ -124,8 +128,17 @@ struct TabsView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .ignoresSafeArea(.all)
+//        .ignoresSafeArea(.all)
         .toolbar {
+            
+            ToolbarItem(placement: .principal) {
+                Text("\(DateHelper.dayOfWeek(for: appState.selectedDate)), \(DateHelper.formatFullDate(appState.selectedDate))")
+                    .font(.title3)
+                    .bold()
+            }
+            
+            
+        
             ToolbarItem(placement: .topBarLeading) {
                 Button(action: {
                     withAnimation {
@@ -140,23 +153,29 @@ struct TabsView: View {
                             : "arrow.up.left.and.arrow.down.right")
                 }
             }
+
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    unitView.showNotifsCenter.toggle()
+                } label: {
+                   Image(systemName: "app.badge")
+                }
+                .id(unitView.refreshID)
+            }
             
             ToolbarItem(placement: .topBarLeading) {
                 categoryButtons
             }
             
             ToolbarItem(placement: .topBarTrailing) {
-                HStack(spacing: 16) {
-                    Button {
-                        withAnimation {
-                            unitView.showInspector.toggle()
-                        }
-                    } label: {
-                        Label("Inspector", systemImage: "info.circle")
-                    }
-                    
-                    addReservationButton
+                Button(action: { withAnimation { unitView.showInspector.toggle() } }) {
+                    Label("Toggle Inspector", systemImage: "info.circle")
                 }
+                .id(unitView.refreshID)
+            }
+            
+            ToolbarItem(placement: .topBarTrailing) {
+                addReservationButton
             }
         }
         .sheet(item: $appState.currentReservation) { reservation in
@@ -182,11 +201,17 @@ struct TabsView: View {
             .environmentObject(env)
             .presentationBackground(.thinMaterial)
         }
-        .sheet(isPresented: $unitView.showInspector) {
-            InspectorSideView(selectedReservation: $appState.currentReservation)
-                .presentationBackground(.thinMaterial)
+        .sheet(isPresented: $unitView.showNotifsCenter) {
+            NotificationCenterView()
+                .environmentObject(env)
                 .environment(unitView)
+                .presentationBackground(.thinMaterial)
         }
+        .sheet(isPresented: $unitView.showInspector) {
+                   InspectorSideView(selectedReservation: $appState.currentReservation)
+                       .presentationBackground(.thinMaterial)
+                       .environment(unitView)
+               }
         .onAppear {
             updateActiveReservations()
             bindableDate = appState.selectedDate
@@ -206,42 +231,50 @@ struct TabsView: View {
     }
 
     // MARK: - Subviews
+    // Helper function to compute toolbar size.
+    private func toolbarSize(geometry: GeometryProxy) -> (width: CGFloat, height: CGFloat) {
+        if toolbarManager.toolbarState != .pinnedBottom {
+            return (80, geometry.size.height * 0.4)
+        } else {
+            return (geometry.size.width * 0.7, 80)
+        }
+    }
+
     @ViewBuilder
-    private func toolbarContent(in geometry: GeometryProxy, selectedDate: Date)
-        -> some View
-    {
+    private func toolbarContent(in geometry: GeometryProxy, selectedDate: Date) -> some View {
+        let size = toolbarSize(geometry: geometry)
+        
         switch toolbarManager.toolbarState {
         case .pinnedLeft, .pinnedRight:
-            // Vertical layout:
-            VStack {
-
-                resetDateButton
-                    .padding(.bottom, 2)
-
-                dateBackward
-                    .padding(.bottom, 2)
-
-                dateForward
-                    .padding(.bottom, 2)
-
-                datePicker(selectedDate: selectedDate)
-                    .padding(.bottom, 2)
-
+            // Vertical toolbar: wrap in a vertical ScrollView and ensure the inner VStack fills the parent's height.
+            ScrollView(.vertical) {
+                VStack(spacing: 4) {
+                    resetDateButton.padding(.bottom, 2)
+                    dateBackward.padding(.bottom, 2)
+                    dateForward.padding(.bottom, 2)
+                    datePicker(selectedDate: selectedDate).padding(.bottom, 2)
+                }
+                // Ensure the VStack takes up at least the entire height, centering its content.
+                .frame(minHeight: size.height, alignment: .center)
             }
-
+            .frame(width: size.width, height: size.height, alignment: .center)
+            
         case .pinnedBottom:
-            // Horizontal layout:
-            HStack(spacing: 25) {
-
-                resetDateButton
-
-                dateBackward
-
-                dateForward
-
-                datePicker(selectedDate: selectedDate)
-
+            // Horizontal toolbar: wrap in a horizontal ScrollView and ensure the inner HStack fills the parent's width.
+            ScrollView(.horizontal) {
+                HStack(spacing: 25) {
+                    resetDateButton
+                    dateBackward
+                    dateForward
+                    datePicker(selectedDate: selectedDate)
+                }
+                // Ensure the HStack takes up at least the entire width, centering its content.
+                .frame(minWidth: size.width, alignment: .center)
             }
+            .frame(width: size.width, height: size.height, alignment: .center)
+            
+        default:
+            EmptyView()
         }
     }
 

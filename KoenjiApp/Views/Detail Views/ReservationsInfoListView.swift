@@ -123,7 +123,7 @@ struct ReservationsInfoListView: View {
 //        // 1) Access the grouped reservations
 //        let reservations = reservations(at: appState.selectedDate)
 //        var grouped = groupByCategory(reservations)
-//        
+//
 //        // 2) The reservations in this group
 //        if var reservationsInGroup = grouped[groupKey] {
 //            // 3) Get the items to delete

@@ -54,8 +54,11 @@ class ListViewModel {
     var hasSelectedStartDate: Bool = false
     var hasSelectedEndDate: Bool = false
     var changedReservation: Reservation?
+    var showFilterPopover: Bool = false
+    var filterPeople: Int = 1
+    var filterStartDate: Date = Date()
+    var filterEndDate: Date = Date()
 
-    
     private var reservationService: ReservationService
     @ObservationIgnored private var store: ReservationStore
     @ObservationIgnored private var layoutServices: LayoutServices

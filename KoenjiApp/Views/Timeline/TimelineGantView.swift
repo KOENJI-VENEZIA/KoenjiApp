@@ -13,6 +13,8 @@ struct TimelineGantView: View {
     // MARK: - Dependencies
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
+    @Environment(\.verticalSizeClass) var verticalSizeClass  // <-- Add this line
+
     private static let logger = Logger(
         subsystem: "com.koenjiapp",
         category: "TimelineGantView"
@@ -20,7 +22,17 @@ struct TimelineGantView: View {
 
     var reservations: [Reservation]
     @Binding var columnVisibility: NavigationSplitViewVisibility
+    
+    // MARK: - State
+    // State to track the row arrangement
+    @State private var rowAssignments: [Int: Int] = [:] // Map tableID to rowIndex
+    @State private var draggedRowID: Int? = nil
+    @State private var isDragging: Bool = false
 
+    @State private var dragLocation: CGPoint = .zero
+    @State private var dragOffset: CGSize = .zero
+    @State private var potentialDropRow: Int? = nil
+    
     // MARK: - Layout Constants
     private let tables: Int = 7
     private let columnsPerHour: Int = 4
@@ -57,22 +69,56 @@ struct TimelineGantView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                headerText(in: geometry)
+//                headerText(in: geometry)
                 fullScreenToggleOverlay()
                 contentView()
                 reservationCountText()
+                dragOverlay() // Add the drag overlay
             }
         }
         .onAppear {
-            
+            initializeRowAssignments()
             logReservationsPerTable()
+        }
+    }
+    
+    // Initialize the row assignments to default values
+    private func initializeRowAssignments() {
+        // Initially, assign each table to its corresponding row index
+        for i in 1...tables {
+            rowAssignments[i] = i - 1
         }
     }
 }
 
 // MARK: - Subviews & Helper Functions
 extension TimelineGantView {
-    
+    private func dragOverlay() -> some View {
+        Group {
+            if let draggedID = draggedRowID, isDragging {
+                let tableID = tableIdForRow(draggedID)
+                ZStack(alignment: .leading) {
+//                    RoundedRectangle(cornerRadius: 12)
+//                        .fill(Color.white)
+//                        .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 5)
+                    
+//                    HStack {
+//                        Text("T\(tableID)")
+//                            .font(.headline)
+//                            .bold()
+//                            .padding(.horizontal, 12)
+//                            .padding(.vertical, 8)
+//                    }
+                }
+                .frame(width: 100, height: 40)
+                .position(
+                    x: dragLocation.x,
+                    y: dragLocation.y
+                )
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+    }
     /// Displays the header with the day of week and full date.
     private func headerText(in geometry: GeometryProxy) -> some View {
         Text("\(DateHelper.dayOfWeek(for: appState.selectedDate)), \(DateHelper.formatFullDate(appState.selectedDate))")
@@ -97,27 +143,25 @@ extension TimelineGantView {
     }
     
     /// The main content view containing the table headers and scrollable timeline.
+    @ViewBuilder
     private func contentView() -> some View {
-        HStack {
-            tableHeadersView()
-            timelineScrollView()
-        }
-    }
-    
-    /// Displays the table headers.
-    private func tableHeadersView() -> some View {
-        LazyHGrid(rows: gridRows, spacing: 20) {
-            Text("TAV.")
-                .font(.headline)
-                .padding()
-            ForEach(0..<7) { tableID in
-                Text("T\(tableID + 1)")
-                    .padding()
+        Group {
+            if UIDevice.current.userInterfaceIdiom == .phone && verticalSizeClass == .compact {
+                ScrollView(.vertical) {
+                    HStack {
+                        tableHeadersView()
+                        timelineScrollView()
+                    }
+                }
+            } else {
+                HStack {
+                    tableHeadersView()
+                    timelineScrollView()
+                }
             }
         }
     }
     
-    /// The scrollable timeline containing the background grid, time markers, and reservations.
     private func timelineScrollView() -> some View {
         ScrollView(.horizontal) {
             ZStack(alignment: .leading) {
@@ -127,6 +171,39 @@ extension TimelineGantView {
         }
         .background(Color.clear)
     }
+    
+    /// Displays the table headers.
+    private func tableHeadersView() -> some View {
+        LazyHGrid(rows: gridRows, spacing: 20) {
+            Text("TAV.")
+                .font(.headline)
+                .padding()
+            
+            // Table headers are now ordered by row index
+            ForEach(0..<tables, id: \.self) { rowIndex in
+                // Find the tableID that's assigned to this row index
+                let tableID = tableIdForRow(rowIndex)
+                Text("T\(tableID)")
+                    .padding()
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.1))
+                    )
+            }
+        }
+    }
+    
+    /// Find the table ID assigned to a specific row index
+    private func tableIdForRow(_ rowIndex: Int) -> Int {
+        for (tableID, assignedRow) in rowAssignments {
+            if assignedRow == rowIndex {
+                return tableID
+            }
+        }
+        // Fallback to row index + 1 if no mapping is found
+        return rowIndex + 1
+    }
+    
     
     /// The background grid with vertical markers.
     private func backgroundGridView() -> some View {
@@ -172,31 +249,33 @@ extension TimelineGantView {
         }
     }
     
-    /// Displays the reservations for each table.
+    /// Displays the reservations for each table, based on the current ordering.
     private func reservationsRows() -> some View {
-        ForEach(0..<tables, id: \.self) { tableID in
-            HStack {
-                ZStack(alignment: .leading) {
-                    let tableReservations = filteredReservations(for: tableID + 1)
-                    ForEach(tableReservations) { reservation in
-                        RectangleReservationBackground(
-                            reservation: reservation,
-                            duration: calculateWidth(for: reservation),
-                            padding: calculatePadding(for: reservation, tableID + 1),
-                            tableID: tableID + 1
-                        )
-                        .gesture(
-                            TapGesture(count: 2)
-                                .onEnded {
-                                    appState.currentReservation = reservation
-                                    appState.showingEditReservation = true
-                                }
-                        )
-                    }
-                }
-            }
+        ForEach(0..<tables, id: \.self) { rowIndex in
+            let tableID = tableIdForRow(rowIndex)
+            DraggableReservationRow(
+                tableID: tableID,
+                rowIndex: rowIndex,
+                reservations: filteredReservations(for: tableID),
+                isDragging: $isDragging,
+                draggedRowID: $draggedRowID,
+                dragLocation: $dragLocation,
+                dragOffset: $dragOffset,
+                potentialDropRow: $potentialDropRow,
+                calculateWidth: calculateWidth,
+                calculatePadding: calculatePadding,
+                onDoubleClick: handleReservationDoubleClick,
+                onReorder: reorderRow
+            )
             .frame(height: 60)
+            .background(isDragging ? Color.gray.opacity(0.1) : Color.clear)
         }
+    }
+    
+    /// Handles double-click on a reservation
+    private func handleReservationDoubleClick(_ reservation: Reservation) {
+        appState.currentReservation = reservation
+        appState.showingEditReservation = true
     }
     
     /// Displays the total number of reservations at the bottom.
@@ -205,6 +284,23 @@ extension TimelineGantView {
             .font(.headline)
             .padding()
             .frame(maxHeight: .infinity, alignment: .bottom)
+    }
+    
+    // MARK: - Drag and Drop Functions
+    
+    /// Reorders the row assignments based on drag and drop operation
+    private func reorderRow(from sourceRowIndex: Int, to destinationRowIndex: Int) {
+        guard sourceRowIndex != destinationRowIndex else { return }
+        
+        withAnimation(.spring()) {
+            // Find table IDs for source and destination
+            let sourceTableID = tableIdForRow(sourceRowIndex)
+            let destTableID = tableIdForRow(destinationRowIndex)
+            
+            // Update the row assignments
+            rowAssignments[sourceTableID] = destinationRowIndex
+            rowAssignments[destTableID] = sourceRowIndex
+        }
     }
     
     // MARK: - Data & Calculation Helpers
@@ -227,9 +323,6 @@ extension TimelineGantView {
             }
         }
     }
-    
-    /// Calculates the reservations to display based on the selected date and category.
-    
     
     /// Calculates the left padding (in points) for a reservation view on a specific table.
     private func calculatePadding(for reservation: Reservation, _ table: Int) -> CGFloat {
@@ -256,11 +349,126 @@ extension TimelineGantView {
     }
 }
 
+// MARK: - DraggableReservationRow
+struct DraggableReservationRow: View {
+    let tableID: Int
+    let rowIndex: Int
+    let reservations: [Reservation]
+    @Binding var isDragging: Bool
+    @Binding var draggedRowID: Int?
+    @Binding var dragLocation: CGPoint
+    @Binding var dragOffset: CGSize
+    @Binding var potentialDropRow: Int?
+    let calculateWidth: (Reservation) -> CGFloat
+    let calculatePadding: (Reservation, Int) -> CGFloat
+    let onDoubleClick: (Reservation) -> Void
+    let onReorder: (Int, Int) -> Void
+    
+    // Threshold for vertical drag detection.
+    private let verticalDragThreshold: CGFloat = 15.0
+    
+    // Track initial drag direction.
+    @State private var dragDirection: DragDirection = .none
+    
+    private enum DragDirection {
+        case none, vertical, horizontal
+    }
+    
+    var body: some View {
+        HStack {
+            ZStack(alignment: .leading) {
+                ForEach(reservations) { reservation in
+                    RectangleReservationBackground(
+                        reservation: reservation,
+                        duration: calculateWidth(reservation),
+                        padding: calculatePadding(reservation, tableID),
+                        tableID: tableID
+                    )
+                    .gesture(
+                        TapGesture(count: 2)
+                            .onEnded {
+                                onDoubleClick(reservation)
+                            }
+                    )
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .gesture(
+            // Sequence a long press with a drag gesture.
+            LongPressGesture(minimumDuration: 0.5)
+                .sequenced(before: DragGesture(minimumDistance: 3))
+                .onChanged { value in
+                    switch value {
+                    case .first(true):
+                        // Long press detected; waiting for drag.
+                        break
+                    case .second(true, let drag?):
+                        // The long press succeeded and the drag is now active.
+                        // Determine the initial drag direction.
+                        if dragDirection == .none {
+                            let horizontalMovement = abs(drag.translation.width)
+                            let verticalMovement = abs(drag.translation.height)
+                            
+                            // Prioritize scrolling if horizontal movement dominates.
+                            if horizontalMovement > verticalMovement && horizontalMovement > 10 {
+                                dragDirection = .horizontal
+                                return
+                            }
+                            
+                            // Otherwise, if vertical movement exceeds the threshold, activate dragging.
+                            if verticalMovement > verticalDragThreshold {
+                                dragDirection = .vertical
+                                draggedRowID = rowIndex
+                                isDragging = true
+                            }
+                        }
+                        
+                        // If we're in vertical drag mode, update drag location and potential drop.
+                        if dragDirection == .vertical {
+                            dragLocation = drag.location
+                            dragOffset = drag.translation
+                            
+                            let rowHeight: CGFloat = 80 // Approximate row height.
+                            let rowsToMove = Int(drag.translation.height / rowHeight)
+                            let potentialRow = min(max(0, rowIndex + rowsToMove), 6)
+                            potentialDropRow = potentialRow
+                        }
+                    default:
+                        break
+                    }
+                }
+                .onEnded { value in
+                    // End the drag if we were in vertical mode.
+                    if case .second(true, _) = value, dragDirection == .vertical {
+                        if let sourceRow = draggedRowID, let destRow = potentialDropRow {
+                            onReorder(sourceRow, destRow)
+                        }
+                    }
+                    // Reset state.
+                    draggedRowID = nil
+                    isDragging = false
+                    potentialDropRow = nil
+                    dragDirection = .none
+                }
+        )
+        .opacity(draggedRowID == rowIndex ? 0.5 : 1.0)
+        .background(
+            potentialDropRow == rowIndex && isDragging && draggedRowID != rowIndex ?
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.blue.opacity(0.2))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.blue, style: StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                ) : nil
+        )
+        .animation(.spring(), value: draggedRowID)
+        .animation(.spring(), value: potentialDropRow)
+    }
+}
+
 // MARK: - RectangleReservationBackground Subview
 struct RectangleReservationBackground: View {
-    @EnvironmentObject var env: AppDependencies
-    @EnvironmentObject var appState: AppState
-    
     let reservation: Reservation
     let duration: CGFloat
     let padding: CGFloat
@@ -369,34 +577,6 @@ struct RectangleReservationBackground: View {
                                 .padding(.vertical, 8)
                             )
                             .frame(width: duration)
-                            .contextMenu {
-                                Button {
-                                    print("DEBUG: Reservation details for \(reservation.name)")
-                                } label: {
-                                    Label("Debug Print", systemImage: "ladybug.slash.fill")
-                                }
-
-                                Divider()
-
-                                Button {
-                                    // Handle emoji picker
-                                    // Note: You'll need to add state for emoji picker
-                                } label: {
-                                    Label("Scegli Emoji", systemImage: "ellipsis.circle")
-                                }
-
-                                Divider()
-
-                                Button("Cancellazione") {
-                                    var updatedReservation = reservation
-                                    if updatedReservation.status != .canceled {
-                                        updatedReservation.status = .canceled
-                                    }
-                                    env.reservationService.updateReservation(updatedReservation) {
-                                        appState.changedReservation = updatedReservation
-                                    }
-                                }
-                            }
                     }
                 }
                 .frame(height: isTableOccupied ? 30 : cellHeight)
