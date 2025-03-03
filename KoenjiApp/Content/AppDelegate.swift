@@ -2,15 +2,27 @@ import UIKit
 import UserNotifications
 import OSLog
 
-final class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
-    let logger = Logger(subsystem: "com.koenjiapp", category: "AppDelegate")
+typealias LegacyNotificationHandler =
+  @convention(block) (UNUserNotificationCenter, UNNotificationResponse, @escaping () -> Void) -> Void
 
+// 2) Wrap it in a box that's @unchecked Sendable
+struct LegacyNotificationHandlerBox: @unchecked Sendable {
+  let block: LegacyNotificationHandler
+}
+
+final class AppDelegate: UIResponder, UIApplicationDelegate {
+    let logger = Logger(subsystem: "com.koenjiapp", category: "AppDelegate")
+    var originalNotificationHandler: LegacyNotificationHandlerBox? = nil
+
+    
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         logger.info("Application finished launching")
 
+        setupWebReservationNotifications()
+        
         // Set NotificationManager as the delegate
         UNUserNotificationCenter.current().delegate = NotificationManager.shared
         

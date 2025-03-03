@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UISupportsDocumentBrowser</key>
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -20,9 +22,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.2.2</string>
+	<string>3.4.0</string>
 	<key>CFBundleVersion</key>
-	<string>3.2.2</string>
+	<string>3.4.0</string>
 	<key>UILaunchStoryboardName</key>
 	<string>Launchscreen</string>
 	<key>UISupportedInterfaceOrientations</key>

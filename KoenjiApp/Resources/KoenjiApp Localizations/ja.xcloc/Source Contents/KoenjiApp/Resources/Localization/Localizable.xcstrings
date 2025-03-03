@@ -1,0 +1,2604 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    "\n[Non è stato possibile assegnare tavoli automaticamente - " : {
+
+    },
+    "\n[Ripristinata senza tavoli - non è stato possibile riassegnare i tavoli automaticamente]" : {
+
+    },
+    " - %lld p." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- %lld p."
+          }
+        }
+      }
+    },
+    "-1 gg." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "- 1 d."
+          }
+        }
+      }
+    },
+    "-15 min." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "-15 min."
+          }
+        }
+      }
+    },
+    "(chiusura)" : {
+
+    },
+    "(Nessuna cancellazione)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(No canceled reservations)"
+          }
+        }
+      }
+    },
+    "(Nessuna prenotazione in lista d'attesa)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(No reservations in the waiting list)"
+          }
+        }
+      }
+    },
+    "[arrivati];" : {
+
+    },
+    "[cancellata];" : {
+
+    },
+    "[cancellazione];" : {
+
+    },
+    "[confermata];" : {
+
+    },
+    "[da confermare];" : {
+
+    },
+    "[da sistemare];" : {
+
+    },
+    "[eliminata];" : {
+
+    },
+    "[in attesa];" : {
+
+    },
+    "[in ritardo];" : {
+
+    },
+    "[in sospeso];" : {
+
+    },
+    "[N/A]" : {
+
+    },
+    "[N/A];" : {
+
+    },
+    "[no show];" : {
+
+    },
+    "[prenotata];" : {
+
+    },
+    "[waiting list];" : {
+
+    },
+    "[walk-in];" : {
+
+    },
+    "#%@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#%@"
+          }
+        }
+      }
+    },
+    "%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        }
+      }
+    },
+    "%@ - %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ - %2$@"
+          }
+        }
+      }
+    },
+    "%@ - %lld p." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ - %2$lld p."
+          }
+        }
+      }
+    },
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "%@-%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@-%2$@"
+          }
+        }
+      }
+    },
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@ - %@ - %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@ - %3$@ - %4$@"
+          }
+        }
+      }
+    },
+    "%@, %lld p." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld p."
+          }
+        }
+      }
+    },
+    "%@,%@,%@,%@,%@,%@,%@,%@,%@,%@,%@,%lld,%@\n" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@,%2$@,%3$@,%4$@,%5$@,%6$@,%7$@,%8$@,%9$@,%10$@,%11$@,%12$lld,%13$@\n"
+          }
+        }
+      }
+    },
+    "%@,Cena,%@,%@,%@,%@,%@,,%@,,\n" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@,Cena,%2$@,%3$@,%4$@,%5$@,%6$@,,%7$@,,\n"
+          }
+        }
+      }
+    },
+    "%@,Pranzo,%@,%@,%@,%@,%@,%@,,%lld,%@\n" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@,Pranzo,%2$@,%3$@,%4$@,%5$@,%6$@,%7$@,,%8$lld,%9$@\n"
+          }
+        }
+      }
+    },
+    "%@: ritardo" : {
+
+    },
+    "%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        }
+      }
+    },
+    "%lld %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld %2$@"
+          }
+        }
+      }
+    },
+    "%lld %@ fa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld %2$@ fa"
+          }
+        }
+      }
+    },
+    "%lld cancellazioni" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld cancelations"
+          }
+        }
+      }
+    },
+    "%lld giorni fa" : {
+
+    },
+    "%lld in lista d'attesa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld in waiting list"
+          }
+        }
+      }
+    },
+    "%lld p." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld p."
+          }
+        }
+      }
+    },
+    "%lld tavoli" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld tables"
+          }
+        }
+      }
+    },
+    "%lld€" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld€"
+          }
+        }
+      }
+    },
+    "%lldp" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lldp"
+          }
+        }
+      }
+    },
+    "•" : {
+
+    },
+    "+%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld"
+          }
+        }
+      }
+    },
+    "+1 gg." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+1 d."
+          }
+        }
+      }
+    },
+    "+15 min." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+15 min."
+          }
+        }
+      }
+    },
+    "0" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0"
+          }
+        }
+      }
+    },
+    "0,00" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0,00"
+          }
+        }
+      }
+    },
+    "A data..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To date…"
+          }
+        }
+      }
+    },
+    "Accedi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login"
+          }
+        }
+      }
+    },
+    "Accedi per continuare" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login to continue"
+          }
+        }
+      }
+    },
+    "Account esistente rilevato" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Found existing account"
+          }
+        }
+      }
+    },
+    "Adesso" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now"
+          }
+        }
+      }
+    },
+    "Aggiungi immagine" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add image"
+          }
+        }
+      }
+    },
+    "Aggiungi Oggi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Today"
+          }
+        }
+      }
+    },
+    "Agosto" : {
+
+    },
+    "Al '%@'..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To ‘%@’…"
+          }
+        }
+      }
+    },
+    "Alle" : {
+
+    },
+    "Anno Corrente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current Year"
+          }
+        }
+      }
+    },
+    "Annulla" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss"
+          }
+        }
+      }
+    },
+    "App Version: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Version: %@"
+          }
+        }
+      }
+    },
+    "Aprile" : {
+
+    },
+    "arrivati" : {
+
+    },
+    "Attentione!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warning!"
+          }
+        }
+      }
+    },
+    "Attenzione!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warning!"
+          }
+        }
+      }
+    },
+    "Autenticazione Richiesta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authentication Required"
+          }
+        }
+      }
+    },
+    "Auto Assegna" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto Assign"
+          }
+        }
+      }
+    },
+    "Autorizzato" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Authorized"
+          }
+        }
+      }
+    },
+    "Azzera Cache" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flush Cache"
+          }
+        }
+      }
+    },
+    "Bento" : {
+
+    },
+    "Bento,%@\n" : {
+
+    },
+    "Benvenut* in\nKOENJI. VENEZIA" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welcome to KOENJI. VENEZIA"
+          }
+        }
+      }
+    },
+    "Build: %@ (debug ver.)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Build: %@ (debug ver.)"
+          }
+        }
+      }
+    },
+    "Calendario Vendite" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sales Calendar"
+          }
+        }
+      }
+    },
+    "Cambia Anno" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change Year"
+          }
+        }
+      }
+    },
+    "Cambia immagine" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change image"
+          }
+        }
+      }
+    },
+    "Cancellate" : {
+
+    },
+    "Cancellati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Canceled"
+          }
+        }
+      }
+    },
+    "cancellaz." : {
+
+    },
+    "cancellazione" : {
+
+    },
+    "Cancellazione" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelation"
+          }
+        }
+      }
+    },
+    "Cancellazioni" : {
+
+    },
+    "Caricamento..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading…"
+          }
+        }
+      }
+    },
+    "Categoria,Totale\n" : {
+
+    },
+    "cena" : {
+
+    },
+    "Cena" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dinner"
+          }
+        }
+      }
+    },
+    "Cena,%@\n" : {
+
+    },
+    "Cerca prenotazioni" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search reservations"
+          }
+        }
+      }
+    },
+    "Chiudi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        }
+      }
+    },
+    "Ci siamo quasi!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Almost there!"
+          }
+        }
+      }
+    },
+    "Cocai" : {
+
+    },
+    "Cocai,%@\n\n" : {
+
+    },
+    "Cognome" : {
+
+    },
+    "con anticipo" : {
+
+    },
+    "Condividi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
+          }
+        }
+      }
+    },
+    "Conferma Eliminazione" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm Delete"
+          }
+        }
+      }
+    },
+    "confermata" : {
+
+    },
+    "Continua" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        }
+      }
+    },
+    "Converti backup" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Convert backup"
+          }
+        }
+      }
+    },
+    "Crea nuovo profilo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a new profile"
+          }
+        }
+      }
+    },
+    "Currently editing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Currently editing"
+          }
+        }
+      }
+    },
+    "da confermare" : {
+
+    },
+    "Da data..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From date…"
+          }
+        }
+      }
+    },
+    "Da gestire" : {
+
+    },
+    "Dal '%@'..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From ‘%@’…"
+          }
+        }
+      }
+    },
+    "Dalle" : {
+
+    },
+    "Dalle:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From:"
+          }
+        }
+      }
+    },
+    "Data" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date"
+          }
+        }
+      }
+    },
+    "Data non valida" : {
+
+    },
+    "Data Non Valida" : {
+
+    },
+    "Data,Categoria,Lettura Cassa,Fatture,Yami,Yami Pulito,Totale Shiro,Bento,Cocai,Persone,Spesa Media\n" : {
+
+    },
+    "Data: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date: %@"
+          }
+        }
+      }
+    },
+    "Database" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Database"
+          }
+        }
+      }
+    },
+    "Dati mancanti" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missing data"
+          }
+        }
+      }
+    },
+    "Dati salvati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved data"
+          }
+        }
+      }
+    },
+    "Debug Config" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debug Config"
+          }
+        }
+      }
+    },
+    "Debug Print" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debug Print"
+          }
+        }
+      }
+    },
+    "Debug Tools" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debug Tools"
+          }
+        }
+      }
+    },
+    "Dettagli" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Details"
+          }
+        }
+      }
+    },
+    "Dettagli Prenotazione" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reservation Details"
+          }
+        }
+      }
+    },
+    "Dicembre" : {
+
+    },
+    "Done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "Durata" : {
+
+    },
+    "Durata: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duration: %@"
+          }
+        }
+      }
+    },
+    "Elimina Anno" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Year"
+          }
+        }
+      }
+    },
+    "Elimina Anno %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Year %@"
+          }
+        }
+      }
+    },
+    "Elimina Mese" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Month"
+          }
+        }
+      }
+    },
+    "Elimina Mese %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Month %1$@ %2$@"
+          }
+        }
+      }
+    },
+    "eliminata" : {
+
+    },
+    "Eliminate" : {
+
+    },
+    "Enable Filter" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable Filter"
+          }
+        }
+      }
+    },
+    "End Date" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End Date"
+          }
+        }
+      }
+    },
+    "Errore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        }
+      }
+    },
+    "Errore sconosciuto." : {
+
+    },
+    "Errore:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error:"
+          }
+        }
+      }
+    },
+    "Esporta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
+          }
+        }
+      }
+    },
+    "Esporta vendite %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export sales %@"
+          }
+        }
+      }
+    },
+    "Excel/CSV" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excel/CSV"
+          }
+        }
+      }
+    },
+    "Fatto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "Fatture" : {
+
+    },
+    "Fatture,%@\n" : {
+
+    },
+    "Febbraio" : {
+
+    },
+    "Filter by Date Range" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filter by Date Range"
+          }
+        }
+      }
+    },
+    "Filter by People" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filter by People"
+          }
+        }
+      }
+    },
+    "Filtri" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filter"
+          }
+        }
+      }
+    },
+    "Filtri attivi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active filters:"
+          }
+        }
+      }
+    },
+    "Fino alle:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Until:"
+          }
+        }
+      }
+    },
+    "Fri" : {
+
+    },
+    "Genera Dati di Debug" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generate Debug Data"
+          }
+        }
+      }
+    },
+    "Gennaio" : {
+
+    },
+    "Gestione Vendite" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sales Management"
+          }
+        }
+      }
+    },
+    "Giorni da Simulare: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Days to Simulate: %lld"
+          }
+        }
+      }
+    },
+    "Giugno" : {
+
+    },
+    "Group By" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group By"
+          }
+        }
+      }
+    },
+    "I dati di vendita sono stati salvati con successo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sales data has been saved successfully."
+          }
+        }
+      }
+    },
+    "Ieri" : {
+
+    },
+    "Il contatto non può essere lasciato vuoto." : {
+
+    },
+    "Il nome non può essere lasciato vuoto." : {
+
+    },
+    "Il tavolo scelto è occupato o bloccato." : {
+
+    },
+    "Immagine" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Image"
+          }
+        }
+      }
+    },
+    "Impossibile posizionare il tavolo in questa posizione (fuori griglia o sovrapposto)." : {
+
+    },
+    "Impossibile selezionare orario in questa categoria." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Can’t select hours for current category."
+          }
+        }
+      }
+    },
+    "In arrivo tra:\n%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coming in: %@"
+          }
+        }
+      }
+    },
+    "in attesa" : {
+
+    },
+    "in ritardo" : {
+
+    },
+    "in sospeso" : {
+
+    },
+    "In sospeso" : {
+
+    },
+    "Indietro" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        }
+      }
+    },
+    "Info" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Info"
+          }
+        }
+      }
+    },
+    "Iniziamo!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Let’s begin!"
+          }
+        }
+      }
+    },
+    "Inserimenti Recenti" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent Entries"
+          }
+        }
+      }
+    },
+    "Inserisci la password per visualizzare i dati di vendita" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insert the password to display sales data"
+          }
+        }
+      }
+    },
+    "Inserisci vendite di oggi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insert today’s sales"
+          }
+        }
+      }
+    },
+    "Layout Tavoli" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tables Layout"
+          }
+        }
+      }
+    },
+    "Le notifiche relative alle prenotazioni appariranno qui" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications for reservations will appear here"
+          }
+        }
+      }
+    },
+    "Lettura cassa" : {
+
+    },
+    "Lettura Cassa" : {
+
+    },
+    "Lettura Cassa,%@\n" : {
+
+    },
+    "Lista d'attesa" : {
+
+    },
+    "Lock Layout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock Layout"
+          }
+        }
+      }
+    },
+    "Log Prenotazioni Salvate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log Saved Reservations"
+          }
+        }
+      }
+    },
+    "Login" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login"
+          }
+        }
+      }
+    },
+    "Logout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logout"
+          }
+        }
+      }
+    },
+    "Luglio" : {
+
+    },
+    "Maggio" : {
+
+    },
+    "Marzo" : {
+
+    },
+    "Matteo Nassini\n© All Rights Reserved" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Matteo Nassini\n© All Rights Reserved"
+          }
+        }
+      }
+    },
+    "Media mensile: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly average: %@"
+          }
+        }
+      }
+    },
+    "Media: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average: %@"
+          }
+        }
+      }
+    },
+    "Mese" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Month"
+          }
+        }
+      }
+    },
+    "Mese Corrente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current Month"
+          }
+        }
+      }
+    },
+    "Mese,Pranzo,Cena,Totale Vendite,Lettura Cassa,Fatture,Yami Lordo,Yami Pulito,Yami Netto,Bento,Cocai,Persone,Spesa Media\n" : {
+
+    },
+    "Mesi %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Months %@"
+          }
+        }
+      }
+    },
+    "Modifica" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        }
+      }
+    },
+    "Modifica Prenotazione" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Reservation"
+          }
+        }
+      }
+    },
+    "Mon" : {
+
+    },
+    "n/a" : {
+
+    },
+    "N/A" : {
+
+    },
+    "Nessun dato" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No data"
+          }
+        }
+      }
+    },
+    "Nessun dato recente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No recent data"
+          }
+        }
+      }
+    },
+    "Nessun tavolo assegnato" : {
+
+    },
+    "Nessuna notifica" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No notifications"
+          }
+        }
+      }
+    },
+    "Nessuna prenotazione\nin arrivo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No upcoming reservations"
+          }
+        }
+      }
+    },
+    "Nessuna prenotazione per la giornata" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No reservations for the day"
+          }
+        }
+      }
+    },
+    "Nessuno" : {
+
+    },
+    "no show" : {
+
+    },
+    "Nome" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        }
+      }
+    },
+    "Non autorizzato" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unauthorized"
+          }
+        }
+      }
+    },
+    "Non ci sono abbastanza tavoli per la prenotazione." : {
+
+    },
+    "Non ci sono tavoli disponibili." : {
+
+    },
+    "Note" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notes"
+          }
+        }
+      }
+    },
+    "Note:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notes:"
+          }
+        }
+      }
+    },
+    "Nothing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing"
+          }
+        }
+      }
+    },
+    "Notifiche" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications"
+          }
+        }
+      }
+    },
+    "Novembre" : {
+
+    },
+    "Number of People: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Number of People: %lld"
+          }
+        }
+      }
+    },
+    "Numero ospiti" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guests number"
+          }
+        }
+      }
+    },
+    "Nuova Prenotazione" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Reservation"
+          }
+        }
+      }
+    },
+    "Nuovo Anno" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Year"
+          }
+        }
+      }
+    },
+    "Oggi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Ora" : {
+
+    },
+    "Orario" : {
+
+    },
+    "Orario: %@ - %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time: %1$@ - %2$@"
+          }
+        }
+      }
+    },
+    "Ordina per..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Order by…"
+          }
+        }
+      }
+    },
+    "Ottimo! Ora, creiamo il tuo profilo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Great! Now, let’s create a profile"
+          }
+        }
+      }
+    },
+    "Ottobre" : {
+
+    },
+    "Parametri Simulazione" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simulation Parameters"
+          }
+        }
+      }
+    },
+    "Password" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password"
+          }
+        }
+      }
+    },
+    "Password non valida. Riprova." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid password. Try again."
+          }
+        }
+      }
+    },
+    "Per data" : {
+
+    },
+    "Per favore, inserisci nome e cognome per continuare." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please input your name and surname to continue."
+          }
+        }
+      }
+    },
+    "Per giorno" : {
+
+    },
+    "Per iniziare, accedi con il tuo account Apple" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To begin, login with your Apple account"
+          }
+        }
+      }
+    },
+    "Per mese" : {
+
+    },
+    "Per numero ospiti" : {
+
+    },
+    "Per persone" : {
+
+    },
+    "Per settimana" : {
+
+    },
+    "Per tavolo" : {
+
+    },
+    "Per ultime aggiunte" : {
+
+    },
+    "Per visualizzare i dati di vendita è necessaria l'autenticazione" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To display sales data authentication is required"
+          }
+        }
+      }
+    },
+    "Persone" : {
+
+    },
+    "Persone totali,%lld\n" : {
+
+    },
+    "Persone: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "People: %lld"
+          }
+        }
+      }
+    },
+    "pranzo" : {
+
+    },
+    "Pranzo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lunch"
+          }
+        }
+      }
+    },
+    "Pranzo,%@\n" : {
+
+    },
+    "prenotata" : {
+
+    },
+    "Prenotate" : {
+
+    },
+    "prenotato" : {
+
+    },
+    "PRENOTAZIONE" : {
+
+    },
+    "Prenotazione a nome di %@ è in ritardo." : {
+
+    },
+    "Prenotazione a nome di %@ sta per terminare (-%lld minuti)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Prenotazione a nome di %1$@ sta per terminare (-%2$lld minuti)."
+          }
+        }
+      }
+    },
+    "Prenotazione in scadenza" : {
+
+    },
+    "Prenotazioni" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reservations"
+          }
+        }
+      }
+    },
+    "PRENOTAZIONI" : {
+
+    },
+    "Prima di iniziare, completa il tuo profilo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Before we begin, complete your profile"
+          }
+        }
+      }
+    },
+    "Prosegui" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        }
+      }
+    },
+    "Pulire tutte le notifiche?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flush all notifications?"
+          }
+        }
+      }
+    },
+    "Pulisci" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flush"
+          }
+        }
+      }
+    },
+    "Pulisci tutto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flush all"
+          }
+        }
+      }
+    },
+    "Qui per assisterti con la\ngestione delle prenotazioni (e altro in arrivo...)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Here to assist with managing reservations (and more coming…)"
+          }
+        }
+      }
+    },
+    "Raggruppa per..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group by…"
+          }
+        }
+      }
+    },
+    "Reset" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset"
+          }
+        }
+      }
+    },
+    "Reset di Tutti i Dati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset All Data"
+          }
+        }
+      }
+    },
+    "Reset Layout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset Layout"
+          }
+        }
+      }
+    },
+    "Resetta Dati" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset Data"
+          }
+        }
+      }
+    },
+    "Riepilogo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summary"
+          }
+        }
+      }
+    },
+    "Riepilogo %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summary %@"
+          }
+        }
+      }
+    },
+    "Riepilogo Annuale" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annual Summary"
+          }
+        }
+      }
+    },
+    "Riepilogo Annuale %lld\n" : {
+
+    },
+    "Riepilogo Mensile" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly Summary"
+          }
+        }
+      }
+    },
+    "Riepilogo mensile - %@ %lld\n" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Riepilogo mensile - %1$@ %2$lld\n"
+          }
+        }
+      }
+    },
+    "Rimuovi" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove"
+          }
+        }
+      }
+    },
+    "Rimuovi filtri" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove filters"
+          }
+        }
+      }
+    },
+    "ripristino" : {
+
+    },
+    "ritardo" : {
+
+    },
+    "Salva" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        }
+      }
+    },
+    "Salva Dati Debug" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Debug Data"
+          }
+        }
+      }
+    },
+    "Salvataggio..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving…"
+          }
+        }
+      }
+    },
+    "Sat" : {
+
+    },
+    "scadenza" : {
+
+    },
+    "Scartabellando..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flipping through stuff…"
+          }
+        }
+      }
+    },
+    "Scegli Emoji" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Emoji"
+          }
+        }
+      }
+    },
+    "Scegli il formato del file" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose the file format"
+          }
+        }
+      }
+    },
+    "Search Emoji" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search Emoji"
+          }
+        }
+      }
+    },
+    "Sei sicuro di voler eliminare tutte le prenotazioni e i dati salvati? Questa operazione non può essere annullata." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Are you sure you want to proceed and delete all saved data? This operation can’t be undone."
+          }
+        }
+      }
+    },
+    "Select an Image" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select an Image"
+          }
+        }
+      }
+    },
+    "Select Time" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select Time"
+          }
+        }
+      }
+    },
+    "Seleziona Anno" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select Year"
+          }
+        }
+      }
+    },
+    "Seleziona orario" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select time"
+          }
+        }
+      }
+    },
+    "Seleziona Orario" : {
+
+    },
+    "Seleziona persone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select people"
+          }
+        }
+      }
+    },
+    "Seleziona un'opzione dal menu laterale." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select an option from the sidebar"
+          }
+        }
+      }
+    },
+    "Sembra che tu abbia già creato un account su un altro dispositivo come '%@'. Vuoi usare quel profilo?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It looks like you have already created an account on a different device as ‘%@'. Do you want to use it?"
+          }
+        }
+      }
+    },
+    "Settembre" : {
+
+    },
+    "sincro" : {
+
+    },
+    "Sort By" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sort By"
+          }
+        }
+      }
+    },
+    "Spesa media a persona" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average individual spending"
+          }
+        }
+      }
+    },
+    "Spesa media a pranzo,%@\n" : {
+
+    },
+    "sta modificando" : {
+
+    },
+    "sta visualizzando" : {
+
+    },
+    "Stai cercando di prenotare di lunedì. Sei sicuro di voler continuare?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You’re trying to take a reservation on a Monday. Are you sure you want to proceed?"
+          }
+        }
+      }
+    },
+    "stanno modificando" : {
+
+    },
+    "stanno visualizzando" : {
+
+    },
+    "Start Date" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Date"
+          }
+        }
+      }
+    },
+    "Sun" : {
+
+    },
+    "T%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "T%lld"
+          }
+        }
+      }
+    },
+    "TAV." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TABLE"
+          }
+        }
+      }
+    },
+    "Tavoli" : {
+
+    },
+    "Tavoli bloccati!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tables locked!"
+          }
+        }
+      }
+    },
+    "Tavoli sbloccati!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tables unlocked!"
+          }
+        }
+      }
+    },
+    "Tavolo selezionato non trovato." : {
+
+    },
+    "Telefono" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phone"
+          }
+        }
+      }
+    },
+    "Tempo rimasto:" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remaining:"
+          }
+        }
+      }
+    },
+    "Terminata" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completed"
+          }
+        }
+      }
+    },
+    "Thu" : {
+
+    },
+    "Timeline" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Timeline"
+          }
+        }
+      }
+    },
+    "Toggle Full Screen" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle Full Screen"
+          }
+        }
+      }
+    },
+    "Toggle Inspector" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toggle Inspector"
+          }
+        }
+      }
+    },
+    "Tot. %lld (%lld pranzo, %lld cena)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tot. %1$lld (%2$lld lunch, %3$lld dinner)"
+          }
+        }
+      }
+    },
+    "Totale" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total"
+          }
+        }
+      }
+    },
+    "Totale Annuale" : {
+
+    },
+    "Totale annuale netto: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annual net total: %@"
+          }
+        }
+      }
+    },
+    "Totale mensile: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly total: %@"
+          }
+        }
+      }
+    },
+    "Totale netto" : {
+
+    },
+    "Totale Shiro" : {
+
+    },
+    "Totale Vendite,%@\n\n" : {
+
+    },
+    "Tue" : {
+
+    },
+    "Tutte" : {
+
+    },
+    "Tutto pronto!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready!"
+          }
+        }
+      }
+    },
+    "Un altro utente sta effettuando modifiche. Impossibile salvare. Attendere." : {
+
+    },
+    "Unlock Layout" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock Layout"
+          }
+        }
+      }
+    },
+    "Usa profilo esistente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use existing profile"
+          }
+        }
+      }
+    },
+    "Vedi prenotazione" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check reservation"
+          }
+        }
+      }
+    },
+    "Vendite" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sales"
+          }
+        }
+      }
+    },
+    "Vendite %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sales %@"
+          }
+        }
+      }
+    },
+    "Vendite Giornaliere" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily Sales"
+          }
+        }
+      }
+    },
+    "Vendite Mensili" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly Sales"
+          }
+        }
+      }
+    },
+    "Vendite_%@_%lld.csv" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Vendite_%1$@_%2$lld.csv"
+          }
+        }
+      }
+    },
+    "Vendite_Anno_%lld.csv" : {
+
+    },
+    "waiting list" : {
+
+    },
+    "Waiting List" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting List"
+          }
+        }
+      }
+    },
+    "waitinglist" : {
+
+    },
+    "walk-in" : {
+
+    },
+    "Wed" : {
+
+    },
+    "Yami" : {
+
+    },
+    "Yami Lordo" : {
+
+    },
+    "Yami Lordo,%@\n" : {
+
+    },
+    "Yami Netto" : {
+
+    },
+    "Yami Netto,%@\n\n" : {
+
+    },
+    "Yami Pulito" : {
+
+    },
+    "Yami Pulito,%@\n" : {
+
+    }
+  },
+  "version" : "1.0"
+}

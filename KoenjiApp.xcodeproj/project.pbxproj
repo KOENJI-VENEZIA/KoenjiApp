@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A06C2D8E2D75DB480017F621 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = A06C2D8D2D75DB480017F621 /* FirebaseFunctions */; };
 		A06F69AB2D6E7B7700CA2822 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = A06F69AA2D6E7B7700CA2822 /* SQLite */; };
 		A06F69AE2D6E7B8700CA2822 /* SwipeActions in Frameworks */ = {isa = PBXBuildFile; productRef = A06F69AD2D6E7B8700CA2822 /* SwipeActions */; };
 		A06F69B12D6F07B900CA2822 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = A06F69B02D6F07B900CA2822 /* FirebaseAnalytics */; };
@@ -73,6 +74,7 @@
 				A06F69B12D6F07B900CA2822 /* FirebaseAnalytics in Frameworks */,
 				A06F69BB2D6F07B900CA2822 /* FirebaseStorage in Frameworks */,
 				A06F69B32D6F07B900CA2822 /* FirebaseAuth in Frameworks */,
+				A06C2D8E2D75DB480017F621 /* FirebaseFunctions in Frameworks */,
 				A06F69B92D6F07B900CA2822 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -136,6 +138,7 @@
 				A06F69BA2D6F07B900CA2822 /* FirebaseStorage */,
 				A06F69BD2D70F29400CA2822 /* ScreenshotSwiftUI */,
 				A06F69C02D70F2B600CA2822 /* EmojiPalette */,
+				A06C2D8D2D75DB480017F621 /* FirebaseFunctions */,
 			);
 			productName = KoenjiApp;
 			productReference = A0775E242D1CAA1F00068B00 /* KoenjiApp.app */;
@@ -162,6 +165,8 @@
 			knownRegions = (
 				en,
 				Base,
+				it,
+				ja,
 			);
 			mainGroup = A0775E1B2D1CAA1F00068B00;
 			minimizedProjectReferenceProxies = 1;
@@ -267,6 +272,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
@@ -326,6 +332,7 @@
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -478,6 +485,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A06C2D8D2D75DB480017F621 /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A06F69AF2D6F07B900CA2822 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
+		};
 		A06F69AA2D6E7B7700CA2822 /* SQLite */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A06F69A92D6E7B7700CA2822 /* XCRemoteSwiftPackageReference "SQLite.swift" */;

@@ -19,6 +19,9 @@ final class AppDependencies: ObservableObject {
     var scribbleService: ScribbleService
     var listView: ListViewModel
 
+    @Published var salesStore: SalesStore?
+    @Published var salesService: SalesFirebaseService?
+    
     @MainActor
     init() {
         logger.debug("Initializing app dependencies")
@@ -69,6 +72,15 @@ final class AppDependencies: ObservableObject {
             store: store,
             layoutServices: layoutServices
         )
+        
+        let salesStore = SalesStore()
+        self.salesStore = salesStore
+        self.salesService = SalesFirebaseService(store: salesStore)
+        
+        // Start listeners
+        Task {
+            await self.salesService?.startSalesListener()
+        }
         
         logger.info("All dependencies initialized successfully")
     }

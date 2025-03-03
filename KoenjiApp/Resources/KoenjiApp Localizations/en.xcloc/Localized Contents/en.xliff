@@ -1,0 +1,1879 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.2" xsi:schemaLocation="urn:oasis:names:tc:xliff:document:1.2 http://docs.oasis-open.org/xliff/v1.2/os/xliff-core-1.2-strict.xsd">
+  <file original="KoenjiApp/Resources/Localization/InfoPlist.xcstrings" source-language="en" target-language="en" datatype="plaintext">
+    <header>
+      <tool tool-id="com.apple.dt.xcode" tool-name="Xcode" tool-version="16.2" build-num="16C5032a"/>
+    </header>
+    <body>
+      <trans-unit id="CFBundleDisplayName" xml:space="preserve">
+        <source>KOENJI. VENEZIA</source>
+        <target state="new">KOENJI. VENEZIA</target>
+        <note>Bundle display name</note>
+      </trans-unit>
+      <trans-unit id="CFBundleName" xml:space="preserve">
+        <source>KOENJI. VENEZIA</source>
+        <target state="new">KOENJI. VENEZIA</target>
+        <note>Bundle name</note>
+      </trans-unit>
+      <trans-unit id="NSPhotoLibraryUsageDescription" xml:space="preserve">
+        <source>We need access to your photo library to allow you to select images.</source>
+        <target state="new">We need access to your photo library to allow you to select images.</target>
+        <note>Privacy - Photo Library Usage Description</note>
+      </trans-unit>
+    </body>
+  </file>
+  <file original="KoenjiApp/Resources/Localization/Localizable.xcstrings" source-language="en" target-language="en" datatype="plaintext">
+    <header>
+      <tool tool-id="com.apple.dt.xcode" tool-name="Xcode" tool-version="16.2" build-num="16C5032a"/>
+    </header>
+    <body>
+      <trans-unit id="" xml:space="preserve">
+        <source/>
+        <target state="new"/>
+        <note/>
+      </trans-unit>
+      <trans-unit id="&#10;[Non è stato possibile assegnare tavoli automaticamente - " xml:space="preserve">
+        <source>
+[Non è stato possibile assegnare tavoli automaticamente - </source>
+        <target state="new">
+[Non è stato possibile assegnare tavoli automaticamente - </target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="&#10;[Ripristinata senza tavoli - non è stato possibile riassegnare i tavoli automaticamente]" xml:space="preserve">
+        <source>
+[Ripristinata senza tavoli - non è stato possibile riassegnare i tavoli automaticamente]</source>
+        <target state="new">
+[Ripristinata senza tavoli - non è stato possibile riassegnare i tavoli automaticamente]</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id=" - %lld p." xml:space="preserve">
+        <source>- %lld p.</source>
+        <target state="translated">- %lld p.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="#%@" xml:space="preserve">
+        <source>#%@</source>
+        <target state="translated">#%@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@" xml:space="preserve">
+        <source>%@</source>
+        <target state="translated">%@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ %@" xml:space="preserve">
+        <source>%1$@ %2$@</source>
+        <target state="new">%1$@ %2$@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ - %@" xml:space="preserve">
+        <source>%1$@ - %2$@</source>
+        <target state="new">%1$@ - %2$@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@ - %lld p." xml:space="preserve">
+        <source>%1$@ - %2$lld p.</source>
+        <target state="new">%1$@ - %2$lld p.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@, %@" xml:space="preserve">
+        <source>%1$@, %2$@</source>
+        <target state="new">%1$@, %2$@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@, %@ - %@ - %@" xml:space="preserve">
+        <source>%1$@, %2$@ - %3$@ - %4$@</source>
+        <target state="new">%1$@, %2$@ - %3$@ - %4$@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@, %lld p." xml:space="preserve">
+        <source>%1$@, %2$lld p.</source>
+        <target state="new">%1$@, %2$lld p.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@,%@,%@,%@,%@,%@,%@,%@,%@,%@,%@,%lld,%@&#10;" xml:space="preserve">
+        <source>%1$@,%2$@,%3$@,%4$@,%5$@,%6$@,%7$@,%8$@,%9$@,%10$@,%11$@,%12$lld,%13$@
+</source>
+        <target state="new">%1$@,%2$@,%3$@,%4$@,%5$@,%6$@,%7$@,%8$@,%9$@,%10$@,%11$@,%12$lld,%13$@
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@,Cena,%@,%@,%@,%@,%@,,%@,,&#10;" xml:space="preserve">
+        <source>%1$@,Cena,%2$@,%3$@,%4$@,%5$@,%6$@,,%7$@,,
+</source>
+        <target state="new">%1$@,Cena,%2$@,%3$@,%4$@,%5$@,%6$@,,%7$@,,
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@,Pranzo,%@,%@,%@,%@,%@,%@,,%lld,%@&#10;" xml:space="preserve">
+        <source>%1$@,Pranzo,%2$@,%3$@,%4$@,%5$@,%6$@,%7$@,,%8$lld,%9$@
+</source>
+        <target state="new">%1$@,Pranzo,%2$@,%3$@,%4$@,%5$@,%6$@,%7$@,,%8$lld,%9$@
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@-%@" xml:space="preserve">
+        <source>%1$@-%2$@</source>
+        <target state="new">%1$@-%2$@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%@: ritardo" xml:space="preserve">
+        <source>%@: ritardo</source>
+        <target state="new">%@: ritardo</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld" xml:space="preserve">
+        <source>%lld</source>
+        <target state="translated">%lld</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld %@" xml:space="preserve">
+        <source>%1$lld %2$@</source>
+        <target state="new">%1$lld %2$@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld %@ fa" xml:space="preserve">
+        <source>%1$lld %2$@ fa</source>
+        <target state="new">%1$lld %2$@ fa</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld cancellazioni" xml:space="preserve">
+        <source>%lld cancelations</source>
+        <target state="translated">%lld cancelations</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld giorni fa" xml:space="preserve">
+        <source>%lld giorni fa</source>
+        <target state="new">%lld giorni fa</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld in lista d'attesa" xml:space="preserve">
+        <source>%lld in waiting list</source>
+        <target state="translated">%lld in waiting list</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld p." xml:space="preserve">
+        <source>%lld p.</source>
+        <target state="translated">%lld p.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld tavoli" xml:space="preserve">
+        <source>%lld tables</source>
+        <target state="translated">%lld tables</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lldp" xml:space="preserve">
+        <source>%lldp</source>
+        <target state="translated">%lldp</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="%lld€" xml:space="preserve">
+        <source>%lld€</source>
+        <target state="translated">%lld€</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="(Nessuna cancellazione)" xml:space="preserve">
+        <source>(No canceled reservations)</source>
+        <target state="translated">(No canceled reservations)</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="(Nessuna prenotazione in lista d'attesa)" xml:space="preserve">
+        <source>(No reservations in the waiting list)</source>
+        <target state="translated">(No reservations in the waiting list)</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="(chiusura)" xml:space="preserve">
+        <source>(chiusura)</source>
+        <target state="new">(chiusura)</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="+%lld" xml:space="preserve">
+        <source>+%lld</source>
+        <target state="translated">+%lld</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="+1 gg." xml:space="preserve">
+        <source>+1 d.</source>
+        <target state="translated">+1 d.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="+15 min." xml:space="preserve">
+        <source>+15 min.</source>
+        <target state="translated">+15 min.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="-1 gg." xml:space="preserve">
+        <source>- 1 d.</source>
+        <target state="translated">- 1 d.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="-15 min." xml:space="preserve">
+        <source>-15 min.</source>
+        <target state="translated">-15 min.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="0" xml:space="preserve">
+        <source>0</source>
+        <target state="translated">0</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="0,00" xml:space="preserve">
+        <source>0,00</source>
+        <target state="translated">0,00</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="A data..." xml:space="preserve">
+        <source>To date…</source>
+        <target state="translated">To date…</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Accedi" xml:space="preserve">
+        <source>Login</source>
+        <target state="translated">Login</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Accedi per continuare" xml:space="preserve">
+        <source>Login to continue</source>
+        <target state="translated">Login to continue</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Account esistente rilevato" xml:space="preserve">
+        <source>Found existing account</source>
+        <target state="translated">Found existing account</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Adesso" xml:space="preserve">
+        <source>Now</source>
+        <target state="translated">Now</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Aggiungi Oggi" xml:space="preserve">
+        <source>Add Today</source>
+        <target state="translated">Add Today</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Aggiungi immagine" xml:space="preserve">
+        <source>Add image</source>
+        <target state="translated">Add image</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Agosto" xml:space="preserve">
+        <source>Agosto</source>
+        <target state="new">Agosto</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Al '%@'..." xml:space="preserve">
+        <source>To ‘%@’…</source>
+        <target state="translated">To ‘%@’…</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Alle" xml:space="preserve">
+        <source>Alle</source>
+        <target state="new">Alle</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Anno Corrente" xml:space="preserve">
+        <source>Current Year</source>
+        <target state="translated">Current Year</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Annulla" xml:space="preserve">
+        <source>Dismiss</source>
+        <target state="translated">Dismiss</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="App Version: %@" xml:space="preserve">
+        <source>App Version: %@</source>
+        <target state="translated">App Version: %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Aprile" xml:space="preserve">
+        <source>Aprile</source>
+        <target state="new">Aprile</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Attentione!" xml:space="preserve">
+        <source>Warning!</source>
+        <target state="translated">Warning!</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Attenzione!" xml:space="preserve">
+        <source>Warning!</source>
+        <target state="translated">Warning!</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Autenticazione Richiesta" xml:space="preserve">
+        <source>Authentication Required</source>
+        <target state="translated">Authentication Required</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Auto Assegna" xml:space="preserve">
+        <source>Auto Assign</source>
+        <target state="translated">Auto Assign</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Autorizzato" xml:space="preserve">
+        <source>Authorized</source>
+        <target state="translated">Authorized</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Azzera Cache" xml:space="preserve">
+        <source>Flush Cache</source>
+        <target state="translated">Flush Cache</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bento" xml:space="preserve">
+        <source>Bento</source>
+        <target state="new">Bento</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Bento,%@&#10;" xml:space="preserve">
+        <source>Bento,%@
+</source>
+        <target state="new">Bento,%@
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Benvenut* in&#10;KOENJI. VENEZIA" xml:space="preserve">
+        <source>Welcome to KOENJI. VENEZIA</source>
+        <target state="translated">Welcome to KOENJI. VENEZIA</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Build: %@ (debug ver.)" xml:space="preserve">
+        <source>Build: %@ (debug ver.)</source>
+        <target state="translated">Build: %@ (debug ver.)</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Calendario Vendite" xml:space="preserve">
+        <source>Sales Calendar</source>
+        <target state="translated">Sales Calendar</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cambia Anno" xml:space="preserve">
+        <source>Change Year</source>
+        <target state="translated">Change Year</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cambia immagine" xml:space="preserve">
+        <source>Change image</source>
+        <target state="translated">Change image</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cancellate" xml:space="preserve">
+        <source>Cancellate</source>
+        <target state="new">Cancellate</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cancellati" xml:space="preserve">
+        <source>Canceled</source>
+        <target state="translated">Canceled</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cancellazione" xml:space="preserve">
+        <source>Cancelation</source>
+        <target state="translated">Cancelation</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cancellazioni" xml:space="preserve">
+        <source>Cancellazioni</source>
+        <target state="new">Cancellazioni</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Caricamento..." xml:space="preserve">
+        <source>Loading…</source>
+        <target state="translated">Loading…</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Categoria,Totale&#10;" xml:space="preserve">
+        <source>Categoria,Totale
+</source>
+        <target state="new">Categoria,Totale
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cena" xml:space="preserve">
+        <source>Dinner</source>
+        <target state="translated">Dinner</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cena,%@&#10;" xml:space="preserve">
+        <source>Cena,%@
+</source>
+        <target state="new">Cena,%@
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cerca prenotazioni" xml:space="preserve">
+        <source>Search reservations</source>
+        <target state="translated">Search reservations</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Chiudi" xml:space="preserve">
+        <source>Close</source>
+        <target state="translated">Close</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ci siamo quasi!" xml:space="preserve">
+        <source>Almost there!</source>
+        <target state="translated">Almost there!</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cocai" xml:space="preserve">
+        <source>Cocai</source>
+        <target state="new">Cocai</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cocai,%@&#10;&#10;" xml:space="preserve">
+        <source>Cocai,%@
+
+</source>
+        <target state="new">Cocai,%@
+
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Cognome" xml:space="preserve">
+        <source>Cognome</source>
+        <target state="new">Cognome</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Condividi" xml:space="preserve">
+        <source>Share</source>
+        <target state="translated">Share</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Conferma Eliminazione" xml:space="preserve">
+        <source>Confirm Delete</source>
+        <target state="translated">Confirm Delete</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Continua" xml:space="preserve">
+        <source>Continue</source>
+        <target state="translated">Continue</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Converti backup" xml:space="preserve">
+        <source>Convert backup</source>
+        <target state="translated">Convert backup</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Crea nuovo profilo" xml:space="preserve">
+        <source>Create a new profile</source>
+        <target state="translated">Create a new profile</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Currently editing" xml:space="preserve">
+        <source>Currently editing</source>
+        <target state="translated">Currently editing</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Da data..." xml:space="preserve">
+        <source>From date…</source>
+        <target state="translated">From date…</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Da gestire" xml:space="preserve">
+        <source>Da gestire</source>
+        <target state="new">Da gestire</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dal '%@'..." xml:space="preserve">
+        <source>From ‘%@’…</source>
+        <target state="translated">From ‘%@’…</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dalle" xml:space="preserve">
+        <source>Dalle</source>
+        <target state="new">Dalle</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dalle:" xml:space="preserve">
+        <source>From:</source>
+        <target state="translated">From:</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Data" xml:space="preserve">
+        <source>Date</source>
+        <target state="translated">Date</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Data Non Valida" xml:space="preserve">
+        <source>Data Non Valida</source>
+        <target state="new">Data Non Valida</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Data non valida" xml:space="preserve">
+        <source>Data non valida</source>
+        <target state="new">Data non valida</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Data,Categoria,Lettura Cassa,Fatture,Yami,Yami Pulito,Totale Shiro,Bento,Cocai,Persone,Spesa Media&#10;" xml:space="preserve">
+        <source>Data,Categoria,Lettura Cassa,Fatture,Yami,Yami Pulito,Totale Shiro,Bento,Cocai,Persone,Spesa Media
+</source>
+        <target state="new">Data,Categoria,Lettura Cassa,Fatture,Yami,Yami Pulito,Totale Shiro,Bento,Cocai,Persone,Spesa Media
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Data: %@" xml:space="preserve">
+        <source>Date: %@</source>
+        <target state="translated">Date: %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Database" xml:space="preserve">
+        <source>Database</source>
+        <target state="translated">Database</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dati mancanti" xml:space="preserve">
+        <source>Missing data</source>
+        <target state="translated">Missing data</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dati salvati" xml:space="preserve">
+        <source>Saved data</source>
+        <target state="translated">Saved data</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Debug Config" xml:space="preserve">
+        <source>Debug Config</source>
+        <target state="translated">Debug Config</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Debug Print" xml:space="preserve">
+        <source>Debug Print</source>
+        <target state="translated">Debug Print</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Debug Tools" xml:space="preserve">
+        <source>Debug Tools</source>
+        <target state="translated">Debug Tools</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dettagli" xml:space="preserve">
+        <source>Details</source>
+        <target state="translated">Details</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dettagli Prenotazione" xml:space="preserve">
+        <source>Reservation Details</source>
+        <target state="translated">Reservation Details</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Dicembre" xml:space="preserve">
+        <source>Dicembre</source>
+        <target state="new">Dicembre</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Done" xml:space="preserve">
+        <source>Done</source>
+        <target state="translated">Done</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Durata" xml:space="preserve">
+        <source>Durata</source>
+        <target state="new">Durata</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Durata: %@" xml:space="preserve">
+        <source>Duration: %@</source>
+        <target state="translated">Duration: %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Elimina Anno" xml:space="preserve">
+        <source>Delete Year</source>
+        <target state="translated">Delete Year</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Elimina Anno %@" xml:space="preserve">
+        <source>Delete Year %@</source>
+        <target state="translated">Delete Year %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Elimina Mese" xml:space="preserve">
+        <source>Delete Month</source>
+        <target state="translated">Delete Month</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Elimina Mese %@ %@" xml:space="preserve">
+        <source>Delete Month %1$@ %2$@</source>
+        <target state="translated">Delete Month %1$@ %2$@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Eliminate" xml:space="preserve">
+        <source>Eliminate</source>
+        <target state="new">Eliminate</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Enable Filter" xml:space="preserve">
+        <source>Enable Filter</source>
+        <target state="translated">Enable Filter</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="End Date" xml:space="preserve">
+        <source>End Date</source>
+        <target state="translated">End Date</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Errore" xml:space="preserve">
+        <source>Error</source>
+        <target state="translated">Error</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Errore sconosciuto." xml:space="preserve">
+        <source>Errore sconosciuto.</source>
+        <target state="new">Errore sconosciuto.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Errore:" xml:space="preserve">
+        <source>Error:</source>
+        <target state="translated">Error:</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Esporta" xml:space="preserve">
+        <source>Export</source>
+        <target state="translated">Export</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Esporta vendite %@" xml:space="preserve">
+        <source>Export sales %@</source>
+        <target state="translated">Export sales %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Excel/CSV" xml:space="preserve">
+        <source>Excel/CSV</source>
+        <target state="translated">Excel/CSV</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fatto" xml:space="preserve">
+        <source>Done</source>
+        <target state="translated">Done</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fatture" xml:space="preserve">
+        <source>Fatture</source>
+        <target state="new">Fatture</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fatture,%@&#10;" xml:space="preserve">
+        <source>Fatture,%@
+</source>
+        <target state="new">Fatture,%@
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Febbraio" xml:space="preserve">
+        <source>Febbraio</source>
+        <target state="new">Febbraio</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Filter by Date Range" xml:space="preserve">
+        <source>Filter by Date Range</source>
+        <target state="translated">Filter by Date Range</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Filter by People" xml:space="preserve">
+        <source>Filter by People</source>
+        <target state="translated">Filter by People</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Filtri" xml:space="preserve">
+        <source>Filter</source>
+        <target state="translated">Filter</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Filtri attivi" xml:space="preserve">
+        <source>Active filters:</source>
+        <target state="translated">Active filters:</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fino alle:" xml:space="preserve">
+        <source>Until:</source>
+        <target state="translated">Until:</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Fri" xml:space="preserve">
+        <source>Fri</source>
+        <target state="new">Fri</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Genera Dati di Debug" xml:space="preserve">
+        <source>Generate Debug Data</source>
+        <target state="translated">Generate Debug Data</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gennaio" xml:space="preserve">
+        <source>Gennaio</source>
+        <target state="new">Gennaio</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Gestione Vendite" xml:space="preserve">
+        <source>Sales Management</source>
+        <target state="translated">Sales Management</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Giorni da Simulare: %lld" xml:space="preserve">
+        <source>Days to Simulate: %lld</source>
+        <target state="translated">Days to Simulate: %lld</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Giugno" xml:space="preserve">
+        <source>Giugno</source>
+        <target state="new">Giugno</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Group By" xml:space="preserve">
+        <source>Group By</source>
+        <target state="translated">Group By</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="I dati di vendita sono stati salvati con successo." xml:space="preserve">
+        <source>Sales data has been saved successfully.</source>
+        <target state="translated">Sales data has been saved successfully.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ieri" xml:space="preserve">
+        <source>Ieri</source>
+        <target state="new">Ieri</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Il contatto non può essere lasciato vuoto." xml:space="preserve">
+        <source>Il contatto non può essere lasciato vuoto.</source>
+        <target state="new">Il contatto non può essere lasciato vuoto.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Il nome non può essere lasciato vuoto." xml:space="preserve">
+        <source>Il nome non può essere lasciato vuoto.</source>
+        <target state="new">Il nome non può essere lasciato vuoto.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Il tavolo scelto è occupato o bloccato." xml:space="preserve">
+        <source>Il tavolo scelto è occupato o bloccato.</source>
+        <target state="new">Il tavolo scelto è occupato o bloccato.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Immagine" xml:space="preserve">
+        <source>Image</source>
+        <target state="translated">Image</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Impossibile posizionare il tavolo in questa posizione (fuori griglia o sovrapposto)." xml:space="preserve">
+        <source>Impossibile posizionare il tavolo in questa posizione (fuori griglia o sovrapposto).</source>
+        <target state="new">Impossibile posizionare il tavolo in questa posizione (fuori griglia o sovrapposto).</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Impossibile selezionare orario in questa categoria." xml:space="preserve">
+        <source>Can’t select hours for current category.</source>
+        <target state="translated">Can’t select hours for current category.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="In arrivo tra:&#10;%@" xml:space="preserve">
+        <source>Coming in: %@</source>
+        <target state="translated">Coming in: %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="In sospeso" xml:space="preserve">
+        <source>In sospeso</source>
+        <target state="new">In sospeso</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Indietro" xml:space="preserve">
+        <source>Back</source>
+        <target state="translated">Back</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Info" xml:space="preserve">
+        <source>Info</source>
+        <target state="translated">Info</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Iniziamo!" xml:space="preserve">
+        <source>Let’s begin!</source>
+        <target state="translated">Let’s begin!</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inserimenti Recenti" xml:space="preserve">
+        <source>Recent Entries</source>
+        <target state="translated">Recent Entries</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inserisci la password per visualizzare i dati di vendita" xml:space="preserve">
+        <source>Insert the password to display sales data</source>
+        <target state="translated">Insert the password to display sales data</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Inserisci vendite di oggi" xml:space="preserve">
+        <source>Insert today’s sales</source>
+        <target state="translated">Insert today’s sales</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Layout Tavoli" xml:space="preserve">
+        <source>Tables Layout</source>
+        <target state="translated">Tables Layout</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Le notifiche relative alle prenotazioni appariranno qui" xml:space="preserve">
+        <source>Notifications for reservations will appear here</source>
+        <target state="translated">Notifications for reservations will appear here</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Lettura Cassa" xml:space="preserve">
+        <source>Lettura Cassa</source>
+        <target state="new">Lettura Cassa</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Lettura Cassa,%@&#10;" xml:space="preserve">
+        <source>Lettura Cassa,%@
+</source>
+        <target state="new">Lettura Cassa,%@
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Lettura cassa" xml:space="preserve">
+        <source>Lettura cassa</source>
+        <target state="new">Lettura cassa</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Lista d'attesa" xml:space="preserve">
+        <source>Lista d'attesa</source>
+        <target state="new">Lista d'attesa</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Lock Layout" xml:space="preserve">
+        <source>Lock Layout</source>
+        <target state="translated">Lock Layout</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Log Prenotazioni Salvate" xml:space="preserve">
+        <source>Log Saved Reservations</source>
+        <target state="translated">Log Saved Reservations</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Login" xml:space="preserve">
+        <source>Login</source>
+        <target state="translated">Login</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Logout" xml:space="preserve">
+        <source>Logout</source>
+        <target state="translated">Logout</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Luglio" xml:space="preserve">
+        <source>Luglio</source>
+        <target state="new">Luglio</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Maggio" xml:space="preserve">
+        <source>Maggio</source>
+        <target state="new">Maggio</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Marzo" xml:space="preserve">
+        <source>Marzo</source>
+        <target state="new">Marzo</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Matteo Nassini&#10;© All Rights Reserved" xml:space="preserve">
+        <source>Matteo Nassini
+© All Rights Reserved</source>
+        <target state="translated">Matteo Nassini
+© All Rights Reserved</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Media mensile: %@" xml:space="preserve">
+        <source>Monthly average: %@</source>
+        <target state="translated">Monthly average: %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Media: %@" xml:space="preserve">
+        <source>Average: %@</source>
+        <target state="translated">Average: %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Mese" xml:space="preserve">
+        <source>Month</source>
+        <target state="translated">Month</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Mese Corrente" xml:space="preserve">
+        <source>Current Month</source>
+        <target state="translated">Current Month</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Mese,Pranzo,Cena,Totale Vendite,Lettura Cassa,Fatture,Yami Lordo,Yami Pulito,Yami Netto,Bento,Cocai,Persone,Spesa Media&#10;" xml:space="preserve">
+        <source>Mese,Pranzo,Cena,Totale Vendite,Lettura Cassa,Fatture,Yami Lordo,Yami Pulito,Yami Netto,Bento,Cocai,Persone,Spesa Media
+</source>
+        <target state="new">Mese,Pranzo,Cena,Totale Vendite,Lettura Cassa,Fatture,Yami Lordo,Yami Pulito,Yami Netto,Bento,Cocai,Persone,Spesa Media
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Mesi %@" xml:space="preserve">
+        <source>Months %@</source>
+        <target state="translated">Months %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Modifica" xml:space="preserve">
+        <source>Edit</source>
+        <target state="translated">Edit</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Modifica Prenotazione" xml:space="preserve">
+        <source>Edit Reservation</source>
+        <target state="translated">Edit Reservation</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Mon" xml:space="preserve">
+        <source>Mon</source>
+        <target state="new">Mon</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="N/A" xml:space="preserve">
+        <source>N/A</source>
+        <target state="new">N/A</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nessun dato" xml:space="preserve">
+        <source>No data</source>
+        <target state="translated">No data</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nessun dato recente" xml:space="preserve">
+        <source>No recent data</source>
+        <target state="translated">No recent data</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nessun tavolo assegnato" xml:space="preserve">
+        <source>Nessun tavolo assegnato</source>
+        <target state="new">Nessun tavolo assegnato</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nessuna notifica" xml:space="preserve">
+        <source>No notifications</source>
+        <target state="translated">No notifications</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nessuna prenotazione&#10;in arrivo" xml:space="preserve">
+        <source>No upcoming reservations</source>
+        <target state="translated">No upcoming reservations</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nessuna prenotazione per la giornata" xml:space="preserve">
+        <source>No reservations for the day</source>
+        <target state="translated">No reservations for the day</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nessuno" xml:space="preserve">
+        <source>Nessuno</source>
+        <target state="new">Nessuno</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nome" xml:space="preserve">
+        <source>Name</source>
+        <target state="translated">Name</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Non autorizzato" xml:space="preserve">
+        <source>Unauthorized</source>
+        <target state="translated">Unauthorized</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Non ci sono abbastanza tavoli per la prenotazione." xml:space="preserve">
+        <source>Non ci sono abbastanza tavoli per la prenotazione.</source>
+        <target state="new">Non ci sono abbastanza tavoli per la prenotazione.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Non ci sono tavoli disponibili." xml:space="preserve">
+        <source>Non ci sono tavoli disponibili.</source>
+        <target state="new">Non ci sono tavoli disponibili.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Note" xml:space="preserve">
+        <source>Notes</source>
+        <target state="translated">Notes</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Note:" xml:space="preserve">
+        <source>Notes:</source>
+        <target state="translated">Notes:</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nothing" xml:space="preserve">
+        <source>Nothing</source>
+        <target state="translated">Nothing</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Notifiche" xml:space="preserve">
+        <source>Notifications</source>
+        <target state="translated">Notifications</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Novembre" xml:space="preserve">
+        <source>Novembre</source>
+        <target state="new">Novembre</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Number of People: %lld" xml:space="preserve">
+        <source>Number of People: %lld</source>
+        <target state="translated">Number of People: %lld</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Numero ospiti" xml:space="preserve">
+        <source>Guests number</source>
+        <target state="translated">Guests number</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nuova Prenotazione" xml:space="preserve">
+        <source>New Reservation</source>
+        <target state="translated">New Reservation</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Nuovo Anno" xml:space="preserve">
+        <source>New Year</source>
+        <target state="translated">New Year</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="OK" xml:space="preserve">
+        <source>OK</source>
+        <target state="translated">OK</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Oggi" xml:space="preserve">
+        <source>Today</source>
+        <target state="translated">Today</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ora" xml:space="preserve">
+        <source>Ora</source>
+        <target state="new">Ora</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Orario" xml:space="preserve">
+        <source>Orario</source>
+        <target state="new">Orario</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Orario: %@ - %@" xml:space="preserve">
+        <source>Time: %1$@ - %2$@</source>
+        <target state="translated">Time: %1$@ - %2$@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ordina per..." xml:space="preserve">
+        <source>Order by…</source>
+        <target state="translated">Order by…</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ottimo! Ora, creiamo il tuo profilo" xml:space="preserve">
+        <source>Great! Now, let’s create a profile</source>
+        <target state="translated">Great! Now, let’s create a profile</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Ottobre" xml:space="preserve">
+        <source>Ottobre</source>
+        <target state="new">Ottobre</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="PRENOTAZIONE" xml:space="preserve">
+        <source>PRENOTAZIONE</source>
+        <target state="new">PRENOTAZIONE</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="PRENOTAZIONI" xml:space="preserve">
+        <source>PRENOTAZIONI</source>
+        <target state="new">PRENOTAZIONI</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Parametri Simulazione" xml:space="preserve">
+        <source>Simulation Parameters</source>
+        <target state="translated">Simulation Parameters</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Password" xml:space="preserve">
+        <source>Password</source>
+        <target state="translated">Password</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Password non valida. Riprova." xml:space="preserve">
+        <source>Invalid password. Try again.</source>
+        <target state="translated">Invalid password. Try again.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Per data" xml:space="preserve">
+        <source>Per data</source>
+        <target state="new">Per data</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Per favore, inserisci nome e cognome per continuare." xml:space="preserve">
+        <source>Please input your name and surname to continue.</source>
+        <target state="translated">Please input your name and surname to continue.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Per giorno" xml:space="preserve">
+        <source>Per giorno</source>
+        <target state="new">Per giorno</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Per iniziare, accedi con il tuo account Apple" xml:space="preserve">
+        <source>To begin, login with your Apple account</source>
+        <target state="translated">To begin, login with your Apple account</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Per mese" xml:space="preserve">
+        <source>Per mese</source>
+        <target state="new">Per mese</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Per numero ospiti" xml:space="preserve">
+        <source>Per numero ospiti</source>
+        <target state="new">Per numero ospiti</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Per persone" xml:space="preserve">
+        <source>Per persone</source>
+        <target state="new">Per persone</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Per settimana" xml:space="preserve">
+        <source>Per settimana</source>
+        <target state="new">Per settimana</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Per tavolo" xml:space="preserve">
+        <source>Per tavolo</source>
+        <target state="new">Per tavolo</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Per ultime aggiunte" xml:space="preserve">
+        <source>Per ultime aggiunte</source>
+        <target state="new">Per ultime aggiunte</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Per visualizzare i dati di vendita è necessaria l'autenticazione" xml:space="preserve">
+        <source>To display sales data authentication is required</source>
+        <target state="translated">To display sales data authentication is required</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Persone" xml:space="preserve">
+        <source>Persone</source>
+        <target state="new">Persone</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Persone totali,%lld&#10;" xml:space="preserve">
+        <source>Persone totali,%lld
+</source>
+        <target state="new">Persone totali,%lld
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Persone: %lld" xml:space="preserve">
+        <source>People: %lld</source>
+        <target state="translated">People: %lld</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Pranzo" xml:space="preserve">
+        <source>Lunch</source>
+        <target state="translated">Lunch</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Pranzo,%@&#10;" xml:space="preserve">
+        <source>Pranzo,%@
+</source>
+        <target state="new">Pranzo,%@
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Prenotate" xml:space="preserve">
+        <source>Prenotate</source>
+        <target state="new">Prenotate</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Prenotazione a nome di %@ è in ritardo." xml:space="preserve">
+        <source>Prenotazione a nome di %@ è in ritardo.</source>
+        <target state="new">Prenotazione a nome di %@ è in ritardo.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Prenotazione a nome di %@ sta per terminare (-%lld minuti)." xml:space="preserve">
+        <source>Prenotazione a nome di %1$@ sta per terminare (-%2$lld minuti).</source>
+        <target state="new">Prenotazione a nome di %1$@ sta per terminare (-%2$lld minuti).</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Prenotazione in scadenza" xml:space="preserve">
+        <source>Prenotazione in scadenza</source>
+        <target state="new">Prenotazione in scadenza</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Prenotazioni" xml:space="preserve">
+        <source>Reservations</source>
+        <target state="translated">Reservations</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Prima di iniziare, completa il tuo profilo" xml:space="preserve">
+        <source>Before we begin, complete your profile</source>
+        <target state="translated">Before we begin, complete your profile</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Prosegui" xml:space="preserve">
+        <source>Continue</source>
+        <target state="translated">Continue</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Pulire tutte le notifiche?" xml:space="preserve">
+        <source>Flush all notifications?</source>
+        <target state="translated">Flush all notifications?</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Pulisci" xml:space="preserve">
+        <source>Flush</source>
+        <target state="translated">Flush</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Pulisci tutto" xml:space="preserve">
+        <source>Flush all</source>
+        <target state="translated">Flush all</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Qui per assisterti con la&#10;gestione delle prenotazioni (e altro in arrivo...)" xml:space="preserve">
+        <source>Here to assist with managing reservations (and more coming…)</source>
+        <target state="translated">Here to assist with managing reservations (and more coming…)</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Raggruppa per..." xml:space="preserve">
+        <source>Group by…</source>
+        <target state="translated">Group by…</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Reset" xml:space="preserve">
+        <source>Reset</source>
+        <target state="translated">Reset</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Reset Layout" xml:space="preserve">
+        <source>Reset Layout</source>
+        <target state="translated">Reset Layout</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Reset di Tutti i Dati" xml:space="preserve">
+        <source>Reset All Data</source>
+        <target state="translated">Reset All Data</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Resetta Dati" xml:space="preserve">
+        <source>Reset Data</source>
+        <target state="translated">Reset Data</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Riepilogo" xml:space="preserve">
+        <source>Summary</source>
+        <target state="translated">Summary</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Riepilogo %@" xml:space="preserve">
+        <source>Summary %@</source>
+        <target state="translated">Summary %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Riepilogo Annuale" xml:space="preserve">
+        <source>Annual Summary</source>
+        <target state="translated">Annual Summary</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Riepilogo Annuale %lld&#10;" xml:space="preserve">
+        <source>Riepilogo Annuale %lld
+</source>
+        <target state="new">Riepilogo Annuale %lld
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Riepilogo Mensile" xml:space="preserve">
+        <source>Monthly Summary</source>
+        <target state="translated">Monthly Summary</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Riepilogo mensile - %@ %lld&#10;" xml:space="preserve">
+        <source>Riepilogo mensile - %1$@ %2$lld
+</source>
+        <target state="new">Riepilogo mensile - %1$@ %2$lld
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Rimuovi" xml:space="preserve">
+        <source>Remove</source>
+        <target state="translated">Remove</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Rimuovi filtri" xml:space="preserve">
+        <source>Remove filters</source>
+        <target state="translated">Remove filters</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Salva" xml:space="preserve">
+        <source>Save</source>
+        <target state="translated">Save</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Salva Dati Debug" xml:space="preserve">
+        <source>Save Debug Data</source>
+        <target state="translated">Save Debug Data</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Salvataggio..." xml:space="preserve">
+        <source>Saving…</source>
+        <target state="translated">Saving…</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sat" xml:space="preserve">
+        <source>Sat</source>
+        <target state="new">Sat</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Scartabellando..." xml:space="preserve">
+        <source>Flipping through stuff…</source>
+        <target state="translated">Flipping through stuff…</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Scegli Emoji" xml:space="preserve">
+        <source>Choose Emoji</source>
+        <target state="translated">Choose Emoji</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Scegli il formato del file" xml:space="preserve">
+        <source>Choose the file format</source>
+        <target state="translated">Choose the file format</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Search Emoji" xml:space="preserve">
+        <source>Search Emoji</source>
+        <target state="translated">Search Emoji</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sei sicuro di voler eliminare tutte le prenotazioni e i dati salvati? Questa operazione non può essere annullata." xml:space="preserve">
+        <source>Are you sure you want to proceed and delete all saved data? This operation can’t be undone.</source>
+        <target state="translated">Are you sure you want to proceed and delete all saved data? This operation can’t be undone.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Select Time" xml:space="preserve">
+        <source>Select Time</source>
+        <target state="translated">Select Time</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Select an Image" xml:space="preserve">
+        <source>Select an Image</source>
+        <target state="translated">Select an Image</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Seleziona Anno" xml:space="preserve">
+        <source>Select Year</source>
+        <target state="translated">Select Year</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Seleziona Orario" xml:space="preserve">
+        <source>Seleziona Orario</source>
+        <target state="new">Seleziona Orario</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Seleziona orario" xml:space="preserve">
+        <source>Select time</source>
+        <target state="translated">Select time</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Seleziona persone" xml:space="preserve">
+        <source>Select people</source>
+        <target state="translated">Select people</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Seleziona un'opzione dal menu laterale." xml:space="preserve">
+        <source>Select an option from the sidebar</source>
+        <target state="translated">Select an option from the sidebar</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sembra che tu abbia già creato un account su un altro dispositivo come '%@'. Vuoi usare quel profilo?" xml:space="preserve">
+        <source>It looks like you have already created an account on a different device as ‘%@'. Do you want to use it?</source>
+        <target state="translated">It looks like you have already created an account on a different device as ‘%@'. Do you want to use it?</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Settembre" xml:space="preserve">
+        <source>Settembre</source>
+        <target state="new">Settembre</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sort By" xml:space="preserve">
+        <source>Sort By</source>
+        <target state="translated">Sort By</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Spesa media a persona" xml:space="preserve">
+        <source>Average individual spending</source>
+        <target state="translated">Average individual spending</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Spesa media a pranzo,%@&#10;" xml:space="preserve">
+        <source>Spesa media a pranzo,%@
+</source>
+        <target state="new">Spesa media a pranzo,%@
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Stai cercando di prenotare di lunedì. Sei sicuro di voler continuare?" xml:space="preserve">
+        <source>You’re trying to take a reservation on a Monday. Are you sure you want to proceed?</source>
+        <target state="translated">You’re trying to take a reservation on a Monday. Are you sure you want to proceed?</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Start Date" xml:space="preserve">
+        <source>Start Date</source>
+        <target state="translated">Start Date</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Sun" xml:space="preserve">
+        <source>Sun</source>
+        <target state="new">Sun</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="T%lld" xml:space="preserve">
+        <source>T%lld</source>
+        <target state="translated">T%lld</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="TAV." xml:space="preserve">
+        <source>TABLE</source>
+        <target state="translated">TABLE</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tavoli" xml:space="preserve">
+        <source>Tavoli</source>
+        <target state="new">Tavoli</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tavoli bloccati!" xml:space="preserve">
+        <source>Tables locked!</source>
+        <target state="translated">Tables locked!</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tavoli sbloccati!" xml:space="preserve">
+        <source>Tables unlocked!</source>
+        <target state="translated">Tables unlocked!</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tavolo selezionato non trovato." xml:space="preserve">
+        <source>Tavolo selezionato non trovato.</source>
+        <target state="new">Tavolo selezionato non trovato.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Telefono" xml:space="preserve">
+        <source>Phone</source>
+        <target state="translated">Phone</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tempo rimasto:" xml:space="preserve">
+        <source>Remaining:</source>
+        <target state="translated">Remaining:</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Terminata" xml:space="preserve">
+        <source>Completed</source>
+        <target state="translated">Completed</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Thu" xml:space="preserve">
+        <source>Thu</source>
+        <target state="new">Thu</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Timeline" xml:space="preserve">
+        <source>Timeline</source>
+        <target state="translated">Timeline</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Toggle Full Screen" xml:space="preserve">
+        <source>Toggle Full Screen</source>
+        <target state="translated">Toggle Full Screen</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Toggle Inspector" xml:space="preserve">
+        <source>Toggle Inspector</source>
+        <target state="translated">Toggle Inspector</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tot. %lld (%lld pranzo, %lld cena)" xml:space="preserve">
+        <source>Tot. %1$lld (%2$lld lunch, %3$lld dinner)</source>
+        <target state="translated">Tot. %1$lld (%2$lld lunch, %3$lld dinner)</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Totale" xml:space="preserve">
+        <source>Total</source>
+        <target state="translated">Total</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Totale Annuale" xml:space="preserve">
+        <source>Totale Annuale</source>
+        <target state="new">Totale Annuale</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Totale Shiro" xml:space="preserve">
+        <source>Totale Shiro</source>
+        <target state="new">Totale Shiro</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Totale Vendite,%@&#10;&#10;" xml:space="preserve">
+        <source>Totale Vendite,%@
+
+</source>
+        <target state="new">Totale Vendite,%@
+
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Totale annuale netto: %@" xml:space="preserve">
+        <source>Annual net total: %@</source>
+        <target state="translated">Annual net total: %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Totale mensile: %@" xml:space="preserve">
+        <source>Monthly total: %@</source>
+        <target state="translated">Monthly total: %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Totale netto" xml:space="preserve">
+        <source>Totale netto</source>
+        <target state="new">Totale netto</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tue" xml:space="preserve">
+        <source>Tue</source>
+        <target state="new">Tue</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tutte" xml:space="preserve">
+        <source>Tutte</source>
+        <target state="new">Tutte</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Tutto pronto!" xml:space="preserve">
+        <source>Ready!</source>
+        <target state="translated">Ready!</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Un altro utente sta effettuando modifiche. Impossibile salvare. Attendere." xml:space="preserve">
+        <source>Un altro utente sta effettuando modifiche. Impossibile salvare. Attendere.</source>
+        <target state="new">Un altro utente sta effettuando modifiche. Impossibile salvare. Attendere.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Unlock Layout" xml:space="preserve">
+        <source>Unlock Layout</source>
+        <target state="translated">Unlock Layout</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Usa profilo esistente" xml:space="preserve">
+        <source>Use existing profile</source>
+        <target state="translated">Use existing profile</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Vedi prenotazione" xml:space="preserve">
+        <source>Check reservation</source>
+        <target state="translated">Check reservation</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Vendite" xml:space="preserve">
+        <source>Sales</source>
+        <target state="translated">Sales</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Vendite %@" xml:space="preserve">
+        <source>Sales %@</source>
+        <target state="translated">Sales %@</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Vendite Giornaliere" xml:space="preserve">
+        <source>Daily Sales</source>
+        <target state="translated">Daily Sales</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Vendite Mensili" xml:space="preserve">
+        <source>Monthly Sales</source>
+        <target state="translated">Monthly Sales</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Vendite_%@_%lld.csv" xml:space="preserve">
+        <source>Vendite_%1$@_%2$lld.csv</source>
+        <target state="new">Vendite_%1$@_%2$lld.csv</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Vendite_Anno_%lld.csv" xml:space="preserve">
+        <source>Vendite_Anno_%lld.csv</source>
+        <target state="new">Vendite_Anno_%lld.csv</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Waiting List" xml:space="preserve">
+        <source>Waiting List</source>
+        <target state="translated">Waiting List</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Wed" xml:space="preserve">
+        <source>Wed</source>
+        <target state="new">Wed</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Yami" xml:space="preserve">
+        <source>Yami</source>
+        <target state="new">Yami</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Yami Lordo" xml:space="preserve">
+        <source>Yami Lordo</source>
+        <target state="new">Yami Lordo</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Yami Lordo,%@&#10;" xml:space="preserve">
+        <source>Yami Lordo,%@
+</source>
+        <target state="new">Yami Lordo,%@
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Yami Netto" xml:space="preserve">
+        <source>Yami Netto</source>
+        <target state="new">Yami Netto</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Yami Netto,%@&#10;&#10;" xml:space="preserve">
+        <source>Yami Netto,%@
+
+</source>
+        <target state="new">Yami Netto,%@
+
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Yami Pulito" xml:space="preserve">
+        <source>Yami Pulito</source>
+        <target state="new">Yami Pulito</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="Yami Pulito,%@&#10;" xml:space="preserve">
+        <source>Yami Pulito,%@
+</source>
+        <target state="new">Yami Pulito,%@
+</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[N/A]" xml:space="preserve">
+        <source>[N/A]</source>
+        <target state="new">[N/A]</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[N/A];" xml:space="preserve">
+        <source>[N/A];</source>
+        <target state="new">[N/A];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[arrivati];" xml:space="preserve">
+        <source>[arrivati];</source>
+        <target state="new">[arrivati];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[cancellata];" xml:space="preserve">
+        <source>[cancellata];</source>
+        <target state="new">[cancellata];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[cancellazione];" xml:space="preserve">
+        <source>[cancellazione];</source>
+        <target state="new">[cancellazione];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[confermata];" xml:space="preserve">
+        <source>[confermata];</source>
+        <target state="new">[confermata];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[da confermare];" xml:space="preserve">
+        <source>[da confermare];</source>
+        <target state="new">[da confermare];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[da sistemare];" xml:space="preserve">
+        <source>[da sistemare];</source>
+        <target state="new">[da sistemare];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[eliminata];" xml:space="preserve">
+        <source>[eliminata];</source>
+        <target state="new">[eliminata];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[in attesa];" xml:space="preserve">
+        <source>[in attesa];</source>
+        <target state="new">[in attesa];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[in ritardo];" xml:space="preserve">
+        <source>[in ritardo];</source>
+        <target state="new">[in ritardo];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[in sospeso];" xml:space="preserve">
+        <source>[in sospeso];</source>
+        <target state="new">[in sospeso];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[no show];" xml:space="preserve">
+        <source>[no show];</source>
+        <target state="new">[no show];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[prenotata];" xml:space="preserve">
+        <source>[prenotata];</source>
+        <target state="new">[prenotata];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[waiting list];" xml:space="preserve">
+        <source>[waiting list];</source>
+        <target state="new">[waiting list];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="[walk-in];" xml:space="preserve">
+        <source>[walk-in];</source>
+        <target state="new">[walk-in];</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="arrivati" xml:space="preserve">
+        <source>arrivati</source>
+        <target state="new">arrivati</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="cancellaz." xml:space="preserve">
+        <source>cancellaz.</source>
+        <target state="new">cancellaz.</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="cancellazione" xml:space="preserve">
+        <source>cancellazione</source>
+        <target state="new">cancellazione</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="cena" xml:space="preserve">
+        <source>cena</source>
+        <target state="new">cena</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="con anticipo" xml:space="preserve">
+        <source>con anticipo</source>
+        <target state="new">con anticipo</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="confermata" xml:space="preserve">
+        <source>confermata</source>
+        <target state="new">confermata</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="da confermare" xml:space="preserve">
+        <source>da confermare</source>
+        <target state="new">da confermare</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="eliminata" xml:space="preserve">
+        <source>eliminata</source>
+        <target state="new">eliminata</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="in attesa" xml:space="preserve">
+        <source>in attesa</source>
+        <target state="new">in attesa</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="in ritardo" xml:space="preserve">
+        <source>in ritardo</source>
+        <target state="new">in ritardo</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="in sospeso" xml:space="preserve">
+        <source>in sospeso</source>
+        <target state="new">in sospeso</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="n/a" xml:space="preserve">
+        <source>n/a</source>
+        <target state="new">n/a</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="no show" xml:space="preserve">
+        <source>no show</source>
+        <target state="new">no show</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="pranzo" xml:space="preserve">
+        <source>pranzo</source>
+        <target state="new">pranzo</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="prenotata" xml:space="preserve">
+        <source>prenotata</source>
+        <target state="new">prenotata</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="prenotato" xml:space="preserve">
+        <source>prenotato</source>
+        <target state="new">prenotato</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="ripristino" xml:space="preserve">
+        <source>ripristino</source>
+        <target state="new">ripristino</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="ritardo" xml:space="preserve">
+        <source>ritardo</source>
+        <target state="new">ritardo</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="scadenza" xml:space="preserve">
+        <source>scadenza</source>
+        <target state="new">scadenza</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="sincro" xml:space="preserve">
+        <source>sincro</source>
+        <target state="new">sincro</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="sta modificando" xml:space="preserve">
+        <source>sta modificando</source>
+        <target state="new">sta modificando</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="sta visualizzando" xml:space="preserve">
+        <source>sta visualizzando</source>
+        <target state="new">sta visualizzando</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="stanno modificando" xml:space="preserve">
+        <source>stanno modificando</source>
+        <target state="new">stanno modificando</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="stanno visualizzando" xml:space="preserve">
+        <source>stanno visualizzando</source>
+        <target state="new">stanno visualizzando</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="waiting list" xml:space="preserve">
+        <source>waiting list</source>
+        <target state="new">waiting list</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="waitinglist" xml:space="preserve">
+        <source>waitinglist</source>
+        <target state="new">waitinglist</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="walk-in" xml:space="preserve">
+        <source>walk-in</source>
+        <target state="new">walk-in</target>
+        <note/>
+      </trans-unit>
+      <trans-unit id="•" xml:space="preserve">
+        <source>•</source>
+        <target state="new">•</target>
+        <note/>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

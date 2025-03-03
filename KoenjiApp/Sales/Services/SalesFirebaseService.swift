@@ -1,0 +1,287 @@
+//
+//  SalesFirebaseService.swift
+//  KoenjiApp
+//
+//  Created by Matteo Nassini on 2/3/25.
+//
+
+
+import Foundation
+import OSLog
+import Firebase
+import FirebaseFirestore
+
+class SalesFirebaseService: ObservableObject {
+    private let logger = Logger(subsystem: "com.koenjiapp", category: "SalesFirebaseService")
+    
+    private let db: Firestore
+    private let store: SalesStore
+    private var salesListener: ListenerRegistration?
+    
+    init(store: SalesStore, db: Firestore = Firestore.firestore()) {
+        self.store = store
+        self.db = db
+    }
+    
+    // MARK: - Firestore Listeners
+    
+    @MainActor
+    func startSalesListener() {
+#if DEBUG
+        let dbRef = db.collection("sales")
+#else
+        let dbRef = db.collection("sales_release")
+#endif
+        
+        salesListener = dbRef.addSnapshotListener { [weak self] snapshot, error in
+            if let error = error {
+                self?.logger.error("Error listening for sales: \(error)")
+                return
+            }
+            
+            guard let snapshot = snapshot else { return }
+            
+            var salesByDate: [String: DailySales] = [:]
+            for document in snapshot.documents {
+                let data = document.data()
+                if let dailySales = self?.convertDictionaryToDailySales(data: data) {
+                    salesByDate[dailySales.dateString] = dailySales
+                }
+            }
+            
+            // Replace the entire in-memory store with unique values
+            DispatchQueue.main.async {
+                self?.store.setAllSales(Array(salesByDate.values))
+                self?.logger.debug("Listener updated sales data. Count: \(salesByDate.values.count)")
+            }
+        }
+    }
+    
+    @MainActor
+    func stopSalesListener() {
+        salesListener?.remove()
+        salesListener = nil
+    }
+    
+    // MARK: - CRUD Operations
+    
+    func saveDailySales(_ dailySales: DailySales, completion: @escaping (Error?) -> Void) {
+        // Update the lastEditedOn timestamp
+        var updatedSales = dailySales
+        updatedSales.lastEditedOn = Date()
+        
+        do {
+            let data = try convertDailySalesToDictionary(dailySales: updatedSales)
+            
+#if DEBUG
+            let dbRef = db.collection("sales").document(updatedSales.dateString)
+#else
+            let dbRef = db.collection("sales_release").document(updatedSales.dateString)
+#endif
+            
+            dbRef.setData(data) { error in
+                if let error = error {
+                    self.logger.error("Error saving sales data: \(error)")
+                    completion(error)
+                } else {
+                    self.logger.debug("Successfully saved sales data for \(updatedSales.dateString)")
+                    completion(nil)
+                }
+            }
+        } catch {
+            self.logger.error("Error converting sales data: \(error)")
+            completion(error)
+        }
+    }
+    
+    // Delete all sales for a specific month in a specific year
+      func deleteMonth(year: Int, month: Int, completion: @escaping (Error?) -> Void) {
+          // Determine which collection to use based on environment
+  #if DEBUG
+          let dbRef = db.collection("sales")
+  #else
+          let dbRef = db.collection("sales_release")
+  #endif
+          
+          // Find and delete all documents for the specified year and month
+          dbRef.getDocuments { [weak self] (snapshot, error) in
+              guard let snapshot = snapshot else {
+                  completion(error)
+                  return
+              }
+              
+              let batch = self?.db.batch()
+              var deletedCount = 0
+              
+              for document in snapshot.documents {
+                  guard let dateString = document.data()["dateString"] as? String,
+                        let date = DateHelper.parseDate(dateString),
+                        let documentsYear = Calendar.current.dateComponents([.year], from: date).year,
+                        let documentsMonth = Calendar.current.dateComponents([.month], from: date).month,
+                        documentsYear == year && documentsMonth == month else {
+                      continue
+                  }
+                  
+                  // Add this document to the batch delete
+                  batch?.deleteDocument(document.reference)
+                  deletedCount += 1
+              }
+              
+              // Commit the batch if there are documents to delete
+              if deletedCount > 0 {
+                  batch?.commit { error in
+                      if let error = error {
+                          self?.logger.error("Error deleting month \(month) in year \(year): \(error)")
+                          completion(error)
+                      } else {
+                          self?.logger.debug("Deleted \(deletedCount) sales documents for month \(month) in year \(year)")
+                          completion(nil)
+                      }
+                  }
+              } else {
+                  // No documents to delete
+                  completion(nil)
+              }
+          }
+      }
+      
+      // Delete all sales for a specific year
+      func deleteYear(_ year: Int, completion: @escaping (Error?) -> Void) {
+          // Determine which collection to use based on environment
+  #if DEBUG
+          let dbRef = db.collection("sales")
+  #else
+          let dbRef = db.collection("sales_release")
+  #endif
+          
+          // Find and delete all documents for the specified year
+          dbRef.getDocuments { [weak self] (snapshot, error) in
+              guard let snapshot = snapshot else {
+                  completion(error)
+                  return
+              }
+              
+              let batch = self?.db.batch()
+              var deletedCount = 0
+              
+              for document in snapshot.documents {
+                  guard let dateString = document.data()["dateString"] as? String,
+                        let date = DateHelper.parseDate(dateString),
+                        let documentsYear = Calendar.current.dateComponents([.year], from: date).year,
+                        documentsYear == year else {
+                      continue
+                  }
+                  
+                  // Add this document to the batch delete
+                  batch?.deleteDocument(document.reference)
+                  deletedCount += 1
+              }
+              
+              // Commit the batch if there are documents to delete
+              if deletedCount > 0 {
+                  batch?.commit { error in
+                      if let error = error {
+                          self?.logger.error("Error deleting year \(year): \(error)")
+                          completion(error)
+                      } else {
+                          self?.logger.debug("Deleted \(deletedCount) sales documents for year \(year)")
+                          completion(nil)
+                      }
+                  }
+              } else {
+                  // No documents to delete
+                  completion(nil)
+              }
+          }
+      }
+    
+    // MARK: - Data Conversion
+    
+    private func convertDictionaryToDailySales(data: [String: Any]) -> DailySales? {
+        guard
+            let dateString = data["dateString"] as? String,
+            let lastEditedTimestamp = data["lastEditedOn"] as? TimeInterval
+        else {
+            return nil
+        }
+        
+        // Parse lunch data
+        var lunch: SaleCategory?
+        if let lunchData = data["lunch"] as? [String: Any],
+           let letturaCassa = lunchData["letturaCassa"] as? Double,
+           let fatture = lunchData["fatture"] as? Double,
+           let yami = lunchData["yami"] as? Double {
+            
+            let yamiPulito = lunchData["yamiPulito"] as? Double ?? 0
+            let bento = lunchData["bento"] as? Double
+            let persone = lunchData["persone"] as? Int
+            
+            lunch = SaleCategory(
+                categoryType: .lunch,
+                letturaCassa: letturaCassa,
+                fatture: fatture,
+                yami: yami,
+                yamiPulito: yamiPulito,
+                bento: bento,
+                persone: persone
+            )
+        }
+        
+        // Parse dinner data
+        var dinner: SaleCategory?
+        if let dinnerData = data["dinner"] as? [String: Any],
+           let letturaCassa = dinnerData["letturaCassa"] as? Double,
+           let fatture = dinnerData["fatture"] as? Double,
+           let yami = dinnerData["yami"] as? Double {
+            
+            let yamiPulito = dinnerData["yamiPulito"] as? Double ?? 0
+            let cocai = dinnerData["cocai"] as? Double
+            
+            dinner = SaleCategory(
+                categoryType: .dinner,
+                letturaCassa: letturaCassa,
+                fatture: fatture,
+                yami: yami,
+                yamiPulito: yamiPulito,
+                cocai: cocai
+            )
+        }
+        
+        return DailySales(
+            dateString: dateString,
+            lunch: lunch,
+            dinner: dinner,
+            lastEditedOn: Date(timeIntervalSince1970: lastEditedTimestamp)
+        )
+    }
+    
+    private func convertDailySalesToDictionary(dailySales: DailySales) throws -> [String: Any] {
+        var data: [String: Any] = [
+            "dateString": dailySales.dateString,
+            "lastEditedOn": dailySales.lastEditedOn.timeIntervalSince1970
+        ]
+        
+        // Add lunch data
+        let lunchData: [String: Any] = [
+            "letturaCassa": dailySales.lunch.letturaCassa,
+            "fatture": dailySales.lunch.fatture,
+            "yami": dailySales.lunch.yami,
+            "yamiPulito": dailySales.lunch.yamiPulito,
+            "bento": dailySales.lunch.bento ?? 0,
+            "persone": dailySales.lunch.persone ?? 0
+        ]
+        data["lunch"] = lunchData
+        
+        // Add dinner data
+        let dinnerData: [String: Any] = [
+            "letturaCassa": dailySales.dinner.letturaCassa,
+            "fatture": dailySales.dinner.fatture,
+            "yami": dailySales.dinner.yami,
+            "yamiPulito": dailySales.dinner.yamiPulito,
+            "cocai": dailySales.dinner.cocai ?? 0
+        ]
+        data["dinner"] = dinnerData
+        
+        return data
+    }
+}
