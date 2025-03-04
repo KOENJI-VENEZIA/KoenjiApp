@@ -68,7 +68,9 @@ struct Reservation: Identifiable, Hashable, Codable {
     
     var preferredLanguage: String?
 
-
+    var effectiveLanguage: String {
+        return preferredLanguage ?? "it"
+    }
     
 
     

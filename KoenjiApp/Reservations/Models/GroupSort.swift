@@ -69,6 +69,7 @@ enum FilterOption: String, CaseIterable {
     case toHandle = "in_sospeso"
     case deleted = "eliminate"
     case waitingList = "waiting_list"
+    case webPending = "web_pending"
     
     var localized: String {
         switch self {
@@ -86,6 +87,9 @@ enum FilterOption: String, CaseIterable {
             return String(localized: "Eliminate")
         case .waitingList:
             return String(localized: "Waiting List")
+            
+        case .webPending:
+            return String(localized: "Web Pending")
         }
     }
 }

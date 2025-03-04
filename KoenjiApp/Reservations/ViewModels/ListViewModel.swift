@@ -143,7 +143,7 @@ class ListViewModel {
     
     func toggleFilter(_ option: FilterOption) {
         switch option {
-        case .none, .canceled, .toHandle, .deleted, .waitingList:
+        case .none, .canceled, .toHandle, .deleted, .waitingList, .webPending:
             // If selecting .none or .canceled, clear all and only add the selected one
             selectedFilters = [option]
         case .people, .date:
@@ -153,6 +153,7 @@ class ListViewModel {
             selectedFilters.remove(.toHandle)
             selectedFilters.remove(.deleted)
             selectedFilters.remove(.waitingList)
+            selectedFilters.remove(.webPending)
             if selectedFilters.contains(option) {
                 selectedFilters.remove(option)
             } else {

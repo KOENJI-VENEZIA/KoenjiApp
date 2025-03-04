@@ -2594,6 +2594,24 @@
     "Decline Web Reservation" : {
 
     },
+    "Declined: Technical issue with the reservation system." : {
+
+    },
+    "Declined: The requested special menu is unavailable for this date." : {
+
+    },
+    "Declined: The requested time slot is fully booked." : {
+
+    },
+    "Declined: Unable to accommodate reservation." : {
+
+    },
+    "Declined: We're experiencing staff shortage for the requested date/time." : {
+
+    },
+    "Declined: We've reached our capacity for the requested time." : {
+
+    },
     "Dettagli" : {
       "localizations" : {
         "en" : {
@@ -3792,9 +3810,6 @@
         }
       }
     },
-    "Internal issues (will follow up by phone)" : {
-
-    },
     "it_IT" : {
       "localizations" : {
         "ja" : {
@@ -4629,9 +4644,6 @@
         }
       }
     },
-    "Not enough capacity" : {
-
-    },
     "Note" : {
       "localizations" : {
         "en" : {
@@ -4968,7 +4980,7 @@
         }
       }
     },
-    "Other (will follow up when possible)" : {
+    "Other reason" : {
 
     },
     "Ottimo! Ora, creiamo il tuo profilo" : {
@@ -5813,6 +5825,9 @@
     "Requested %@" : {
 
     },
+    "Requested time slot is fully booked" : {
+
+    },
     "Reservation Approval" : {
 
     },
@@ -6596,6 +6611,9 @@
         }
       }
     },
+    "Special menu unavailable" : {
+
+    },
     "Spesa media a persona" : {
       "localizations" : {
         "en" : {
@@ -6683,6 +6701,9 @@
           }
         }
       }
+    },
+    "Staff shortage" : {
+
     },
     "Stai cercando di prenotare di lunedì. Sei sicuro di voler continuare?" : {
       "localizations" : {
@@ -6925,6 +6946,9 @@
           }
         }
       }
+    },
+    "Technical issue" : {
+
     },
     "Telefono" : {
       "localizations" : {
@@ -7620,6 +7644,9 @@
           }
         }
       }
+    },
+    "We're at capacity for that time" : {
+
     },
     "Web" : {
 

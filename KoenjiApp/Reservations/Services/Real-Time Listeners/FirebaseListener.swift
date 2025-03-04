@@ -67,12 +67,13 @@ extension ReservationService {
             let notes = data["notes"] as? String,
             let creationTimestamp = data["creationDate"] as? TimeInterval,
             let lastEditedTimestamp = data["lastEditedOn"] as? TimeInterval,
-            let isMock = data["isMock"] as? Bool,
-            let preferredLanguage = data["preferredLanguage"] as? String
+            let isMock = data["isMock"] as? Bool
         else {
             return nil
         }
         
+        let preferredLanguage = data["preferredLanguage"] as? String
+
         // Convert tables: Firestore stores them as an array of dictionaries.
         var tables: [TableModel] = []
         if let tablesArray = data["tables"] as? [[String: Any]] {
