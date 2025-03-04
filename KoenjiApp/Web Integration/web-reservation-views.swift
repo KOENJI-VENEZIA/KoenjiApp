@@ -805,7 +805,9 @@ extension ReservationService {
         var declinedReservation = reservation
         declinedReservation.acceptance = .na
         declinedReservation.status = .canceled
+        declinedReservation.preferredLanguage = reservation.preferredLanguage
         
+        logger.debug("Preferred language is: \(declinedReservation.preferredLanguage ?? "Not set")")
         // 2. Add appropriate notes based on the decline reason
         let declineNotes = reason.notesText
         let additionalNotes = customNotes != nil && !customNotes!.isEmpty ? "\nAdditional notes: \(customNotes!)" : ""

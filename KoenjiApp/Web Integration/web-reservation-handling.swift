@@ -736,7 +736,8 @@ class LegacyEmailSender {
                         "time": data.startTime,
                         "people": data.numberOfPersons,
                         "tables": data.tables,
-                        "id": data.id
+                        "id": data.id,
+                        "preferredLanguage": data.language
                     ]
                 ]
             case .decline(let data):
@@ -750,7 +751,8 @@ class LegacyEmailSender {
                         "time": data.startTime,
                         "people": data.numberOfPersons,
                         "id": data.id,
-                        "reason": data.reason
+                        "reason": data.reason,
+                        "preferredLanguage": data.language
                     ]
                 ]
             }

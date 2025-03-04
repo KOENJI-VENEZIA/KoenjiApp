@@ -9,8 +9,7 @@ import * as functionsV2 from "firebase-functions/v2";
 import express from "express";
 import cors from "cors";
 import { defineSecret } from "firebase-functions/params";
-import * as fs from 'fs';
-import * as path from 'path';
+
 
 // -------------------------------------------------------------------
 // Define your secrets
@@ -213,6 +212,7 @@ export const manualSendConfirmationEmail = onCall(
 );
 
 // Helper to send the actual confirmation email
+// Helper to send the actual confirmation email
 async function sendReservationConfirmationEmail(
   reservation: any,
   reservationId: string,
@@ -220,7 +220,7 @@ async function sendReservationConfirmationEmail(
 ) {
   let email = forcedEmail || reservation.email;
 
-  // Extract email from notes if needed (existing logic)
+  // Extract email from notes if needed
   if (!email && reservation.notes) {
     const emailMatch = reservation.notes.match(/Email:\s*([^\s;]+)/);
     if (emailMatch && emailMatch[1]) {
@@ -237,8 +237,8 @@ async function sendReservationConfirmationEmail(
   const language = reservation.preferredLanguage || 'en';
 
   try {
-    // Load template based on language
-    const template = loadEmailTemplate('confirmation', language);
+    // Load template based on language - now async
+    const template = await loadEmailTemplate('confirmation', language);
     
     // Prepare data for template
     const templateData = {
@@ -248,7 +248,6 @@ async function sendReservationConfirmationEmail(
       people: reservation.numberOfPersons,
       tables: reservation.tables ? reservation.tables.join(', ') : '',
       id: reservationId,
-      // Add any other fields needed for the template
     };
     
     // Render the template with data
@@ -673,8 +672,8 @@ export const sendEmail = onCall(
       let htmlContent = "";
       
       if (action === "decline") {
-        // Load and render decline template
-        const template = loadEmailTemplate('decline', language);
+        // Load and render decline template - now async
+        const template = await loadEmailTemplate('decline', language);
         htmlContent = renderEmailTemplate(template, {
           name: reservation.name,
           date: reservation.date,
@@ -682,11 +681,10 @@ export const sendEmail = onCall(
           people: reservation.people,
           reason: getDeclineReasonText(reservation.reason, language),
           followUpMessage: getFollowUpMessage(reservation.reason, language)
-          // Add other necessary fields
         });
       } else {
-        // Load and render confirmation template
-        const template = loadEmailTemplate('confirmation', language);
+        // Load and render confirmation template - now async
+        const template = await loadEmailTemplate('confirmation', language);
         htmlContent = renderEmailTemplate(template, {
           name: reservation.name,
           date: reservation.date,
@@ -694,7 +692,6 @@ export const sendEmail = onCall(
           people: reservation.people,
           tables: reservation.tables || '',
           id: reservation.id
-          // Add other necessary fields
         });
       }
 
@@ -771,34 +768,116 @@ function getFollowUpMessage(reason: string, language: string): string {
          followUpMessages.default.en;
 }
 
+
 // Function to load email template
-function loadEmailTemplate(templateName: string, language: string): string {
+// TO-DO: remove the debug info
+// Simple in-memory cache for templates
+const templateCache: Record<string, { template: string, timestamp: number }> = {};
+const CACHE_TTL = 3600000; // 1 hour in milliseconds
+
+// Add this function at the appropriate location in your code
+async function logToFirestore(message: string, level: 'info' | 'warn' | 'error' = 'info', data?: any) {
+  try {
+    await admin.firestore().collection('function_logs').add({
+      message,
+      level,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      data: data || null
+    });
+  } catch (e) {
+    // Silently fail if logging itself fails
+    console.error('Failed to write to function_logs:', e);
+  }
+}
+
+// Update the loadEmailTemplate function
+async function loadEmailTemplate(templateName: string, language: string): Promise<string> {
   const supportedLanguages = ['en', 'it', 'ja'];
-  // Check if the requested language is supported, otherwise default to English
   const lang = supportedLanguages.includes(language) ? language : 'en';
   
+  // Log basic info to Firestore
+  await logToFirestore(`Template request - Name: ${templateName}, Language: ${language}, Using: ${lang}`, 'info');
+  
+  // Create a cache key
+  const cacheKey = `${templateName}_${lang}`;
+  
+  // Check if we have a cached version that's not expired
+  const now = Date.now();
+  if (templateCache[cacheKey] && (now - templateCache[cacheKey].timestamp) < CACHE_TTL) {
+    await logToFirestore(`Using cached template for ${cacheKey}`, 'info');
+    return templateCache[cacheKey].template;
+  }
+  
+  // GitHub raw content URL
+  const baseUrl = 'https://raw.githubusercontent.com/KOENJI-VENEZIA/reservations_online/main';
+  const templateUrl = `${baseUrl}/templates/emails/${lang}/${templateName}.html`;
+  
+  await logToFirestore(`Attempting to fetch template from: ${templateUrl}`, 'info');
+  
   try {
-    // Get template path
-    const templatePath = path.join(__dirname, 'templates', 'emails', lang, `${templateName}.html`);
-    // Read template file
-    return fs.readFileSync(templatePath, 'utf8');
-  } catch (error) {
-    console.error(`Error loading template ${templateName} in ${language}:`, error);
+    const response = await fetch(templateUrl);
     
-    // Try to load English version if another language failed
-    if (lang !== 'en') {
-      try {
-        const fallbackPath = path.join(__dirname, 'templates', 'emails', 'en', `${templateName}.html`);
-        return fs.readFileSync(fallbackPath, 'utf8');
-      } catch (fallbackError) {
-        console.error(`Error loading fallback template:`, fallbackError);
-        // Return a basic template as last resort
-        return `<html><body><h1>Reservation Information</h1><p>Details for your reservation.</p></body></html>`;
+    await logToFirestore(`Fetch response status: ${response.status} ${response.statusText}`, 'info', {
+      url: templateUrl,
+      status: response.status,
+      statusText: response.statusText
+    });
+    
+    if (!response.ok) {
+      // If language-specific template fails, try English
+      if (lang !== 'en') {
+        await logToFirestore(`Template not found for ${lang}, trying English fallback`, 'warn', {
+          url: templateUrl, 
+          status: response.status
+        });
+        
+        const fallbackUrl = `${baseUrl}/templates/emails/en/${templateName}.html`;
+        await logToFirestore(`Fallback URL: ${fallbackUrl}`, 'info');
+        
+        const fallbackResponse = await fetch(fallbackUrl);
+        await logToFirestore(`Fallback response status: ${fallbackResponse.status} ${fallbackResponse.statusText}`, 'info');
+        
+        if (fallbackResponse.ok) {
+          const template = await fallbackResponse.text();
+          await logToFirestore(`Successfully fetched English fallback template (${template.length} chars)`, 'info');
+          // Cache the fallback template
+          templateCache[cacheKey] = { template, timestamp: now };
+          return template;
+        }
       }
+      
+      await logToFirestore(`Failed to fetch template (HTTP ${response.status})`, 'error', {
+        url: templateUrl,
+        status: response.status,
+        statusText: response.statusText
+      });
+      
+      throw new Error(`Failed to fetch template (HTTP ${response.status}) from ${templateUrl}`);
     }
     
-    // Return a basic template if English version also failed
-    return `<html><body><h1>Reservation Information</h1><p>Details for your reservation.</p></body></html>`;
+    const template = await response.text();
+    await logToFirestore(`Successfully fetched ${lang} template (${template.length} chars)`, 'info');
+    // Cache the template
+    templateCache[cacheKey] = { template, timestamp: now };
+    return template;
+  } catch (error: any) {
+    await logToFirestore(`Error fetching template: ${error.message}`, 'error', {
+      templateName,
+      language,
+      url: templateUrl,
+      errorMessage: error.message
+    });
+    
+    // Return a simple fallback template
+    return `
+      <html><body>
+        <h1>Reservation Information</h1>
+        <p>Dear {{name}},</p>
+        <p>Thank you for your reservation for {{people}} people on {{date}} at {{time}}.</p>
+        <p>Language requested: ${language}, Language attempted: ${lang}</p>
+        <p>Error: ${error.message}</p>
+      </body></html>
+    `;
   }
 }
 
