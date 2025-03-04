@@ -12,6 +12,7 @@ final class AppDependencies: ObservableObject {
     var layoutServices: LayoutServices
     var clusterStore: ClusterStore
     var clusterServices: ClusterServices
+    var emailService: EmailService
     var gridData: GridData
     var backupService: FirebaseBackupService
     var pushAlerts: PushAlerts
@@ -51,6 +52,9 @@ final class AppDependencies: ObservableObject {
             tableStore: tableStore,
             layoutServices: layoutServices
         )
+        
+        self.emailService = EmailService()
+        
         self.gridData = GridData(store: store)
         self.backupService = FirebaseBackupService(
             store: store, notifsManager: NotificationManager.shared)
@@ -64,7 +68,8 @@ final class AppDependencies: ObservableObject {
             layoutServices: layoutServices,
             tableAssignmentService: tableAssignment,
             backupService: backupService,
-            pushAlerts: pushAlerts
+            pushAlerts: pushAlerts,
+            emailService: emailService
         )
         self.scribbleService = ScribbleService(layoutServices: layoutServices)
         self.listView = ListViewModel(

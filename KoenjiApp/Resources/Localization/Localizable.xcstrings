@@ -913,6 +913,9 @@
         }
       }
     },
+    "%lld people" : {
+
+    },
     "%lld tavoli" : {
       "localizations" : {
         "en" : {
@@ -1162,6 +1165,9 @@
           }
         }
       }
+    },
+    "Additional Notes (Optional)" : {
+
     },
     "Adesso" : {
       "localizations" : {
@@ -1678,6 +1684,9 @@
           }
         }
       }
+    },
+    "Cancel" : {
+
     },
     "Cancellate" : {
       "localizations" : {
@@ -2577,6 +2586,12 @@
 
     },
     "Decline Request" : {
+
+    },
+    "Decline Reservation" : {
+
+    },
+    "Decline Web Reservation" : {
 
     },
     "Dettagli" : {
@@ -3777,6 +3792,9 @@
         }
       }
     },
+    "Internal issues (will follow up by phone)" : {
+
+    },
     "it_IT" : {
       "localizations" : {
         "ja" : {
@@ -4611,6 +4629,9 @@
         }
       }
     },
+    "Not enough capacity" : {
+
+    },
     "Note" : {
       "localizations" : {
         "en" : {
@@ -4946,6 +4967,9 @@
           }
         }
       }
+    },
+    "Other (will follow up when possible)" : {
+
     },
     "Ottimo! Ora, creiamo il tuo profilo" : {
       "localizations" : {
@@ -5364,6 +5388,9 @@
           }
         }
       }
+    },
+    "Please select a reason" : {
+
     },
     "pranzo" : {
       "localizations" : {
@@ -5787,6 +5814,9 @@
 
     },
     "Reservation Approval" : {
+
+    },
+    "Reservation Declined" : {
 
     },
     "Reset" : {
@@ -6319,6 +6349,9 @@
           }
         }
       }
+    },
+    "Select a Reason" : {
+
     },
     "Select an Image" : {
       "localizations" : {

@@ -14,7 +14,10 @@ import { defineSecret } from "firebase-functions/params";
 // Define your secrets
 // -------------------------------------------------------------------
 const SECRET_EMAIL_USER = defineSecret("EMAIL_USER");
-const SECRET_EMAIL_PASSWORD = defineSecret("EMAIL_PASSWORD");
+// OAuth2 credentials instead of password
+const SECRET_CLIENT_ID = defineSecret("CLIENT_ID");
+const SECRET_CLIENT_SECRET = defineSecret("CLIENT_SECRET");
+const SECRET_REFRESH_TOKEN = defineSecret("REFRESH_TOKEN");
 
 // -------------------------------------------------------------------
 // Initialize admin only once
@@ -35,7 +38,7 @@ app.get("/_health", (req, res) => res.status(200).send("OK"));
 // Export the Express app as an HTTP function, specifying secrets
 export const api = functionsV2.https.onRequest(
   {
-    secrets: [SECRET_EMAIL_USER, SECRET_EMAIL_PASSWORD],
+    secrets: [SECRET_EMAIL_USER, SECRET_CLIENT_ID, SECRET_CLIENT_SECRET, SECRET_REFRESH_TOKEN],
   },
   async (req, res) => {
     try {
@@ -98,14 +101,23 @@ export const syncSessionPresenceRelease = onValueWritten(
 
 // -------------------------------------------------------------------
 // Create a Nodemailer transport *at runtime* by reading secrets
+// Uses OAuth2 authentication instead of password
 // -------------------------------------------------------------------
 function createMailTransport() {
   const user = SECRET_EMAIL_USER.value();
-  const pass = SECRET_EMAIL_PASSWORD.value();
+  const clientId = SECRET_CLIENT_ID.value();
+  const clientSecret = SECRET_CLIENT_SECRET.value();
+  const refreshToken = SECRET_REFRESH_TOKEN.value();
 
   return nodemailer.createTransport({
     service: "gmail",
-    auth: { user, pass },
+    auth: {
+      type: "OAuth2",
+      user: user,
+      clientId: clientId,
+      clientSecret: clientSecret,
+      refreshToken: refreshToken
+    }
   });
 }
 
@@ -118,7 +130,7 @@ function createMailTransport() {
 export const sendConfirmationEmailDebug = onDocumentUpdated(
   {
     document: "reservations/{reservationId}",
-    secrets: [SECRET_EMAIL_USER, SECRET_EMAIL_PASSWORD],
+    secrets: [SECRET_EMAIL_USER, SECRET_CLIENT_ID, SECRET_CLIENT_SECRET, SECRET_REFRESH_TOKEN],
   },
   async (event) => {
     const beforeData = event.data?.before.data();
@@ -141,7 +153,7 @@ export const sendConfirmationEmailDebug = onDocumentUpdated(
 export const sendConfirmationEmailRelease = onDocumentUpdated(
   {
     document: "reservations_release/{reservationId}",
-    secrets: [SECRET_EMAIL_USER, SECRET_EMAIL_PASSWORD],
+    secrets: [SECRET_EMAIL_USER, SECRET_CLIENT_ID, SECRET_CLIENT_SECRET, SECRET_REFRESH_TOKEN],
   },
   async (event) => {
     const beforeData = event.data?.before.data();
@@ -163,7 +175,7 @@ export const sendConfirmationEmailRelease = onDocumentUpdated(
 // 3) Callable function to manually send confirmation emails
 export const manualSendConfirmationEmail = onCall(
   {
-    secrets: [SECRET_EMAIL_USER, SECRET_EMAIL_PASSWORD],
+    secrets: [SECRET_EMAIL_USER, SECRET_CLIENT_ID, SECRET_CLIENT_SECRET, SECRET_REFRESH_TOKEN],
   },
   async (request) => {
     const { reservationId, email, isDebug } = request.data;
@@ -609,4 +621,162 @@ function getTotalCapacity(): number {
   // Total seating capacity (all tables have capacity of 2)
   const tables = getTablesConfig();
   return tables.length * 2;
+}
+
+export const sendEmail = onCall(
+  {
+    secrets: [SECRET_EMAIL_USER, SECRET_CLIENT_ID, SECRET_CLIENT_SECRET, SECRET_REFRESH_TOKEN],
+  },
+  async (request) => {
+    try {
+      const { to, subject, action, reservation } = request.data;
+
+      if (!to || !subject || !reservation) {
+        throw new Error("Missing required parameters: to, subject, and reservation");
+      }
+
+      // Create mail transport at runtime using secrets
+      const mailTransport = createMailTransport();
+
+      // Generate HTML content based on action type
+      let htmlContent = "";
+      
+      if (action === "decline") {
+        htmlContent = generateDeclineEmailHTML(reservation);
+      } else {
+        // Default to confirmation email
+        htmlContent = generateConfirmationEmailHTML(reservation);
+      }
+
+      // Send the email
+      await mailTransport.sendMail({
+        from: '"KOENJI. VENEZIA" <your-restaurant-email@gmail.com>',
+        to: to,
+        subject: subject,
+        html: htmlContent,
+      });
+
+      console.log(`Email (${action}) sent to ${to} for reservation ${reservation.id}`);
+      return { success: true };
+    } catch (error) {
+      console.error("Error sending email:", error);
+      return { 
+        error: error instanceof Error ? error.message : "Unknown error",
+        success: false 
+      };
+    }
+  }
+);
+
+// Helper function to generate decline email HTML
+function generateDeclineEmailHTML(reservation: any): string {
+  // Define restaurant info (move to constants at the top of your file if used elsewhere)
+  const RESTAURANT_NAME = "KOENJI. VENEZIA";
+  const RESTAURANT_PHONE = "+39 123 456 7890"; // Replace with actual phone
+  const RESTAURANT_EMAIL = "info@koenji-venezia.com"; // Replace with actual email
+  const RESTAURANT_ADDRESS = "Your Restaurant Address, Venice, Italy"; // Replace with actual address
+  
+  // Get decline reason text
+  const reasonText = getDeclineReasonText(reservation.reason);
+  const followUpMessage = getFollowUpMessage(reservation.reason);
+  
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h1 style="color: #333;">${RESTAURANT_NAME}</h1>
+        <p style="color: #777;">Reservation Status Update</p>
+      </div>
+      
+      <p>Dear ${reservation.name},</p>
+      
+      <p>We regret to inform you that we are unable to accommodate your reservation request for <strong>${reservation.people} people</strong> on <strong>${reservation.date}</strong> at <strong>${reservation.time}</strong>.</p>
+      
+      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p><strong>Reason:</strong> ${reasonText}</p>
+      </div>
+      
+      <p>We apologize for any inconvenience this may have caused. ${followUpMessage}</p>
+      
+      <p>If you have any questions or would like to discuss alternative options, please don't hesitate to contact us at <a href="tel:${RESTAURANT_PHONE}">${RESTAURANT_PHONE}</a> or reply to this email.</p>
+      
+      <p>Thank you for your understanding.</p>
+      
+      <p>Best regards,<br>
+      Team ${RESTAURANT_NAME}</p>
+      
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999; text-align: center;">
+        <p>${RESTAURANT_NAME}<br>
+        ${RESTAURANT_ADDRESS}<br>
+        <a href="tel:${RESTAURANT_PHONE}">${RESTAURANT_PHONE}</a> | <a href="mailto:${RESTAURANT_EMAIL}">${RESTAURANT_EMAIL}</a></p>
+      </div>
+    </div>
+  `;
+}
+
+// Helper function to generate confirmation email HTML
+function generateConfirmationEmailHTML(reservation: any): string {
+  // Define restaurant info
+  const RESTAURANT_NAME = "KOENJI. VENEZIA";
+  const RESTAURANT_PHONE = "+39 123 456 7890"; // Replace with actual phone
+  const RESTAURANT_EMAIL = "info@koenji-venezia.com"; // Replace with actual email
+  const RESTAURANT_ADDRESS = "Your Restaurant Address, Venice, Italy"; // Replace with actual address
+  
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h1 style="color: #333;">${RESTAURANT_NAME}</h1>
+        <p style="color: #777;">Reservation Confirmation</p>
+      </div>
+      
+      <p>Dear ${reservation.name},</p>
+      
+      <p>We're delighted to confirm your reservation for <strong>${reservation.people} people</strong> on <strong>${reservation.date}</strong> at <strong>${reservation.time}</strong>.</p>
+      
+      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <p><strong>Reservation Details:</strong></p>
+        <p>Date: ${reservation.date}</p>
+        <p>Time: ${reservation.time}</p>
+        <p>Party Size: ${reservation.people} people</p>
+        ${reservation.tables ? `<p>Table(s): ${reservation.tables}</p>` : ''}
+        <p>Reservation ID: ${reservation.id}</p>
+      </div>
+      
+      <p>We look forward to welcoming you to ${RESTAURANT_NAME}. If you need to make any changes to your reservation, please call us at <a href="tel:${RESTAURANT_PHONE}">${RESTAURANT_PHONE}</a> at least 24 hours in advance.</p>
+      
+      <p>Best regards,<br>
+      Team ${RESTAURANT_NAME}</p>
+      
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999; text-align: center;">
+        <p>${RESTAURANT_NAME}<br>
+        ${RESTAURANT_ADDRESS}<br>
+        <a href="tel:${RESTAURANT_PHONE}">${RESTAURANT_PHONE}</a> | <a href="mailto:${RESTAURANT_EMAIL}">${RESTAURANT_EMAIL}</a></p>
+      </div>
+    </div>
+  `;
+}
+
+// Helper function to get the decline reason text
+function getDeclineReasonText(reason: string): string {
+  switch (reason) {
+    case "notEnoughCapacity":
+      return "Unfortunately, we do not have sufficient capacity for your requested party size at this time.";
+    case "internalIssue":
+      return "We are experiencing some internal operational challenges at the requested time.";
+    case "other":
+      return "We are unable to accommodate your reservation at this time.";
+    default:
+      return "We are unable to accommodate your reservation at this time.";
+  }
+}
+
+// Helper function to get the follow-up message
+function getFollowUpMessage(reason: string): string {
+  switch (reason) {
+    case "internalIssue":
+      return "One of our staff members will follow up with you by phone shortly to discuss alternatives.";
+    case "other":
+      return "We will try to follow up with you when possible to provide more information.";
+    default:
+      return "We would be happy to help you find an alternative date or time that works for you.";
+  }
 }

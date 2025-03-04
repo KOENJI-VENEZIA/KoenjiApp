@@ -1,4 +1,11 @@
-public enum WebReservationDeclineReason: String, CaseIterable, Identifiable {
+//
+//  WebReservationDeclineReason.swift
+//  KoenjiApp
+//
+//  Created by Matteo Nassini on 3/3/25.
+//
+
+ enum WebReservationDeclineReason: String, CaseIterable, Identifiable {
         case capacityIssue = "notEnoughCapacity"
         case internalIssue = "internalIssue"
         case other = "other"

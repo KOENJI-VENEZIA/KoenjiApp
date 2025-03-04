@@ -187,7 +187,7 @@ extension ReservationService {
         }
         
         // 5. Send confirmation email
-        let emailSent = await sendConfirmationEmail(for: newReservation)
+        let emailSent = await self.emailService.sendConfirmationEmail(for: newReservation)
         if emailSent {
             logger.info("Confirmation email sent for reservation \(newReservation.name)")
         } else {
@@ -196,56 +196,7 @@ extension ReservationService {
         
         return true
     }
-    
-    // Send confirmation email
-    @MainActor
-    private func sendConfirmationEmail(for reservation: Reservation) async -> Bool {
-        // Extract email from notes field if present
-        guard let notes = reservation.notes else {
-            logger.error("No notes field containing email for web reservation \(reservation.id)")
-            return false
-        }
         
-        // Regex to extract email from notes
-        let emailRegex = try? NSRegularExpression(pattern: "Email: (\\S+@\\S+\\.\\S+)")
-        let range = NSRange(notes.startIndex..., in: notes)
-        guard let match = emailRegex?.firstMatch(in: notes, range: range) else {
-            logger.error("Could not find email in notes for web reservation \(reservation.id)")
-            return false
-        }
-        
-        guard let emailRange = Range(match.range(at: 1), in: notes) else {
-            logger.error("Could not extract email from range for web reservation \(reservation.id)")
-            return false
-        }
-
-        let email = String(notes[emailRange])
-        
-        // Now we have the email, we can send a confirmation
-        // This would typically connect to a server or email service API
-        // For this example, we'll use Firebase Cloud Functions
-        
-        // Create request data for our email sending function
-        let emailData: [String: Any] = [
-            "to": email,
-            "subject": "Your Reservation is Confirmed",
-            "reservation": [
-                "name": reservation.name,
-                "date": reservation.dateString,
-                "time": reservation.startTime,
-                "people": reservation.numberOfPersons,
-                "tables": reservation.tables.map { $0.name }.joined(separator: ", "),
-                "id": reservation.id.uuidString
-            ]
-        ]
-        
-        // In a real implementation, you would call your email sending service here
-        // For demonstration purposes, we'll simulate a successful email sending
-        
-        // TODO: Replace with actual email sending code
-        logger.info("Would send email to \(email) for reservation \(reservation.id)")
-        return true
-    }
 }
 
 // MARK: - Web Reservation UI Extensions
@@ -293,6 +244,8 @@ extension ReservationCard {
 }
 
 // Custom web reservation approval view
+// Update in the Web Integration/web-reservation-views.swift file
+
 struct WebReservationApprovalView: View {
     @EnvironmentObject var env: AppDependencies
     @Environment(\.dismiss) var dismiss
@@ -300,10 +253,12 @@ struct WebReservationApprovalView: View {
     
     let reservation: Reservation
     var onApprove: (() -> Void)?
+    var onDecline: (() -> Void)?
     
     @State private var isApproving = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
+    @State private var showingDeclineView = false
     
     var body: some View {
         VStack(spacing: 20) {
@@ -412,14 +367,14 @@ struct WebReservationApprovalView: View {
             // Action buttons
             HStack(spacing: 16) {
                 Button(action: {
-                    dismiss()
+                    showingDeclineView = true
                 }) {
                     Text("Decline")
                         .fontWeight(.medium)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .foregroundColor(.secondary)
+                        .background(Color.red.opacity(0.1))
+                        .foregroundColor(.red)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
                 
@@ -454,6 +409,15 @@ struct WebReservationApprovalView: View {
                     }
                 }
             )
+        }
+        .sheet(isPresented: $showingDeclineView) {
+            WebReservationDeclineView(
+                reservation: reservation,
+                onDeclined: {
+                    onDecline?()
+                }
+            )
+            .environmentObject(env)
         }
     }
     
@@ -495,38 +459,394 @@ struct WebReservationApprovalView: View {
     }
 }
 
+// Add this to the Web Integration/web-reservation-views.swift file
+
+struct WebReservationDeclineView: View {
+    @EnvironmentObject var env: AppDependencies
+    @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) var colorScheme
+    
+    let reservation: Reservation
+    var onDeclined: (() -> Void)?
+    
+    @State private var selectedReason: WebReservationDeclineReason = .capacityIssue
+    @State private var customNotes: String = ""
+    @State private var isDeclining = false
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            // Header
+            VStack(spacing: 8) {
+                Text("Decline Web Reservation")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Text("Please select a reason")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            
+            // Reservation summary
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text(reservation.name)
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.orange)
+                            .frame(width: 8, height: 8)
+                        
+                        Text("Web Request")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.1))
+                    .clipShape(Capsule())
+                }
+                
+                Divider()
+                
+                // Date and party size
+                HStack(spacing: 16) {
+                    Label {
+                        Text(DateHelper.formatFullDate(reservation.normalizedDate ?? Date()))
+                    } icon: {
+                        Image(systemName: "calendar")
+                            .foregroundColor(.blue)
+                    }
+                    
+                    Label {
+                        Text("\(reservation.numberOfPersons) people")
+                    } icon: {
+                        Image(systemName: "person.2.fill")
+                            .foregroundColor(.blue)
+                    }
+                }
+                .font(.callout)
+            }
+            .padding()
+            .background(Color(UIColor.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+            // Decline reason selection
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Select a Reason")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                ForEach(WebReservationDeclineReason.allCases) { reason in
+                    HStack {
+                        Button(action: {
+                            selectedReason = reason
+                        }) {
+                            HStack {
+                                Image(systemName: selectedReason == reason ? "largecircle.fill.circle" : "circle")
+                                    .foregroundColor(selectedReason == reason ? .red : .gray)
+                                
+                                Text(reason.displayText)
+                                    .foregroundColor(.primary)
+                            }
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        Spacer()
+                    }
+                    .padding(.vertical, 4)
+                }
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Additional Notes (Optional)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    
+                    TextEditor(text: $customNotes)
+                        .frame(height: 100)
+                        .padding(8)
+                        .background(Color(UIColor.systemBackground))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        )
+                }
+                .padding(.top, 8)
+            }
+            .padding()
+            .background(Color(UIColor.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+            Spacer()
+            
+            // Action buttons
+            HStack(spacing: 16) {
+                Button(action: {
+                    dismiss()
+                }) {
+                    Text("Cancel")
+                        .fontWeight(.medium)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .foregroundColor(.secondary)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                
+                Button(action: {
+                    declineReservation()
+                }) {
+                    if isDeclining {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Text("Decline Reservation")
+                            .fontWeight(.semibold)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.red)
+                .foregroundColor(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .disabled(isDeclining)
+            }
+        }
+        .padding()
+        .alert(isPresented: $showingAlert) {
+            Alert(
+                title: Text("Reservation Declined"),
+                message: Text(alertMessage),
+                dismissButton: .default(Text("OK")) {
+                    onDeclined?()
+                    dismiss()
+                }
+            )
+        }
+    }
+    
+    private func declineReservation() {
+        isDeclining = true
+        
+        Task {
+            let success = await env.reservationService.declineWebReservation(
+                reservation,
+                reason: selectedReason,
+                customNotes: customNotes
+            )
+            
+            await MainActor.run {
+                isDeclining = false
+                if success {
+                    alertMessage = "Reservation has been declined successfully."
+                    if let email = reservation.emailAddress {
+                        alertMessage += " A notification email has been sent to the guest."
+                    }
+                } else {
+                    alertMessage = "Failed to decline reservation. Please try again."
+                }
+                showingAlert = true
+            }
+        }
+    }
+}
+
 // MARK: - Web Reservation Email Service
 
 // Cloud Function request handler for sending emails
+// An actor to manage email sending operations
+import Foundation
+
+// These types are still Sendable for use with the rest of your app
+struct ConfirmationEmailData: Sendable {
+    let to: String
+    let subject: String
+    let name: String
+    let dateString: String
+    let startTime: String
+    let numberOfPersons: Int
+    let tables: String
+    let id: String
+}
+
+struct DeclineEmailData: Sendable {
+    let to: String
+    let subject: String
+    let name: String
+    let dateString: String
+    let startTime: String
+    let numberOfPersons: Int
+    let id: String
+    let reason: String
+}
+
+enum EmailType: Sendable {
+    case confirmation(ConfirmationEmailData)
+    case decline(DeclineEmailData)
+}
+
+// This class doesn't try to be Sendable or use Swift's modern concurrency
+// It's a completely old-school approach with dispatch queues
+class LegacyEmailSender {
+    // Serial queue to ensure one email at a time
+    private let serialQueue = DispatchQueue(label: "com.koenjiapp.emailQueue", qos: .userInitiated)
+    private var isProcessing = false
+    // Create a single Functions instance
+    private let functions = Functions.functions()
+    private let logger = Logger(subsystem: "com.koenjiapp", category: "LegacyEmailSender")
+    
+    func sendEmail(emailType: EmailType, completionHandler: @escaping @Sendable (Bool) -> Void) {
+        // Queue this operation
+        serialQueue.async { [weak self] in
+            guard let self = self else {
+                completionHandler(false)
+                return
+            }
+
+            // Wait until any previous operation completes
+            while self.isProcessing {
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            
+            // Mark as processing
+            self.isProcessing = true
+            
+            // Prepare parameters based on email type
+            let parameters: [String: Any]
+            switch emailType {
+            case .confirmation(let data):
+                parameters = [
+                    "to": data.to,
+                    "subject": data.subject,
+                    "action": "confirm",
+                    "reservation": [
+                        "name": data.name,
+                        "date": data.dateString,
+                        "time": data.startTime,
+                        "people": data.numberOfPersons,
+                        "tables": data.tables,
+                        "id": data.id
+                    ]
+                ]
+            case .decline(let data):
+                parameters = [
+                    "to": data.to,
+                    "subject": data.subject,
+                    "action": "decline",
+                    "reservation": [
+                        "name": data.name,
+                        "date": data.dateString,
+                        "time": data.startTime,
+                        "people": data.numberOfPersons,
+                        "id": data.id,
+                        "reason": data.reason
+                    ]
+                ]
+            }
+            
+            // Make the call - Move the completion handler call inside this callback
+            self.functions.httpsCallable("sendEmail").call(parameters) { result, error in
+                // Mark as no longer processing first to prevent deadlocks
+                self.isProcessing = false
+                
+                var success = false
+                if let error = error {
+                    self.logger.error("Firebase error: \(error.localizedDescription)")
+                } else if let resultDict = result?.data as? [String: Any],
+                          let successValue = resultDict["success"] as? Bool {
+                    self.logger.info("SuccessValue: \(successValue)")
+                    self.logger.info("Result: \(resultDict)")
+                    success = successValue
+                } else {
+                    // If we can't extract a success value but got a result, assume success
+                    success = true
+                }
+                
+                // Call completion handler on the main queue from inside the Firebase callback
+                DispatchQueue.main.async {
+                    completionHandler(success)
+                }
+            }
+        }
+    }
+}
+
+// Create a single instance for the application to use
+nonisolated(unsafe) private let emailSender = LegacyEmailSender()
+
+@MainActor
 class EmailService {
     private let logger = Logger(subsystem: "com.koenjiapp", category: "EmailService")
-    private let functions: Functions
     
-    init() {
-        self.functions = Functions.functions()
+    init() {}
+    
+    func sendConfirmationEmail(for reservation: Reservation) async -> Bool {
+        // Extract email from notes field if present
+        guard let notes = reservation.notes else {
+            logger.error("No notes field containing email for web reservation \(reservation.id)")
+            return false
+        }
+        
+        // Regex to extract email from notes
+        let emailRegex = try? NSRegularExpression(pattern: "Email: (\\S+@\\S+\\.\\S+)")
+        let range = NSRange(notes.startIndex..., in: notes)
+        guard let match = emailRegex?.firstMatch(in: notes, range: range) else {
+            logger.error("Could not find email in notes for web reservation \(reservation.id)")
+            return false
+        }
+        
+        guard let emailRange = Range(match.range(at: 1), in: notes) else {
+            logger.error("Could not extract email from range for web reservation \(reservation.id)")
+            return false
+        }
+
+        let email = String(notes[emailRange])
+        
+        // Create data structure
+        let emailData = ConfirmationEmailData(
+            to: email,
+            subject: "Your Reservation is Confirmed",
+            name: reservation.name,
+            dateString: reservation.dateString,
+            startTime: reservation.startTime,
+            numberOfPersons: reservation.numberOfPersons,
+            tables: reservation.tables.map { $0.name }.joined(separator: ", "),
+            id: reservation.id.uuidString
+        )
+        
+        // Bridge to async/await at the last moment
+        return await withCheckedContinuation { continuation in
+            emailSender.sendEmail(emailType: .confirmation(emailData)) { success in
+                self.logger.info("Confirmation email sent successfully: \(success)")
+                continuation.resume(returning: success)
+            }
+        }
     }
     
-    func sendConfirmationEmail(to email: String, reservation: Reservation) async -> Bool {
-        do {
-            let data: [String: Any] = [
-                "to": email,
-                "subject": "Your Reservation is Confirmed",
-                "reservation": [
-                    "name": reservation.name,
-                    "date": reservation.dateString,
-                    "time": reservation.startTime,
-                    "people": reservation.numberOfPersons,
-                    "tables": reservation.tables.map { $0.name }.joined(separator: ", "),
-                    "id": reservation.id.uuidString
-                ]
-            ]
-            
-            let result = try await functions.httpsCallable("sendEmail").call(data)
-            logger.info("Email sent result: \(String(describing: result.data))")
-            return true
-        } catch {
-            logger.error("Failed to send email: \(error.localizedDescription)")
-            return false
+    func sendDeclineEmail(for reservation: Reservation, email: String, reason: WebReservationDeclineReason) async -> Bool {
+        // Create data structure
+        let emailData = DeclineEmailData(
+            to: email,
+            subject: "Regarding Your Reservation Request",
+            name: reservation.name,
+            dateString: reservation.dateString,
+            startTime: reservation.startTime,
+            numberOfPersons: reservation.numberOfPersons,
+            id: reservation.id.uuidString,
+            reason: reason.rawValue
+        )
+        
+        // Bridge to async/await at the last moment
+        return await withCheckedContinuation { continuation in
+            emailSender.sendEmail(emailType: .decline(emailData)) { success in
+                self.logger.info("Decline email sent successfully: \(success)")
+                continuation.resume(returning: success)
+            }
         }
     }
 }

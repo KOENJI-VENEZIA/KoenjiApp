@@ -1,4 +1,5 @@
 import UIKit
+import FirebaseFunctions
 import UserNotifications
 import OSLog
 
@@ -14,7 +15,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     let logger = Logger(subsystem: "com.koenjiapp", category: "AppDelegate")
     var originalNotificationHandler: LegacyNotificationHandlerBox? = nil
 
-    
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?

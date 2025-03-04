@@ -9,6 +9,8 @@ import SwiftUI
 import OSLog
 import FirebaseFunctions
 
+// Update in the Web Integration/web-reservation-views.swift file
+
 struct WebReservationsTab: View {
     @EnvironmentObject var env: AppDependencies
     @State private var searchText = ""
@@ -19,7 +21,7 @@ struct WebReservationsTab: View {
     
     // Filter web reservations
     private var webReservations: [Reservation] {
-        let allReservations = env.store.reservations.filter { 
+        let allReservations = env.store.reservations.filter {
             $0.isWebReservation && $0.acceptance == .toConfirm
         }
         
@@ -49,14 +51,21 @@ struct WebReservationsTab: View {
                 refreshID = UUID()
             }
             .sheet(item: $selectedReservation) { reservation in
-                WebReservationApprovalView(reservation: reservation) {
-                    // Callback when reservation is approved
-                    refreshID = UUID()
-                }
+                WebReservationApprovalView(
+                    reservation: reservation,
+                    onApprove: {
+                        // Callback when reservation is approved
+                        refreshID = UUID()
+                    },
+                    onDecline: {
+                        // Callback when reservation is declined
+                        refreshID = UUID()
+                    }
+                )
                 .environmentObject(env)
             }
             .onReceive(NotificationManager.shared.$selectedReservationID) { id in
-                if let id = id, 
+                if let id = id,
                    let reservation = env.store.reservations.first(where: { $0.id == id && $0.isWebReservation }) {
                     selectedReservation = reservation
                 }
@@ -569,7 +578,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             // This avoids crossing any actor boundaries with the Firebase result
             Task.detached {
                 do {
-                    let functions = Functions.functions()
                     let userId = UserDefaults.standard.string(forKey: "userIdentifier") ?? deviceId
                     
                     let data: [String: Any] = [
@@ -578,13 +586,15 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                         "userId": userId
                     ]
                     
+                    let deviceRegistrationFunctions = Functions.functions()
+
                     // Log from within the detached task
                     let logger = Logger(subsystem: "com.koenjiapp", category: "FirebaseTask")
                     logger.info("Registering device token with Firebase")
                     
                     // Since this entire Task is detached, the non-Sendable result stays within
                     // the context of this task and never needs to cross boundaries
-                    _ = try await functions.httpsCallable("registerDeviceToken").call(data)
+                    _ = try await deviceRegistrationFunctions.httpsCallable("registerDeviceToken").call(data)
                     
                     logger.info("Device successfully registered for push notifications")
                 } catch {
@@ -776,4 +786,77 @@ extension DatabaseView {
         }
         return filtered
     }
+}
+
+// First, let's define a enum for decline reasons in the ReservationService extension
+// Add this to the Web Integration/web-reservation-handling.swift file
+
+// MARK: - Web Reservation Decline Handling
+extension ReservationService {
+    
+    
+    
+    /// Decline a web reservation and update its status
+    @MainActor
+    func declineWebReservation(_ reservation: Reservation, reason: WebReservationDeclineReason, customNotes: String? = nil) async -> Bool {
+        logger.debug("Called declineWebReservation with reason: \(reason.rawValue)")
+        
+        // 1. Create a new reservation with the updated details
+        var declinedReservation = reservation
+        declinedReservation.acceptance = .na
+        declinedReservation.status = .canceled
+        
+        // 2. Add appropriate notes based on the decline reason
+        let declineNotes = reason.notesText
+        let additionalNotes = customNotes != nil && !customNotes!.isEmpty ? "\nAdditional notes: \(customNotes!)" : ""
+        
+        // 3. Ensure we preserve the email information
+        var updatedNotes = ""
+        if let existingNotes = declinedReservation.notes {
+            // Extract email from existing notes
+            let emailRegex = try? NSRegularExpression(pattern: "Email: (\\S+@\\S+\\.\\S+)")
+            let range = NSRange(existingNotes.startIndex..., in: existingNotes)
+            if let match = emailRegex?.firstMatch(in: existingNotes, range: range),
+               let emailRange = Range(match.range(at: 1), in: existingNotes) {
+                let email = String(existingNotes[emailRange])
+                updatedNotes = "\(declineNotes)\(additionalNotes)\n\nEmail: \(email)\n[declined web reservation];"
+            } else {
+                updatedNotes = "\(declineNotes)\(additionalNotes)\n\n[declined web reservation];"
+            }
+        } else {
+            updatedNotes = "\(declineNotes)\(additionalNotes)\n\n[declined web reservation];"
+        }
+        
+        declinedReservation.notes = updatedNotes
+        
+        // 4. Delete the original reservation from Firestore
+        do {
+            #if DEBUG
+            let dbRef = backupService.db.collection("reservations")
+            #else
+            let dbRef = backupService.db.collection("reservations_release")
+            #endif
+            
+            try await dbRef.document(reservation.id.uuidString.lowercased()).delete()
+            logger.debug("Original web reservation deleted successfully")
+        } catch {
+            logger.error("Error deleting original web reservation: \(error)")
+        }
+        
+        // 5. Add the declined reservation to the local store
+        addReservation(declinedReservation)
+        
+        // 6. Send decline notification email if email is available
+        if let email = declinedReservation.emailAddress {
+            let emailSent = await self.emailService.sendDeclineEmail(for: declinedReservation, email: email, reason: reason)
+            if emailSent {
+                logger.info("Decline email sent for reservation \(declinedReservation.name)")
+            } else {
+                logger.error("Failed to send decline email for reservation \(declinedReservation.name)")
+            }
+        }
+        
+        return true
+    }
+        
 }

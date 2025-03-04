@@ -26,6 +26,7 @@ class ReservationService: ObservableObject {
     private let tableAssignmentService: TableAssignmentService
     let backupService: FirebaseBackupService
     private let pushAlerts: PushAlerts
+    let emailService: EmailService
     private var imageCache: [UUID: UIImage] = [:]
     let notifsManager: NotificationManager
     @Published var changedReservation: Reservation? = nil
@@ -38,7 +39,7 @@ class ReservationService: ObservableObject {
     
     // MARK: - Initializer
     @MainActor
-    init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, backupService: FirebaseBackupService, pushAlerts: PushAlerts, notifsManager: NotificationManager = NotificationManager.shared) {
+    init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, backupService: FirebaseBackupService, pushAlerts: PushAlerts, emailService: EmailService, notifsManager: NotificationManager = NotificationManager.shared) {
         self.store = store
         self.resCache = resCache
         self.clusterStore = clusterStore
@@ -48,6 +49,7 @@ class ReservationService: ObservableObject {
         self.tableAssignmentService = tableAssignmentService
         self.backupService = backupService
         self.pushAlerts = pushAlerts
+        self.emailService = emailService
         self.notifsManager = notifsManager
         
         self.layoutServices.loadFromDisk()
