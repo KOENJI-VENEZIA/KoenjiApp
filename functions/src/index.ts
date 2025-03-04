@@ -9,6 +9,8 @@ import * as functionsV2 from "firebase-functions/v2";
 import express from "express";
 import cors from "cors";
 import { defineSecret } from "firebase-functions/params";
+import * as fs from 'fs';
+import * as path from 'path';
 
 // -------------------------------------------------------------------
 // Define your secrets
@@ -218,7 +220,7 @@ async function sendReservationConfirmationEmail(
 ) {
   let email = forcedEmail || reservation.email;
 
-  // If no direct email field and no forced email, try extracting from notes
+  // Extract email from notes if needed (existing logic)
   if (!email && reservation.notes) {
     const emailMatch = reservation.notes.match(/Email:\s*([^\s;]+)/);
     if (emailMatch && emailMatch[1]) {
@@ -231,38 +233,64 @@ async function sendReservationConfirmationEmail(
     return { error: "No email found" };
   }
 
-  const emailHtml = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <style>
-          /* your styles here */
-        </style>
-      </head>
-      <body>
-        <h1>Reservation Confirmed</h1>
-        <p>Details go here...</p>
-      </body>
-    </html>
-  `;
+  // Get preferred language from reservation, default to English if not specified
+  const language = reservation.preferredLanguage || 'en';
 
   try {
+    // Load template based on language
+    const template = loadEmailTemplate('confirmation', language);
+    
+    // Prepare data for template
+    const templateData = {
+      name: reservation.name,
+      date: reservation.dateString,
+      time: reservation.startTime,
+      people: reservation.numberOfPersons,
+      tables: reservation.tables ? reservation.tables.join(', ') : '',
+      id: reservationId,
+      // Add any other fields needed for the template
+    };
+    
+    // Render the template with data
+    const emailHtml = renderEmailTemplate(template, templateData);
+
     // Create a transport each time we want to send an email
     const mailTransport = createMailTransport();
 
     await mailTransport.sendMail({
       from: '"Your Restaurant" <your-email@gmail.com>',
       to: email,
-      subject: "Your Reservation Has Been Confirmed",
+      subject: getEmailSubject('confirmation', language),
       html: emailHtml,
     });
 
-    console.log(`Confirmation email sent to ${email} for reservation ${reservationId}`);
+    console.log(`Confirmation email sent to ${email} for reservation ${reservationId} in ${language}`);
     return { success: true };
   } catch (error) {
     console.error("Error sending email:", error);
     return { error: error instanceof Error ? error.message : "Unknown error" };
   }
+}
+
+// Helper function to get email subject in correct language
+function getEmailSubject(type: string, language: string): string {
+  type EmailType = 'confirmation' | 'decline';
+  const subjects: Record<EmailType, Record<string, string>> = {
+    confirmation: {
+      en: "Your Reservation Has Been Confirmed",
+      it: "La Tua Prenotazione è Stata Confermata",
+      ja: "ご予約が確認されました"
+    },
+    decline: {
+      en: "Regarding Your Reservation Request",
+      it: "Riguardo la Tua Richiesta di Prenotazione",
+      ja: "ご予約のリクエストについて"
+    }
+  };
+  
+  // Use type assertion to tell TypeScript what we're doing
+  const typeKey = type as EmailType;
+  return subjects[typeKey][language] || subjects[typeKey]['en'];
 }
 
 // -------------------------------------------------------------------
@@ -635,6 +663,9 @@ export const sendEmail = onCall(
         throw new Error("Missing required parameters: to, subject, and reservation");
       }
 
+      // Get preferred language from reservation, default to English
+      const language = reservation.preferredLanguage || 'en';
+
       // Create mail transport at runtime using secrets
       const mailTransport = createMailTransport();
 
@@ -642,10 +673,29 @@ export const sendEmail = onCall(
       let htmlContent = "";
       
       if (action === "decline") {
-        htmlContent = generateDeclineEmailHTML(reservation);
+        // Load and render decline template
+        const template = loadEmailTemplate('decline', language);
+        htmlContent = renderEmailTemplate(template, {
+          name: reservation.name,
+          date: reservation.date,
+          time: reservation.time,
+          people: reservation.people,
+          reason: getDeclineReasonText(reservation.reason, language),
+          followUpMessage: getFollowUpMessage(reservation.reason, language)
+          // Add other necessary fields
+        });
       } else {
-        // Default to confirmation email
-        htmlContent = generateConfirmationEmailHTML(reservation);
+        // Load and render confirmation template
+        const template = loadEmailTemplate('confirmation', language);
+        htmlContent = renderEmailTemplate(template, {
+          name: reservation.name,
+          date: reservation.date,
+          time: reservation.time,
+          people: reservation.people,
+          tables: reservation.tables || '',
+          id: reservation.id
+          // Add other necessary fields
+        });
       }
 
       // Send the email
@@ -656,7 +706,7 @@ export const sendEmail = onCall(
         html: htmlContent,
       });
 
-      console.log(`Email (${action}) sent to ${to} for reservation ${reservation.id}`);
+      console.log(`Email (${action}) sent to ${to} for reservation ${reservation.id} in ${language}`);
       return { success: true };
     } catch (error) {
       console.error("Error sending email:", error);
@@ -668,115 +718,94 @@ export const sendEmail = onCall(
   }
 );
 
-// Helper function to generate decline email HTML
-function generateDeclineEmailHTML(reservation: any): string {
-  // Define restaurant info (move to constants at the top of your file if used elsewhere)
-  const RESTAURANT_NAME = "KOENJI. VENEZIA";
-  const RESTAURANT_PHONE = "+39 123 456 7890"; // Replace with actual phone
-  const RESTAURANT_EMAIL = "info@koenji-venezia.com"; // Replace with actual email
-  const RESTAURANT_ADDRESS = "Your Restaurant Address, Venice, Italy"; // Replace with actual address
-  
-  // Get decline reason text
-  const reasonText = getDeclineReasonText(reservation.reason);
-  const followUpMessage = getFollowUpMessage(reservation.reason);
-  
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <div style="text-align: center; margin-bottom: 20px;">
-        <h1 style="color: #333;">${RESTAURANT_NAME}</h1>
-        <p style="color: #777;">Reservation Status Update</p>
-      </div>
-      
-      <p>Dear ${reservation.name},</p>
-      
-      <p>We regret to inform you that we are unable to accommodate your reservation request for <strong>${reservation.people} people</strong> on <strong>${reservation.date}</strong> at <strong>${reservation.time}</strong>.</p>
-      
-      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <p><strong>Reason:</strong> ${reasonText}</p>
-      </div>
-      
-      <p>We apologize for any inconvenience this may have caused. ${followUpMessage}</p>
-      
-      <p>If you have any questions or would like to discuss alternative options, please don't hesitate to contact us at <a href="tel:${RESTAURANT_PHONE}">${RESTAURANT_PHONE}</a> or reply to this email.</p>
-      
-      <p>Thank you for your understanding.</p>
-      
-      <p>Best regards,<br>
-      Team ${RESTAURANT_NAME}</p>
-      
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999; text-align: center;">
-        <p>${RESTAURANT_NAME}<br>
-        ${RESTAURANT_ADDRESS}<br>
-        <a href="tel:${RESTAURANT_PHONE}">${RESTAURANT_PHONE}</a> | <a href="mailto:${RESTAURANT_EMAIL}">${RESTAURANT_EMAIL}</a></p>
-      </div>
-    </div>
-  `;
-}
-
-// Helper function to generate confirmation email HTML
-function generateConfirmationEmailHTML(reservation: any): string {
-  // Define restaurant info
-  const RESTAURANT_NAME = "KOENJI. VENEZIA";
-  const RESTAURANT_PHONE = "+39 123 456 7890"; // Replace with actual phone
-  const RESTAURANT_EMAIL = "info@koenji-venezia.com"; // Replace with actual email
-  const RESTAURANT_ADDRESS = "Your Restaurant Address, Venice, Italy"; // Replace with actual address
-  
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <div style="text-align: center; margin-bottom: 20px;">
-        <h1 style="color: #333;">${RESTAURANT_NAME}</h1>
-        <p style="color: #777;">Reservation Confirmation</p>
-      </div>
-      
-      <p>Dear ${reservation.name},</p>
-      
-      <p>We're delighted to confirm your reservation for <strong>${reservation.people} people</strong> on <strong>${reservation.date}</strong> at <strong>${reservation.time}</strong>.</p>
-      
-      <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        <p><strong>Reservation Details:</strong></p>
-        <p>Date: ${reservation.date}</p>
-        <p>Time: ${reservation.time}</p>
-        <p>Party Size: ${reservation.people} people</p>
-        ${reservation.tables ? `<p>Table(s): ${reservation.tables}</p>` : ''}
-        <p>Reservation ID: ${reservation.id}</p>
-      </div>
-      
-      <p>We look forward to welcoming you to ${RESTAURANT_NAME}. If you need to make any changes to your reservation, please call us at <a href="tel:${RESTAURANT_PHONE}">${RESTAURANT_PHONE}</a> at least 24 hours in advance.</p>
-      
-      <p>Best regards,<br>
-      Team ${RESTAURANT_NAME}</p>
-      
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999; text-align: center;">
-        <p>${RESTAURANT_NAME}<br>
-        ${RESTAURANT_ADDRESS}<br>
-        <a href="tel:${RESTAURANT_PHONE}">${RESTAURANT_PHONE}</a> | <a href="mailto:${RESTAURANT_EMAIL}">${RESTAURANT_EMAIL}</a></p>
-      </div>
-    </div>
-  `;
-}
-
 // Helper function to get the decline reason text
-function getDeclineReasonText(reason: string): string {
-  switch (reason) {
-    case "notEnoughCapacity":
-      return "Unfortunately, we do not have sufficient capacity for your requested party size at this time.";
-    case "internalIssue":
-      return "We are experiencing some internal operational challenges at the requested time.";
-    case "other":
-      return "We are unable to accommodate your reservation at this time.";
-    default:
-      return "We are unable to accommodate your reservation at this time.";
+function getDeclineReasonText(reason: string, language: string): string {
+  type ReasonType = 'notEnoughCapacity' | 'internalIssue' | 'other';
+  const reasonTexts: Record<ReasonType, Record<string, string>> = {
+    notEnoughCapacity: {
+      en: "Unfortunately, we do not have sufficient capacity for your requested party size at this time.",
+      it: "Purtroppo, non abbiamo capacità sufficiente per il numero di persone richiesto in questo momento.",
+      ja: "申し訳ありませんが、現時点ではリクエストされた人数分の十分な席がございません。"
+    },
+    internalIssue: {
+      en: "We are experiencing some internal operational challenges at the requested time.",
+      it: "Stiamo riscontrando alcune difficoltà operative interne nell'orario richiesto.",
+      ja: "リクエストされた時間帯に内部的な運営上の課題が発生しています。"
+    },
+    other: {
+      en: "We are unable to accommodate your reservation at this time.",
+      it: "Non siamo in grado di accogliere la tua prenotazione in questo momento.",
+      ja: "現時点ではご予約をお受けすることができません。"
+    }
+  };
+  
+  const reasonKey = reason as ReasonType;
+  return reasonTexts[reasonKey]?.[language] || reasonTexts[reasonKey]?.['en'] || reasonTexts.other.en;
+}
+
+// For getFollowUpMessage function
+function getFollowUpMessage(reason: string, language: string): string {
+  type ReasonType = 'internalIssue' | 'other' | 'default';
+  const followUpMessages: Record<ReasonType, Record<string, string>> = {
+    internalIssue: {
+      en: "One of our staff members will follow up with you by phone shortly to discuss alternatives.",
+      it: "Un membro del nostro staff ti contatterà telefonicamente a breve per discutere alternative.",
+      ja: "スタッフが代替案についてお話しするために、まもなくお電話でフォローアップいたします。"
+    },
+    other: {
+      en: "We will try to follow up with you when possible to provide more information.",
+      it: "Cercheremo di contattarti appena possibile per fornirti maggiori informazioni.",
+      ja: "可能な限り、詳細情報を提供するためにフォローアップいたします。"
+    },
+    default: {
+      en: "We would be happy to help you find an alternative date or time that works for you.",
+      it: "Saremo lieti di aiutarti a trovare una data o un orario alternativi che funzionino per te.",
+      ja: "お客様に合う代替の日付や時間をご案内できれば幸いです。"
+    }
+  };
+  
+  const reasonKey = reason as ReasonType;
+  return followUpMessages[reasonKey]?.[language] || 
+         followUpMessages[reasonKey]?.['en'] || 
+         followUpMessages.default[language] || 
+         followUpMessages.default.en;
+}
+
+// Function to load email template
+function loadEmailTemplate(templateName: string, language: string): string {
+  const supportedLanguages = ['en', 'it', 'ja'];
+  // Check if the requested language is supported, otherwise default to English
+  const lang = supportedLanguages.includes(language) ? language : 'en';
+  
+  try {
+    // Get template path
+    const templatePath = path.join(__dirname, 'templates', 'emails', lang, `${templateName}.html`);
+    // Read template file
+    return fs.readFileSync(templatePath, 'utf8');
+  } catch (error) {
+    console.error(`Error loading template ${templateName} in ${language}:`, error);
+    
+    // Try to load English version if another language failed
+    if (lang !== 'en') {
+      try {
+        const fallbackPath = path.join(__dirname, 'templates', 'emails', 'en', `${templateName}.html`);
+        return fs.readFileSync(fallbackPath, 'utf8');
+      } catch (fallbackError) {
+        console.error(`Error loading fallback template:`, fallbackError);
+        // Return a basic template as last resort
+        return `<html><body><h1>Reservation Information</h1><p>Details for your reservation.</p></body></html>`;
+      }
+    }
+    
+    // Return a basic template if English version also failed
+    return `<html><body><h1>Reservation Information</h1><p>Details for your reservation.</p></body></html>`;
   }
 }
 
-// Helper function to get the follow-up message
-function getFollowUpMessage(reason: string): string {
-  switch (reason) {
-    case "internalIssue":
-      return "One of our staff members will follow up with you by phone shortly to discuss alternatives.";
-    case "other":
-      return "We will try to follow up with you when possible to provide more information.";
-    default:
-      return "We would be happy to help you find an alternative date or time that works for you.";
-  }
+// Function to render a template with data
+function renderEmailTemplate(template: string, data: any): string {
+  // Replace all placeholders in format {{key}} with corresponding values from data
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    return data[key] !== undefined ? data[key] : match;
+  });
 }

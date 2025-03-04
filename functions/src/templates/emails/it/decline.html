@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { color: #333; }
+    .header p { color: #777; }
+    .reason { background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>KOENJI. VENEZIA</h1>
+    <p>Aggiornamento Stato Prenotazione</p>
+  </div>
+  
+  <p>Gentile {{name}},</p>
+  
+  <p>Siamo spiacenti di informarti che non possiamo accettare la tua richiesta di prenotazione per <strong>{{people}} persone</strong> il giorno <strong>{{date}}</strong> alle ore <strong>{{time}}</strong>.</p>
+  
+  <div class="reason">
+    <p><strong>Motivo:</strong> {{reason}}</p>
+  </div>
+  
+  <p>Ci scusiamo per l'inconveniente che questo potrebbe causare. {{followUpMessage}}</p>
+  
+  <p>Per qualsiasi domanda o per discutere opzioni alternative, non esitare a contattarci al numero <a href="tel:+391234567890">+39 123 456 7890</a> o rispondendo a questa email.</p>
+  
+  <p>Grazie per la comprensione.</p>
+  
+  <p>Cordiali saluti,<br>
+  Il Team di KOENJI. VENEZIA</p>
+  
+  <div class="footer">
+    <p>KOENJI. VENEZIA<br>
+    Indirizzo del Ristorante, Venezia, Italia<br>
+    <a href="tel:+391234567890">+39 123 456 7890</a> | <a href="mailto:info@koenji-venezia.com">info@koenji-venezia.com</a></p>
+  </div>
+</body>
+</html>

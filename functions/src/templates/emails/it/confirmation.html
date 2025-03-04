@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { color: #333; }
+    .header p { color: #777; }
+    .details { background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>KOENJI. VENEZIA</h1>
+    <p>Conferma di Prenotazione</p>
+  </div>
+  
+  <p>Gentile {{name}},</p>
+  
+  <p>Siamo lieti di confermare la tua prenotazione per <strong>{{people}} persone</strong> il giorno <strong>{{date}}</strong> alle ore <strong>{{time}}</strong>.</p>
+  
+  <div class="details">
+    <p><strong>Dettagli della Prenotazione:</strong></p>
+    <p>Data: {{date}}</p>
+    <p>Orario: {{time}}</p>
+    <p>Numero di persone: {{people}}</p>
+    {{#if tables}}<p>Tavolo/i: {{tables}}</p>{{/if}}
+    <p>Codice Prenotazione: {{id}}</p>
+  </div>
+  
+  <p>Non vediamo l'ora di accoglierti presso KOENJI. VENEZIA. Se hai bisogno di apportare modifiche alla tua prenotazione, ti preghiamo di contattarci al numero <a href="tel:+391234567890">+39 123 456 7890</a> con almeno 24 ore di anticipo.</p>
+  
+  <p>Cordiali saluti,<br>
+  Il Team di KOENJI. VENEZIA</p>
+  
+  <div class="footer">
+    <p>KOENJI. VENEZIA<br>
+    Indirizzo del Ristorante, Venezia, Italia<br>
+    <a href="tel:+391234567890">+39 123 456 7890</a> | <a href="mailto:info@koenji-venezia.com">info@koenji-venezia.com</a></p>
+  </div>
+</body>
+</html>

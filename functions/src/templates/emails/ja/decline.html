@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { color: #333; }
+    .header p { color: #777; }
+    .reason { background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>KOENJI. VENEZIA</h1>
+    <p>ご予約状況のお知らせ</p>
+  </div>
+  
+  <p>{{name}}様</p>
+  
+  <p>誠に申し訳ございませんが、<strong>{{date}}</strong>の<strong>{{time}}</strong>に<strong>{{people}}名様</strong>でのご予約リクエストにお応えすることができません。</p>
+  
+  <div class="reason">
+    <p><strong>理由：</strong> {{reason}}</p>
+  </div>
+  
+  <p>ご不便をおかけして申し訳ございません。{{followUpMessage}}</p>
+  
+  <p>ご質問やその他の選択肢についてお話しされたい場合は、<a href="tel:+391234567890">+39 123 456 7890</a>までお電話いただくか、このメールに返信してください。</p>
+  
+  <p>ご理解いただきありがとうございます。</p>
+  
+  <p>敬具<br>
+  KOENJI. VENEZIAチーム</p>
+  
+  <div class="footer">
+    <p>KOENJI. VENEZIA<br>
+    レストランの住所, ヴェネツィア, イタリア<br>
+    <a href="tel:+391234567890">+39 123 456 7890</a> | <a href="mailto:info@koenji-venezia.com">info@koenji-venezia.com</a></p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { text-align: center; margin-bottom: 20px; }
+    .header h1 { color: #333; }
+    .header p { color: #777; }
+    .reason { background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #999; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>KOENJI. VENEZIA</h1>
+    <p>Reservation Status Update</p>
+  </div>
+  
+  <p>Dear {{name}},</p>
+  
+  <p>We regret to inform you that we are unable to accommodate your reservation request for <strong>{{people}} people</strong> on <strong>{{date}}</strong> at <strong>{{time}}</strong>.</p>
+  
+  <div class="reason">
+    <p><strong>Reason:</strong> {{reason}}</p>
+  </div>
+  
+  <p>We apologize for any inconvenience this may have caused. {{followUpMessage}}</p>
+  
+  <p>If you have any questions or would like to discuss alternative options, please don't hesitate to contact us at <a href="tel:+391234567890">+39 123 456 7890</a> or reply to this email.</p>
+  
+  <p>Thank you for your understanding.</p>
+  
+  <p>Best regards,<br>
+  Team KOENJI. VENEZIA</p>
+  
+  <div class="footer">
+    <p>KOENJI. VENEZIA<br>
+    Your Restaurant Address, Venice, Italy<br>
+    <a href="tel:+391234567890">+39 123 456 7890</a> | <a href="mailto:info@koenji-venezia.com">info@koenji-venezia.com</a></p>
+  </div>
+</body>
+</html>
