@@ -215,7 +215,8 @@ class ReservationService: ObservableObject {
             "creationDate": reservation.creationDate.timeIntervalSince1970,
             "lastEditedOn": reservation.lastEditedOn.timeIntervalSince1970,
             "isMock": reservation.isMock,
-            "colorHue": reservation.colorHue
+            "colorHue": reservation.colorHue,
+            "preferredLanguage": reservation.preferredLanguage
         ]
         
         // Handle optional values separately and safely

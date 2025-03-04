@@ -43,6 +43,7 @@ class SQLiteManager {
     let assignedEmoji = Expression<String?>("assignedEmoji")
     let imageData = Expression<Data?>("imageData")
     let colorHue = Expression<Double>("colorHue")
+    let preferredLanguage = Expression<String?>("preferredLanguage")
     // You can add additional columns (or serialize complex types like `tables` into JSON)
     
     
@@ -73,31 +74,47 @@ class SQLiteManager {
     
     private func createReservationsTable() {
         do {
-            try db.run(reservationsTable.create(ifNotExists: true) { table in
-                table.column(id, primaryKey: true)
-                table.column(name)
-                table.column(phone)
-                table.column(numberOfPersons)
-                table.column(dateString)
-                table.column(category)
-                table.column(startTime)
-                table.column(endTime)
-                table.column(acceptance)
-                table.column(status)
-                table.column(reservationType)
-                table.column(group)
-                table.column(notes)
-                table.column(tables)
-                table.column(creationDate)
-                table.column(lastEditedOn)
-                table.column(isMock)
-                table.column(assignedEmoji)
-                table.column(imageData)
-                table.column(colorHue)
-            })
-            logger.debug("Reservations table created or verified")
+            // First, check if the table exists
+            let tableExists = try db.scalar("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'reservations')") as? Int64 == 1
+            
+            if !tableExists {
+                // Create the table if it doesn't exist
+                try db.run(reservationsTable.create(ifNotExists: true) { table in
+                    table.column(id, primaryKey: true)
+                    table.column(name)
+                    table.column(phone)
+                    table.column(numberOfPersons)
+                    table.column(dateString)
+                    table.column(category)
+                    table.column(startTime)
+                    table.column(endTime)
+                    table.column(acceptance)
+                    table.column(status)
+                    table.column(reservationType)
+                    table.column(group)
+                    table.column(notes)
+                    table.column(tables)
+                    table.column(creationDate)
+                    table.column(lastEditedOn)
+                    table.column(isMock)
+                    table.column(assignedEmoji)
+                    table.column(imageData)
+                    table.column(colorHue)
+                    table.column(preferredLanguage)
+                })
+                logger.debug("Reservations table created")
+            } else {
+                // Check if the preferredLanguage column exists
+                let hasPreferredLanguage = try db.scalar("SELECT COUNT(*) FROM pragma_table_info('reservations') WHERE name='preferredLanguage'") as? Int64 == 1
+                
+                if !hasPreferredLanguage {
+                    // Add the new column if it doesn't exist
+                    try db.run(reservationsTable.addColumn(preferredLanguage))
+                    logger.notice("Added preferredLanguage column to existing reservations table")
+                }
+            }
         } catch {
-            logger.error("Failed to create reservations table: \(error.localizedDescription)")
+            logger.error("Database operation failed: \(error.localizedDescription)")
         }
     }
     
@@ -146,7 +163,8 @@ class SQLiteManager {
                isMock <- reservation.isMock,
                assignedEmoji <- reservation.assignedEmoji,
                imageData <- reservation.imageData,
-               colorHue <- reservation.colorHue
+               colorHue <- reservation.colorHue,
+               preferredLanguage <- reservation.preferredLanguage
            )
            try db.run(insert)
            logger.info("Inserted/Updated reservation: \(reservation.id)")
@@ -199,7 +217,8 @@ class SQLiteManager {
                 isMock <- reservation.isMock,
                 assignedEmoji <- reservation.assignedEmoji,
                 imageData <- reservation.imageData,
-                colorHue <- reservation.colorHue
+                colorHue <- reservation.colorHue,
+                preferredLanguage <- reservation.preferredLanguage
             )
             try db.run(update)
         } catch {

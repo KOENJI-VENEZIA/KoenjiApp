@@ -108,7 +108,9 @@ extension ReservationService {
             let reservationType = Reservation.ReservationType(rawValue: reservationTypeRaw),
             let group = data["group"] as? Bool,
             let creationTimestamp = data["creationDate"] as? TimeInterval,
-            let lastEditedTimestamp = data["lastEditedOn"] as? TimeInterval
+            let lastEditedTimestamp = data["lastEditedOn"] as? TimeInterval,
+            let preferredLanguage = data["preferredLanguage"] as? String
+
         else {
             return nil
         }
@@ -145,7 +147,9 @@ extension ReservationService {
             creationDate: Date(timeIntervalSince1970: creationTimestamp),
             lastEditedOn: Date(timeIntervalSince1970: lastEditedTimestamp),
             isMock: false,
-            assignedEmoji: data["assignedEmoji"] as? String ?? ""
+            assignedEmoji: data["assignedEmoji"] as? String ?? "",
+            preferredLanguage: preferredLanguage
+
         )
     }
     
@@ -672,6 +676,7 @@ struct ConfirmationEmailData: Sendable {
     let numberOfPersons: Int
     let tables: String
     let id: String
+    let language: String
 }
 
 struct DeclineEmailData: Sendable {
@@ -683,6 +688,7 @@ struct DeclineEmailData: Sendable {
     let numberOfPersons: Int
     let id: String
     let reason: String
+    let language: String
 }
 
 enum EmailType: Sendable {
@@ -806,7 +812,8 @@ class EmailService {
         }
 
         let email = String(notes[emailRange])
-        
+        let language = reservation.preferredLanguage ?? "en"
+
         // Create data structure
         let emailData = ConfirmationEmailData(
             to: email,
@@ -816,7 +823,8 @@ class EmailService {
             startTime: reservation.startTime,
             numberOfPersons: reservation.numberOfPersons,
             tables: reservation.tables.map { $0.name }.joined(separator: ", "),
-            id: reservation.id.uuidString
+            id: reservation.id.uuidString,
+            language: language // Add language parameter
         )
         
         // Bridge to async/await at the last moment
@@ -830,6 +838,7 @@ class EmailService {
     
     func sendDeclineEmail(for reservation: Reservation, email: String, reason: WebReservationDeclineReason) async -> Bool {
         // Create data structure
+        let language = reservation.preferredLanguage ?? "en"
         let emailData = DeclineEmailData(
             to: email,
             subject: "Regarding Your Reservation Request",
@@ -838,7 +847,8 @@ class EmailService {
             startTime: reservation.startTime,
             numberOfPersons: reservation.numberOfPersons,
             id: reservation.id.uuidString,
-            reason: reason.rawValue
+            reason: reason.rawValue,
+            language: language // Add language parameter
         )
         
         // Bridge to async/await at the last moment

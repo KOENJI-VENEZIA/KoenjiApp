@@ -66,7 +66,8 @@ struct Reservation: Identifiable, Hashable, Codable {
         Color(hue: colorHue, saturation: 0.6, brightness: 0.8)
     }
     
-    
+    var preferredLanguage: String?
+
 
     
 
@@ -92,6 +93,8 @@ struct Reservation: Identifiable, Hashable, Codable {
             case assignedEmoji
             case imageData
             case colorHue
+            case preferredLanguage
+
         }
     
     
@@ -147,7 +150,8 @@ struct Reservation: Identifiable, Hashable, Codable {
         lastEditedOn: Date? = nil, // ← Optional new parameter
         isMock: Bool = false,
         assignedEmoji: String = "",
-        imageData: Data? = nil
+        imageData: Data? = nil,
+        preferredLanguage: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -170,6 +174,7 @@ struct Reservation: Identifiable, Hashable, Codable {
         self.imageData = imageData
         
         self.colorHue = Reservation.stableHue(for: id)
+        self.preferredLanguage = preferredLanguage
 
         
         // Initialize cached dates
@@ -264,6 +269,8 @@ extension Reservation {
                 colorHue = Reservation.stableHue(for: id) // Generate a hue based on UUID
             }
 
+            preferredLanguage = try container.decodeIfPresent(String.self, forKey: .preferredLanguage)
+
         // Initialize cached dates
               self.updateCachedDates()
               
@@ -295,6 +302,8 @@ extension Reservation {
         try container.encode(assignedEmoji, forKey: .assignedEmoji)
         try container.encode(imageData, forKey: .imageData)
         try container.encode(colorHue, forKey: .colorHue)
+        try container.encodeIfPresent(preferredLanguage, forKey: .preferredLanguage)
+
 
     }
     
@@ -468,14 +477,14 @@ struct LightweightReservation: Codable {
     var tables: [TableModel]
     let creationDate: Date
     var assignedEmoji: String?
-    
+    var preferredLanguage: String?
     // Exclude the image data here
 }
 
 extension Reservation {
     // Helper to create a lightweight version of the reservation
     func toLightweight() -> LightweightReservation {
-        return LightweightReservation(id: id, name: name, phone: phone, numberOfPersons: numberOfPersons, dateString: dateString, category: category, startTime: startTime, endTime: endTime, acceptance: acceptance, status: status, reservationType: reservationType, group: group, tables: tables, creationDate: creationDate)
+        return LightweightReservation(id: id, name: name, phone: phone, numberOfPersons: numberOfPersons, dateString: dateString, category: category, startTime: startTime, endTime: endTime, acceptance: acceptance, status: status, reservationType: reservationType, group: group, tables: tables, creationDate: creationDate, preferredLanguage: preferredLanguage)
     }
 }
 

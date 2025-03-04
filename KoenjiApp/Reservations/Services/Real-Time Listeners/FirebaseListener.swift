@@ -67,7 +67,8 @@ extension ReservationService {
             let notes = data["notes"] as? String,
             let creationTimestamp = data["creationDate"] as? TimeInterval,
             let lastEditedTimestamp = data["lastEditedOn"] as? TimeInterval,
-            let isMock = data["isMock"] as? Bool
+            let isMock = data["isMock"] as? Bool,
+            let preferredLanguage = data["preferredLanguage"] as? String
         else {
             return nil
         }
@@ -103,7 +104,8 @@ extension ReservationService {
             lastEditedOn: Date(timeIntervalSince1970: lastEditedTimestamp),
             isMock: isMock,
             assignedEmoji: data["assignedEmoji"] as? String ?? "",
-            imageData: data["imageData"] as? Data
+            imageData: data["imageData"] as? Data,
+            preferredLanguage: preferredLanguage
         )
     }
     

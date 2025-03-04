@@ -58,7 +58,8 @@ struct ReservationMapper {
             lastEditedOn: row[SQLiteManager.shared.lastEditedOn],
             isMock: row[SQLiteManager.shared.isMock],
             assignedEmoji: row[SQLiteManager.shared.assignedEmoji] ?? "",
-            imageData: row[SQLiteManager.shared.imageData]
+            imageData: row[SQLiteManager.shared.imageData],
+            preferredLanguage: row[SQLiteManager.shared.preferredLanguage]
         )
         
         logger.debug("Successfully mapped reservation: \(reservation.name)")
