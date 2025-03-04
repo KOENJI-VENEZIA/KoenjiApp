@@ -3,7 +3,7 @@ import AuthenticationServices
 import OSLog
 
 struct LoginView: View {
-    @StateObject private var viewModel = AppleSignInViewModel()
+    @EnvironmentObject var viewModel: AppleSignInViewModel
     @AppStorage("isProfileComplete") private var isProfileComplete: Bool = false
     @State private var showOnboarding: Bool = false
     @State private var slideOffset: CGFloat = 0

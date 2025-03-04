@@ -105,6 +105,7 @@ struct UnlockingAnimationView: View {
 struct ContentView: View {
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var viewModel: AppleSignInViewModel
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.locale) var locale
     

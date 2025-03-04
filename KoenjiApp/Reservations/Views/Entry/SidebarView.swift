@@ -10,6 +10,7 @@ import SwiftUI
 struct SidebarView: View {
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var viewModel: AppleSignInViewModel
 
     @StateObject private var notificationManager = NotificationManager.shared
 

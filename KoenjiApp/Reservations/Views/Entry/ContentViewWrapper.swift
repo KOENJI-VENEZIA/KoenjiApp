@@ -11,6 +11,7 @@ import SwiftUI
 struct ContentViewWrapper: View {
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var viewModel: AppleSignInViewModel
 
     var body: some View {
         ContentView()

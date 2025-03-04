@@ -7,6 +7,7 @@ struct MyReservationApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var env = AppDependencies()
     @StateObject private var appState: AppState
+    @StateObject private var viewModel = AppleSignInViewModel()
     
     init() {
         let appState = AppState()
@@ -19,6 +20,7 @@ struct MyReservationApp: App {
         WindowGroup {
             ContentViewWrapper()
                 .environmentObject(env)
+                .environmentObject(viewModel)
                 .environmentObject(env.store)
                 .environmentObject(env.tableStore)
                 .environmentObject(env.resCache)
