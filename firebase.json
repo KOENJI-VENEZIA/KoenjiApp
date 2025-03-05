@@ -10,6 +10,24 @@
         "firebase-debug.*.log",
         "*.local"
       ],
+      "params": [
+        {
+          "name": "DRIVE_CLIENT_EMAIL",
+          "description": "Service account email for Google Drive access"
+        },
+        {
+          "name": "DRIVE_PRIVATE_KEY",
+          "description": "Service account private key for Google Drive access"
+        },
+        {
+          "name": "DRIVE_PROJECT_ID",
+          "description": "Google Cloud project ID"
+        },
+        {
+          "name": "DRIVE_FOLDER_ID",
+          "description": "Google Drive folder ID for CSV exports"
+        }
+      ],
       "predeploy": [
 
         "npm --prefix \"$RESOURCE_DIR\" run build"
