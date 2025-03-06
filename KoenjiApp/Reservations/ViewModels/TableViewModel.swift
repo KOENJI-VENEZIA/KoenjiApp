@@ -19,6 +19,7 @@ import SwiftUI
     var isContextMenuActive = false
     var selectedEmoji: String = ""
     var tapTimer: Timer?
+    var debounceWorkItem: DispatchWorkItem?
     var isDoubleTap = false
     var currentActiveReservation: Reservation?
     var firstUpcomingReservation: Reservation?

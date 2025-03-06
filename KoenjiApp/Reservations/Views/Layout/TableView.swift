@@ -1,6 +1,6 @@
 import EmojiPalette
 import SwiftUI
-
+import OSLog
 // MARK: - Drag State
 
 enum DragState: Equatable {
@@ -27,6 +27,7 @@ struct TableView: View {
     @State var tableView: TableViewModel = TableViewModel()
     private let normalizedTimeCache = NormalizedTimeCache()
 
+    let logger = Logger(subsystem: "com.koenjiapp", category: "TableView")
     let table: TableModel
     let clusters: [CachedCluster]
     let onTapEmpty: (TableModel) -> Void
@@ -91,6 +92,7 @@ struct TableView: View {
         .gesture(combinedGestures)
         .onAppear {
             updateResData(appState.selectedDate, refreshedKey: "onAppear", forceUpdate: true)
+
         }
         .onChange(of: unitView.showInspector) {
             updateResData(appState.selectedDate, refreshedKey: "showInspector")
@@ -98,25 +100,56 @@ struct TableView: View {
         .onChange(of: unitView.isLayoutLocked) {
             updateTableVisibility()
         }
-//        .onChange(of: appState.changedReservation) {
-//            updateResData(
-//                appState.selectedDate, refreshedKey: "changedReservation", forceUpdate: true)
-//        }
-        .onChange(of: appState.selectedDate) {
-            updateResData(
-                appState.selectedDate, refreshedKey: "appState.selectedDate", forceUpdate: true)
+        .onChange(of: appState.selectedDate) { _, newDate in
+            debounceAsync {
+                // Fetch reservations asynchronously for the new date
+                do {
+                    let reservations = try await env.resCache.fetchReservations(for: newDate)
+                    
+                    await MainActor.run {
+                        env.resCache.preloadDates(around: newDate, range: 5, reservations: reservations)
+                        updateResData(newDate, refreshedKey: "appState.selectedDate", forceUpdate: false)
+                    }
+                } catch {
+                    logger.error("Error fetching reservations: \(error.localizedDescription)")
+                    
+                    await MainActor.run {
+                        updateResData(newDate, refreshedKey: "appState.selectedDate", forceUpdate: false)
+
+                    }
+                }
+            }
         }
         .onReceive(env.store.$reservations) { new in
-            print("DEBUG: env.store.$reservations sent changes!")
-            updateResData(
-                appState.selectedDate, refreshedKey: "env.store.reservations")
+            Task {
+                do {
+                    await MainActor.run {
+                        print("DEBUG: env.store.$reservations sent changes!")
+                        updateResData(
+                            appState.selectedDate, refreshedKey: "env.store.reservations")
+                    }
+                } catch {
+                    print("Error updating table view with new reservations: \(error.localizedDescription)")
+                }
+            }
         }
         .onChange(of: appState.selectedCategory) {
-            updateResData(
-                appState.selectedDate, refreshedKey: "appState.selectedCategory", forceUpdate: true)
+            debounceAsync {
+                // Fetch reservations asynchronously for the selected date with the new category
+                let reservations = try await env.resCache.fetchReservations(for: appState.selectedDate)
+                
+                await MainActor.run {
+                    env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: reservations)
+                    updateResData(
+                        appState.selectedDate, refreshedKey: "appState.selectedCategory", forceUpdate: false)
+                }
+            }
         }
         .onChange(of: tableView.selectedEmoji) {
             handleEmojiAssignment(tableView.currentActiveReservation, tableView.selectedEmoji)
+        }
+        .onReceive(env.resCache.$cache) { _ in
+            refreshUpcomingReservations()
         }
 //        .onChange(of: tableView.currentActiveReservation?.status) {
 //            updateResData(appState.selectedDate, refreshedKey: "status")
@@ -563,26 +596,36 @@ extension TableView {
         let key =
             "\(formattedDate)-\(refreshedKey)-\(appState.selectedCategory.rawValue)-\(table.id)"
 
-//        if !forceUpdate {
-//            if tableView.currentActiveReservation != nil || tableView.lateReservation != nil
-//                || tableView.firstUpcomingReservation != nil || tableView.nearEndReservation != nil
-//            {
-//
-//                guard !appState.lastRefreshedKeys.contains(key) else {
-//                    print("⚠️ Skipping update, key already exists!")
-//                    return
-//                }
-//            }
-//        }
-//        print("New key: \(key)")
-//        appState.lastRefreshedKeys.append(key)
-//        print("Key added!")
-
-        updateCachedReservation(date)
-        updateFirstUpcoming(date)
-        updateLateReservation(date)
-        updateNearEndReservation(date)
-        updateRemainingTime(date)
+        // Check if we need to fetch fresh data from Firebase
+        if forceUpdate {
+            Task {
+                do {
+                    // Fetch reservations asynchronously from Firebase
+                    let reservations = try await env.resCache.fetchReservations(for: date)
+                    
+                    // Update the cache with the fetched reservations
+                    await MainActor.run {
+                        env.resCache.preloadDates(around: date, range: 5, reservations: reservations)
+                        
+                        // Update the table view with the fresh data
+                        updateCachedReservation(date)
+                        updateFirstUpcoming(date)
+                        updateLateReservation(date)
+                        updateNearEndReservation(date)
+                        updateRemainingTime(date)
+                    }
+                } catch {
+                    print("Error fetching reservations for table \(table.id): \(error.localizedDescription)")
+                }
+            }
+        } else {
+            // Use cached data
+            updateCachedReservation(date)
+            updateFirstUpcoming(date)
+            updateLateReservation(date)
+            updateNearEndReservation(date)
+            updateRemainingTime(date)
+        }
     }
 
     private func updateRemainingTime(_ date: Date) {
@@ -661,14 +704,21 @@ extension TableView {
     }
 
     private func updateFirstUpcoming(_ date: Date) {
+        let tableID = table.id
+        let category = appState.selectedCategory
+        
+        logger.debug("Updating upcoming reservation for table \(tableID) at \(DateHelper.formatDate(date)) in \(category.rawValue) category")
+        
         if let reservation = env.resCache.firstUpcomingReservation(
-            forTable: table.id,
+            forTable: tableID,
             date: date,
             time: date,
-            category: appState.selectedCategory)
+            category: category)
         {
+            logger.info("Found upcoming reservation: \(reservation.name) at \(reservation.startTime) for table \(tableID)")
             tableView.firstUpcomingReservation = reservation
         } else {
+            logger.debug("No upcoming reservation found for table \(tableID)")
             tableView.firstUpcomingReservation = nil
         }
     }
@@ -678,8 +728,20 @@ extension TableView {
         if updatedReservation.status != .canceled {
             updatedReservation.status = .canceled
         }
-        env.reservationService.updateReservation(updatedReservation) {
-            appState.changedReservation = updatedReservation
+        
+        Task {
+            do {
+                await env.reservationService.updateReservation(updatedReservation) { }
+                
+                await MainActor.run {
+                    appState.changedReservation = updatedReservation
+                    
+                    // Refresh the table view with the updated reservation
+                    updateResData(appState.selectedDate, refreshedKey: "handleCancelled", forceUpdate: true)
+                }
+            } catch {
+                print("Error cancelling reservation: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -687,10 +749,22 @@ extension TableView {
         guard var reservationActive = activeReservation else { return }
         print("Emoji: \(emoji)")
         reservationActive.assignedEmoji = emoji
-        env.reservationService.updateReservation(reservationActive) {
-            appState.changedReservation = reservationActive
+        
+        Task {
+            do {
+                await env.reservationService.updateReservation(reservationActive) { }
+                
+                await MainActor.run {
+                    appState.changedReservation = reservationActive
+                    onStatusChange()
+                    
+                    // Refresh the table view with the updated reservation
+                    updateResData(appState.selectedDate, refreshedKey: "handleEmojiAssignment", forceUpdate: true)
+                }
+            } catch {
+                print("Error assigning emoji to reservation: \(error.localizedDescription)")
+            }
         }
-        onStatusChange()
     }
 
     private func handleTap(_ activeReservation: Reservation) {
@@ -701,18 +775,40 @@ extension TableView {
             tableView.showedUp = true
             tableView.isLate = false
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            env.reservationService.updateReservation(
-                    activeReservation, newReservation: currentReservation) {
+            
+            Task {
+                do {
+                    await env.reservationService.updateReservation(currentReservation) { }
+                    
+                    await MainActor.run {
                         appState.changedReservation = currentReservation
+                        
+                        // Refresh the table view with the updated reservation
+                        updateResData(appState.selectedDate, refreshedKey: "handleTap", forceUpdate: true)
                     }
+                } catch {
+                    print("Error updating reservation status to showed up: \(error.localizedDescription)")
+                }
+            }
         } else if currentReservation.status == .showedUp {
             currentReservation.status =
                 (tableView.lateReservation?.id == currentReservation.id ? .late : .pending)
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            env.reservationService.updateReservation(
-                    activeReservation, newReservation: currentReservation) {
+            
+            Task {
+                do {
+                    await env.reservationService.updateReservation(currentReservation) { }
+                    
+                    await MainActor.run {
                         appState.changedReservation = currentReservation
+                        
+                        // Refresh the table view with the updated reservation
+                        updateResData(appState.selectedDate, refreshedKey: "handleTap", forceUpdate: true)
                     }
+                } catch {
+                    print("Error updating reservation status from showed up: \(error.localizedDescription)")
+                }
+            }
         }
     }
 
@@ -795,5 +891,34 @@ extension TableView {
         onTableUpdated(updatedTable)
         unitView.isLayoutReset = false
         env.layoutServices.currentlyDraggedTableID = nil
+    }
+
+    private func debounce(action: @escaping () -> Void, delay: TimeInterval = 0.1) {
+        tableView.debounceWorkItem?.cancel()
+        let newWorkItem = DispatchWorkItem { action() }
+        tableView.debounceWorkItem = newWorkItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: newWorkItem)
+    }
+    
+    /// A debounce helper for async actions with error handling.
+    private func debounceAsync(action: @escaping () async throws -> Void, delay: TimeInterval = 0.1) {
+        tableView.debounceWorkItem?.cancel()
+        let newWorkItem = DispatchWorkItem {
+            Task {
+                do {
+                    try await action()
+                } catch {
+                    print("Error in debounced async action for table \(table.id): \(error.localizedDescription)")
+                }
+            }
+        }
+        tableView.debounceWorkItem = newWorkItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: newWorkItem)
+    }
+
+    /// Refreshes the upcoming reservation when the cache is updated
+    private func refreshUpcomingReservations() {
+        logger.debug("Cache updated, refreshing upcoming reservations for table \(table.id)")
+        updateFirstUpcoming(appState.selectedDate)
     }
 }

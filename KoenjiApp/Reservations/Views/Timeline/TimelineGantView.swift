@@ -33,11 +33,29 @@ struct TimelineGantView: View {
     @State private var dragOffset: CGSize = .zero
     @State private var potentialDropRow: Int? = nil
     
+    // Current time state
+    @State private var currentTime = Date()
+    
+    // Create a timer publisher that fires every minute
+    private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+    
     // MARK: - Layout Constants
     private let tables: Int = 7
     private let columnsPerHour: Int = 4
     private let cellSize: CGFloat = 65
     private let gridRowCount: Int = 8
+    
+    // Table assignment order to match TableAssignmentService
+    private let tableAssignmentOrder: [String] = ["T1", "T2", "T3", "T4", "T6", "T7", "T5"]
+    
+    // Map table names to their IDs
+    private var tableNameToID: [String: Int] {
+        var mapping: [String: Int] = [:]
+        for i in 1...tables {
+            mapping["T\(i)"] = i
+        }
+        return mapping
+    }
 
     // Computed grid rows for the LazyHGrid
     private var gridRows: [GridItem] {
@@ -74,19 +92,41 @@ struct TimelineGantView: View {
                 contentView()
                 reservationCountText()
                 dragOverlay() // Add the drag overlay
+                
+                // Current time scrubber overlay
+                currentTimeScrubber()
+                    .zIndex(100) // Ensure it's on top of everything
             }
         }
         .onAppear {
             initializeRowAssignments()
             logReservationsPerTable()
+            
+            // Initialize current time on appear
+            self.currentTime = Date()
+            
+            // Debug log for reservations
+            print("Timeline loaded with \(reservations.count) reservations")
+            if reservations.isEmpty {
+                print("No reservations found for the current view")
+            } else {
+                print("First reservation: \(reservations[0].name) at \(reservations[0].startTime)")
+            }
+        }
+        // Use onReceive to safely update the currentTime
+        .onReceive(timer) { _ in
+            self.currentTime = Date()
+            print("Timer fired, current time: \(formatTime(currentTime))")
         }
     }
     
     // Initialize the row assignments to default values
     private func initializeRowAssignments() {
-        // Initially, assign each table to its corresponding row index
-        for i in 1...tables {
-            rowAssignments[i] = i - 1
+        // Initialize row assignments based on the tableAssignmentOrder
+        for (index, tableName) in tableAssignmentOrder.enumerated() {
+            if let tableID = tableNameToID[tableName] {
+                rowAssignments[tableID] = index
+            }
         }
     }
 }
@@ -160,6 +200,10 @@ extension TimelineGantView {
                 }
             }
         }
+        .onAppear {
+            // Debug log for content view
+            print("Content view appeared, category: \(appState.selectedCategory), start hour: \(startHour)")
+        }
     }
     
     private func timelineScrollView() -> some View {
@@ -167,9 +211,33 @@ extension TimelineGantView {
             ZStack(alignment: .leading) {
                 backgroundGridView().padding()
                 timelineContentView().padding()
+                
+                // Add the time scrubber directly to the scrollable content
+                if isCurrentTimeVisible() {
+                    timeScrubberLine()
+                        .padding()
+                        .zIndex(100) // Ensure it's on top
+                }
             }
         }
         .background(Color.clear)
+        .overlay(
+            // Keep the debug text as an overlay
+            VStack {
+                let xPosition = calculateTimePosition(for: currentTime)
+                let isVisible = isCurrentTimeVisible()
+                
+                Text("Current: \(formatTime(currentTime)), Visible: \(isVisible ? "Yes" : "No"), Position: \(Int(xPosition))")
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .padding(4)
+                    .background(Color.red.opacity(0.8))
+                    .cornerRadius(4)
+                    .padding(.top, 4)
+                
+                Spacer()
+            }
+        )
     }
     
     /// Displays the table headers.
@@ -179,7 +247,7 @@ extension TimelineGantView {
                 .font(.headline)
                 .padding()
             
-            // Table headers are now ordered by row index
+            // Table headers are now ordered according to tableAssignmentOrder
             ForEach(0..<tables, id: \.self) { rowIndex in
                 // Find the tableID that's assigned to this row index
                 let tableID = tableIdForRow(rowIndex)
@@ -308,7 +376,14 @@ extension TimelineGantView {
     /// Filters reservations for a given table.
     private func filteredReservations(for table: Int) -> [Reservation] {
         reservations.filter { reservation in
-            reservation.tables.contains { $0.id == table }
+            TimelineGantView.logger.info("Table ID: \(table)")
+            // Convert integers to strings before joining
+            TimelineGantView.logger.info("Reservation tables: \(reservation.tables)")
+            let tableIds = reservation.tables.map { String($0.id) }.joined(separator: ", ")
+            TimelineGantView.logger.info("Reservation tables id: \(tableIds)")
+            TimelineGantView.logger.info("Is there a match? \(reservation.tables.contains { $0.id == table })")
+            TimelineGantView.logger.info("Reservations count: \(reservations.count)")
+            return reservation.tables.contains { $0.id == table }
         }
     }
     
@@ -346,6 +421,84 @@ extension TimelineGantView {
         let duration = reservation.endTimeDate?.timeIntervalSince(reservation.startTimeDate ?? Date()) ?? 0.0
         let minutes = duration / 60.0
         return CGFloat(minutes / 15.0) * cellSize
+    }
+    
+    // Add current time scrubber view - this will be replaced by the new implementation
+    @ViewBuilder
+    private func currentTimeScrubber() -> some View {
+        // Empty view - we've moved this functionality to the timelineScrollView
+        EmptyView()
+    }
+    
+    // New function for the time scrubber line only
+    private func timeScrubberLine() -> some View {
+        let xPosition = calculateTimePosition(for: currentTime)
+        
+        return ZStack(alignment: .top) {
+            VStack(spacing: 0) {
+                // Time label at the top
+                Text(formatTime(currentTime))
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.red)
+                    )
+                    .padding(.bottom, 4)
+                
+                // Vertical line - starts right after the label
+                Rectangle()
+                    .fill(Color.red)
+                    .frame(width: 2)
+                    .frame(height: UIScreen.main.bounds.height * 0.8) // Make it tall enough to span the entire view
+            }
+        }
+        .offset(x: xPosition) // Position based on current time
+    }
+    
+    // Helper to check if current time is within visible range
+    private func isCurrentTimeVisible() -> Bool {
+        let calendar = Calendar.current
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: currentTime)
+        let currentHour = timeComponents.hour ?? 0
+        let currentMinute = timeComponents.minute ?? 0
+        
+        // Convert to total minutes for more precise comparison
+        let currentTotalMinutes = currentHour * 60 + currentMinute
+        let startTotalMinutes = startHour * 60
+        let endTotalMinutes = (startHour + totalHours) * 60
+        
+        let isVisible = currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes
+        print("Time visibility check: \(currentHour):\(currentMinute) - Start: \(startHour), End: \(startHour + totalHours), Visible: \(isVisible)")
+        
+        return isVisible
+    }
+    
+    // Calculate position for time scrubber
+    private func calculateTimePosition(for date: Date) -> CGFloat {
+        let calendar = Calendar.current
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: date)
+        let hour = timeComponents.hour ?? 0
+        let minute = timeComponents.minute ?? 0
+        
+        // Calculate hours and minutes since category start
+        let hoursSinceStart = hour - startHour
+        let minutesFraction = CGFloat(minute) / 60.0
+        
+        // Calculate position (each hour is cellSize * 4 wide)
+        let position = (CGFloat(hoursSinceStart) * cellSize * 4) + (minutesFraction * cellSize * 4)
+        print("Time position calculation: \(hour):\(minute) → \(position) points from start")
+        
+        return position
+    }
+    
+    // Format time for display
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
     }
 }
 

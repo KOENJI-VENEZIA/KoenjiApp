@@ -32,11 +32,31 @@ struct ReservationMapper {
            let data = tablesString.data(using: .utf8) {
             let decoder = JSONDecoder()
             do {
+                // First try to decode as an array of TableModel objects
                 tablesArray = try decoder.decode([TableModel].self, from: data)
-                logger.debug("Successfully decoded \(tablesArray.count) tables")
-        } catch {
-                logger.error("Failed to decode tables JSON: \(error.localizedDescription)")
+                logger.debug("Successfully decoded \(tablesArray.count) tables as TableModel objects")
+            } catch {
+                logger.error("Failed to decode tables as TableModel array: \(error.localizedDescription)")
+                
+                // If that fails, try to decode as an array of table IDs
+                do {
+                    let tableIds = try decoder.decode([Int].self, from: data)
+                    logger.debug("Successfully decoded \(tableIds.count) table IDs")
+                    
+                    // Convert table IDs to TableModel objects
+                    tablesArray = tableIds.map { id in
+                        TableModel(id: id, name: "Table \(id)", maxCapacity: 4, row: 0, column: 0) // Default values
+                    }
+                    logger.debug("Converted \(tablesArray.count) table IDs to TableModel objects")
+                } catch {
+                    logger.error("Failed to decode tables as ID array: \(error.localizedDescription)")
+                    
+                    // Log the actual JSON string for debugging
+                    logger.debug("Raw tables JSON: \(tablesString)")
+                }
             }
+        } else {
+            logger.warning("No tables data found for reservation")
         }
         
         let reservation = Reservation(
@@ -62,7 +82,7 @@ struct ReservationMapper {
             preferredLanguage: row[SQLiteManager.shared.preferredLanguage]
         )
         
-        logger.debug("Successfully mapped reservation: \(reservation.name)")
+        logger.debug("Successfully mapped reservation: \(reservation.name) with \(tablesArray.count) tables")
         return reservation
     }
 }

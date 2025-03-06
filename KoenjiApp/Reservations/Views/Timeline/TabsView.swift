@@ -125,7 +125,9 @@ struct TabsView: View {
                         appState.selectedDate = DateHelper.combine(date: Date(), time: dinnerTime)
                     }
                 }
-                updateActiveReservations()
+                Task {
+                    await updateActiveReservations()
+                }
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -214,19 +216,31 @@ struct TabsView: View {
                        .environment(unitView)
                }
         .onAppear {
-            updateActiveReservations()
+            Task {
+                await updateActiveReservations()
+            }
             bindableDate = appState.selectedDate
         }
         .onChange(of: env.store.reservations) {
-            updateActiveReservations()
+            Task {
+                await updateActiveReservations()
+            }
             env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
         }
         .onChange(of: appState.selectedCategory) {
-            updateActiveReservations()
+            Task {
+                await updateActiveReservations()
+            }
         }
-        .onChange(of: env.resCache.cache) { updateActiveReservations() }
+        .onChange(of: env.resCache.cache) { 
+            Task {
+                await updateActiveReservations()
+            }
+        }
         .onChange(of: appState.selectedDate) { _, newDate in
-            updateActiveReservations()
+            Task {
+                await updateActiveReservations()
+            }
             env.resCache.preloadDates(around: newDate, range: 5, reservations: env.store.reservations)
         }
     }
@@ -487,14 +501,29 @@ struct TabsView: View {
         }
     }
     
-    private func updateActiveReservations() {
-        reservations = env.resCache.reservations(for: appState.selectedDate).filter {
-            reservation in
-            reservation.category == appState.selectedCategory
-            && reservation.status != .canceled
-            && reservation.status != .deleted
-            && reservation.status != .toHandle
-            && reservation.reservationType != .waitingList
+    private func updateActiveReservations() async {
+        do {
+            let reservations = try await env.resCache.fetchReservations(for: appState.selectedDate).filter {
+                reservation in
+                reservation.category == appState.selectedCategory
+                && reservation.status != .canceled
+                && reservation.status != .deleted
+                && reservation.status != .toHandle
+                && reservation.reservationType != .waitingList
+            }
+            
+            await MainActor.run {
+                self.reservations = reservations
+            }
+            
+            TabsView.logger.info("Reservations count: \(reservations.count)")
+        } catch {
+            TabsView.logger.error("Error fetching reservations: \(error.localizedDescription)")
+            
+            // Update UI on the main thread to show empty state
+            await MainActor.run {
+                self.reservations = []
+            }
         }
     }
 }

@@ -43,7 +43,7 @@ struct DebugConfigView: View {
                     }
                     
                     Button {
-                        env.reservationService.migrateJSONBackupFromFirebase()
+//                        env.reservationService.migrateJSONBackupFromFirebase()
                     } label: {
                         Label("Converti backup", systemImage: "square.and.arrow.down.on.square")
                     }

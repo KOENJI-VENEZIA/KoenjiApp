@@ -14,30 +14,90 @@ import SwiftUI
 import OSLog
 
 /// A service class responsible for high-level operations on reservations.
-/// This class interacts with the `ReservationStore` for managing reservation data.
+/// This class serves as the central coordinator for all reservation-related functionality in the app.
+/// It manages the lifecycle of reservations including creation, updating, deletion, and synchronization with Firebase.
+/// The service also handles table assignments, reservation status changes, and data persistence.
+///
+/// Key responsibilities:
+/// - Managing reservation data in local storage and Firebase
+/// - Coordinating table assignments for reservations
+/// - Handling reservation status changes (confirm, cancel, etc.)
+/// - Synchronizing data between devices via Firebase
+/// - Managing session data for collaborative editing
+/// - Providing caching mechanisms for efficient data access
 class ReservationService: ObservableObject {
     // MARK: - Dependencies
+    
+    /// The store that manages reservation data persistence and retrieval
     let store: ReservationStore
-    private let resCache: CurrentReservationsCache
-    private let clusterStore: ClusterStore
-    private let clusterServices: ClusterServices
-    private let tableStore: TableStore
+    
+    /// Cache for efficiently accessing current reservations
+    let resCache: CurrentReservationsCache
+    
+    /// Store for managing table clusters
+    let clusterStore: ClusterStore
+    
+    /// Service for managing table clusters operations
+    let clusterServices: ClusterServices
+    
+    /// Store for managing table data
+    let tableStore: TableStore
+    
+    /// Service for managing restaurant layout operations
     let layoutServices: LayoutServices
-    private let tableAssignmentService: TableAssignmentService
+    
+    /// Service for assigning tables to reservations
+    let tableAssignmentService: TableAssignmentService
+    
+    /// Service for backing up data to Firebase
     let backupService: FirebaseBackupService
-    private let pushAlerts: PushAlerts
+    
+    /// Service for managing push notifications
+    let pushAlerts: PushAlerts
+    
+    /// Service for sending emails
     let emailService: EmailService
-    private var imageCache: [UUID: UIImage] = [:]
+    
+    /// Cache for storing reservation images
+    var imageCache: [UUID: UIImage] = [:]
+    
+    /// Manager for handling local notifications
     let notifsManager: NotificationManager
+    
+    /// Published property that notifies observers when a reservation changes
     @Published var changedReservation: Reservation? = nil
     
+    /// Logger for tracking service operations
     let logger = Logger(subsystem: "com.koenjiapp", category: "ReservationService")
     
+    /// Firebase listener for reservation changes
     var reservationListener: ListenerRegistration?
+    
+    /// Firebase listener for session changes
     var sessionListener: ListenerRegistration?
+    
+    /// Firebase listener for web reservation changes
     var webReservationListener: ListenerRegistration?
     
     // MARK: - Initializer
+    
+    /// Initializes a new ReservationService with all required dependencies
+    /// 
+    /// This initializer sets up the service, loads data from disk, and starts Firebase listeners
+    /// for real-time updates.
+    ///
+    /// - Parameters:
+    ///   - store: The store for managing reservation data
+    ///   - resCache: Cache for current reservations
+    ///   - clusterStore: Store for table clusters
+    ///   - clusterServices: Service for cluster operations
+    ///   - tableStore: Store for table data
+    ///   - layoutServices: Service for layout operations
+    ///   - tableAssignmentService: Service for assigning tables
+    ///   - backupService: Service for Firebase backup
+    ///   - pushAlerts: Service for push notifications
+    ///   - emailService: Service for sending emails
+    ///   - notifsManager: Manager for local notifications
     @MainActor
     init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, backupService: FirebaseBackupService, pushAlerts: PushAlerts, emailService: EmailService, notifsManager: NotificationManager = NotificationManager.shared) {
         self.store = store
@@ -54,27 +114,34 @@ class ReservationService: ObservableObject {
         
         self.layoutServices.loadFromDisk()
         self.clusterServices.loadClustersFromDisk()
-        self.migrateDatabaseIfNeeded()
         
+        // Start Firebase listeners
         self.startReservationsListener()
         self.startSessionListener()
         self.startWebReservationListener()
 
-
-        self.loadReservationsFromSQLite()
-        self.loadSessionsFromSQLite()
+        // Load data directly from Firebase
+        self.loadReservationsFromFirebase()
+        self.loadSessionsFromFirebase()
         
         let today = Calendar.current.startOfDay(for: Date())
         self.resCache.preloadDates(around: today, range: 5, reservations: self.store.reservations)
-//        self.preloadActiveReservationCache(around: today, forDaysBefore: 5, afterDays: 5)
     }
     
+    /// Removes Firebase listeners when the service is deallocated
     deinit {
         reservationListener?.remove()
         sessionListener?.remove()
         webReservationListener?.remove()
         }
     
+    /// Migrates the SQLite database schema to the latest version if needed
+    ///
+    /// This method checks the current database version and applies any necessary
+    /// schema changes to bring it up to the target version.
+    ///
+    /// - Note: When making schema changes, increment the `targetVersion` and add
+    ///         the migration code for each version step.
     @MainActor
     func migrateDatabaseIfNeeded() {
         do {
@@ -98,8 +165,14 @@ class ReservationService: ObservableObject {
         }
     }
     
-    // MARK: - Placeholder Methods for CRUD Operations
-
+    // MARK: - Session Management
+    
+    /// Inserts or updates a session in both local storage and Firebase
+    ///
+    /// This method saves the session to SQLite, updates the in-memory session store,
+    /// and synchronizes the data with Firebase.
+    ///
+    /// - Parameter session: The session to insert or update
     @MainActor
     func upsertSession(_ session: Session) {
         SQLiteManager.shared.insertSession(session)
@@ -116,7 +189,7 @@ class ReservationService: ObservableObject {
         let dbRef = backupService.db.collection("sessions_release")
         #endif
         let data = convertSessionToDictionary(session: session)
-            // Using the reservation’s UUID string as the document ID:
+            // Using the reservation's UUID string as the document ID:
         dbRef.document(session.uuid).setData(data) { [self] error in
                 if let error = error {
                     self.logger.error("Error pushing session to Firebase: \(error)")
@@ -127,10 +200,17 @@ class ReservationService: ObservableObject {
         
     }
     
-    /// Adds a new reservation.
-    /// Assumes the reservation's `tables` have already been assigned
-    /// (manually or automatically). If not, it will be unassigned.
-    /// This method simply appends it and marks its tables as occupied.
+    // MARK: - Reservation Management
+    
+    /// Adds a new reservation to the system
+    ///
+    /// This method adds a reservation to SQLite, updates the in-memory cache and store,
+    /// marks assigned tables as occupied, and synchronizes the data with Firebase.
+    ///
+    /// - Note: The method assumes the reservation's tables have already been assigned.
+    ///         If not, the reservation will be unassigned.
+    ///
+    /// - Parameter reservation: The reservation to add
     @MainActor
     func addReservation(_ reservation: Reservation) {
         // Update Database
@@ -166,6 +246,11 @@ class ReservationService: ObservableObject {
         }
     }
     
+    /// Adds multiple reservations to the system
+    ///
+    /// This method adds multiple reservations to SQLite in a batch operation.
+    ///
+    /// - Parameter reservations: An array of reservations to add
     @MainActor
     func addReservations(_ reservations: [Reservation]) {
         for reservation in reservations {
@@ -173,6 +258,10 @@ class ReservationService: ObservableObject {
         }
     }
     
+    /// Converts a Session object to a dictionary for Firebase storage
+    ///
+    /// - Parameter session: The session to convert
+    /// - Returns: A dictionary representation of the session
     @MainActor
     private func convertSessionToDictionary(session: Session) -> [String: Any] {
         return [
@@ -185,54 +274,83 @@ class ReservationService: ObservableObject {
         ]
     }
     
+    /// Converts a Reservation object to a dictionary for Firebase storage
+    ///
+    /// This method also attempts to assign tables to confirmed reservations
+    /// that don't have tables assigned.
+    ///
+    /// - Parameter reservation: The reservation to convert
+    /// - Returns: A dictionary representation of the reservation
     @MainActor
     private func convertReservationToDictionary(reservation: Reservation) -> [String: Any] {
+        var updatedReservation = reservation
+        
+        // Check if this is a confirmed reservation with no tables
+        if updatedReservation.acceptance == .confirmed && updatedReservation.tables.isEmpty {
+            // Log this issue
+            logger.warning("⚠️ Found confirmed reservation with no tables: \(updatedReservation.name)")
+            
+            // Try to assign tables automatically
+                let layoutServices = self.layoutServices
+                let assignmentResult = layoutServices.assignTables(for: updatedReservation, selectedTableID: nil)
+                switch assignmentResult {
+                case .success(let assignedTables):
+                    logger.info("✅ Auto-assigned \(assignedTables.count) tables to reservation: \(updatedReservation.name)")
+                    updatedReservation.tables = assignedTables
+                case .failure(let error):
+                    logger.error("❌ Failed to auto-assign tables: \(error.localizedDescription)")
+                }
+            } else {
+                logger.error("❌ Cannot auto-assign tables: layoutServices not available")
+            }
+        
+        
         // Convert tables to a simpler format that Firestore can handle better
-        let tableIds = reservation.tables.map { $0.id }
+        let tableIds = updatedReservation.tables.map { $0.id }
         
         // Create a thread-safe copy for Firestore
         var dict: [String: Any] = [
-            "id": reservation.id.uuidString,
-            "name": reservation.name,
-            "phone": reservation.phone,
-            "numberOfPersons": reservation.numberOfPersons,
-            "dateString": reservation.dateString,
-            "category": reservation.category.rawValue,
-            "startTime": reservation.startTime,
-            "endTime": reservation.endTime,
-            "acceptance": reservation.acceptance.rawValue,
-            "status": reservation.status.rawValue,
-            "reservationType": reservation.reservationType.rawValue,
-            "group": reservation.group,
+            "id": updatedReservation.id.uuidString,
+            "name": updatedReservation.name,
+            "phone": updatedReservation.phone,
+            "numberOfPersons": updatedReservation.numberOfPersons,
+            "dateString": updatedReservation.dateString,
+            "category": updatedReservation.category.rawValue,
+            "startTime": updatedReservation.startTime,
+            "endTime": updatedReservation.endTime,
+            "acceptance": updatedReservation.acceptance.rawValue,
+            "status": updatedReservation.status.rawValue,
+            "reservationType": updatedReservation.reservationType.rawValue,
+            "group": updatedReservation.group,
             "tableIds": tableIds,
-            "tables": reservation.tables.map { table in
+            "tables": updatedReservation.tables.map { table in
                 return [
                     "id": table.id,
                     "name": table.name,
                     "maxCapacity": table.maxCapacity
                 ]
             },
-            "creationDate": reservation.creationDate.timeIntervalSince1970,
-            "lastEditedOn": reservation.lastEditedOn.timeIntervalSince1970,
-            "isMock": reservation.isMock,
-            "colorHue": reservation.colorHue,
-            "preferredLanguage": reservation.preferredLanguage
+            "creationDate": updatedReservation.creationDate.timeIntervalSince1970,
+            "lastEditedOn": updatedReservation.lastEditedOn.timeIntervalSince1970,
+            "isMock": updatedReservation.isMock,
+            "colorHue": updatedReservation.colorHue,
+            "preferredLanguage": updatedReservation.preferredLanguage
         ]
         
         // Handle optional values separately and safely
-        if let notes = reservation.notes {
+        if let notes = updatedReservation.notes {
             dict["notes"] = notes
         } else {
             dict["notes"] = NSNull()
         }
         
-        if let assignedEmoji = reservation.assignedEmoji {
+        if let assignedEmoji = updatedReservation.assignedEmoji {
             dict["assignedEmoji"] = assignedEmoji
         } else {
             dict["assignedEmoji"] = NSNull()
         }
         
-        if let imageData = reservation.imageData {
+        if let imageData = updatedReservation.imageData {
             dict["imageData"] = imageData
         } else {
             dict["imageData"] = NSNull()
@@ -241,7 +359,20 @@ class ReservationService: ObservableObject {
         return dict
     }
 
-    /// Updates an existing reservation, refreshes the cache, and reassigns tables if needed.
+    /// Updates an existing reservation, refreshes the cache, and reassigns tables if needed
+    ///
+    /// This method handles the complete update process for a reservation, including:
+    /// - Invalidating caches
+    /// - Updating the database
+    /// - Managing table assignments
+    /// - Synchronizing with Firebase
+    ///
+    /// - Parameters:
+    ///   - oldReservation: The original reservation to update
+    ///   - newReservation: Optional new reservation data (defaults to oldReservation if nil)
+    ///   - index: Optional index in the reservations array (will be looked up if nil)
+    ///   - shouldPersist: Whether to persist changes to Firebase (defaults to true)
+    ///   - completion: Closure to call when the update is complete
     @MainActor
     func updateReservation(_ oldReservation: Reservation, newReservation: Reservation? = nil, at index: Int? = nil, shouldPersist: Bool = true, completion: @escaping () -> Void) {
         // Remove from active cache
@@ -326,6 +457,12 @@ class ReservationService: ObservableObject {
         completion()
     }
     
+    /// Updates all reservations in Firestore
+    ///
+    /// This method synchronizes all local reservations with Firebase,
+    /// ensuring that the remote database is up-to-date with the local state.
+    ///
+    /// - Note: This operation can be resource-intensive for large datasets.
     @MainActor
     func updateAllReservationsInFirestore() async {
         logger.info("Beginning update of all reservations in Firestore...")
@@ -363,7 +500,12 @@ class ReservationService: ObservableObject {
     }
 
     
-    
+    /// Handles the confirmation of a reservation
+    ///
+    /// This method processes a reservation confirmation, assigning tables
+    /// if the reservation is from the waiting list or was previously canceled.
+    ///
+    /// - Parameter reservation: The reservation to confirm
     @MainActor
     func handleConfirm(_ reservation: Reservation) {
         var updatedReservation = reservation
@@ -399,7 +541,12 @@ class ReservationService: ObservableObject {
         }
     }
     
-
+    /// Clears all reservation data from Firestore
+    ///
+    /// This method removes all reservation documents from the Firebase database.
+    /// Use with caution as this operation cannot be undone.
+    ///
+    /// - Parameter completion: Closure called when the operation completes, with an optional error
     @MainActor
     func clearAllDataFromFirestore(completion: @escaping (Error?) -> Void) {
         let db = Firestore.firestore()
@@ -436,7 +583,17 @@ class ReservationService: ObservableObject {
         }
     }
     
-    @MainActor func clearAllData() {
+    /// Clears all reservation data from the system
+    ///
+    /// This method removes all reservations from:
+    /// - In-memory storage
+    /// - SQLite database
+    /// - Firebase database
+    /// - All caches
+    ///
+    /// Use with extreme caution as this operation cannot be undone.
+    @MainActor 
+    func clearAllData() {
         store.reservations.removeAll() // Clear in-memory reservations
         
         SQLiteManager.shared.deleteAllReservations()
@@ -462,25 +619,33 @@ class ReservationService: ObservableObject {
     }
     
     /// Retrieves reservations for a specific category on a given date.
+    ///
+    /// - Parameters:
+    ///   - date: The date for which to fetch reservations
+    ///   - category: The reservation category to filter by
+    /// - Returns: A list of reservations matching both date and category
     func fetchReservations(on date: Date, for category: Reservation.ReservationCategory) -> [Reservation] {
         fetchReservations(on: date).filter { $0.category == category }
     }
     
     // MARK: - Cluster Cache Invalidation
 
-       /// Invalidates the cluster cache for the given reservation.
-       private func invalidateClusterCache(for reservation: Reservation) {
-           guard let reservationDate = reservation.normalizedDate else {
-               self.logger.error("Failed to parse dateString \(reservation.normalizedDate ?? Date()). Cache invalidation skipped.")
-               return
-           }
-           self.clusterStore.invalidateClusterCache(for: reservationDate, category: reservation.category)
-       }
+    /// Invalidates the cluster cache for the given reservation.
+    ///
+    /// This method clears any cached cluster data for a specific reservation date and category
+    /// to ensure fresh data is loaded when needed.
+    ///
+    /// - Parameter reservation: The reservation to invalidate cache for
+    private func invalidateClusterCache(for reservation: Reservation) {
+        guard let reservationDate = reservation.normalizedDate else {
+            self.logger.error("Failed to parse dateString \(reservation.normalizedDate ?? Date()). Cache invalidation skipped.")
+            return
+        }
+        self.clusterStore.invalidateClusterCache(for: reservationDate, category: reservation.category)
+    }
         
     
     // MARK: - Methods for Queries
-    
-    
     
     /// Retrieves reservations by category.
     /// - Parameter category: The reservation category.
@@ -498,111 +663,294 @@ class ReservationService: ObservableObject {
     
     // MARK: - Methods for Database Persistence
     
+    /// Loads all reservations directly from Firebase
+    ///
+    /// This method fetches all reservation data from Firebase, processes it,
+    /// and updates the local database and caches with the retrieved data.
+    /// It also ensures that confirmed reservations have tables assigned.
     @MainActor
-    func loadReservationsFromSQLite() {
+    func loadReservationsFromFirebase() {
+        logger.info("Loading reservations directly from Firebase...")
+        
         withAnimation {
             backupService.isWritingToFirebase = true
         }
         
-        let reservations = SQLiteManager.shared.fetchReservations()
-        store.reservations = reservations
+        #if DEBUG
+        let reservationsRef = backupService.db.collection("reservations")
+        #else
+        let reservationsRef = backupService.db.collection("reservations_release")
+        #endif
         
-        logger.info("Reservations loaded from SQLite successfully.")
-        logger.debug("Loaded n. reservations: \(self.store.reservations.count)")
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation {
-                self.backupService.isWritingToFirebase = false
-            }
-        }
-    }
-    
-    @MainActor
-    func loadSessionsFromSQLite() {
-        withAnimation {
-            backupService.isWritingToFirebase = true
-        }
-
-        let sessions = SQLiteManager.shared.fetchSessions()
-        SessionStore.shared.sessions = sessions
-        
-        logger.info("Sessions loaded from SQLite successfully.")
-        logger.debug("Loaded n. sessions: \(SessionStore.shared.sessions.count)")
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation {
-                self.backupService.isWritingToFirebase = false
-            }
-        }
-    }
-    
-    /// Downloads the backup file from Firebase Storage and migrates it.
-    @MainActor
-    func migrateJSONBackupFromFirebase() {
-        // Create a reference to your backup file using its gs:// URL.
-        let backupRef = Storage.storage().reference(forURL: "gs://koenji-app.firebasestorage.app/debugBackups/ReservationsBackup.json_2025-01-30_19:02")
-        
-        // Define a maximum download size (e.g., 10 MB).
-        let maxDownloadSize: Int64 = 10 * 1024 * 1024
-        
-        // Fetch the data.
-        backupRef.getData(maxSize: maxDownloadSize) { data, error in
-            if let error = error {
-                self.logger.error("Error downloading JSON backup: \(error)")
-                return
-            }
-            
-            guard let data = data else {
-                self.logger.warning("No data returned from Firebase Storage")
-                return
-            }
-            
-            // Now migrate using the downloaded data.
-            self.migrateJSONBackup(from: data)
-        }
-    }
-
-    /// Decodes the JSON backup data and inserts each reservation.
-    @MainActor
-    func migrateJSONBackup(from data: Data) {
-        do {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let reservationsFromJSON = try decoder.decode([Reservation].self, from: data)
-            
-            // Insert each reservation into SQLite and push to Firebase if needed.
-            insertReservationsAndPushToFirebase(reservationsFromJSON)
-            
-        } catch {
-            self.logger.error("Error decoding JSON backup: \(error)")
-        }
-    }
-    
-    @MainActor
-    func insertReservationsAndPushToFirebase(_ reservations: [Reservation]) {
-        // Optionally, wrap this in a SQLite transaction if you have many records.
-        for reservation in reservations {
-            // Insert into SQLite:
-            SQLiteManager.shared.insertReservation(reservation)
-            
-            // Push to Firebase:
-            #if DEBUG
-            let dbRef = Firestore.firestore().collection("reservations")
-            #else
-            let dbRef = Firestore.firestore().collection("reservations_release")
-            #endif
-            let data = convertReservationToDictionary(reservation: reservation)
-            dbRef.document(reservation.id.uuidString).setData(data) { error in
-                if let error = error {
-                    self.logger.error("Error pushing reservation \(reservation.id) to Firebase: \(error)")
-                } else {
-                    self.logger.debug("Reservation \(reservation.id) migrated successfully to Firebase.")
+        Task {
+            do {
+                let snapshot = try await reservationsRef.getDocuments()
+                logger.info("Retrieved \(snapshot.documents.count) reservation documents from Firebase")
+                
+                var loadedReservations: [Reservation] = []
+                var failedCount = 0
+                
+                for document in snapshot.documents {
+                    do {
+                        let reservation = try self.reservationFromFirebaseDocument(document)
+                        
+                        // Ensure confirmed reservations have tables
+                        if reservation.acceptance == .confirmed && reservation.tables.isEmpty {
+                            logger.warning("⚠️ Found confirmed reservation with no tables: \(reservation.name)")
+                            
+                            let assignmentResult = layoutServices.assignTables(for: reservation, selectedTableID: nil)
+                            if case .success(let assignedTables) = assignmentResult {
+                                var updatedReservation = reservation
+                                updatedReservation.tables = assignedTables
+                                loadedReservations.append(updatedReservation)
+                                logger.info("✅ Auto-assigned \(assignedTables.count) tables to reservation: \(updatedReservation.name)")
+                            } else {
+                                loadedReservations.append(reservation)
+                                logger.error("❌ Failed to auto-assign tables to reservation: \(reservation.name)")
+                            }
+                        } else {
+                            loadedReservations.append(reservation)
+                        }
+                    } catch {
+                        failedCount += 1
+                        logger.error("Failed to decode reservation from document \(document.documentID): \(error)")
+                    }
+                }
+                
+                // Update the store with loaded reservations
+                await MainActor.run {
+                    logger.info("Successfully decoded \(loadedReservations.count) reservations (failed: \(failedCount))")
+                    
+                    // Update the store
+                    self.store.setReservations(loadedReservations)
+                    
+                    // Update the cache
+                    self.resCache.clearCache() // Clear the cache first to remove any stale data
+                    for reservation in loadedReservations {
+                        self.resCache.addOrUpdateReservation(reservation)
+                    }
+                    
+                    // Preload dates for the cache
+                    let today = Calendar.current.startOfDay(for: Date())
+                    self.resCache.preloadDates(around: today, range: 5, reservations: loadedReservations)
+                    
+                    logger.info("Successfully loaded \(loadedReservations.count) reservations from Firebase")
+                    
+                    withAnimation {
+                        self.backupService.isWritingToFirebase = false
+                    }
+                }
+            } catch {
+                logger.error("Error loading reservations from Firebase: \(error.localizedDescription)")
+                withAnimation {
+                    self.backupService.isWritingToFirebase = false
                 }
             }
         }
     }
     
-    // MARK: - Helper Methods (Optional)
+    /// Loads all sessions directly from Firebase
+    ///
+    /// This method fetches all session data from Firebase, processes it,
+    /// and updates the session store with the retrieved data.
+    @MainActor
+    func loadSessionsFromFirebase() {
+        logger.info("Loading sessions directly from Firebase...")
+        
+        withAnimation {
+            backupService.isWritingToFirebase = true
+        }
+        
+        #if DEBUG
+        let sessionsRef = backupService.db.collection("sessions")
+        #else
+        let sessionsRef = backupService.db.collection("sessions_release")
+        #endif
+        
+        Task {
+            do {
+                let snapshot = try await sessionsRef.getDocuments()
+                var loadedSessions: [Session] = []
+                
+                for document in snapshot.documents {
+                    if let session = try? self.sessionFromFirebaseDocument(document) {
+                        loadedSessions.append(session)
+                    } else {
+                        logger.error("Failed to decode session from document: \(document.documentID)")
+                    }
+                }
+                
+                // Update the store with loaded sessions
+                await MainActor.run {
+                    SessionStore.shared.sessions = loadedSessions
+                    logger.info("Successfully loaded \(loadedSessions.count) sessions from Firebase")
+                    
+                    withAnimation {
+                        self.backupService.isWritingToFirebase = false
+                    }
+                }
+            } catch {
+                logger.error("Error loading sessions from Firebase: \(error.localizedDescription)")
+                withAnimation {
+                    self.backupService.isWritingToFirebase = false
+                }
+            }
+        }
+    }
+    
+    /// Converts a Firebase document to a Reservation object
+    ///
+    /// This method extracts data from a Firebase document and creates
+    /// a Reservation object with the appropriate properties.
+    ///
+    /// - Parameter document: The Firebase document containing reservation data
+    /// - Returns: A Reservation object
+    /// - Throws: An error if required fields are missing or invalid
+    func reservationFromFirebaseDocument(_ document: DocumentSnapshot) throws -> Reservation {
+        guard let data = document.data() else {
+            throw NSError(domain: "com.koenjiapp", code: 1, userInfo: [NSLocalizedDescriptionKey: "Document data is nil"])
+        }
+        
+        // Extract basic fields
+        guard let idString = data["id"] as? String,
+              let id = UUID(uuidString: idString),
+              let name = data["name"] as? String,
+              let phone = data["phone"] as? String,
+              let numberOfPersons = data["numberOfPersons"] as? Int,
+              let dateString = data["dateString"] as? String,
+              let categoryString = data["category"] as? String,
+              let category = Reservation.ReservationCategory(rawValue: categoryString),
+              let startTime = data["startTime"] as? String,
+              let endTime = data["endTime"] as? String,
+              let acceptanceString = data["acceptance"] as? String,
+              let acceptance = Reservation.Acceptance(rawValue: acceptanceString),
+              let statusString = data["status"] as? String,
+              let status = Reservation.ReservationStatus(rawValue: statusString),
+              let reservationTypeString = data["reservationType"] as? String,
+              let reservationType = Reservation.ReservationType(rawValue: reservationTypeString),
+              let group = data["group"] as? Bool,
+              let creationTimeInterval = data["creationDate"] as? TimeInterval,
+              let lastEditedTimeInterval = data["lastEditedOn"] as? TimeInterval,
+              let isMock = data["isMock"] as? Bool else {
+            throw NSError(domain: "com.koenjiapp", code: 2, userInfo: [NSLocalizedDescriptionKey: "Missing required fields"])
+        }
+        
+        // Extract tables
+        var tables: [TableModel] = []
+        if let tablesData = data["tables"] as? [[String: Any]] {
+            for tableData in tablesData {
+                if let tableId = tableData["id"] as? Int,
+                   let tableName = tableData["name"] as? String,
+                   let maxCapacity = tableData["maxCapacity"] as? Int {
+                    let table = TableModel(id: tableId, name: tableName, maxCapacity: maxCapacity, row: 0, column: 0)
+                    tables.append(table)
+                }
+            }
+        } else if let tableIds = data["tableIds"] as? [Int] {
+            // Fallback to tableIds if tables array is not available
+            tables = tableIds.map { id in
+                TableModel(id: id, name: "Table \(id)", maxCapacity: 4, row: 0, column: 0)
+            }
+        }
+        
+        // Extract optional fields
+        let notes = data["notes"] as? String
+        let assignedEmoji = data["assignedEmoji"] as? String
+        let imageData = data["imageData"] as? Data
+        let preferredLanguage = data["preferredLanguage"] as? String
+        let colorHue = data["colorHue"] as? Double ?? 0.0
+        
+        // Create and return the reservation
+        return Reservation(
+            id: id,
+            name: name,
+            phone: phone,
+            numberOfPersons: numberOfPersons,
+            dateString: dateString,
+            category: category,
+            startTime: startTime,
+            endTime: endTime,
+            acceptance: acceptance,
+            status: status,
+            reservationType: reservationType,
+            group: group,
+            notes: notes,
+            tables: tables,
+            creationDate: Date(timeIntervalSince1970: creationTimeInterval),
+            lastEditedOn: Date(timeIntervalSince1970: lastEditedTimeInterval),
+            isMock: isMock,
+            assignedEmoji: assignedEmoji ?? "",
+            imageData: imageData,
+            preferredLanguage: preferredLanguage
+        )
+    }
+    
+    /// Converts a Firebase document to a Session object
+    ///
+    /// - Parameter data: Dictionary containing session data from Firebase
+    /// - Returns: A Session object if conversion is successful, nil otherwise
+    @MainActor
+    private func convertDictionaryToSession(data: [String: Any]) -> Session? {
+        guard let id = data["id"] as? String,
+              let userName = data["userName"] as? String,
+              let isEditing = data["isEditing"] as? Bool,
+              let lastUpdateTimestamp = data["lastUpdate"] as? TimeInterval,
+              let isActive = data["isActive"] as? Bool else {
+            logger.error("Missing required fields in session data")
+            return nil
+        }
+        
+        let lastUpdate = Date(timeIntervalSince1970: lastUpdateTimestamp)
+        let uuid = data["uuid"] as? String ?? UUID().uuidString
+        
+        return Session(
+            id: id,
+            uuid: uuid,
+            userName: userName,
+            isEditing: isEditing,
+            lastUpdate: lastUpdate,
+            isActive: isActive
+        )
+    }
+    
+    /// Converts a Firebase document to a Session object
+    ///
+    /// This method extracts data from a Firebase document and creates
+    /// a Session object with the appropriate properties.
+    ///
+    /// - Parameter document: The Firebase document containing session data
+    /// - Returns: A Session object
+    /// - Throws: An error if required fields are missing or invalid
+    private func sessionFromFirebaseDocument(_ document: DocumentSnapshot) throws -> Session {
+        guard let data = document.data() else {
+            throw NSError(domain: "com.koenjiapp", code: 1, userInfo: [NSLocalizedDescriptionKey: "Document data is nil"])
+        }
+        
+        // Extract fields
+        guard let id = data["id"] as? String,
+              let userName = data["userName"] as? String,
+              let isEditing = data["isEditing"] as? Bool,
+              let lastUpdateTimeInterval = data["lastUpdate"] as? TimeInterval,
+              let isActive = data["isActive"] as? Bool else {
+            throw NSError(domain: "com.koenjiapp", code: 2, userInfo: [NSLocalizedDescriptionKey: "Missing required fields"])
+        }
+        
+        let uuid = data["uuid"] as? String ?? document.documentID
+        
+        // Create and return the session
+        return Session(
+            id: id,
+            uuid: uuid,
+            userName: userName,
+            isEditing: isEditing,
+            lastUpdate: Date(timeIntervalSince1970: lastUpdateTimeInterval),
+            isActive: isActive
+        )
+    }
+    
+    /// Gets the URL for the reservations file in the documents directory
+    ///
+    /// - Returns: URL to the reservations file
     private func getReservationsFileURL() -> URL {
         let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         return documentDirectory.appendingPathComponent(store.reservationsFileName)
@@ -611,7 +959,10 @@ class ReservationService: ObservableObject {
 
 // MARK: - Mock Data
 extension ReservationService {
-    /// Loads two sample reservations for demonstration purposes.
+    /// Loads two sample reservations for demonstration purposes
+    ///
+    /// This method creates and adds mock reservations to the system
+    /// for testing and demonstration purposes.
     @MainActor
     private func mockData() {
         layoutServices.setTables(tableStore.baseTables)
@@ -658,6 +1009,15 @@ extension ReservationService {
 extension ReservationService {
     // MARK: - Test Data
     
+    /// Generates realistic reservation data for a specified number of days
+    ///
+    /// This method creates realistic reservation data for testing and demonstration purposes.
+    /// It generates reservations with varied party sizes, times, and other attributes.
+    ///
+    /// - Parameters:
+    ///   - daysToSimulate: Number of days to generate reservations for
+    ///   - force: Whether to force generation even if data already exists
+    ///   - startFromLastSaved: Whether to start from the last saved reservation date
     @MainActor
     func generateReservations(
         daysToSimulate: Int,
@@ -710,6 +1070,17 @@ extension ReservationService {
         self.logger.info("Finished generating reservations.")
     }
 
+    /// Generates reservations for a specific day
+    ///
+    /// This method creates realistic reservations for a single day,
+    /// with appropriate time slots and party sizes.
+    ///
+    /// - Parameters:
+    ///   - dayOffset: Number of days from the start date
+    ///   - startDate: Base date to start from
+    ///   - names: Array of names to use for reservations
+    ///   - phoneNumbers: Array of phone numbers to use for reservations
+    ///   - notes: Array of notes to use for reservations
     @MainActor
     private func generateReservationsForDay(
         dayOffset: Int,
@@ -830,6 +1201,12 @@ extension ReservationService {
         }
     }
 
+    /// Generates time slots for a specific date and hour range
+    ///
+    /// - Parameters:
+    ///   - date: The base date
+    ///   - range: Tuple containing start and end hour (inclusive/exclusive)
+    /// - Returns: Array of dates representing time slots at 5-minute intervals
     private func generateTimeSlots(for date: Date, range: (Int, Int)) -> [Date] {
         var slots: [Date] = []
         for hour in range.0..<range.1 {
@@ -842,6 +1219,10 @@ extension ReservationService {
         return slots
     }
     
+    /// Rounds a date to the nearest 5-minute interval
+    ///
+    /// - Parameter date: The date to round
+    /// - Returns: The rounded date
     private func roundToNearestFiveMinutes(_ date: Date) -> Date {
         let calendar = Calendar.current
         let minute = calendar.component(.minute, from: date)
@@ -850,18 +1231,30 @@ extension ReservationService {
         return calendar.date(byAdding: .minute, value: adjustment, to: date)!
     }
 
+    /// Generates a realistic party size with weighted distribution
+    ///
+    /// This method returns party sizes with a distribution that
+    /// matches real-world restaurant patterns.
+    ///
+    /// - Returns: A party size between 2 and 14
     private func generateWeightedGroupSize() -> Int {
         let random = Double.random(in: 0...1)
         switch random {
-        case 0..<0.5: return Int.random(in: 2...3) // 70% chance for groups of 2–5
-        case 0.5..<0.7: return Int.random(in: 4...5)
-        case 0.7..<0.8: return Int.random(in: 6...7) // 20% chance for groups of 6–8
-        case 0.8..<0.95: return Int.random(in: 8...9)
-        case 0.95..<0.99: return Int.random(in: 9...12)
-        default: return Int.random(in: 13...14) //
+        case 0..<0.5: return Int.random(in: 2...3) // 50% chance for groups of 2-3
+        case 0.5..<0.7: return Int.random(in: 4...5) // 20% chance for groups of 4-5
+        case 0.7..<0.8: return Int.random(in: 6...7) // 10% chance for groups of 6-7
+        case 0.8..<0.95: return Int.random(in: 8...9) // 15% chance for groups of 8-9
+        case 0.95..<0.99: return Int.random(in: 9...12) // 4% chance for groups of 9-12
+        default: return Int.random(in: 13...14) // 1% chance for groups of 13-14
         }
     }
     
+    /// Loads strings from a text file in the app bundle
+    ///
+    /// - Parameters:
+    ///   - fileName: Name of the file to load
+    ///   - folder: Optional folder containing the file
+    /// - Returns: Array of strings from the file
     func loadStringsFromFile(fileName: String, folder: String? = nil) -> [String] {
         let resourceName = folder != nil ? "\(String(describing: folder))/\(fileName)" : fileName
         guard let fileURL = Bundle.main.url(forResource: resourceName, withExtension: "txt") else {
@@ -880,6 +1273,12 @@ extension ReservationService {
         }
     }
     
+    /// Simulates user actions for testing purposes
+    ///
+    /// This method simulates a series of table movements to test
+    /// the system's ability to handle concurrent operations.
+    ///
+    /// - Parameter actionCount: Number of actions to simulate
     @MainActor
     func simulateUserActions(actionCount: Int = 1000) {
         Task {
@@ -903,7 +1302,12 @@ extension ReservationService {
         }
     }
     
-   
+    /// Updates adjacency counts for tables in a reservation
+    ///
+    /// This method calculates and updates the adjacency counts for tables
+    /// in a reservation, which is used for optimizing table layouts.
+    ///
+    /// - Parameter reservation: The reservation to update adjacency counts for
     func updateActiveReservationAdjacencyCounts(for reservation: Reservation) {
         guard let reservationDate = reservation.normalizedDate,
               let combinedDateTime = reservation.startTimeDate else {
@@ -943,7 +1347,10 @@ extension ReservationService {
 }
 
 extension ReservationService {
-    /// Clears all caches in the store and resets layouts and clusters.
+    /// Clears all caches in the store and resets layouts and clusters
+    ///
+    /// This method removes all cached data from memory and persists
+    /// the changes to disk to ensure a clean state.
     @MainActor
     func flushAllCaches() {
         DispatchQueue.main.async {
@@ -970,7 +1377,15 @@ extension ReservationService {
     
     // MARK: - Helper Method
     
-    /// “Deletes” a reservation by marking it with “NA” values and clearing its tables and notes.
+    /// "Deletes" a reservation by marking it with "NA" values and clearing its tables and notes
+    ///
+    /// This method creates a soft-deleted version of a reservation by
+    /// updating its status and adding notes.
+    ///
+    /// - Parameters:
+    ///   - reservation: The reservation to mark as separated
+    ///   - notesToAdd: Optional notes to add to the reservation
+    /// - Returns: The updated reservation
     @MainActor
     func separateReservation(_ reservation: Reservation, notesToAdd: String = "") -> Reservation {
         var updatedReservation = reservation  // Create a mutable copy
@@ -980,6 +1395,12 @@ extension ReservationService {
         return updatedReservation
     }
     
+    /// Marks a reservation as deleted
+    ///
+    /// This method performs a soft delete by changing the reservation's
+    /// status and type, and clearing its tables.
+    ///
+    /// - Parameter reservation: The reservation to delete
     @MainActor
     func deleteReservation(_ reservation: Reservation) {
         var updatedReservation = reservation  // Create a mutable copy
@@ -993,6 +1414,55 @@ extension ReservationService {
             self.logger.info("Updated reservation")
         }
     }
+    
+    /// Ensures all confirmed reservations have tables assigned
+    ///
+    /// This method scans the database for confirmed reservations without
+    /// tables and attempts to assign tables to them.
+    @MainActor
+    func ensureConfirmedReservationsHaveTables() {
+        logger.info("Scanning database for confirmed reservations without tables...")
+        
+        var updatedCount = 0
+        var failedCount = 0
+        
+        // Create a copy to avoid modifying while iterating
+        let reservationsToCheck = store.reservations
+        
+        for reservation in reservationsToCheck {
+            if reservation.acceptance == .confirmed && reservation.tables.isEmpty {
+                logger.warning("⚠️ Found confirmed reservation in database with no tables: \(reservation.name) (ID: \(reservation.id))")
+                
+                // Try to assign tables automatically
+                let assignmentResult = layoutServices.assignTables(for: reservation, selectedTableID: nil)
+                switch assignmentResult {
+                case .success(let assignedTables):
+                    var updatedReservation = reservation
+                    updatedReservation.tables = assignedTables
+                    
+                    // Update in SQLite
+                    SQLiteManager.shared.updateReservation(updatedReservation)
+                    
+                    // Update in memory
+                    if let index = store.reservations.firstIndex(where: { $0.id == reservation.id }) {
+                        store.reservations[index] = updatedReservation
+                    }
+                    
+                    // Update in cache
+                    resCache.addOrUpdateReservation(updatedReservation)
+                    
+                    logger.info("✅ Auto-assigned \(assignedTables.count) tables to stored reservation: \(updatedReservation.name)")
+                    updatedCount += 1
+                    
+                case .failure(let error):
+                    logger.error("❌ Failed to auto-assign tables to stored reservation: \(error.localizedDescription)")
+                    failedCount += 1
+                }
+            }
+        }
+        
+        logger.info("Database scan complete. Updated \(updatedCount) reservations, failed to update \(failedCount) reservations.")
+    }
 }
 
 extension Date {
@@ -1004,7 +1474,77 @@ extension Date {
 }
 
 extension Date {
+    /// Returns the start of the day for the current date
     func normalizedToDayStart() -> Date {
         return Calendar.current.startOfDay(for: self)
     }
 }
+
+/// Ensures all confirmed reservations in the database have tables assigned
+
+extension ReservationService {
+    /// Detects and removes duplicate reservations, prioritizing those with tables assigned
+    ///
+    /// This method identifies reservations with the same ID, keeps the best one
+    /// (prioritizing those with tables or the most recently edited), and removes the others.
+    @MainActor
+    func removeDuplicateReservations() {
+        logger.info("Checking for duplicate reservations...")
+        
+        // Group reservations by ID
+        let groupedReservations = Dictionary(grouping: store.reservations) { $0.id }
+        var reservationsToKeep: [UUID: Reservation] = [:]
+        var reservationsToRemove: [Reservation] = []
+        var duplicatesFound = 0
+        
+        // Process each group of reservations with the same ID
+        for (id, duplicates) in groupedReservations where duplicates.count > 1 {
+            duplicatesFound += duplicates.count - 1
+            logger.warning("Found \(duplicates.count) duplicates for reservation ID: \(id)")
+            
+            // First, try to find a reservation with tables
+            let reservationsWithTables = duplicates.filter { !$0.tables.isEmpty }
+            
+            if let bestReservation = reservationsWithTables.first {
+                // Keep the reservation with tables
+                reservationsToKeep[id] = bestReservation
+                logger.debug("Keeping reservation with \(bestReservation.tables.count) tables for ID: \(id)")
+                
+                // Mark others for removal
+                let othersToRemove = duplicates.filter { $0.id == id && $0 != bestReservation }
+                reservationsToRemove.append(contentsOf: othersToRemove)
+            } else {
+                // If none have tables, keep the most recently edited one
+                let mostRecent = duplicates.max(by: { $0.lastEditedOn < $1.lastEditedOn })!
+                reservationsToKeep[id] = mostRecent
+                logger.debug("No reservations with tables found for ID: \(id). Keeping most recent.")
+                
+                // Mark others for removal
+                let othersToRemove = duplicates.filter { $0.id == id && $0 != mostRecent }
+                reservationsToRemove.append(contentsOf: othersToRemove)
+            }
+        }
+        
+        // Add non-duplicate reservations to the keep list
+        for (id, reservations) in groupedReservations where reservations.count == 1 {
+            reservationsToKeep[id] = reservations.first!
+        }
+        
+        // Remove duplicates from SQLite
+        for reservation in reservationsToRemove {
+            SQLiteManager.shared.deleteReservation(withID: reservation.id)
+            logger.debug("Removed duplicate reservation from SQLite: \(reservation.id)")
+        }
+        
+        // Update the store with deduplicated reservations
+        store.reservations = Array(reservationsToKeep.values)
+        
+        // Update the cache
+        for reservation in store.reservations {
+            resCache.addOrUpdateReservation(reservation)
+        }
+        
+        logger.info("Duplicate removal complete. Removed \(duplicatesFound) duplicate reservations. Kept \(reservationsToKeep.count) unique reservations.")
+    }
+}
+

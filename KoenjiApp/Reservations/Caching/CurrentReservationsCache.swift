@@ -1,5 +1,5 @@
 import SwiftUI
-import SQLite
+import FirebaseFirestore
 import OSLog
 
 class CurrentReservationsCache: ObservableObject {
@@ -15,16 +15,8 @@ class CurrentReservationsCache: ObservableObject {
     private var activeReservationsByMinute: [Date: [Date: [Reservation]]] = [:]
     private var timer: Timer?
     private let calendar = Calendar.current
+    private let db = Firestore.firestore()
     
-    // MARK: - Database Properties
-    private let reservationsTable = Table("reservations")
-    private let idColumn = Expression<String>("id")
-    private let categoryColumn = Expression<String>("category")
-    private let dateStringColumn = Expression<String>("dateString")
-    private let startTimeColumn = Expression<String>("startTime")
-    private let endTimeColumn = Expression<String>("endTime")
-    private let tablesColumn = Expression<String>("tables")
-
     // MARK: - Cache Management
     func preloadDates(around selectedDate: Date, range: Int, reservations: [Reservation]) {
         let newDates = calculateDateRange(around: selectedDate, range: range)
@@ -46,6 +38,14 @@ class CurrentReservationsCache: ObservableObject {
         populateCache(for: Array(newDates), reservations: reservations)
 
         logger.info("Preloaded \(self.preloadedDates.count) dates around \(DateHelper.formatDate(selectedDate)) with \(reservations.count) reservations")
+    }
+    
+    /// Clears the entire cache and resets preloaded dates
+    func clearCache() {
+        logger.info("Clearing reservation cache")
+        cache.removeAll()
+        preloadedDates.removeAll()
+        activeReservationsByMinute.removeAll()
     }
 
     func populateCache(for dates: [Date], reservations: [Reservation]) {
@@ -162,23 +162,126 @@ class CurrentReservationsCache: ObservableObject {
         return cache[normalizedDate] ?? []
     }
     
+    /// Fetches reservations for a specific date directly from Firebase
     @MainActor
-    func fetchReservations(for date: Date) -> [Reservation] {
+    func fetchReservations(for date: Date) async throws -> [Reservation] {
         let targetDateString = DateHelper.formatDate(date)
-        let query = reservationsTable.filter(Expression<String>("dateString") == targetDateString)
+        logger.info("Fetching reservations from Firebase for date: \(targetDateString)")
         
-        var results: [Reservation] = []
+        #if DEBUG
+        let reservationsRef = db.collection("reservations")
+        #else
+        let reservationsRef = db.collection("reservations_release")
+        #endif
+        
         do {
-            for row in try SQLiteManager.shared.db.prepare(query) {
-                if let reservation = ReservationMapper.reservation(from: row) {
+            let snapshot = try await reservationsRef
+                .whereField("dateString", isEqualTo: targetDateString)
+                .getDocuments()
+            
+            var results: [Reservation] = []
+            
+            for document in snapshot.documents {
+                if let reservation = try? reservationFromFirebaseDocument(document) {
                     results.append(reservation)
+                } else {
+                    logger.error("Failed to decode reservation from document: \(document.documentID)")
                 }
             }
-            logger.debug("Fetched \(results.count) reservations for \(targetDateString)")
+            
+            // Update the cache with the fetched reservations
+            cache[date] = results
+            precomputeActiveReservations(for: date)
+            
+            // Validate the cache to remove any invalid reservations
+            validateCache()
+            
+            logger.debug("Fetched \(results.count) reservations for \(targetDateString) from Firebase")
+            return results
         } catch {
-            logger.error("Failed to fetch reservations for \(targetDateString): \(error.localizedDescription)")
+            logger.error("Failed to fetch reservations for \(targetDateString) from Firebase: \(error.localizedDescription)")
+            throw error
         }
-        return results
+    }
+    
+    /// Converts a Firebase document to a Reservation object
+    private func reservationFromFirebaseDocument(_ document: DocumentSnapshot) throws -> Reservation {
+        guard let data = document.data() else {
+            throw NSError(domain: "com.koenjiapp", code: 1, userInfo: [NSLocalizedDescriptionKey: "Document data is nil"])
+        }
+        
+        // Extract basic fields
+        guard let idString = data["id"] as? String,
+              let id = UUID(uuidString: idString),
+              let name = data["name"] as? String,
+              let phone = data["phone"] as? String,
+              let numberOfPersons = data["numberOfPersons"] as? Int,
+              let dateString = data["dateString"] as? String,
+              let categoryString = data["category"] as? String,
+              let category = Reservation.ReservationCategory(rawValue: categoryString),
+              let startTime = data["startTime"] as? String,
+              let endTime = data["endTime"] as? String,
+              let acceptanceString = data["acceptance"] as? String,
+              let acceptance = Reservation.Acceptance(rawValue: acceptanceString),
+              let statusString = data["status"] as? String,
+              let status = Reservation.ReservationStatus(rawValue: statusString),
+              let reservationTypeString = data["reservationType"] as? String,
+              let reservationType = Reservation.ReservationType(rawValue: reservationTypeString),
+              let group = data["group"] as? Bool,
+              let creationTimeInterval = data["creationDate"] as? TimeInterval,
+              let lastEditedTimeInterval = data["lastEditedOn"] as? TimeInterval,
+              let isMock = data["isMock"] as? Bool else {
+            throw NSError(domain: "com.koenjiapp", code: 2, userInfo: [NSLocalizedDescriptionKey: "Missing required fields"])
+        }
+        
+        // Extract tables
+        var tables: [TableModel] = []
+        if let tablesData = data["tables"] as? [[String: Any]] {
+            for tableData in tablesData {
+                if let tableId = tableData["id"] as? Int,
+                   let tableName = tableData["name"] as? String,
+                   let maxCapacity = tableData["maxCapacity"] as? Int {
+                    let table = TableModel(id: tableId, name: tableName, maxCapacity: maxCapacity, row: 0, column: 0)
+                    tables.append(table)
+                }
+            }
+        } else if let tableIds = data["tableIds"] as? [Int] {
+            // Fallback to tableIds if tables array is not available
+            tables = tableIds.map { id in
+                TableModel(id: id, name: "Table \(id)", maxCapacity: 4, row: 0, column: 0)
+            }
+        }
+        
+        // Extract optional fields
+        let notes = data["notes"] as? String
+        let assignedEmoji = data["assignedEmoji"] as? String
+        let imageData = data["imageData"] as? Data
+        let preferredLanguage = data["preferredLanguage"] as? String
+        let colorHue = data["colorHue"] as? Double ?? 0.0
+        
+        // Create and return the reservation
+        return Reservation(
+            id: id,
+            name: name,
+            phone: phone,
+            numberOfPersons: numberOfPersons,
+            dateString: dateString,
+            category: category,
+            startTime: startTime,
+            endTime: endTime,
+            acceptance: acceptance,
+            status: status,
+            reservationType: reservationType,
+            group: group,
+            notes: notes,
+            tables: tables,
+            creationDate: Date(timeIntervalSince1970: creationTimeInterval),
+            lastEditedOn: Date(timeIntervalSince1970: lastEditedTimeInterval),
+            isMock: isMock,
+            assignedEmoji: assignedEmoji ?? "",
+            imageData: imageData,
+            preferredLanguage: preferredLanguage
+        )
     }
 
     /// Retrieves reservations for a specific table, date, and time
@@ -196,7 +299,7 @@ class CurrentReservationsCache: ObservableObject {
             return nil
         }
 
-        let reservationsForDate = fetchReservations(for: datetime)
+        let reservationsForDate = cache[normalizedDate] ?? []
         let currentReservation = reservationsForDate.first { reservation in
             reservation.tables.contains { $0.id == tableID }
             && normalizedTime >= (reservation.startTimeDate ?? Date())
@@ -214,6 +317,18 @@ class CurrentReservationsCache: ObservableObject {
 
     /// Adds or updates a reservation
     func addOrUpdateReservation(_ reservation: Reservation) {
+        // Skip invalid reservations
+        // Note: Cancelled and waiting list reservations are intentionally filtered out of the cache.
+        // Special views like ReservationCancelledView and ReservationWaitingListView need to fetch
+        // these types of reservations directly from Firebase.
+        if reservation.status == .canceled || 
+           reservation.status == .deleted || 
+           reservation.status == .toHandle ||
+           reservation.reservationType == .waitingList {
+            logger.debug("Skipping invalid reservation: \(reservation.name) (status: \(reservation.status.rawValue), type: \(reservation.reservationType.rawValue))")
+            return
+        }
+        
         let normalizedDate = calendar.startOfDay(for: reservation.startTimeDate ?? Date())
         if var reservationsForDate = cache[normalizedDate] {
             if let index = reservationsForDate.firstIndex(where: { $0.id == reservation.id }) {
@@ -321,11 +436,23 @@ class CurrentReservationsCache: ObservableObject {
 
         let firstUpcoming = reservationsForDate
             .filter { reservation in
-                reservation.tables.contains { $0.id == tableID }
-                    && (reservation.startTimeDate ?? Date()) > normalizedTime
-                    && (reservation.startTimeDate ?? Date()) > startTime
-                    && (reservation.startTimeDate ?? Date()) <= endTime
-                    && normalizedTime <= (reservation.endTimeDate ?? Date())
+                // Check if the reservation is for this table
+                reservation.tables.contains { $0.id == tableID } &&
+                // Check if the reservation starts after the current time
+                (reservation.startTimeDate ?? Date()) > normalizedTime &&
+                // Check if the reservation starts within the category time window
+                (reservation.startTimeDate ?? Date()) > startTime &&
+                (reservation.startTimeDate ?? Date()) <= endTime &&
+                // Check if the current time is before the reservation ends
+                normalizedTime <= (reservation.endTimeDate ?? Date()) &&
+                // Check if the reservation is not canceled, deleted, or to handle
+                reservation.status != .canceled &&
+                reservation.status != .deleted &&
+                reservation.status != .toHandle &&
+                // Check if the reservation is not a waiting list reservation
+                reservation.reservationType != .waitingList &&
+                // Check if the reservation is confirmed
+                reservation.acceptance == .confirmed
             }
             .sorted { $0.startTimeDate ?? Date() < $1.startTimeDate ?? Date() }
             .first
@@ -337,6 +464,41 @@ class CurrentReservationsCache: ObservableObject {
         }
         
         return firstUpcoming
+    }
+
+    /// Validates the cache and removes any invalid reservations
+    func validateCache() {
+        logger.info("Validating reservation cache")
+        var totalRemoved = 0
+        
+        // Note: Cancelled and waiting list reservations are intentionally filtered out of the cache.
+        // Special views like ReservationCancelledView and ReservationWaitingListView need to fetch
+        // these types of reservations directly from Firebase.
+        for (date, reservations) in cache {
+            let validReservations = reservations.filter { reservation in
+                let isValid = reservation.status != .canceled && 
+                              reservation.status != .deleted && 
+                              reservation.status != .toHandle &&
+                              reservation.reservationType != .waitingList
+                
+                if !isValid {
+                    logger.debug("Removing invalid reservation from cache: \(reservation.name) (status: \(reservation.status.rawValue), type: \(reservation.reservationType.rawValue))")
+                    totalRemoved += 1
+                }
+                
+                return isValid
+            }
+            
+            if validReservations.count != reservations.count {
+                cache[date] = validReservations
+                // Recompute active reservations for this date
+                precomputeActiveReservations(for: date)
+            }
+        }
+        
+        if totalRemoved > 0 {
+            logger.info("Removed \(totalRemoved) invalid reservations from cache")
+        }
     }
 
 }

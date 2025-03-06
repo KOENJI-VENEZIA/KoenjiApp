@@ -21,8 +21,6 @@ struct ClusterOverlayView: View {
     @State private var systemTime: Date = Date()
     
     @State private var nearEndReservation: Reservation?
-    
-    
     @State private var currentReservation: Reservation?
         
     
@@ -94,13 +92,19 @@ struct ClusterOverlayView: View {
             updateNearEndReservation()
             updateReservation()
         }
-        .onChange(of: appState.selectedDate) {
-            updateNearEndReservation()
-            updateReservation()
-
-        }
-        .onReceive(env.store.$reservations) { new in
-            updateReservation()
+        .onChange(of: appState.selectedDate) { _, newDate in
+            Task {
+                do {
+                    try await env.resCache.fetchReservations(for: newDate)
+                    
+                    await MainActor.run {
+                        updateNearEndReservation()
+                        updateReservation()
+                    }
+                } catch {
+                    print("Error fetching reservations for cluster overlay: \(error.localizedDescription)")
+                }
+            }
         }
         .onChange(of: statusChanged) {
             updateReservation()
@@ -139,18 +143,36 @@ struct ClusterOverlayView: View {
         if currentReservation.status == .pending || currentReservation.status == .late {
             currentReservation.status = .showedUp
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            env.reservationService.updateReservation(
-                    activeReservation, newReservation: currentReservation) {
+            
+            Task {
+                do {
+                    await env.reservationService.updateReservation(currentReservation) {
                         appState.changedReservation = currentReservation
                     }
+                    
+                    // Refresh the reservations after update
+                    try await env.resCache.fetchReservations(for: appState.selectedDate)
+                } catch {
+                    print("Error updating reservation status to showed up: \(error.localizedDescription)")
+                }
+            }
         } else if currentReservation.status == .showedUp {
             currentReservation.status =
             (lateReservation?.id == currentReservation.id ? .late : .pending)
             print("2 - Status in HandleTap: \(currentReservation.status)")
-            env.reservationService.updateReservation(
-                    activeReservation, newReservation: currentReservation) {
+            
+            Task {
+                do {
+                    await env.reservationService.updateReservation(currentReservation) {
                         appState.changedReservation = currentReservation
                     }
+                    
+                    // Refresh the reservations after update
+                    try await env.resCache.fetchReservations(for: appState.selectedDate)
+                } catch {
+                    print("Error updating reservation status from showed up: \(error.localizedDescription)")
+                }
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ struct ReservationsInfoListView: View {
     @EnvironmentObject var appState: AppState
 
     @State private var selection = Set<UUID>()  // Multi-select
+    @State private var isLoading = false
     @Environment(\.colorScheme) var colorScheme
     var onClose: () -> Void
     var onEdit: (Reservation) -> Void
@@ -22,89 +23,92 @@ struct ReservationsInfoListView: View {
     
     var body: some View {
         VStack {
-//            Color.clear.ignoresSafeArea()
-            
-            List(selection: $selection) {
-                let reservations = reservations(at: appState.selectedDate)
-                let filtered = filterReservations(reservations)
-                let grouped = groupByCategory(filtered)
-                
-                ForEach(grouped.keys.sorted(by: >), id: \.self) { groupKey in
-                    Section(
-                        header: HStack(spacing: 10) {
-                            Text(groupKey)
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundStyle(colorScheme == .dark ? .white : .black)
-                            Text("\(grouped[groupKey]?.count ?? 0) \(TextHelper.pluralized("prenotazione", "prenotazioni", grouped[groupKey]?.count ?? 0))")
-                                .font(.title2)
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .trailing)
-                        }
-                        .background(.clear)
-                        .padding(.vertical, 4)
-                    ) {
-                        if let reservationsInGroup = grouped[groupKey] {
-                            ForEach(reservationsInGroup) { reservation in
-                                SwipeView {
-                                    ReservationRows(
-                                        reservation: reservation,
-                                        onSelected: { newReservation in
-                                            onEdit(newReservation)
+            if isLoading {
+                ProgressView("Loading reservations...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(selection: $selection) {
+                    let reservations = reservations(at: appState.selectedDate)
+                    let filtered = filterReservations(reservations)
+                    let grouped = groupByCategory(filtered)
+                    
+                    ForEach(grouped.keys.sorted(by: >), id: \.self) { groupKey in
+                        Section(
+                            header: HStack(spacing: 10) {
+                                Text(groupKey)
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(colorScheme == .dark ? .white : .black)
+                                Text("\(grouped[groupKey]?.count ?? 0) \(TextHelper.pluralized("prenotazione", "prenotazioni", grouped[groupKey]?.count ?? 0))")
+                                    .font(.title2)
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
+                            }
+                            .background(.clear)
+                            .padding(.vertical, 4)
+                        ) {
+                            if let reservationsInGroup = grouped[groupKey] {
+                                ForEach(reservationsInGroup) { reservation in
+                                    SwipeView {
+                                        ReservationRows(
+                                            reservation: reservation,
+                                            onSelected: { newReservation in
+                                                onEdit(newReservation)
+                                            }
+                                        )
+                                        .onTapGesture(count: 2) {
+                                            onEdit(reservation)
                                         }
-                                    )
-                                    .onTapGesture(count: 2) {
-                                        onEdit(reservation)
-                                    }
-                                } trailingActions: { _ in
-                                    SwipeAction (
-                                        systemImage: "x.circle.fill",
-                                        backgroundColor: Color(hex: "#5c140f").opacity(0.2)
+                                    } trailingActions: { _ in
+                                        SwipeAction (
+                                            systemImage: "x.circle.fill",
+                                            backgroundColor: Color(hex: "#5c140f").opacity(0.2)
+                                            
+                                        ) {
+                                            handleCancelled(reservation)
+                                            onCancelled(reservation)
+                                        }
                                         
-                                    ) {
-                                        handleCancelled(reservation)
-                                        onCancelled(reservation)
-                                    }
-                                    
-                                    SwipeAction (
-                                        systemImage: "square.and.pencil",
-                                        backgroundColor: .gray.opacity(0.2)
+                                        SwipeAction (
+                                            systemImage: "square.and.pencil",
+                                            backgroundColor: .gray.opacity(0.2)
+                                            
+                                        ) {
+                                            onEdit(reservation)
+                                        }
                                         
-                                    ) {
-                                        onEdit(reservation)
-                                    }
-                                    
-                                    SwipeAction (
-                                        systemImage: "arrowshape.turn.up.backward.badge.clock",
-                                        backgroundColor: .indigo.opacity(0.2)
+                                        SwipeAction (
+                                            systemImage: "arrowshape.turn.up.backward.badge.clock",
+                                            backgroundColor: .indigo.opacity(0.2)
+                                            
+                                        ) {
+                                            showReservationInTime(reservation)
+                                        }
                                         
-                                    ) {
-                                        showReservationInTime(reservation)
                                     }
-                                    
+                                    .swipeActionCornerRadius(12)
+                                    .swipeMinimumDistance(40)
+                                    .swipeActionsMaskCornerRadius(12)
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                    .listRowBackground(Color.clear)
                                 }
-                                .swipeActionCornerRadius(12)
-                                .swipeMinimumDistance(40)
-                                .swipeActionsMaskCornerRadius(12)
-                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                                .listRowBackground(Color.clear)
                             }
                         }
                     }
-                }
-                
-                if grouped.isEmpty {
-                    Section {
-                        Text("Nessuna prenotazione per la giornata")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .listRowBackground(Color.clear)
-                            .padding()
+                    
+                    if grouped.isEmpty {
+                        Section {
+                            Text("Nessuna prenotazione per la giornata")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .listRowBackground(Color.clear)
+                                .padding()
+                        }
                     }
                 }
+                .listStyle(PlainListStyle())
+                .scrollContentBackground(.hidden)
             }
-            .listStyle(PlainListStyle())
-            .scrollContentBackground(.hidden)
             
             Button(action: onClose) {
                 Text("Chiudi")
@@ -117,6 +121,32 @@ struct ReservationsInfoListView: View {
             .padding(16)
         }
         .background(Color.clear)
+        .onAppear {
+            loadReservations()
+        }
+        .onChange(of: appState.selectedDate) { _, _ in
+            loadReservations()
+        }
+        .onChange(of: appState.changedReservation) { _, _ in
+            loadReservations()
+        }
+    }
+    
+    private func loadReservations() {
+        isLoading = true
+        Task {
+            do {
+                try await env.resCache.fetchReservations(for: appState.selectedDate)
+                await MainActor.run {
+                    isLoading = false
+                }
+            } catch {
+                print("Error fetching reservations: \(error.localizedDescription)")
+                await MainActor.run {
+                    isLoading = false
+                }
+            }
+        }
     }
     
     private func groupByCategory(_ activeReservations: [Reservation]) -> [String:
@@ -140,10 +170,7 @@ struct ReservationsInfoListView: View {
     }
     
     func reservations(at date: Date) -> [Reservation] {
-        env.store.reservations.filter { reservation in
-            guard let reservationDate = reservation.normalizedDate else { return false }// Skip reservations with invalid times
-            return reservationDate.isSameDay(as: date)
-        }
+        return env.resCache.reservations(for: date)
     }
     
     func filterReservations(_ reservations: [Reservation]) -> [Reservation] {
@@ -151,14 +178,6 @@ struct ReservationsInfoListView: View {
             return reservation.status != .canceled && reservation.reservationType != .waitingList
         }
     }
-    
-//    private func handleDelete(_ reservation: Reservation) {
-//        if let idx = env.store.reservations.firstIndex(where: {
-//            $0.id == reservation.id
-//        }) {
-//            env.reservationService.deleteReservations(at: IndexSet(integer: idx))
-//        }
-//    }
     
     private func handleCancelled(_ reservation: Reservation) {
         var updatedReservation = reservation
@@ -168,8 +187,18 @@ struct ReservationsInfoListView: View {
                 updatedReservation.tables = []
             }
         }
-        env.reservationService.updateReservation(updatedReservation) {
-            print("Update reservation.")
+        
+        Task {
+            do {
+                await env.reservationService.updateReservation(updatedReservation) {
+                    print("Update reservation.")
+                }
+                
+                // Refresh the reservations after update
+                try await env.resCache.fetchReservations(for: appState.selectedDate)
+            } catch {
+                print("Error updating reservation: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -181,17 +210,27 @@ struct ReservationsInfoListView: View {
             appState.selectedDate = combinedDate
         }
     }
+    
     private func markReservationStatus(_ reservation: Reservation) {
-        
-            var updatedReservation = reservation
+        var updatedReservation = reservation
         if updatedReservation.status == .pending || updatedReservation.status == .late {
-                updatedReservation.status = .showedUp
-            }
+            updatedReservation.status = .showedUp
+        }
         else if updatedReservation.startTimeDate != nil {
-                     updatedReservation.status = .pending
-                 }
-        env.reservationService.updateReservation(updatedReservation) {
-            print("Update reservation.")
+            updatedReservation.status = .pending
+        }
+        
+        Task {
+            do {
+                await env.reservationService.updateReservation(updatedReservation) {
+                    print("Update reservation.")
+                }
+                
+                // Refresh the reservations after update
+                try await env.resCache.fetchReservations(for: appState.selectedDate)
+            } catch {
+                print("Error updating reservation status: \(error.localizedDescription)")
+            }
         }
     }
 }

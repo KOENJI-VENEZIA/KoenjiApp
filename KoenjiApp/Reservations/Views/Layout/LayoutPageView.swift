@@ -79,62 +79,97 @@ struct LayoutPageView: View {
         .transition(.opacity)
         .animation(.easeInOut(duration: 0.5), value: isLoading)
         .onAppear(perform: setupLayout)
-        .onChange(of: unitView.selectedIndex) {
-            debounce {
-                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
-
-                reloadLayout(appState.selectedCategory, env.store.reservations)
-                env.resCache.startMonitoring(for: appState.selectedDate)
+        .onChange(of: unitView.selectedIndex) { _, _ in
+            Task {
+                do {
+                    // Fetch reservations asynchronously for the selected date
+                    let reservations = try await env.resCache.fetchReservations(for: appState.selectedDate)
+                    
+                    await MainActor.run {
+                        env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: reservations)
+                        reloadLayout(appState.selectedCategory, reservations)
+                        env.resCache.startMonitoring(for: appState.selectedDate)
+                    }
+                } catch {
+                    Self.logger.error("Error in async action: \(error.localizedDescription)")
+                }
             }
         }
         .onChange(of: unitView.isLayoutReset) { _, reset in
             if reset {
                 isLoading = true
                 resetCurrentLayout()
-                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        isLoading = false
-                        unitView.isLayoutReset = false
+                
+                Task {
+                    do {
+                        // Fetch reservations asynchronously
+                        let reservations = try await env.resCache.fetchReservations(for: appState.selectedDate)
+                        
+                        await MainActor.run {
+                            env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: reservations)
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                withAnimation(.easeInOut(duration: 0.5)) {
+                                    isLoading = false
+                                    unitView.isLayoutReset = false
+                                }
+                            }
+                        }
+                    } catch {
+                        Self.logger.error("Error fetching reservations during reset: \(error.localizedDescription)")
+                        
+                        await MainActor.run {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                withAnimation(.easeInOut(duration: 0.5)) {
+                                    isLoading = false
+                                    unitView.isLayoutReset = false
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
-//        .onChange(of: selectedReservation) {
-//            env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
-//        }
         .onChange(of: appState.selectedCategory) { _, newCategory in
-            debounce {
-                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
-                reloadLayout(newCategory, env.store.reservations)
+            debounceAsync {
+                // Fetch reservations asynchronously for the selected date with the new category
+                let reservations = try await env.resCache.fetchReservations(for: appState.selectedDate)
+                
+                await MainActor.run {
+                    env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: reservations)
+                    reloadLayout(newCategory, reservations)
+                }
             }
         }
         .onChange(of: appState.selectedDate) { _, newDate in
-            debounce {
-                env.resCache.preloadDates(around: newDate, range: 5, reservations: env.store.reservations)
-                reloadLayout(appState.selectedCategory, env.store.reservations)
-                env.resCache.startMonitoring(for: newDate)
+            debounceAsync {
+                // Fetch reservations asynchronously for the new date
+                let reservations = try await env.resCache.fetchReservations(for: newDate)
+                
+                await MainActor.run {
+                    env.resCache.preloadDates(around: newDate, range: 5, reservations: reservations)
+                    reloadLayout(appState.selectedCategory, reservations)
+                    env.resCache.startMonitoring(for: newDate)
+                }
             }
         }
         .onChange(of: appState.showingEditReservation) {
-            debounce { env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations) }
-        }
-//        .onChange(of: appState.changedReservation) {
-//            debounce {
-//                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
-//                reloadLayout(appState.selectedCategory, env.resCache.activeReservations)
-//                env.resCache.startMonitoring(for: appState.selectedDate)
-//            }
-//        }
-        .onReceive(env.store.$reservations) { new in
-            debounce {
-                env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: new)
-                reloadLayout(appState.selectedCategory, env.store.reservations, force: true)
+            debounceAsync {
+                let reservations = try await env.resCache.fetchReservations(for: appState.selectedDate)
+                
+                await MainActor.run {
+                    env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: reservations)
+                }
             }
         }
-//        .onChange(of: statusChanged) {
-//            debounce { env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations) }
-//        }
+        .onReceive(env.store.$reservations) { new in
+            debounceAsync {
+                await MainActor.run {
+                    env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: new)
+                    reloadLayout(appState.selectedCategory, env.store.reservations, force: true)
+                }
+            }
+        }
     }
 }
 
@@ -264,38 +299,83 @@ extension LayoutPageView {
             isLoadingClusters = true
             isLoading = true
         }
-        DispatchQueue.main.async {
-            loadCurrentLayout()
-            withAnimation(.easeInOut(duration: 0.5)) {
-                isLoadingClusters = false
-                isLoading = false
-                appState.isContentReady = true
+        
+        // Use Task for async loading
+        Task {
+            do {
+                try await loadCurrentLayout()
+                
+                // Update UI on the main thread after async operations complete
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        isLoadingClusters = false
+                        isLoading = false
+                        appState.isContentReady = true
+                    }
+                }
+            } catch {
+                Self.logger.error("Error loading layout: \(error.localizedDescription)")
+                
+                // Handle error and update UI on the main thread
+                await MainActor.run {
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        isLoadingClusters = false
+                        isLoading = false
+                        appState.isContentReady = true
+                    }
+                }
             }
         }
     }
-}
 
-// MARK: - UI Update & Helper Methods
-extension LayoutPageView {
-
-    private func loadCurrentLayout() {
+    private func loadCurrentLayout() async throws {
+        // Load drawings synchronously (this doesn't need to change)
         let newDrawingModel = env.scribbleService.reloadDrawings(
             for: appState.selectedDate, category: appState.selectedCategory
         )
-        withAnimation {
-            layoutUI.tables = env.layoutServices.loadTables(
-                for: appState.selectedDate, category: appState.selectedCategory
-            )
+        
+        // Load tables synchronously
+        await MainActor.run {
+            withAnimation {
+                layoutUI.tables = env.layoutServices.loadTables(
+                    for: appState.selectedDate, category: appState.selectedCategory
+                )
+            }
         }
-        env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
-        reloadLayout(appState.selectedCategory, env.store.reservations)
-        clusterManager.loadClusters()
-        env.resCache.startMonitoring(for: appState.selectedDate)
-        currentDrawing.layer1 = newDrawingModel.layer1
-        currentDrawing.layer2 = newDrawingModel.layer2
-        currentDrawing.layer3 = newDrawingModel.layer3
+        
+        // Fetch reservations asynchronously from Firebase
+        let reservationsForDate: [Reservation]
+        do {
+            reservationsForDate = try await env.resCache.fetchReservations(for: appState.selectedDate)
+        } catch {
+            Self.logger.error("Failed to fetch reservations: \(error.localizedDescription)")
+            throw error
+        }
+        
+        await MainActor.run {
+            // Update the store with the fetched reservations
+            env.store.reservations = reservationsForDate
+            
+            // Preload dates and update cache
+            env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: reservationsForDate)
+            
+            // Reload layout with the fetched reservations
+            Task {
+                await reloadLayout(appState.selectedCategory, reservationsForDate)
+            }
+            
+            // Load clusters and start monitoring
+            clusterManager.loadClusters()
+            env.resCache.startMonitoring(for: appState.selectedDate)
+            
+            // Update drawing model
+            currentDrawing.layer1 = newDrawingModel.layer1
+            currentDrawing.layer2 = newDrawingModel.layer2
+            currentDrawing.layer3 = newDrawingModel.layer3
+            
+            Self.logger.info("Successfully loaded layout with \(reservationsForDate.count) reservations from Firebase")
+        }
     }
-
 
     private func onTableUpdated(_ updatedTable: TableModel) {
         updateAdjacencyCounts(for: updatedTable)
@@ -361,14 +441,12 @@ extension LayoutPageView {
         Self.logger.debug("Drawing layers updated for category: \(selectedCategory.rawValue)")
     }
 
-    private func reloadLayout(_ selectedCategory: Reservation.ReservationCategory, _ activeReservations: [Reservation], force: Bool = false) {
-        Task {
-            DispatchQueue.main.async {
-                updateTablesIfNeeded(for: appState.selectedCategory, force: force)
-                updateClustersIfNeeded(for: activeReservations, tables: layoutUI.tables)
-                updateDrawingLayersIfNeeded(for: selectedCategory)
-            }
-        }
+    private func reloadLayout(_ selectedCategory: Reservation.ReservationCategory, _ activeReservations: [Reservation], force: Bool = false)  {
+        
+            updateTablesIfNeeded(for: appState.selectedCategory, force: force)
+            updateClustersIfNeeded(for: activeReservations, tables: layoutUI.tables)
+            updateDrawingLayersIfNeeded(for: selectedCategory)
+        
     }
 
     private func updateTablesIfNeeded(for selectedCategory: Reservation.ReservationCategory, force: Bool = false) {
@@ -409,6 +487,22 @@ extension LayoutPageView {
     private func debounce(action: @escaping () -> Void, delay: TimeInterval = 0.1) {
         debounceWorkItem?.cancel()
         let newWorkItem = DispatchWorkItem { action() }
+        debounceWorkItem = newWorkItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: newWorkItem)
+    }
+    
+    /// A debounce helper for async actions with error handling.
+    private func debounceAsync(action: @escaping () async throws -> Void, delay: TimeInterval = 0.1) {
+        debounceWorkItem?.cancel()
+        let newWorkItem = DispatchWorkItem {
+            Task {
+                do {
+                    try await action()
+                } catch {
+                    Self.logger.error("Error in debounced async action: \(error.localizedDescription)")
+                }
+            }
+        }
         debounceWorkItem = newWorkItem
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: newWorkItem)
     }

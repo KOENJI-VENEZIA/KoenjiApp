@@ -61,6 +61,16 @@ struct DatabaseView: View {
                     if !isCompact {
                         regularToolbarContent
                     }
+                    
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(action: {
+                            Task {
+                                await refreshReservations()
+                            }
+                        }) {
+                            Label("Refresh", systemImage: "arrow.clockwise")
+                        }
+                    }
                 }
             
             
@@ -86,9 +96,12 @@ struct DatabaseView: View {
         .alert(item: $env.listView.activeAlert, content: activeAlertContent)
         .alert(isPresented: $env.listView.showingResetConfirmation, content: resetConfirmationAlert)
         .onAppear {
-            env.listView.currentReservations = env.store.reservations
+            Task {
+                await refreshReservations()
+            }
         }
         .onReceive(env.store.$reservations) { new in
+            logger.info("Received \(new.count) reservations from store")
             env.listView.currentReservations = new
             refreshID = UUID()
         }
@@ -110,6 +123,14 @@ struct DatabaseView: View {
                 env.listView.groupOption = .none
             }
         }
+    }
+    
+    // MARK: - Helper Methods
+    
+    @MainActor
+    private func refreshReservations() async {
+        logger.info("Manually refreshing reservations from Firebase")
+        await env.reservationService.loadReservationsFromFirebase()
     }
 }
 

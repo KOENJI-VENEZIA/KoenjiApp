@@ -49,6 +49,7 @@
       }
     },
     " - %lld p." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -582,6 +583,7 @@
       }
     },
     "%@ - %lld p." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2204,6 +2206,16 @@
         }
       }
     },
+    "Current: %@, Visible: %@, Position: %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Current: %1$@, Visible: %2$@, Position: %3$lld"
+          }
+        }
+      }
+    },
     "Currently editing" : {
       "localizations" : {
         "en" : {
@@ -2447,6 +2459,7 @@
       }
     },
     "Data: %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2723,6 +2736,7 @@
       }
     },
     "Durata: %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3952,6 +3966,18 @@
         }
       }
     },
+    "Loading cancelled reservations..." : {
+
+    },
+    "Loading reservation details..." : {
+
+    },
+    "Loading reservations..." : {
+
+    },
+    "Loading waiting list..." : {
+
+    },
     "Lock Layout" : {
       "localizations" : {
         "en" : {
@@ -4667,6 +4693,7 @@
       }
     },
     "Note:" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4937,6 +4964,7 @@
       }
     },
     "Orario: %@ - %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5822,6 +5850,9 @@
         }
       }
     },
+    "Refresh" : {
+
+    },
     "Requested %@" : {
 
     },
@@ -5832,6 +5863,9 @@
 
     },
     "Reservation Declined" : {
+
+    },
+    "Reservation not found" : {
 
     },
     "Reset" : {

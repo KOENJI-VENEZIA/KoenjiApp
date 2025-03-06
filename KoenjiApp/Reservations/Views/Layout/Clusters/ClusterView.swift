@@ -32,9 +32,8 @@ struct ClusterView: View {
     private var isLate: Bool {
         return cluster.reservationID.status == .late
     }
-    @EnvironmentObject var resCache: CurrentReservationsCache
+    @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var reservationService: ReservationService
     
     @Environment(\.colorScheme) var colorScheme
 
@@ -123,9 +122,19 @@ struct ClusterView: View {
             updateNearEndReservation()
             updateRemainingTime()
         }
-        .onChange(of: appState.selectedDate) {
-            updateNearEndReservation()
-            updateRemainingTime()
+        .onChange(of: appState.selectedDate) { _, newDate in
+            Task {
+                do {
+                    try await env.resCache.fetchReservations(for: newDate)
+                    
+                    await MainActor.run {
+                        updateNearEndReservation()
+                        updateRemainingTime()
+                    }
+                } catch {
+                    print("Error fetching reservations for cluster: \(error.localizedDescription)")
+                }
+            }
         }
     }
 
@@ -180,9 +189,10 @@ struct ClusterView: View {
     }
     
     private func updateNearEndReservation() {
-        if resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {
+        if env.resCache.nearingEndReservations(currentTime: appState.selectedDate).contains(where: {
             $0.id == cluster.reservationID.id
         }) {
-            nearEndReservation = cluster.reservationID }
+            nearEndReservation = cluster.reservationID 
+        }
     }
 }

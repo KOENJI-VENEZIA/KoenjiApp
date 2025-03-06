@@ -21,26 +21,54 @@ extension ReservationService {
         #else
         let dbRef = backupService.db.collection("reservations_release")
         #endif
+        
+        logger.info("Starting Firebase reservations listener...")
+        
         reservationListener = dbRef.addSnapshotListener { [weak self] snapshot, error in
+            guard let self = self else { return }
+            
             if let error = error {
-                self?.logger.error("Error listening for reservations: \(error)")
+                self.logger.error("Error listening for reservations: \(error)")
                 return
             }
-            guard let snapshot = snapshot else { return }
             
-            var reservationsByID: [UUID: Reservation] = [:]
-            for document in snapshot.documents {
-                let data = document.data()
-                if let reservation = self?.convertDictionaryToReservation(data: data) {
-                    reservationsByID[reservation.id] = reservation
-                    // Also upsert into SQLite:
-                    SQLiteManager.shared.insertReservation(reservation)
-                }
+            guard let snapshot = snapshot else { 
+                self.logger.error("Empty snapshot received from Firebase")
+                return 
             }
-            // Replace the entire in-memory store with unique values:
-            DispatchQueue.main.async {
-                self?.store.setReservations(Array(reservationsByID.values))
-                self?.logger.debug("Listener updated reservations. Count: \(reservationsByID.values.count)")
+            
+            self.logger.info("Received \(snapshot.documents.count) reservation documents from Firebase")
+            
+            Task { @MainActor in
+                var reservationsByID: [UUID: Reservation] = [:]
+                
+                for document in snapshot.documents {
+                    do {
+                        let reservation = try self.reservationFromFirebaseDocument(document)
+                        reservationsByID[reservation.id] = reservation
+                        
+                        // Also update the cache
+                        self.resCache.addOrUpdateReservation(reservation)
+                        
+                        // Upsert into SQLite if still using it
+                        SQLiteManager.shared.insertReservation(reservation)
+                    } catch {
+                        self.logger.error("Failed to decode reservation from document \(document.documentID): \(error)")
+                    }
+                }
+                
+                // Replace the entire in-memory store with unique values
+                let allReservations = Array(reservationsByID.values)
+                self.store.setReservations(allReservations)
+                
+                self.logger.info("Successfully updated reservations store with \(allReservations.count) reservations")
+                
+                // Notify that reservations have changed
+                self.changedReservation = nil
+                
+                // Preload dates for the cache
+                let today = Calendar.current.startOfDay(for: Date())
+                self.resCache.preloadDates(around: today, range: 5, reservations: allReservations)
             }
         }
     }
