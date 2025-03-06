@@ -3,7 +3,7 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/110
+- **Items:** 0/109
 
 ## Missing Documentation
 
@@ -13,7 +13,6 @@
 - `DailySales`
 - `MonthlySalesRecap`
 - `YearlySalesRecap`
-- `SalesStore`
 - `SalesStore`
 
 ### Methods

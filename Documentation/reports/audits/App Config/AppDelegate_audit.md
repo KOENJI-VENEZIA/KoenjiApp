@@ -3,14 +3,13 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/12
+- **Items:** 0/11
 
 ## Missing Documentation
 
 ### Classes
 - `LegacyNotificationHandlerBox`
 - `AppDelegate`
-- `UNUserNotificationCenter`
 
 ### Methods
 - `application`

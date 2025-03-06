@@ -2,14 +2,12 @@
 
 ## Summary
 
-- **Coverage:** 13.01%
-- **Items:** 16/123
+- **Coverage:** 13.22%
+- **Items:** 16/121
 
 ## Missing Documentation
 
 ### Classes
-- `DatabaseView`
-- `DatabaseView`
 - `DatabaseView`
 
 ### Methods

@@ -3,13 +3,12 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/24
+- **Items:** 0/23
 
 ## Missing Documentation
 
 ### Classes
 - `ExcelExportService`
-- `UIViewController`
 
 ### Methods
 - `exportMonthlySales`

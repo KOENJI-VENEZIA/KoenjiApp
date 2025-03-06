@@ -2,13 +2,10 @@
 
 ## Summary
 
-- **Coverage:** 1.67%
-- **Items:** 1/60
+- **Coverage:** 1.69%
+- **Items:** 1/59
 
 ## Missing Documentation
-
-### Classes
-- `ReservationService`
 
 ### Methods
 - `startWebReservationListener`

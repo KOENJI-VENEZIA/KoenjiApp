@@ -212,7 +212,10 @@ def run_audit(directory):
         
         audit_file, analysis = audit_single_file(file_path)
         if analysis:
-            file_stats[rel_file_path] = analysis
+            file_stats[rel_file_path] = {
+                'stats': analysis,
+                'audit_file': audit_file
+            }
             total_items += analysis.get('total_items', 0)
             documented_items += analysis.get('documented_items', 0)
     
@@ -226,7 +229,7 @@ def run_audit(directory):
     # Sort files by documentation coverage (ascending)
     sorted_files = sorted(
         file_stats.items(),
-        key=lambda x: x[1].get('coverage_percentage', 0)
+        key=lambda x: x[1]['stats'].get('coverage_percentage', 0)
     )
     
     # Generate report
@@ -243,12 +246,23 @@ def run_audit(directory):
     report.append("## Files by Coverage (Lowest to Highest)")
     report.append("")
     
-    for file_path, stats in sorted_files:
+    for file_path, file_data in sorted_files:
+        stats = file_data['stats']
+        audit_file = file_data['audit_file']
         coverage = stats.get('coverage_percentage', 0)
         total = stats.get('total_items', 0)
         documented = stats.get('documented_items', 0)
         
-        report.append(f"### {file_path}")
+        # Create a relative path from the summary file to the audit file
+        if audit_file:
+            # Get the relative path from the summary file directory to the audit file
+            audit_file_rel_path = os.path.relpath(audit_file, os.path.dirname(summary_file))
+            # Create a markdown link to the audit file
+            file_link = f"[{file_path}]({audit_file_rel_path})"
+        else:
+            file_link = file_path
+        
+        report.append(f"### {file_link}")
         report.append(f"- Coverage: {coverage:.2f}%")
         report.append(f"- Items: {documented}/{total}")
         report.append("")

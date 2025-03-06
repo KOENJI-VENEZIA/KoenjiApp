@@ -3,15 +3,12 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/35
+- **Items:** 0/32
 
 ## Missing Documentation
 
 ### Classes
 - `ReservationCard`
-- `Reservation`
-- `Reservation`
-- `Reservation`
 
 ### Methods
 - `detailRow`

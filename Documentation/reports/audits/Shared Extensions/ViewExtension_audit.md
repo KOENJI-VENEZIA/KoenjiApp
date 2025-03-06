@@ -2,38 +2,14 @@
 
 ## Summary
 
-- **Coverage:** 21.13%
-- **Items:** 15/71
+- **Coverage:** 31.91%
+- **Items:** 15/47
 
 ## Missing Documentation
 
 ### Classes
 - `VisualEffectBlur`
 - `TranslucentBackground`
-- `View`
-- `Color`
-- `View`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `Color`
-- `View`
 
 ### Methods
 - `makeUIView`

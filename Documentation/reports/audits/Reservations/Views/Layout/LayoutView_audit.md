@@ -3,15 +3,12 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/95
+- **Items:** 0/92
 
 ## Missing Documentation
 
 ### Classes
 - `LayoutView`
-- `LayoutView`
-- `LayoutView`
-- `Array`
 
 ### Methods
 - `additionalCanvasLayers`

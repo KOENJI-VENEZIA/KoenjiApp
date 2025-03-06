@@ -2,14 +2,10 @@
 
 ## Summary
 
-- **Coverage:** 46.15%
-- **Items:** 6/13
+- **Coverage:** 54.55%
+- **Items:** 6/11
 
 ## Missing Documentation
-
-### Classes
-- `to`
-- `View`
 
 ### Methods
 - `apply`

@@ -2,12 +2,7 @@
 
 ## Summary
 
-- **Coverage:** 75.00%
-- **Items:** 9/12
+- **Coverage:** 100.00%
+- **Items:** 9/9
 
 ## Missing Documentation
-
-### Classes
-- `Date`
-- `String`
-- `Date`

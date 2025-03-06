@@ -3,12 +3,9 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/5
+- **Items:** 0/4
 
 ## Missing Documentation
-
-### Classes
-- `LayoutView`
 
 ### Methods
 - `inspectorSheet`

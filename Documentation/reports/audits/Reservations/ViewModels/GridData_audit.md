@@ -3,7 +3,7 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/92
+- **Items:** 0/90
 
 ## Missing Documentation
 
@@ -18,8 +18,6 @@
 - `Hole`
 - `BorderFeature`
 - `IndentationRegion`
-- `BorderFeatureType`
-- `Path`
 
 ### Methods
 - `configure`

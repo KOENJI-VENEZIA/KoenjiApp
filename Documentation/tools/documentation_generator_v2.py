@@ -9,7 +9,8 @@ from pathlib import Path
 class DocumentationGenerator:
     def __init__(self):
         # Regex patterns for Swift code
-        self.class_pattern = re.compile(r'(?:public |private |internal |fileprivate |open )*(?:final )?(?:class|struct|enum|protocol|extension) +(\w+)')
+        self.class_pattern = re.compile(r'(?:public |private |internal |fileprivate |open )*(?:final )?(?:class|struct|enum|protocol) +(\w+)')
+        self.extension_pattern = re.compile(r'(?:public |private |internal |fileprivate |open )*extension +(\w+)')
         self.method_pattern = re.compile(r'(?:public |private |internal |fileprivate |open )*(?:static |class |override )*func +(\w+)')
         self.property_pattern = re.compile(r'(?:public |private |internal |fileprivate |open )*(?:static |class )*(?:let|var) +(\w+)')
         
@@ -34,6 +35,9 @@ class DocumentationGenerator:
                 'properties': []
             }
         }
+        
+        # Track classes to avoid duplicates from extensions
+        self.processed_classes = set()
     
     def extract_context(self, content, match_start, context_lines=3):
         """Extract context around a code declaration."""
@@ -106,9 +110,15 @@ class DocumentationGenerator:
             'property': []
         }
         
-        # Find classes, structs, enums, protocols, and extensions
+        self.processed_classes = set()
+        
+        # Find classes, structs, enums, protocols
         for match in self.class_pattern.finditer(content):
             class_name = match.group(1)
+            if class_name in self.processed_classes:
+                continue
+                
+            self.processed_classes.add(class_name)
             self.stats['total_items'] += 1
             
             if self.has_documentation(content, match.start()):
@@ -122,6 +132,11 @@ class DocumentationGenerator:
                         'context': context
                     })
                 self.stats['missing_documentation']['classes'].append(class_name)
+        
+        # Find extensions (but don't count them as new classes, just track the names)
+        for match in self.extension_pattern.finditer(content):
+            class_name = match.group(1)
+            self.processed_classes.add(class_name)
         
         # Find methods
         for match in self.method_pattern.finditer(content):

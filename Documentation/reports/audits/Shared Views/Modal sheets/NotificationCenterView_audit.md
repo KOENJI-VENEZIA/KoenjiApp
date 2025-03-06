@@ -3,14 +3,13 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/26
+- **Items:** 0/25
 
 ## Missing Documentation
 
 ### Classes
 - `NotificationCenterView`
 - `NotificationCard`
-- `NotificationType`
 
 ### Methods
 - `typeBadge`

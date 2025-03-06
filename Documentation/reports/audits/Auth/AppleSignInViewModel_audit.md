@@ -3,12 +3,11 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/32
+- **Items:** 0/31
 
 ## Missing Documentation
 
 ### Classes
-- `AppleSignInViewModel`
 - `AppleSignInViewModel`
 - `to`
 - `AppleSignInPresentationContextProvider`

@@ -2,14 +2,10 @@
 
 ## Summary
 
-- **Coverage:** 27.50%
-- **Items:** 11/40
+- **Coverage:** 28.95%
+- **Items:** 11/38
 
 ## Missing Documentation
-
-### Classes
-- `AppDelegate`
-- `AppDependencies`
 
 ### Methods
 - `setupWebReservationNotifications`

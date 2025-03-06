@@ -2,13 +2,12 @@
 
 ## Summary
 
-- **Coverage:** 23.26%
-- **Items:** 30/129
+- **Coverage:** 23.44%
+- **Items:** 30/128
 
 ## Missing Documentation
 
 ### Classes
-- `TimelineGantView`
 - `TimelineGantView`
 - `DraggableReservationRow`
 - `DragDirection`

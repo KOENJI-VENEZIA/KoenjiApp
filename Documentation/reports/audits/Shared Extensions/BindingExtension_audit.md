@@ -3,12 +3,9 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/2
+- **Items:** 0/1
 
 ## Missing Documentation
-
-### Classes
-- `Binding`
 
 ### Methods
 - `orEmpty`

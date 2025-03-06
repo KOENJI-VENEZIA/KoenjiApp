@@ -3,13 +3,11 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/16
+- **Items:** 0/14
 
 ## Missing Documentation
 
 ### Classes
-- `ReservationStore`
-- `ReservationStore`
 - `ReservationStore`
 
 ### Methods

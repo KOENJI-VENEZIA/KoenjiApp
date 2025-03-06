@@ -2,13 +2,12 @@
 
 ## Summary
 
-- **Coverage:** 70.00%
-- **Items:** 7/10
+- **Coverage:** 77.78%
+- **Items:** 7/9
 
 ## Missing Documentation
 
 ### Classes
-- `NotificationType`
 - `NotificationType`
 
 ### Properties

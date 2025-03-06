@@ -3,7 +3,7 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/28
+- **Items:** 0/27
 
 ## Missing Documentation
 
@@ -12,7 +12,6 @@
 - `PencilKitCanvas`
 - `Layer`
 - `Coordinator`
-- `PKStrokePath`
 
 ### Methods
 - `setupToolPicker`

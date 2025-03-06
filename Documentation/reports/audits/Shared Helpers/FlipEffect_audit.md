@@ -3,13 +3,12 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/7
+- **Items:** 0/6
 
 ## Missing Documentation
 
 ### Classes
 - `FlipEffect`
-- `View`
 
 ### Methods
 - `body`

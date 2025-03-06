@@ -3,20 +3,12 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/39
+- **Items:** 0/31
 
 ## Missing Documentation
 
 ### Classes
-- `Reservation`
-- `ReservationCard`
-- `ReservationInfoCard`
-- `to`
-- `ReservationCard`
 - `WebReservationModifier`
-- `View`
-- `DatabaseView`
-- `DatabaseView`
 
 ### Methods
 - `webReservationBadge`

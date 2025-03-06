@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 8.33%
-- **Items:** 9/108
+- **Coverage:** 9.47%
+- **Items:** 9/95
 
 ## Missing Documentation
 
@@ -13,20 +13,7 @@
 - `Acceptance`
 - `ReservationStatus`
 - `ReservationType`
-- `Reservation`
-- `Reservation`
-- `Reservation`
-- `Reservation`
-- `Reservation`
-- `Reservation`
-- `Reservation`
-- `Reservation`
-- `Reservation`
-- `Reservation`
 - `LightweightReservation`
-- `Reservation`
-- `Reservation`
-- `Reservation`
 
 ### Methods
 - `stableHue`

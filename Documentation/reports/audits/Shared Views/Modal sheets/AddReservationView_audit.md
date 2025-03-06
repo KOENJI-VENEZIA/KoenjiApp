@@ -3,13 +3,12 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/87
+- **Items:** 0/86
 
 ## Missing Documentation
 
 ### Classes
 - `AddReservationView`
-- `ReservationOption`
 - `ReservationOption`
 
 ### Methods

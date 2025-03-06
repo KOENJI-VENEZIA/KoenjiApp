@@ -2,15 +2,14 @@
 
 ## Summary
 
-- **Coverage:** 5.88%
-- **Items:** 2/34
+- **Coverage:** 6.06%
+- **Items:** 2/33
 
 ## Missing Documentation
 
 ### Classes
 - `CodingKeys`
 - `TableSide`
-- `TableModel`
 - `TableCluster`
 - `CachedCluster`
 

@@ -2,20 +2,13 @@
 
 ## Summary
 
-- **Coverage:** 36.54%
-- **Items:** 95/260
+- **Coverage:** 37.55%
+- **Items:** 95/253
 
 ## Missing Documentation
 
 ### Classes
 - `responsible`
-- `ReservationService`
-- `ReservationService`
-- `ReservationService`
-- `ReservationService`
-- `Date`
-- `Date`
-- `ReservationService`
 
 ### Properties
 - `today`

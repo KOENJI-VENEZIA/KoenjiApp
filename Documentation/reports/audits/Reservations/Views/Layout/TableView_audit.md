@@ -2,16 +2,13 @@
 
 ## Summary
 
-- **Coverage:** 4.63%
-- **Items:** 5/108
+- **Coverage:** 4.76%
+- **Items:** 5/105
 
 ## Missing Documentation
 
 ### Classes
 - `DragState`
-- `TableView`
-- `TableView`
-- `TableView`
 - `TableView`
 
 ### Methods

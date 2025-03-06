@@ -2,14 +2,13 @@
 
 ## Summary
 
-- **Coverage:** 9.09%
-- **Items:** 7/77
+- **Coverage:** 9.21%
+- **Items:** 7/76
 
 ## Missing Documentation
 
 ### Classes
 - `DateHelper`
-- `Calendar`
 
 ### Methods
 - `dayOfWeek`

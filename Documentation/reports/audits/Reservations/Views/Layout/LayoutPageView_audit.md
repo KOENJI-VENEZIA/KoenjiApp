@@ -2,16 +2,13 @@
 
 ## Summary
 
-- **Coverage:** 19.23%
-- **Items:** 15/78
+- **Coverage:** 20.00%
+- **Items:** 15/75
 
 ## Missing Documentation
 
 ### Classes
 - `LayoutPageView`
-- `LayoutPageView`
-- `LayoutPageView`
-- `Reservation`
 
 ### Methods
 - `contentWithOnChangeHandlers`

@@ -3,12 +3,9 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/60
+- **Items:** 0/59
 
 ## Missing Documentation
-
-### Classes
-- `ReservationService`
 
 ### Methods
 - `startReservationsListener`

@@ -3,14 +3,13 @@
 ## Summary
 
 - **Coverage:** 0.00%
-- **Items:** 0/19
+- **Items:** 0/18
 
 ## Missing Documentation
 
 ### Classes
 - `ZoomableScrollView`
 - `Coordinator`
-- `UIView`
 
 ### Methods
 - `makeUIView`
