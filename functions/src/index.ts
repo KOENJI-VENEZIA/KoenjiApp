@@ -247,6 +247,7 @@ async function sendReservationConfirmationEmail(
 
   // Get preferred language from reservation, default to English if not specified
   const language = reservation.preferredLanguage || 'en';
+  console.log(`Using language: ${language} for reservation ${reservationId}`);
 
   try {
     // Load template based on language - now async
@@ -265,13 +266,17 @@ async function sendReservationConfirmationEmail(
     // Render the template with data
     const emailHtml = renderEmailTemplate(template, templateData);
 
+    // Get the correct subject for this language and type
+    const emailSubject = getEmailSubject('confirmation', language);
+    console.log(`Email subject: "${emailSubject}" for language: ${language}`);
+
     // Create a transport each time we want to send an email
     const mailTransport = createMailTransport();
 
     await mailTransport.sendMail({
-      from: '"Your Restaurant" <your-restaurant-email@gmail.com>',
+      from: '"KOENJI. VENEZIA" <koenji.staff@gmail.com>',
       to: email,
-      subject: getEmailSubject('confirmation', language),
+      subject: emailSubject,
       html: emailHtml,
     });
 
@@ -286,22 +291,33 @@ async function sendReservationConfirmationEmail(
 // Helper function to get email subject in correct language
 function getEmailSubject(type: string, language: string): string {
   type EmailType = 'confirmation' | 'decline';
-  const subjects: Record<EmailType, Record<string, string>> = {
-    confirmation: {
-      en: "Your Reservation Has Been Confirmed",
-      it: "La Tua Prenotazione è Stata Confermata",
-      ja: "ご予約が確認されました"
-    },
-    decline: {
-      en: "Regarding Your Reservation Request",
-      it: "Riguardo la Tua Richiesta di Prenotazione",
-      ja: "ご予約のリクエストについて"
-    }
-  };
   
-  // Use type assertion to tell TypeScript what we're doing
-  const typeKey = type as EmailType;
-  return subjects[typeKey][language] || subjects[typeKey]['en'];
+  const emailType = type as EmailType;
+  
+  switch (emailType) {
+    case 'confirmation':
+      switch (language.toLowerCase()) {
+        case 'it':
+          return 'KOENJI. VENEZIA - Conferma di prenotazione';
+        case 'jp':
+          return 'KOENJI. VENEZIA - ご予約の確認';
+        case 'en':
+        default:
+          return 'KOENJI. VENEZIA - Confirmation of your reservation';
+      }
+    case 'decline':
+      switch (language.toLowerCase()) {
+        case 'it':
+          return 'KOENJI. VENEZIA - Aggiornamento sulla tua richiesta di prenotazione';
+        case 'jp':
+          return 'KOENJI. VENEZIA - ご予約リクエストについて';
+        case 'en':
+        default:
+          return 'KOENJI. VENEZIA - Information about your reservation request';
+      }
+    default:
+      return 'Koenji Restaurant';
+  }
 }
 
 // -------------------------------------------------------------------
@@ -662,70 +678,96 @@ function getTotalCapacity(): number {
   return tables.length * 2;
 }
 
-export const sendEmail = onCall(
-  {
-    secrets: [SECRET_EMAIL_USER, SECRET_CLIENT_ID, SECRET_CLIENT_SECRET, SECRET_REFRESH_TOKEN],
-  },
-  async (request) => {
-    try {
-      const { to, subject, action, reservation } = request.data;
-
-      if (!to || !subject || !reservation) {
-        throw new Error("Missing required parameters: to, subject, and reservation");
-      }
-
-      // Get preferred language from reservation, default to English
-      const language = reservation.preferredLanguage || 'en';
-
-      // Create mail transport at runtime using secrets
-      const mailTransport = createMailTransport();
-
-      // Generate HTML content based on action type
-      let htmlContent = "";
+// Update the sendEmail function to maintain original parameters but use localized subjects
+export const sendEmail = onCall({
+  secrets: [SECRET_EMAIL_USER, SECRET_CLIENT_ID, SECRET_CLIENT_SECRET, SECRET_REFRESH_TOKEN],
+}, async (request) => {
+  // Keep original parameter format
+  const { to, subject, action, reservation, language = 'en' } = request.data;
+  
+  console.log(`Sending email action: ${action}, language: ${language}`);
+  
+  if (!to || !action || !reservation || !reservation.id) {
+    throw new Error("Missing required parameters: to, action, and reservation with id are required");
+  }
+  
+  const reservationId = reservation.id;
+  
+  try {
+    // Get the full reservation data from Firestore
+    const reservationDoc = await admin.firestore().collection("reservations").doc(reservationId).get();
+    
+    if (!reservationDoc.exists) {
+      throw new Error(`Reservation ${reservationId} not found`);
+    }
+    
+    // Merge the data from Firestore with any data provided in the request
+    const fullReservation = {
+      ...reservationDoc.data(),
+      ...reservation,
+      // Ensure preferredLanguage is set
+      preferredLanguage: language || reservationDoc.data()?.preferredLanguage || 'en'
+    };
+    
+    // Update the reservation with the language if it's provided and different
+    const currentLanguage = reservationDoc.data()?.preferredLanguage;
+    if (language && language !== currentLanguage) {
+      await admin.firestore().collection("reservations").doc(reservationId).update({
+        preferredLanguage: language
+      });
+      console.log(`Updated reservation ${reservationId} with preferredLanguage: ${language}`);
+    }
+    
+    // Determine email type based on action
+    let result;
+    
+    if (action === 'confirm') {
+      // Use our specialized function for confirmation emails
+      result = await sendReservationConfirmationEmail(fullReservation, reservationId, to);
+    } else if (action === 'decline') {
+      // Use our specialized function for decline emails
+      const reason = request.data.reason || 'other';
+      result = await sendDeclineEmail(fullReservation, reservationId, reason, to);
+    } else {
+      // For other actions, use the provided subject but with the same email structure
+      console.log(`Using custom action: ${action} with provided subject: ${subject}`);
       
-      if (action === "decline") {
-        // Load and render decline template - now async
-        const template = await loadEmailTemplate('decline', language);
-        htmlContent = renderEmailTemplate(template, {
-          name: reservation.name,
-          date: reservation.date,
-          time: reservation.time,
-          people: reservation.people,
-          reason: getDeclineReasonText(reservation.reason, language),
-          followUpMessage: getFollowUpMessage(reservation.reason, language)
-        });
-      } else {
-        // Load and render confirmation template - now async
-        const template = await loadEmailTemplate('confirmation', language);
-        htmlContent = renderEmailTemplate(template, {
-          name: reservation.name,
-          date: reservation.date,
-          time: reservation.time,
-          people: reservation.people,
-          tables: reservation.tables || '',
-          id: reservation.id
-        });
-      }
-
-      // Send the email
+      // Load a generic template
+      const template = await loadEmailTemplate('generic', language);
+      
+      // Prepare data for template
+      const templateData = {
+        name: fullReservation.name,
+        date: fullReservation.dateString,
+        time: fullReservation.startTime,
+        people: fullReservation.numberOfPersons,
+        tables: fullReservation.tables ? fullReservation.tables.join(', ') : '',
+        message: request.data.message || '',
+      };
+      
+      // Render the template with data
+      const emailHtml = renderEmailTemplate(template, templateData);
+      
+      // Create a transport each time we want to send an email
+      const mailTransport = createMailTransport();
+      
       await mailTransport.sendMail({
-        from: '"KOENJI. VENEZIA" <your-restaurant-email@gmail.com>',
+        from: '"KOENJI. VENEZIA" <koenji.staff@gmail.com>',
         to: to,
         subject: subject,
-        html: htmlContent,
+        html: emailHtml,
       });
-
-      console.log(`Email (${action}) sent to ${to} for reservation ${reservation.id} in ${language}`);
-      return { success: true };
-    } catch (error) {
-      console.error("Error sending email:", error);
-      return { 
-        error: error instanceof Error ? error.message : "Unknown error",
-        success: false 
-      };
+      
+      console.log(`Custom email sent to ${to} for reservation ${reservationId}`);
+      result = { success: true };
     }
+    
+    return result;
+  } catch (error) {
+    console.error("Error in sendEmail function:", error);
+    throw new Error(error instanceof Error ? error.message : "Unknown error");
   }
-);
+});
 
 // Helper function to get the decline reason text
 function getDeclineReasonText(reason: string, language: string): string {
@@ -2547,5 +2589,74 @@ async function copyTemplateSheet(spreadsheetId: string, templateName: string, ne
   } catch (error) {
     console.error(`Error copying template sheet: ${error}`);
     throw error;
+  }
+}
+
+// Find the function that sends decline emails and update it to use getEmailSubject
+async function sendDeclineEmail(
+  reservation: any,
+  reservationId: string,
+  reason: string,
+  forcedEmail?: string
+) {
+  let email = forcedEmail || reservation.email;
+
+  // Extract email from notes if needed
+  if (!email && reservation.notes) {
+    const emailMatch = reservation.notes.match(/Email:\s*([^\s;]+)/);
+    if (emailMatch && emailMatch[1]) {
+      email = emailMatch[1];
+    }
+  }
+
+  if (!email) {
+    console.error(`No email found for reservation ${reservationId}`);
+    return { error: "No email found" };
+  }
+
+  // Get preferred language from reservation, default to English if not specified
+  const language = reservation.preferredLanguage || 'en';
+  console.log(`Using language: ${language} for decline email, reservation ${reservationId}`);
+
+  try {
+    // Load template based on language
+    const template = await loadEmailTemplate('decline', language);
+    
+    // Get the reason text in the correct language
+    const reasonText = getDeclineReasonText(reason, language);
+    const followUpMessage = getFollowUpMessage(reason, language);
+    
+    // Prepare data for template
+    const templateData = {
+      name: reservation.name,
+      date: reservation.dateString,
+      time: reservation.startTime,
+      people: reservation.numberOfPersons,
+      reason: reasonText,
+      followUpMessage: followUpMessage,
+    };
+    
+    // Render the template with data
+    const emailHtml = renderEmailTemplate(template, templateData);
+
+    // Get the correct subject for this language and type
+    const emailSubject = getEmailSubject('decline', language);
+    console.log(`Decline email subject: "${emailSubject}" for language: ${language}`);
+
+    // Create a transport each time we want to send an email
+    const mailTransport = createMailTransport();
+
+    await mailTransport.sendMail({
+      from: '"KOENJI. VENEZIA" <koenji.staff@gmail.com>',
+      to: email,
+      subject: emailSubject,
+      html: emailHtml,
+    });
+
+    console.log(`Decline email sent to ${email} for reservation ${reservationId} in ${language}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Error sending decline email:", error);
+    return { error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
