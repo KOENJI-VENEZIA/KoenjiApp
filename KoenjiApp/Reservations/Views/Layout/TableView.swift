@@ -1,6 +1,7 @@
 import EmojiPalette
 import SwiftUI
 import OSLog
+
 // MARK: - Drag State
 
 enum DragState: Equatable {
@@ -26,7 +27,6 @@ struct TableView: View {
     // MARK: Local State & Bindings
     @State var tableView: TableViewModel = TableViewModel()
     private let normalizedTimeCache = NormalizedTimeCache()
-
     let logger = Logger(subsystem: "com.koenjiapp", category: "TableView")
     let table: TableModel
     let clusters: [CachedCluster]
@@ -92,7 +92,6 @@ struct TableView: View {
         .gesture(combinedGestures)
         .onAppear {
             updateResData(appState.selectedDate, refreshedKey: "onAppear", forceUpdate: true)
-
         }
         .onChange(of: unitView.showInspector) {
             updateResData(appState.selectedDate, refreshedKey: "showInspector")
