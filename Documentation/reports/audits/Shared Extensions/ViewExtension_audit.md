@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 11.27%
-- **Items:** 8/71
+- **Coverage:** 21.13%
+- **Items:** 15/71
 
 ## Missing Documentation
 
@@ -42,18 +42,11 @@
 - `translucent`
 - `body`
 - `body`
-- `body`
 - `forceTransparentNavigationBar`
 
 ### Properties
 - `blurStyle`
-- `hex`
-- `int`
 - `a`
-- `colorScheme`
-- `colorScheme`
-- `lightColor`
-- `darkColor`
 - `grid_background_dinner`
 - `background_lunch`
 - `background_dinner`

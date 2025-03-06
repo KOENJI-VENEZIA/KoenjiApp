@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 4.65%
-- **Items:** 6/129
+- **Coverage:** 10.85%
+- **Items:** 14/129
 
 ## Missing Documentation
 
@@ -58,15 +58,12 @@
 - `lastSavedKey`
 - `isUpdatingLayout`
 - `key`
-- `formattedDateTime`
-- `fullKey`
 - `tables`
 - `fallbackKey`
 - `fallbackTables`
 - `formattedDate`
 - `allKeys`
 - `sortedKeys`
-- `fullKey`
 - `encoder`
 - `data`
 - `category`
@@ -79,9 +76,6 @@
 - `data`
 - `decoded`
 - `layoutCount`
-- `reservationDate`
-- `reservationStart`
-- `reservationEnd`
 - `layoutKey`
 - `tables`
 - `tableID`
@@ -101,8 +95,6 @@
 - `key`
 - `sortedTables`
 - `components`
-- `table1Rect`
-- `table2Rect`
 - `maxRow`
 - `maxCol`
 - `clampedRow`

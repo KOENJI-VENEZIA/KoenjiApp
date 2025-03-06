@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 11.63%
-- **Items:** 15/129
+- **Coverage:** 23.26%
+- **Items:** 30/129
 
 ## Missing Documentation
 
@@ -17,7 +17,6 @@
 ### Methods
 - `initializeRowAssignments`
 - `dragOverlay`
-- `contentView`
 - `timelineScrollView`
 - `currentTimeScrubber`
 - `timeScrubberLine`
@@ -59,22 +58,8 @@
 - `xPosition`
 - `isVisible`
 - `tableID`
-- `totalMinutes`
-- `currentHour`
-- `currentMinute`
-- `tableID`
 - `sourceTableID`
 - `destTableID`
-- `tableIds`
-- `tableReservations`
-- `startDate`
-- `categoryStartTime`
-- `categoryDate`
-- `combinedCategoryDate`
-- `paddingTime`
-- `totalMinutes`
-- `duration`
-- `minutes`
 - `xPosition`
 - `calendar`
 - `timeComponents`

@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Timeline/T
 # Documentation Suggestions for TimelineGantView.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Timeline/TimelineGantView.swift
-Total suggestions: 114
+Total suggestions: 99
 
 ## Class Documentation (5)
 
@@ -116,7 +116,7 @@ struct RectangleReservationBackground: View {
 /// [Add a description of what this class does and its responsibilities]
 ```
 
-## Method Documentation (10)
+## Method Documentation (9)
 
 ### initializeRowAssignments (Line 124)
 
@@ -160,30 +160,6 @@ extension TimelineGantView {
 
 ```swift
 /// [Add a description of what the dragOverlay method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### contentView (Line 187)
-
-**Context:**
-
-```swift
-    
-    /// The main content view containing the table headers and scrollable timeline.
-    @ViewBuilder
-    private func contentView() -> some View {
-        Group {
-            if UIDevice.current.userInterfaceIdiom == .phone && verticalSizeClass == .compact {
-                ScrollView(.vertical) {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the contentView method does]
 ///
 /// - Parameters:
 ///   - [parameter]: [Description of parameter]
@@ -358,7 +334,7 @@ extension TimelineGantView {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (99)
+## Property Documentation (85)
 
 ### env (Line 14)
 
@@ -1000,86 +976,6 @@ extension TimelineGantView {
 /// [Description of the tableID property]
 ```
 
-### totalMinutes (Line 311)
-
-**Context:**
-
-```swift
-    private func timeMarkersRow() -> some View {
-        HStack(spacing: 0) {
-            ForEach(0..<totalColumns, id: \.self) { columnIndex in
-                let totalMinutes = columnIndex * 15
-                let currentHour = startHour + (totalMinutes / 60)
-                let currentMinute = totalMinutes % 60
-                Text(String(format: "%02d:%02d", currentHour, currentMinute))
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the totalMinutes property]
-```
-
-### currentHour (Line 312)
-
-**Context:**
-
-```swift
-        HStack(spacing: 0) {
-            ForEach(0..<totalColumns, id: \.self) { columnIndex in
-                let totalMinutes = columnIndex * 15
-                let currentHour = startHour + (totalMinutes / 60)
-                let currentMinute = totalMinutes % 60
-                Text(String(format: "%02d:%02d", currentHour, currentMinute))
-                    .frame(width: cellSize)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the currentHour property]
-```
-
-### currentMinute (Line 313)
-
-**Context:**
-
-```swift
-            ForEach(0..<totalColumns, id: \.self) { columnIndex in
-                let totalMinutes = columnIndex * 15
-                let currentHour = startHour + (totalMinutes / 60)
-                let currentMinute = totalMinutes % 60
-                Text(String(format: "%02d:%02d", currentHour, currentMinute))
-                    .frame(width: cellSize)
-            }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the currentMinute property]
-```
-
-### tableID (Line 323)
-
-**Context:**
-
-```swift
-    /// Displays the reservations for each table, based on the current ordering.
-    private func reservationsRows() -> some View {
-        ForEach(0..<tables, id: \.self) { rowIndex in
-            let tableID = tableIdForRow(rowIndex)
-            DraggableReservationRow(
-                tableID: tableID,
-                rowIndex: rowIndex,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the tableID property]
-```
-
 ### sourceTableID (Line 365)
 
 **Context:**
@@ -1118,206 +1014,6 @@ extension TimelineGantView {
 
 ```swift
 /// [Description of the destTableID property]
-```
-
-### tableIds (Line 382)
-
-**Context:**
-
-```swift
-            TimelineGantView.logger.info("Table ID: \(table)")
-            // Convert integers to strings before joining
-            TimelineGantView.logger.info("Reservation tables: \(reservation.tables)")
-            let tableIds = reservation.tables.map { String($0.id) }.joined(separator: ", ")
-            TimelineGantView.logger.info("Reservation tables id: \(tableIds)")
-            TimelineGantView.logger.info("Is there a match? \(reservation.tables.contains { $0.id == table })")
-            TimelineGantView.logger.info("Reservations count: \(reservations.count)")
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the tableIds property]
-```
-
-### tableReservations (Line 393)
-
-**Context:**
-
-```swift
-    /// Logs reservations for each table.
-    private func logReservationsPerTable() {
-        for table in 0..<tables {
-            let tableReservations = reservations.filter { reservation in
-                reservation.tables.contains { $0.id == (table + 1) }
-            }
-            for res in tableReservations {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the tableReservations property]
-```
-
-### startDate (Line 404)
-
-**Context:**
-
-```swift
-    
-    /// Calculates the left padding (in points) for a reservation view on a specific table.
-    private func calculatePadding(for reservation: Reservation, _ table: Int) -> CGFloat {
-        let startDate = reservation.startTimeDate ?? Date()
-        let categoryStartTime: String = {
-            switch appState.selectedCategory {
-            case .lunch:  return "12:00"
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the startDate property]
-```
-
-### categoryStartTime (Line 405)
-
-**Context:**
-
-```swift
-    /// Calculates the left padding (in points) for a reservation view on a specific table.
-    private func calculatePadding(for reservation: Reservation, _ table: Int) -> CGFloat {
-        let startDate = reservation.startTimeDate ?? Date()
-        let categoryStartTime: String = {
-            switch appState.selectedCategory {
-            case .lunch:  return "12:00"
-            case .dinner: return "18:00"
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the categoryStartTime property]
-```
-
-### categoryDate (Line 412)
-
-**Context:**
-
-```swift
-            default:      return "15:01"
-            }
-        }()
-        let categoryDate = DateHelper.parseTime(categoryStartTime) ?? Date()
-        let combinedCategoryDate = DateHelper.combine(date: appState.selectedDate, time: categoryDate)
-        let paddingTime = startDate.timeIntervalSince(combinedCategoryDate)  // in seconds
-        let totalMinutes = paddingTime / 60.0
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the categoryDate property]
-```
-
-### combinedCategoryDate (Line 413)
-
-**Context:**
-
-```swift
-            }
-        }()
-        let categoryDate = DateHelper.parseTime(categoryStartTime) ?? Date()
-        let combinedCategoryDate = DateHelper.combine(date: appState.selectedDate, time: categoryDate)
-        let paddingTime = startDate.timeIntervalSince(combinedCategoryDate)  // in seconds
-        let totalMinutes = paddingTime / 60.0
-        return totalMinutes <= 0 ? (cellSize / 2.0) : ((CGFloat(totalMinutes) / 15.0) * cellSize) + (cellSize / 2.0)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the combinedCategoryDate property]
-```
-
-### paddingTime (Line 414)
-
-**Context:**
-
-```swift
-        }()
-        let categoryDate = DateHelper.parseTime(categoryStartTime) ?? Date()
-        let combinedCategoryDate = DateHelper.combine(date: appState.selectedDate, time: categoryDate)
-        let paddingTime = startDate.timeIntervalSince(combinedCategoryDate)  // in seconds
-        let totalMinutes = paddingTime / 60.0
-        return totalMinutes <= 0 ? (cellSize / 2.0) : ((CGFloat(totalMinutes) / 15.0) * cellSize) + (cellSize / 2.0)
-    }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the paddingTime property]
-```
-
-### totalMinutes (Line 415)
-
-**Context:**
-
-```swift
-        let categoryDate = DateHelper.parseTime(categoryStartTime) ?? Date()
-        let combinedCategoryDate = DateHelper.combine(date: appState.selectedDate, time: categoryDate)
-        let paddingTime = startDate.timeIntervalSince(combinedCategoryDate)  // in seconds
-        let totalMinutes = paddingTime / 60.0
-        return totalMinutes <= 0 ? (cellSize / 2.0) : ((CGFloat(totalMinutes) / 15.0) * cellSize) + (cellSize / 2.0)
-    }
-    
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the totalMinutes property]
-```
-
-### duration (Line 421)
-
-**Context:**
-
-```swift
-    
-    /// Calculates the width (in points) for a reservation view based on its duration.
-    private func calculateWidth(for reservation: Reservation) -> CGFloat {
-        let duration = reservation.endTimeDate?.timeIntervalSince(reservation.startTimeDate ?? Date()) ?? 0.0
-        let minutes = duration / 60.0
-        return CGFloat(minutes / 15.0) * cellSize
-    }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the duration property]
-```
-
-### minutes (Line 422)
-
-**Context:**
-
-```swift
-    /// Calculates the width (in points) for a reservation view based on its duration.
-    private func calculateWidth(for reservation: Reservation) -> CGFloat {
-        let duration = reservation.endTimeDate?.timeIntervalSince(reservation.startTimeDate ?? Date()) ?? 0.0
-        let minutes = duration / 60.0
-        return CGFloat(minutes / 15.0) * cellSize
-    }
-    
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the minutes property]
 ```
 
 ### xPosition (Line 435)
@@ -2341,5 +2037,5 @@ struct RectangleReservationBackground: View {
 ```
 
 
-Total documentation suggestions: 114
+Total documentation suggestions: 99
 

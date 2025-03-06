@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 0.00%
-- **Items:** 0/60
+- **Coverage:** 1.67%
+- **Items:** 1/60
 
 ## Missing Documentation
 
@@ -15,7 +15,6 @@
 - `handleNewWebReservation`
 - `convertDictionaryToWebReservation`
 - `approveWebReservation`
-- `declineWebReservation`
 
 ### Properties
 - `dbRef`

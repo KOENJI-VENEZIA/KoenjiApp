@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 2.94%
-- **Items:** 1/34
+- **Coverage:** 5.88%
+- **Items:** 2/34
 
 ## Missing Documentation
 
@@ -19,7 +19,6 @@
 - `encode`
 
 ### Properties
-- `logger`
 - `id`
 - `name`
 - `maxCapacity`

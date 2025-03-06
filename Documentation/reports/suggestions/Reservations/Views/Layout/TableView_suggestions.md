@@ -2,16 +2,16 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Layout/Tab
 # Documentation Suggestions for TableView.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Layout/TableView.swift
-Total suggestions: 105
+Total suggestions: 103
 
 ## Class Documentation (5)
 
-### DragState (Line 6)
+### DragState (Line 7)
 
 **Context:**
 
 ```swift
-import OSLog
+
 // MARK: - Drag State
 
 enum DragState: Equatable {
@@ -28,7 +28,7 @@ enum DragState: Equatable {
 /// [Add a description of what this class does and its responsibilities]
 ```
 
-### TableView (Line 14)
+### TableView (Line 15)
 
 **Context:**
 
@@ -50,7 +50,7 @@ struct TableView: View {
 /// [Add a description of what this view does and its responsibilities]
 ```
 
-### TableView (Line 163)
+### TableView (Line 162)
 
 **Context:**
 
@@ -72,7 +72,7 @@ extension TableView {
 /// [Add a description of what this view does and its responsibilities]
 ```
 
-### TableView (Line 502)
+### TableView (Line 501)
 
 **Context:**
 
@@ -94,7 +94,7 @@ extension TableView {
 /// [Add a description of what this view does and its responsibilities]
 ```
 
-### TableView (Line 564)
+### TableView (Line 563)
 
 **Context:**
 
@@ -116,33 +116,9 @@ extension TableView {
 /// [Add a description of what this view does and its responsibilities]
 ```
 
-## Method Documentation (24)
+## Method Documentation (23)
 
-### overlayMarksAndText (Line 281)
-
-**Context:**
-
-```swift
-
-    /// Overlays for marks (e.g., checkmark, emoji, late, near-end) and the reservation info/text.
-    @ViewBuilder
-    private func overlayMarksAndText() -> some View {
-        ZStack {
-            Group {
-                showedUpMark()
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the overlayMarksAndText method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### showedUpMark (Line 334)
+### showedUpMark (Line 333)
 
 **Context:**
 
@@ -166,7 +142,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### emojiMark (Line 344)
+### emojiMark (Line 343)
 
 **Context:**
 
@@ -190,7 +166,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### nearEndMark (Line 352)
+### nearEndMark (Line 351)
 
 **Context:**
 
@@ -214,7 +190,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### lateMark (Line 363)
+### lateMark (Line 362)
 
 **Context:**
 
@@ -238,7 +214,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### reservationInfo (Line 376)
+### reservationInfo (Line 375)
 
 **Context:**
 
@@ -262,7 +238,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### upcomingReservationPlaceholder (Line 442)
+### upcomingReservationPlaceholder (Line 441)
 
 **Context:**
 
@@ -286,7 +262,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### tableName (Line 481)
+### tableName (Line 480)
 
 **Context:**
 
@@ -310,7 +286,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### tapGesture (Line 510)
+### tapGesture (Line 509)
 
 **Context:**
 
@@ -334,7 +310,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### doubleTapGesture (Line 524)
+### doubleTapGesture (Line 523)
 
 **Context:**
 
@@ -358,7 +334,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### dragGesture (Line 536)
+### dragGesture (Line 535)
 
 **Context:**
 
@@ -382,7 +358,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### updateTableVisibility (Line 565)
+### updateTableVisibility (Line 564)
 
 **Context:**
 
@@ -406,7 +382,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### updateResData (Line 582)
+### updateResData (Line 581)
 
 **Context:**
 
@@ -430,7 +406,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### updateRemainingTime (Line 631)
+### updateRemainingTime (Line 630)
 
 **Context:**
 
@@ -454,7 +430,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### updateCachedReservation (Line 658)
+### updateCachedReservation (Line 657)
 
 **Context:**
 
@@ -478,7 +454,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### updateLateReservation (Line 672)
+### updateLateReservation (Line 671)
 
 **Context:**
 
@@ -502,7 +478,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### updateNearEndReservation (Line 694)
+### updateNearEndReservation (Line 693)
 
 **Context:**
 
@@ -526,7 +502,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### updateFirstUpcoming (Line 706)
+### updateFirstUpcoming (Line 705)
 
 **Context:**
 
@@ -550,7 +526,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### handleCancelled (Line 726)
+### handleCancelled (Line 725)
 
 **Context:**
 
@@ -574,7 +550,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### handleEmojiAssignment (Line 748)
+### handleEmojiAssignment (Line 747)
 
 **Context:**
 
@@ -598,7 +574,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### handleTap (Line 770)
+### handleTap (Line 769)
 
 **Context:**
 
@@ -622,7 +598,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### handleDoubleTap (Line 815)
+### handleDoubleTap (Line 814)
 
 **Context:**
 
@@ -646,7 +622,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### handleDragEnd (Line 826)
+### handleDragEnd (Line 825)
 
 **Context:**
 
@@ -670,7 +646,7 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-### debounce (Line 896)
+### debounce (Line 895)
 
 **Context:**
 
@@ -694,9 +670,9 @@ extension TableView {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (76)
+## Property Documentation (75)
 
-### env (Line 16)
+### env (Line 17)
 
 **Context:**
 
@@ -716,7 +692,7 @@ struct TableView: View {
 /// [Description of the env property]
 ```
 
-### appState (Line 17)
+### appState (Line 18)
 
 **Context:**
 
@@ -736,7 +712,7 @@ struct TableView: View {
 /// [Description of the appState property]
 ```
 
-### notifsManager (Line 19)
+### notifsManager (Line 20)
 
 **Context:**
 
@@ -756,7 +732,7 @@ struct TableView: View {
 /// [Description of the notifsManager property]
 ```
 
-### layoutUI (Line 21)
+### layoutUI (Line 22)
 
 **Context:**
 
@@ -776,7 +752,7 @@ struct TableView: View {
 /// [Description of the layoutUI property]
 ```
 
-### unitView (Line 22)
+### unitView (Line 23)
 
 **Context:**
 
@@ -796,7 +772,7 @@ struct TableView: View {
 /// [Description of the unitView property]
 ```
 
-### colorScheme (Line 23)
+### colorScheme (Line 24)
 
 **Context:**
 
@@ -816,7 +792,7 @@ struct TableView: View {
 /// [Description of the colorScheme property]
 ```
 
-### clusterManager (Line 24)
+### clusterManager (Line 25)
 
 **Context:**
 
@@ -836,7 +812,7 @@ struct TableView: View {
 /// [Description of the clusterManager property]
 ```
 
-### tableView (Line 27)
+### tableView (Line 28)
 
 **Context:**
 
@@ -846,8 +822,8 @@ struct TableView: View {
     // MARK: Local State & Bindings
     @State var tableView: TableViewModel = TableViewModel()
     private let normalizedTimeCache = NormalizedTimeCache()
-
     let logger = Logger(subsystem: "com.koenjiapp", category: "TableView")
+    let table: TableModel
 ```
 
 **Suggested Documentation:**
@@ -856,7 +832,7 @@ struct TableView: View {
 /// [Description of the tableView property]
 ```
 
-### normalizedTimeCache (Line 28)
+### normalizedTimeCache (Line 29)
 
 **Context:**
 
@@ -865,9 +841,9 @@ struct TableView: View {
     // MARK: Local State & Bindings
     @State var tableView: TableViewModel = TableViewModel()
     private let normalizedTimeCache = NormalizedTimeCache()
-
     let logger = Logger(subsystem: "com.koenjiapp", category: "TableView")
     let table: TableModel
+    let clusters: [CachedCluster]
 ```
 
 **Suggested Documentation:**
@@ -881,9 +857,9 @@ struct TableView: View {
 **Context:**
 
 ```swift
+    // MARK: Local State & Bindings
     @State var tableView: TableViewModel = TableViewModel()
     private let normalizedTimeCache = NormalizedTimeCache()
-
     let logger = Logger(subsystem: "com.koenjiapp", category: "TableView")
     let table: TableModel
     let clusters: [CachedCluster]
@@ -901,8 +877,8 @@ struct TableView: View {
 **Context:**
 
 ```swift
+    @State var tableView: TableViewModel = TableViewModel()
     private let normalizedTimeCache = NormalizedTimeCache()
-
     let logger = Logger(subsystem: "com.koenjiapp", category: "TableView")
     let table: TableModel
     let clusters: [CachedCluster]
@@ -921,7 +897,7 @@ struct TableView: View {
 **Context:**
 
 ```swift
-
+    private let normalizedTimeCache = NormalizedTimeCache()
     let logger = Logger(subsystem: "com.koenjiapp", category: "TableView")
     let table: TableModel
     let clusters: [CachedCluster]
@@ -1396,7 +1372,7 @@ struct TableView: View {
 /// [Description of the activeRes property]
 ```
 
-### reservations (Line 107)
+### reservations (Line 106)
 
 **Context:**
 
@@ -1416,7 +1392,7 @@ struct TableView: View {
 /// [Description of the reservations property]
 ```
 
-### reservations (Line 139)
+### reservations (Line 138)
 
 **Context:**
 
@@ -1436,7 +1412,7 @@ struct TableView: View {
 /// [Description of the reservations property]
 ```
 
-### reservation (Line 209)
+### reservation (Line 208)
 
 **Context:**
 
@@ -1456,7 +1432,7 @@ struct TableView: View {
 /// [Description of the reservation property]
 ```
 
-### strokeOverlay (Line 229)
+### strokeOverlay (Line 228)
 
 **Context:**
 
@@ -1476,7 +1452,7 @@ struct TableView: View {
 /// [Description of the strokeOverlay property]
 ```
 
-### reservation (Line 233)
+### reservation (Line 232)
 
 **Context:**
 
@@ -1496,7 +1472,7 @@ struct TableView: View {
 /// [Description of the reservation property]
 ```
 
-### reservation (Line 379)
+### reservation (Line 378)
 
 **Context:**
 
@@ -1516,7 +1492,7 @@ struct TableView: View {
 /// [Description of the reservation property]
 ```
 
-### remaining (Line 395)
+### remaining (Line 394)
 
 **Context:**
 
@@ -1536,7 +1512,7 @@ struct TableView: View {
 /// [Description of the remaining property]
 ```
 
-### reservation (Line 445)
+### reservation (Line 444)
 
 **Context:**
 
@@ -1556,7 +1532,7 @@ struct TableView: View {
 /// [Description of the reservation property]
 ```
 
-### upcomingTime (Line 461)
+### upcomingTime (Line 460)
 
 **Context:**
 
@@ -1576,7 +1552,7 @@ struct TableView: View {
 /// [Description of the upcomingTime property]
 ```
 
-### combinedGestures (Line 503)
+### combinedGestures (Line 502)
 
 **Context:**
 
@@ -1596,7 +1572,7 @@ extension TableView {
 /// [Description of the combinedGestures property]
 ```
 
-### reservation (Line 515)
+### reservation (Line 514)
 
 **Context:**
 
@@ -1616,7 +1592,7 @@ extension TableView {
 /// [Description of the reservation property]
 ```
 
-### now (Line 584)
+### now (Line 583)
 
 **Context:**
 
@@ -1636,7 +1612,7 @@ extension TableView {
 /// [Description of the now property]
 ```
 
-### formatter (Line 591)
+### formatter (Line 590)
 
 **Context:**
 
@@ -1656,7 +1632,7 @@ extension TableView {
 /// [Description of the formatter property]
 ```
 
-### formattedDate (Line 595)
+### formattedDate (Line 594)
 
 **Context:**
 
@@ -1676,7 +1652,7 @@ extension TableView {
 /// [Description of the formattedDate property]
 ```
 
-### key (Line 596)
+### key (Line 595)
 
 **Context:**
 
@@ -1696,7 +1672,7 @@ extension TableView {
 /// [Description of the key property]
 ```
 
-### reservations (Line 604)
+### reservations (Line 603)
 
 **Context:**
 
@@ -1716,7 +1692,7 @@ extension TableView {
 /// [Description of the reservations property]
 ```
 
-### reservationEnd (Line 637)
+### reservationEnd (Line 636)
 
 **Context:**
 
@@ -1736,7 +1712,7 @@ extension TableView {
 /// [Description of the reservationEnd property]
 ```
 
-### timeRemaining (Line 638)
+### timeRemaining (Line 637)
 
 **Context:**
 
@@ -1756,7 +1732,7 @@ extension TableView {
 /// [Description of the timeRemaining property]
 ```
 
-### reservation (Line 640)
+### reservation (Line 639)
 
 **Context:**
 
@@ -1776,7 +1752,7 @@ extension TableView {
 /// [Description of the reservation property]
 ```
 
-### reservation (Line 659)
+### reservation (Line 658)
 
 **Context:**
 
@@ -1796,7 +1772,7 @@ extension TableView {
 /// [Description of the reservation property]
 ```
 
-### reservation (Line 673)
+### reservation (Line 672)
 
 **Context:**
 
@@ -1816,7 +1792,7 @@ extension TableView {
 /// [Description of the reservation property]
 ```
 
-### reservation (Line 695)
+### reservation (Line 694)
 
 **Context:**
 
@@ -1836,7 +1812,7 @@ extension TableView {
 /// [Description of the reservation property]
 ```
 
-### tableID (Line 707)
+### tableID (Line 706)
 
 **Context:**
 
@@ -1856,7 +1832,7 @@ extension TableView {
 /// [Description of the tableID property]
 ```
 
-### category (Line 708)
+### category (Line 707)
 
 **Context:**
 
@@ -1876,7 +1852,7 @@ extension TableView {
 /// [Description of the category property]
 ```
 
-### reservation (Line 712)
+### reservation (Line 711)
 
 **Context:**
 
@@ -1896,7 +1872,7 @@ extension TableView {
 /// [Description of the reservation property]
 ```
 
-### updatedReservation (Line 727)
+### updatedReservation (Line 726)
 
 **Context:**
 
@@ -1916,7 +1892,7 @@ extension TableView {
 /// [Description of the updatedReservation property]
 ```
 
-### reservationActive (Line 749)
+### reservationActive (Line 748)
 
 **Context:**
 
@@ -1936,7 +1912,7 @@ extension TableView {
 /// [Description of the reservationActive property]
 ```
 
-### currentReservation (Line 771)
+### currentReservation (Line 770)
 
 **Context:**
 
@@ -1956,7 +1932,7 @@ extension TableView {
 /// [Description of the currentReservation property]
 ```
 
-### reservation (Line 816)
+### reservation (Line 815)
 
 **Context:**
 
@@ -1976,7 +1952,7 @@ extension TableView {
 /// [Description of the reservation property]
 ```
 
-### deltaCols (Line 836)
+### deltaCols (Line 835)
 
 **Context:**
 
@@ -1996,7 +1972,7 @@ extension TableView {
 /// [Description of the deltaCols property]
 ```
 
-### deltaRows (Line 837)
+### deltaRows (Line 836)
 
 **Context:**
 
@@ -2016,7 +1992,7 @@ extension TableView {
 /// [Description of the deltaRows property]
 ```
 
-### newRow (Line 839)
+### newRow (Line 838)
 
 **Context:**
 
@@ -2036,7 +2012,7 @@ extension TableView {
 /// [Description of the newRow property]
 ```
 
-### newCol (Line 840)
+### newCol (Line 839)
 
 **Context:**
 
@@ -2056,7 +2032,7 @@ extension TableView {
 /// [Description of the newCol property]
 ```
 
-### proposedFrame (Line 842)
+### proposedFrame (Line 841)
 
 **Context:**
 
@@ -2076,7 +2052,7 @@ extension TableView {
 /// [Description of the proposedFrame property]
 ```
 
-### updatedTable (Line 867)
+### updatedTable (Line 866)
 
 **Context:**
 
@@ -2096,7 +2072,7 @@ extension TableView {
 /// [Description of the updatedTable property]
 ```
 
-### combinedDate (Line 872)
+### combinedDate (Line 871)
 
 **Context:**
 
@@ -2116,7 +2092,7 @@ extension TableView {
 /// [Description of the combinedDate property]
 ```
 
-### updatedLayout (Line 874)
+### updatedLayout (Line 873)
 
 **Context:**
 
@@ -2136,7 +2112,7 @@ extension TableView {
 /// [Description of the updatedLayout property]
 ```
 
-### reservation (Line 883)
+### reservation (Line 882)
 
 **Context:**
 
@@ -2156,7 +2132,7 @@ extension TableView {
 /// [Description of the reservation property]
 ```
 
-### layoutKey (Line 886)
+### layoutKey (Line 885)
 
 **Context:**
 
@@ -2176,7 +2152,7 @@ extension TableView {
 /// [Description of the layoutKey property]
 ```
 
-### newWorkItem (Line 898)
+### newWorkItem (Line 897)
 
 **Context:**
 
@@ -2196,26 +2172,6 @@ extension TableView {
 /// [Description of the newWorkItem property]
 ```
 
-### newWorkItem (Line 906)
 
-**Context:**
-
-```swift
-    /// A debounce helper for async actions with error handling.
-    private func debounceAsync(action: @escaping () async throws -> Void, delay: TimeInterval = 0.1) {
-        tableView.debounceWorkItem?.cancel()
-        let newWorkItem = DispatchWorkItem {
-            Task {
-                do {
-                    try await action()
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the newWorkItem property]
-```
-
-
-Total documentation suggestions: 105
+Total documentation suggestions: 103
 

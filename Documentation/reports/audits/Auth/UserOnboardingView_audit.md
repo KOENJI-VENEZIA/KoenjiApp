@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 2.33%
-- **Items:** 1/43
+- **Coverage:** 6.98%
+- **Items:** 3/43
 
 ## Missing Documentation
 
@@ -46,8 +46,6 @@
 - `updatedSession`
 - `session`
 - `isFormValid`
-- `trimmedFirstName`
-- `trimmedLastName`
 - `initialLetter`
 - `displayName`
 - `fullName`

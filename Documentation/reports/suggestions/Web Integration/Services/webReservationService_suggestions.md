@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Web Integration/Services/webR
 # Documentation Suggestions for webReservationService.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Web Integration/Services/webReservationService.swift
-Total suggestions: 60
+Total suggestions: 59
 
 ## Class Documentation (1)
 
@@ -28,7 +28,7 @@ extension ReservationService {
 /// [Add a description of what this service does and its responsibilities]
 ```
 
-## Method Documentation (5)
+## Method Documentation (4)
 
 ### startWebReservationListener (Line 18)
 
@@ -120,30 +120,6 @@ extension ReservationService {
 
 ```swift
 /// [Add a description of what the approveWebReservation method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### declineWebReservation (Line 201)
-
-**Context:**
-
-```swift
-    
-    /// Decline a web reservation and update its status
-    @MainActor
-    func declineWebReservation(_ reservation: Reservation, reason: WebReservationDeclineReason, customNotes: String? = nil) async -> Bool {
-        logger.debug("Called declineWebReservation with reason: \(reason.rawValue)")
-        
-        // 1. Create a new reservation with the updated details
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the declineWebReservation method does]
 ///
 /// - Parameters:
 ///   - [parameter]: [Description of parameter]
@@ -1233,5 +1209,5 @@ extension ReservationService {
 ```
 
 
-Total documentation suggestions: 60
+Total documentation suggestions: 59
 

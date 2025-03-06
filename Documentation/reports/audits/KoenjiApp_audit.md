@@ -4,8 +4,8 @@
 
 - **Files analyzed:** 117
 - **Total items:** 3867
-- **Documented items:** 165
-- **Overall coverage:** 4.27%
+- **Documented items:** 433
+- **Overall coverage:** 11.20%
 
 ## Files by Coverage (Lowest to Highest)
 
@@ -261,10 +261,6 @@
 - Coverage: 0.00%
 - Items: 0/14
 
-### Previews/LayoutViewPreview.swift
-- Coverage: 0.00%
-- Items: 0/12
-
 ### Web Integration/webReservationExtensions.swift
 - Coverage: 0.00%
 - Items: 0/39
@@ -288,10 +284,6 @@
 ### Web Integration/Services/emailService.swift
 - Coverage: 0.00%
 - Items: 0/51
-
-### Web Integration/Services/webReservationService.swift
-- Coverage: 0.00%
-- Items: 0/60
 
 ### Shared Views/Helper Views/SessionsView.swift
 - Coverage: 0.00%
@@ -357,122 +349,130 @@
 - Coverage: 0.00%
 - Items: 0/69
 
-### Reservations/Views/Detail Views/ReservationCancelledView.swift
-- Coverage: 1.52%
-- Items: 1/66
-
-### Reservations/Views/Detail Views/ReservationWaitingListView.swift
-- Coverage: 1.56%
-- Items: 1/64
-
-### Reservations/ViewModels/ClusterManager.swift
-- Coverage: 2.04%
-- Items: 1/49
-
-### Auth/UserOnboardingView.swift
-- Coverage: 2.33%
-- Items: 1/43
-
-### Shared Helpers/DateHelper.swift
-- Coverage: 2.60%
-- Items: 2/77
+### Web Integration/Services/webReservationService.swift
+- Coverage: 1.67%
+- Items: 1/60
 
 ### Reservations/Views/Layout/TableView.swift
-- Coverage: 2.78%
-- Items: 3/108
+- Coverage: 4.63%
+- Items: 5/108
 
 ### Reservations/Models/TableModel.swift
-- Coverage: 2.94%
-- Items: 1/34
+- Coverage: 5.88%
+- Items: 2/34
+
+### Auth/UserOnboardingView.swift
+- Coverage: 6.98%
+- Items: 3/43
+
+### Reservations/ViewModels/ClusterManager.swift
+- Coverage: 8.16%
+- Items: 4/49
 
 ### Reservations/Models/Reservation.swift
-- Coverage: 3.70%
-- Items: 4/108
+- Coverage: 8.33%
+- Items: 9/108
 
-### Shared Services/Notification Service/AppNotification.swift
-- Coverage: 4.00%
-- Items: 1/25
-
-### Reservations/Services/LayoutServices.swift
-- Coverage: 4.65%
-- Items: 6/129
+### Shared Helpers/DateHelper.swift
+- Coverage: 9.09%
+- Items: 7/77
 
 ### Shared Helpers/TimeHelpers.swift
-- Coverage: 5.26%
-- Items: 2/38
+- Coverage: 10.53%
+- Items: 4/38
 
-### App Database/SQLiteManager.swift
-- Coverage: 6.15%
-- Items: 4/65
+### Reservations/Services/LayoutServices.swift
+- Coverage: 10.85%
+- Items: 14/129
 
 ### Reservations/Views/Database/Components/Filters/OtherFiltersTag.swift
-- Coverage: 6.25%
-- Items: 1/16
-
-### Reservations/Extensions/TagStyle.swift
-- Coverage: 7.69%
-- Items: 1/13
+- Coverage: 12.50%
+- Items: 2/16
 
 ### Reservations/Views/Database/DatabaseView.swift
-- Coverage: 8.13%
-- Items: 10/123
-
-### Shared Models/Notification.swift
-- Coverage: 10.00%
-- Items: 1/10
-
-### Shared Helpers/webReservationNotificationHandler.swift
-- Coverage: 10.00%
-- Items: 4/40
-
-### Reservations/Views/Database/Components/Filters/ReservationStateFilter.swift
-- Coverage: 11.11%
-- Items: 1/9
-
-### Shared Extensions/ViewExtension.swift
-- Coverage: 11.27%
-- Items: 8/71
-
-### Reservations/Caching/CurrentReservationsCache.swift
-- Coverage: 11.38%
-- Items: 14/123
-
-### Reservations/Views/Timeline/TimelineGantView.swift
-- Coverage: 11.63%
-- Items: 15/129
-
-### Reservations/Views/Database/Components/Filters/GroupOptionTag.swift
-- Coverage: 12.50%
-- Items: 1/8
-
-### Reservations/Services/ReservationServices.swift
-- Coverage: 13.08%
-- Items: 34/260
+- Coverage: 13.01%
+- Items: 16/123
 
 ### Reservations/Views/Layout/LayoutPageView.swift
-- Coverage: 14.10%
-- Items: 11/78
+- Coverage: 19.23%
+- Items: 15/78
 
-### Reservations/Views/Database/Components/Filters/SortOptionTag.swift
-- Coverage: 14.29%
-- Items: 1/7
+### Shared Extensions/ViewExtension.swift
+- Coverage: 21.13%
+- Items: 15/71
 
-### Shared Services/Backup Services/FirebaseBackupService.swift
-- Coverage: 16.67%
-- Items: 2/12
+### Reservations/Views/Database/Components/Filters/ReservationStateFilter.swift
+- Coverage: 22.22%
+- Items: 2/9
+
+### Reservations/Views/Timeline/TimelineGantView.swift
+- Coverage: 23.26%
+- Items: 30/129
+
+### Shared Services/Notification Service/AppNotification.swift
+- Coverage: 24.00%
+- Items: 6/25
+
+### App Database/SQLiteManager.swift
+- Coverage: 24.62%
+- Items: 16/65
 
 ### Web Integration/Models/webReservationDeclineReason.swift
 - Coverage: 25.00%
 - Items: 1/4
 
-### Reservations/Services/TableAssignmentService.swift
-- Coverage: 28.57%
-- Items: 14/49
+### Reservations/Caching/CurrentReservationsCache.swift
+- Coverage: 26.02%
+- Items: 32/123
 
-### Reservations/ViewModels/TableManager.swift
-- Coverage: 40.00%
-- Items: 14/35
+### Shared Helpers/webReservationNotificationHandler.swift
+- Coverage: 27.50%
+- Items: 11/40
 
-### Shared Extensions/TimeExtension.swift
+### Reservations/Views/Detail Views/ReservationCancelledView.swift
+- Coverage: 28.79%
+- Items: 19/66
+
+### Reservations/Views/Detail Views/ReservationWaitingListView.swift
+- Coverage: 29.69%
+- Items: 19/64
+
+### Reservations/Services/ReservationServices.swift
+- Coverage: 36.54%
+- Items: 95/260
+
+### Shared Services/Backup Services/FirebaseBackupService.swift
 - Coverage: 41.67%
 - Items: 5/12
+
+### Reservations/Views/Database/Components/Filters/SortOptionTag.swift
+- Coverage: 42.86%
+- Items: 3/7
+
+### Reservations/Extensions/TagStyle.swift
+- Coverage: 46.15%
+- Items: 6/13
+
+### Reservations/Views/Database/Components/Filters/GroupOptionTag.swift
+- Coverage: 50.00%
+- Items: 4/8
+
+### Previews/LayoutViewPreview.swift
+- Coverage: 66.67%
+- Items: 8/12
+
+### Reservations/ViewModels/TableManager.swift
+- Coverage: 68.57%
+- Items: 24/35
+
+### Shared Models/Notification.swift
+- Coverage: 70.00%
+- Items: 7/10
+
+### Shared Extensions/TimeExtension.swift
+- Coverage: 75.00%
+- Items: 9/12
+
+### Reservations/Services/TableAssignmentService.swift
+- Coverage: 79.59%
+- Items: 39/49

@@ -2,9 +2,9 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Services/Backup Servic
 # Documentation Suggestions for FirebaseBackupService.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Services/Backup Services/FirebaseBackupService.swift
-Total suggestions: 10
+Total suggestions: 7
 
-## Property Documentation (10)
+## Property Documentation (7)
 
 ### errorDescription (Line 9)
 
@@ -44,66 +44,6 @@ enum BackupConflictError: Error, LocalizedError {
 
 ```swift
 /// [Description of the message property]
-```
-
-### isWritingToFirebase (Line 19)
-
-**Context:**
-
-```swift
-
-/// A service for uploading and downloading backups to Firebase Storage
-class FirebaseBackupService: ObservableObject {
-    @Published var isWritingToFirebase = false
-    @Published var localBackupFileURL: URL? = nil
-    let logger = Logger(subsystem: "com.koenjiapp", category: "FirebaseBackupService")
-
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the isWritingToFirebase property]
-```
-
-### localBackupFileURL (Line 20)
-
-**Context:**
-
-```swift
-/// A service for uploading and downloading backups to Firebase Storage
-class FirebaseBackupService: ObservableObject {
-    @Published var isWritingToFirebase = false
-    @Published var localBackupFileURL: URL? = nil
-    let logger = Logger(subsystem: "com.koenjiapp", category: "FirebaseBackupService")
-
-    let db: Firestore!
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the localBackupFileURL property]
-```
-
-### logger (Line 21)
-
-**Context:**
-
-```swift
-class FirebaseBackupService: ObservableObject {
-    @Published var isWritingToFirebase = false
-    @Published var localBackupFileURL: URL? = nil
-    let logger = Logger(subsystem: "com.koenjiapp", category: "FirebaseBackupService")
-
-    let db: Firestore!
-    private let storage: Storage
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the logger property]
 ```
 
 ### db (Line 23)
@@ -207,5 +147,5 @@ class FirebaseBackupService: ObservableObject {
 ```
 
 
-Total documentation suggestions: 10
+Total documentation suggestions: 7
 

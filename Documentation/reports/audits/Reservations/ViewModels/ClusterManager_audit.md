@@ -2,13 +2,10 @@
 
 ## Summary
 
-- **Coverage:** 2.04%
-- **Items:** 1/49
+- **Coverage:** 8.16%
+- **Items:** 4/49
 
 ## Missing Documentation
-
-### Classes
-- `ClusterManager`
 
 ### Methods
 - `loadClusters`
@@ -36,8 +33,6 @@
 - `relevantTables`
 - `connectedComponents`
 - `clusters`
-- `visited`
-- `result`
 - `queue`
 - `component`
 - `current`

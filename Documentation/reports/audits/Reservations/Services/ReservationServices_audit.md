@@ -2,12 +2,13 @@
 
 ## Summary
 
-- **Coverage:** 13.08%
-- **Items:** 34/260
+- **Coverage:** 36.54%
+- **Items:** 95/260
 
 ## Missing Documentation
 
 ### Classes
+- `responsible`
 - `ReservationService`
 - `ReservationService`
 - `ReservationService`
@@ -15,36 +16,9 @@
 - `Date`
 - `Date`
 - `ReservationService`
-
-### Methods
-- `migrateDatabaseIfNeeded`
-- `upsertSession`
-- `addReservation`
-- `addReservations`
-- `convertSessionToDictionary`
-- `convertReservationToDictionary`
-- `updateReservation`
-- `updateAllReservationsInFirestore`
-- `handleConfirm`
-- `clearAllDataFromFirestore`
-- `clearAllData`
-- `loadReservationsFromFirebase`
-- `loadSessionsFromFirebase`
-- `convertDictionaryToSession`
-- `mockData`
-- `generateReservations`
-- `generateReservationsForDay`
-- `simulateUserActions`
-- `flushAllCaches`
-- `separateReservation`
-- `deleteReservation`
-- `ensureConfirmedReservationsHaveTables`
-- `removeDuplicateReservations`
 
 ### Properties
 - `today`
-- `currentVersion`
-- `targetVersion`
 - `dbRef`
 - `dbRef`
 - `data`
@@ -53,7 +27,6 @@
 - `dbRef`
 - `data`
 - `error`
-- `updatedReservation`
 - `layoutServices`
 - `assignmentResult`
 - `assignedTables`
@@ -81,21 +54,11 @@
 - `successCount`
 - `errorCount`
 - `data`
-- `updatedReservation`
-- `assignmentResult`
-- `assignedTables`
-- `error`
-- `db`
-- `reservationsRef`
-- `reservationsRef`
 - `error`
 - `snapshot`
 - `batch`
 - `error`
 - `error`
-- `targetDateString`
-- `reservationDate`
-- `allReservations`
 - `filteredReservations`
 - `reservationsRef`
 - `reservationsRef`
@@ -112,7 +75,6 @@
 - `snapshot`
 - `loadedSessions`
 - `session`
-- `data`
 - `idString`
 - `id`
 - `name`
@@ -145,24 +107,16 @@
 - `imageData`
 - `preferredLanguage`
 - `colorHue`
-- `id`
-- `userName`
-- `isEditing`
-- `lastUpdateTimestamp`
-- `isActive`
 - `lastUpdate`
 - `uuid`
-- `data`
 - `id`
 - `userName`
 - `isEditing`
 - `lastUpdateTimeInterval`
 - `isActive`
 - `uuid`
-- `documentDirectory`
 - `mockReservation1`
 - `mockReservation2`
-- `startDate`
 - `maxReservation`
 - `lhsDate`
 - `rhsDate`
@@ -171,8 +125,6 @@
 - `names`
 - `phoneNumbers`
 - `notes`
-- `reservationDate`
-- `dayOfWeek`
 - `maxDailyReservations`
 - `totalGeneratedReservations`
 - `availableTimeSlots`
@@ -192,15 +144,6 @@
 - `reservationStart`
 - `reservationEnd`
 - `error`
-- `slots`
-- `slot`
-- `calendar`
-- `minute`
-- `remainder`
-- `adjustment`
-- `random`
-- `resourceName`
-- `fileURL`
 - `content`
 - `lines`
 - `randomTable`
@@ -208,8 +151,6 @@
 - `newColumn`
 - `layoutServices`
 - `result`
-- `reservationDate`
-- `combinedDateTime`
 - `activeTables`
 - `adjacentTables`
 - `index`
@@ -217,9 +158,6 @@
 - `index`
 - `key`
 - `cachedIndex`
-- `updatedReservation`
-- `finalNotes`
-- `updatedReservation`
 - `updatedCount`
 - `failedCount`
 - `reservationsToCheck`
@@ -228,7 +166,6 @@
 - `updatedReservation`
 - `index`
 - `error`
-- `nextMinute`
 - `groupedReservations`
 - `reservationsToKeep`
 - `reservationsToRemove`

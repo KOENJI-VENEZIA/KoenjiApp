@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 41.67%
-- **Items:** 5/12
+- **Coverage:** 75.00%
+- **Items:** 9/12
 
 ## Missing Documentation
 
@@ -11,9 +11,3 @@
 - `Date`
 - `String`
 - `Date`
-
-### Properties
-- `calendar`
-- `formatter`
-- `time`
-- `calendar`

@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Models/TableMode
 # Documentation Suggestions for TableModel.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Models/TableModel.swift
-Total suggestions: 33
+Total suggestions: 32
 
 ## Class Documentation (5)
 
@@ -166,27 +166,7 @@ struct CachedCluster: Equatable, Codable, Identifiable {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (26)
-
-### logger (Line 14)
-
-**Context:**
-
-```swift
-/// Represents a physical table in the restaurant.
-struct TableModel: Identifiable, Hashable, Codable, Equatable {
-    // MARK: - Private Properties
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.koenjiapp",
-        category: "TableModel"
-    )
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the logger property]
-```
+## Property Documentation (25)
 
 ### id (Line 20)
 
@@ -689,5 +669,5 @@ struct CachedCluster: Equatable, Codable, Identifiable {
 ```
 
 
-Total documentation suggestions: 33
+Total documentation suggestions: 32
 

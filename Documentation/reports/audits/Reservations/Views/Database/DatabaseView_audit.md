@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 8.13%
-- **Items:** 10/123
+- **Coverage:** 13.01%
+- **Items:** 16/123
 
 ## Missing Documentation
 
@@ -51,14 +51,8 @@
 - `isCompact`
 - `filtered`
 - `body`
-- `grouped`
 - `sortedGrouped`
 - `columns`
-- `reservationsLunch`
-- `reservationsDinner`
-- `regularToolbarContent`
-- `id`
-- `message`
 - `filtered`
 - `matches`
 - `date`

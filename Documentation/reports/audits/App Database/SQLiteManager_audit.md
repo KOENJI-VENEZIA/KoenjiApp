@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 6.15%
-- **Items:** 4/65
+- **Coverage:** 24.62%
+- **Items:** 16/65
 
 ## Missing Documentation
 
@@ -56,20 +56,8 @@
 - `dbURL`
 - `tableExists`
 - `hasPreferredLanguage`
-- `encoder`
-- `tablesData`
-- `tablesString`
 - `insert`
 - `insert`
-- `encoder`
-- `tablesData`
-- `tablesString`
 - `row`
-- `update`
-- `row`
-- `row`
-- `reservations`
-- `reservation`
-- `uniqueReservations`
 - `sessions`
 - `session`

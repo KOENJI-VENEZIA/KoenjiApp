@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 2.78%
-- **Items:** 3/108
+- **Coverage:** 4.63%
+- **Items:** 5/108
 
 ## Missing Documentation
 
@@ -15,7 +15,6 @@
 - `TableView`
 
 ### Methods
-- `overlayMarksAndText`
 - `showedUpMark`
 - `emojiMark`
 - `nearEndMark`
@@ -115,5 +114,4 @@
 - `updatedLayout`
 - `reservation`
 - `layoutKey`
-- `newWorkItem`
 - `newWorkItem`

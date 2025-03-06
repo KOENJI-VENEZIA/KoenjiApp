@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Services/LayoutS
 # Documentation Suggestions for LayoutServices.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Services/LayoutServices.swift
-Total suggestions: 123
+Total suggestions: 115
 
 ## Class Documentation (4)
 
@@ -744,7 +744,7 @@ extension LayoutServices {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (92)
+## Property Documentation (84)
 
 ### logger (Line 16)
 
@@ -1046,46 +1046,6 @@ class LayoutServices: ObservableObject {
 /// [Description of the key property]
 ```
 
-### formattedDateTime (Line 56)
-
-**Context:**
-
-```swift
-    
-    /// Generates a unique key based on date and category.
-    func keyFor(date: Date, category: Reservation.ReservationCategory) -> String {
-        let formattedDateTime = DateHelper.formatDate(date) // Ensure the date includes both date and time
-        return "\(formattedDateTime)-\(category.rawValue)"
-    }
-    
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the formattedDateTime property]
-```
-
-### fullKey (Line 62)
-
-**Context:**
-
-```swift
-    
-    /// Loads tables for a specific date and category.
-    func loadTables(for date: Date, category: Reservation.ReservationCategory) -> [TableModel] {
-        let fullKey = keyFor(date: date, category: category)
-        Self.logger.debug("Loading tables for key: \(fullKey)")
-
-        // Check if the exact layout exists
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the fullKey property]
-```
-
 ### tables (Line 66)
 
 **Context:**
@@ -1204,26 +1164,6 @@ class LayoutServices: ObservableObject {
 
 ```swift
 /// [Description of the sortedKeys property]
-```
-
-### fullKey (Line 101)
-
-**Context:**
-
-```swift
-    
-    /// Saves tables for a specific date and category.
-    func saveTables(_ tables: [TableModel], for date: Date, category: Reservation.ReservationCategory) {
-        let fullKey = keyFor(date: date, category: category)
-        cachedLayouts[fullKey] = tables
-        Self.logger.debug("Saved tables for key: \(fullKey)")
-
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the fullKey property]
 ```
 
 ### encoder (Line 111)
@@ -1464,66 +1404,6 @@ class LayoutServices: ObservableObject {
 
 ```swift
 /// [Description of the layoutCount property]
-```
-
-### reservationDate (Line 180)
-
-**Context:**
-
-```swift
-        for reservation: Reservation,
-        selectedTableID: Int?
-    ) -> Result<[TableModel], TableAssignmentError> {
-        let reservationDate = DateHelper.combineDateAndTimeStrings(
-            dateString: reservation.dateString,
-            timeString: reservation.startTime
-        )
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservationDate property]
-```
-
-### reservationStart (Line 184)
-
-**Context:**
-
-```swift
-            dateString: reservation.dateString,
-            timeString: reservation.startTime
-        )
-        guard let reservationStart = reservation.startTimeDate,
-            let reservationEnd = reservation.endTimeDate else { return .failure(.unknown)}
-        
-        let layoutKey = keyFor(date: reservationDate, category: reservation.category)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservationStart property]
-```
-
-### reservationEnd (Line 185)
-
-**Context:**
-
-```swift
-            timeString: reservation.startTime
-        )
-        guard let reservationStart = reservation.startTimeDate,
-            let reservationEnd = reservation.endTimeDate else { return .failure(.unknown)}
-        
-        let layoutKey = keyFor(date: reservationDate, category: reservation.category)
-        guard let tables = cachedLayouts[layoutKey]
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservationEnd property]
 ```
 
 ### layoutKey (Line 187)
@@ -1904,46 +1784,6 @@ class LayoutServices: ObservableObject {
 
 ```swift
 /// [Description of the components property]
-```
-
-### table1Rect (Line 347)
-
-**Context:**
-
-```swift
-    
-    /// Checks if two tables overlap.
-    private func tablesOverlap(table1: TableModel, table2: TableModel) -> Bool {
-        let table1Rect = CGRect(
-            x: table1.column,
-            y: table1.row,
-            width: table1.width,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the table1Rect property]
-```
-
-### table2Rect (Line 353)
-
-**Context:**
-
-```swift
-            width: table1.width,
-            height: table1.height
-        )
-        let table2Rect = CGRect(
-            x: table2.column,
-            y: table2.row,
-            width: table2.width,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the table2Rect property]
 ```
 
 ### maxRow (Line 373)
@@ -2587,5 +2427,5 @@ class LayoutServices: ObservableObject {
 ```
 
 
-Total documentation suggestions: 123
+Total documentation suggestions: 115
 

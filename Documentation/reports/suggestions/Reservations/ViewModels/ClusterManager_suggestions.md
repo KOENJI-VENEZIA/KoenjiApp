@@ -2,31 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/ViewModels/Clust
 # Documentation Suggestions for ClusterManager.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/ViewModels/ClusterManager.swift
-Total suggestions: 48
-
-## Class Documentation (1)
-
-### ClusterManager (Line 12)
-
-**Context:**
-
-```swift
-
-/// Manages UI-related state and interactions for table layout.
-@Observable
-class ClusterManager {
-
-    // MARK: - Dependencies
-    private var store: ReservationStore?
-```
-
-**Suggested Documentation:**
-
-```swift
-/// ClusterManager manager.
-///
-/// [Add a description of what this manager does and its responsibilities]
-```
+Total suggestions: 45
 
 ## Method Documentation (7)
 
@@ -198,7 +174,7 @@ class ClusterManager {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (40)
+## Property Documentation (38)
 
 ### store (Line 15)
 
@@ -518,46 +494,6 @@ class ClusterManager {
 
 ```swift
 /// [Description of the clusters property]
-```
-
-### visited (Line 90)
-
-**Context:**
-
-```swift
-
-    /// BFS (or Union-Find) to find connected subsets among the given tables.
-    private func findConnectedComponents(tables: [TableModel]) -> [[TableModel]] {
-        var visited = Set<Int>()
-        var result = [[TableModel]]()
-
-        for table in tables {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the visited property]
-```
-
-### result (Line 91)
-
-**Context:**
-
-```swift
-    /// BFS (or Union-Find) to find connected subsets among the given tables.
-    private func findConnectedComponents(tables: [TableModel]) -> [[TableModel]] {
-        var visited = Set<Int>()
-        var result = [[TableModel]]()
-
-        for table in tables {
-            if visited.contains(table.id) {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the result property]
 ```
 
 ### queue (Line 98)
@@ -1001,5 +937,5 @@ class ClusterManager {
 ```
 
 
-Total documentation suggestions: 48
+Total documentation suggestions: 45
 

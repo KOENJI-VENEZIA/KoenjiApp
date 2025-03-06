@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Helpers/TimeHelpers.sw
 # Documentation Suggestions for TimeHelpers.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Helpers/TimeHelpers.swift
-Total suggestions: 36
+Total suggestions: 34
 
 ## Class Documentation (1)
 
@@ -174,7 +174,7 @@ struct TimeHelpers {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (29)
+## Property Documentation (27)
 
 ### logger (Line 13)
 
@@ -636,46 +636,6 @@ struct TimeHelpers {
 /// [Description of the parsedDate property]
 ```
 
-### formatter (Line 127)
-
-**Context:**
-
-```swift
-
-    /// Converts a time string to a `Date` object on a specified date.
-    static func date(from timeString: String, on date: Date) -> Date? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        guard let time = formatter.date(from: timeString) else { return nil }
-        return Calendar.current.date(bySettingHour: Calendar.current.component(.hour, from: time),
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the formatter property]
-```
-
-### time (Line 129)
-
-**Context:**
-
-```swift
-    static func date(from timeString: String, on date: Date) -> Date? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        guard let time = formatter.date(from: timeString) else { return nil }
-        return Calendar.current.date(bySettingHour: Calendar.current.component(.hour, from: time),
-                                     minute: Calendar.current.component(.minute, from: time),
-                                     second: 0,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the time property]
-```
-
 ### dateFormatter (Line 137)
 
 **Context:**
@@ -757,5 +717,5 @@ struct TimeHelpers {
 ```
 
 
-Total documentation suggestions: 36
+Total documentation suggestions: 34
 

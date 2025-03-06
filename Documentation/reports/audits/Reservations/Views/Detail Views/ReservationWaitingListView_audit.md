@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 1.56%
-- **Items:** 1/64
+- **Coverage:** 29.69%
+- **Items:** 19/64
 
 ## Missing Documentation
 
@@ -36,24 +36,6 @@
 - `results`
 - `data`
 - `reservation`
-- `idString`
-- `id`
-- `name`
-- `phone`
-- `numberOfPersons`
-- `dateString`
-- `categoryString`
-- `category`
-- `startTime`
-- `endTime`
-- `acceptanceString`
-- `acceptance`
-- `statusString`
-- `status`
-- `reservationTypeString`
-- `reservationType`
-- `group`
-- `creationTimeInterval`
 - `lastEditedTimeInterval`
 - `isMock`
 - `tables`

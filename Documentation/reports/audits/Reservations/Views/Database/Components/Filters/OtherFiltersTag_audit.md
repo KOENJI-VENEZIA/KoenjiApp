@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 6.25%
-- **Items:** 1/16
+- **Coverage:** 12.50%
+- **Items:** 2/16
 
 ## Missing Documentation
 
@@ -12,7 +12,6 @@
 - `clearFilters`
 
 ### Properties
-- `env`
 - `showPeoplePopover`
 - `showStartDatePopover`
 - `showEndDatePopover`

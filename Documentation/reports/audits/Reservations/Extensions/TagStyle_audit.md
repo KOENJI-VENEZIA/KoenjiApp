@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 7.69%
-- **Items:** 1/13
+- **Coverage:** 46.15%
+- **Items:** 6/13
 
 ## Missing Documentation
 
@@ -15,11 +15,6 @@
 - `apply`
 
 ### Properties
-- `height`
-- `horizontalPadding`
-- `verticalPadding`
-- `cornerRadius`
-- `iconSpacing`
 - `font`
 - `backgroundOpacity`
 - `borderOpacity`

@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Database/C
 # Documentation Suggestions for SortOptionTag.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Database/Components/Filters/SortOptionTag.swift
-Total suggestions: 6
+Total suggestions: 4
 
 ## Method Documentation (1)
 
@@ -30,47 +30,7 @@ Total suggestions: 6
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (5)
-
-### sortOption (Line 6)
-
-**Context:**
-
-```swift
-/// A tag-based menu for sort options that matches the design language
-/// of the other filter components
-struct SortOptionTag: View {
-    @Binding var sortOption: SortOption?
-    var onSortChange: (() -> Void)?
-    
-    // Icon and color mappings for sort options
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the sortOption property]
-```
-
-### onSortChange (Line 7)
-
-**Context:**
-
-```swift
-/// of the other filter components
-struct SortOptionTag: View {
-    @Binding var sortOption: SortOption?
-    var onSortChange: (() -> Void)?
-    
-    // Icon and color mappings for sort options
-    private let sortOptionConfig: [(SortOption, String, Color)] = [
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the onSortChange property]
-```
+## Property Documentation (3)
 
 ### sortOptionConfig (Line 10)
 
@@ -133,5 +93,5 @@ struct SortOptionTag: View {
 ```
 
 
-Total documentation suggestions: 6
+Total documentation suggestions: 4
 

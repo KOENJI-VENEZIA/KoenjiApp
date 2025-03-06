@@ -50,19 +50,38 @@ class DocumentationGenerator:
     
     def has_documentation(self, content, match_start):
         """Check if there's documentation before the match."""
-        # Look at the 5 lines before the match
-        prev_newline = content.rfind('\n', 0, match_start)
-        if prev_newline == -1:
-            prev_newline = 0
-        else:
-            prev_newline = content.rfind('\n', 0, prev_newline)
-            if prev_newline == -1:
-                prev_newline = 0
+        # Get the line number for the match
+        lines = content.split('\n')
+        line_start = content[:match_start].count('\n')
         
-        prev_content = content[prev_newline:match_start]
+        # Look back up to 20 lines for documentation
+        # This should be enough for most documentation blocks
+        start_line = max(0, line_start - 20)
+        
+        # Get the content of those lines
+        prev_lines = lines[start_line:line_start]
+        
+        # Reverse the lines to start from closest to the declaration
+        prev_lines.reverse()
         
         # Check for documentation comments
-        return bool(self.doc_pattern.search(prev_content))
+        has_doc = False
+        found_doc_line = False
+        
+        for line in prev_lines:
+            line = line.strip()
+            # If we find a documentation line (///)
+            if line.startswith('///'):
+                found_doc_line = True
+                has_doc = True
+            # If we found a doc line but then hit a non-doc, non-empty line, stop looking
+            elif found_doc_line and line and not line.startswith('//') and not line.startswith('@'):
+                break
+            # If we hit an empty line before finding any doc, stop looking
+            elif not found_doc_line and not line:
+                break
+        
+        return has_doc
     
     def analyze_file(self, file_path, analyze_only=False):
         """Analyze a Swift file and generate documentation suggestions."""

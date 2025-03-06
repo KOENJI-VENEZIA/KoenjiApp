@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 11.11%
-- **Items:** 1/9
+- **Coverage:** 22.22%
+- **Items:** 2/9
 
 ## Missing Documentation
 
@@ -12,7 +12,6 @@
 - `toggleStateFilter`
 
 ### Properties
-- `filterOption`
 - `onFilterChange`
 - `stateOptions`
 - `body`

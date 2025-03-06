@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Models/Reservati
 # Documentation Suggestions for Reservation.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Models/Reservation.swift
-Total suggestions: 104
+Total suggestions: 99
 
 ## Class Documentation (19)
 
@@ -498,27 +498,7 @@ extension Reservation {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (82)
-
-### logger (Line 14)
-
-**Context:**
-
-```swift
-/// Represents a reservation in the system.
-struct Reservation: Identifiable, Hashable, Codable {
-    // Static logger instead of instance logger
-    static let logger = Logger(subsystem: "com.koenjiapp", category: "Reservation")
-    
-    // MARK: - Public Properties
-    let id: UUID
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the logger property]
-```
+## Property Documentation (77)
 
 ### id (Line 17)
 
@@ -1460,46 +1440,6 @@ extension Reservation {
 /// [Description of the container property]
 ```
 
-### date (Line 314)
-
-**Context:**
-
-```swift
-    
-    /// Updates the cached date properties based on the current date and time strings.
-       mutating private func updateCachedDates() {
-           guard let date = DateHelper.parseDate(dateString) else {
-               // Store the value before logging to avoid capturing mutating self
-               let dateStringCopy = dateString
-               Self.logger.error("Failed to parse date string: \(dateStringCopy)")
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the date property]
-```
-
-### dateStringCopy (Line 316)
-
-**Context:**
-
-```swift
-       mutating private func updateCachedDates() {
-           guard let date = DateHelper.parseDate(dateString) else {
-               // Store the value before logging to avoid capturing mutating self
-               let dateStringCopy = dateString
-               Self.logger.error("Failed to parse date string: \(dateStringCopy)")
-               return
-           }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the dateStringCopy property]
-```
-
 ### start (Line 321)
 
 **Context:**
@@ -1598,46 +1538,6 @@ extension Reservation {
 
 ```swift
 /// [Description of the nameCopy property]
-```
-
-### reservationDate (Line 341)
-
-**Context:**
-
-```swift
-       
-       /// Determines the reservation type based on creation date and reservation date.
-       mutating private func determineReservationType() {
-           guard let reservationDate = DateHelper.parseDate(dateString),
-                 let combinedStartDate = startTimeDate else {
-               Self.logger.warning("Unable to determine reservation type, defaulting to inAdvance")
-               self.reservationType = .inAdvance
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservationDate property]
-```
-
-### combinedStartDate (Line 342)
-
-**Context:**
-
-```swift
-       /// Determines the reservation type based on creation date and reservation date.
-       mutating private func determineReservationType() {
-           guard let reservationDate = DateHelper.parseDate(dateString),
-                 let combinedStartDate = startTimeDate else {
-               Self.logger.warning("Unable to determine reservation type, defaulting to inAdvance")
-               self.reservationType = .inAdvance
-               return
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the combinedStartDate property]
 ```
 
 ### calendar (Line 348)
@@ -2141,5 +2041,5 @@ extension Reservation.ReservationCategory {
 ```
 
 
-Total documentation suggestions: 104
+Total documentation suggestions: 99
 

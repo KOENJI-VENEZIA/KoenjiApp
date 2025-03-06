@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 3.70%
-- **Items:** 4/108
+- **Coverage:** 8.33%
+- **Items:** 9/108
 
 ## Missing Documentation
 
@@ -34,7 +34,6 @@
 - `toLightweight`
 
 ### Properties
-- `logger`
 - `id`
 - `name`
 - `phone`
@@ -82,15 +81,11 @@
 - `lastEdited`
 - `hue`
 - `container`
-- `date`
-- `dateStringCopy`
 - `start`
 - `end`
 - `startTimeCopy`
 - `endTimeCopy`
 - `nameCopy`
-- `reservationDate`
-- `combinedStartDate`
 - `calendar`
 - `empty`
 - `localized`

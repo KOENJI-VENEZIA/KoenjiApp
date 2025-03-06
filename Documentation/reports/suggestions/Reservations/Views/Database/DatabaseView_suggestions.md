@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Database/D
 # Documentation Suggestions for DatabaseView.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Database/DatabaseView.swift
-Total suggestions: 113
+Total suggestions: 107
 
 ## Class Documentation (3)
 
@@ -410,7 +410,7 @@ extension DatabaseView {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (96)
+## Property Documentation (90)
 
 ### logger (Line 9)
 
@@ -852,26 +852,6 @@ struct DatabaseView: View {
 /// [Description of the body property]
 ```
 
-### grouped (Line 160)
-
-**Context:**
-
-```swift
-    private var reservationsList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16, pinnedViews: .sectionHeaders) {
-                let grouped = groupReservations(
-                    reservations: filtered,
-                    by: env.listView.groupOption,
-                    sortOption: env.listView.sortOption)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the grouped property]
-```
-
 ### sortedGrouped (Line 165)
 
 **Context:**
@@ -910,106 +890,6 @@ struct DatabaseView: View {
 
 ```swift
 /// [Description of the columns property]
-```
-
-### reservationsLunch (Line 211)
-
-**Context:**
-
-```swift
-                Text(group.label)
-                    .font(.title3)
-                    .fontWeight(.bold)
-                let reservationsLunch = filterForCategory(group.reservations, .lunch)
-                let reservationsDinner = filterForCategory(group.reservations, .dinner)
-                Text("Tot. \(group.reservations.count) (\(reservationsLunch.count) pranzo, \(reservationsDinner.count) cena)")
-                    .font(.subheadline)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservationsLunch property]
-```
-
-### reservationsDinner (Line 212)
-
-**Context:**
-
-```swift
-                    .font(.title3)
-                    .fontWeight(.bold)
-                let reservationsLunch = filterForCategory(group.reservations, .lunch)
-                let reservationsDinner = filterForCategory(group.reservations, .dinner)
-                Text("Tot. \(group.reservations.count) (\(reservationsLunch.count) pranzo, \(reservationsDinner.count) cena)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservationsDinner property]
-```
-
-### regularToolbarContent (Line 334)
-
-**Context:**
-
-```swift
-    
-/// Regular toolbar content for iPad
-    @ToolbarContentBuilder
-    private var regularToolbarContent: some ToolbarContent {
-        // Left side items
-        ToolbarItem(placement: .topBarLeading) {
-            Button(action: toggleFullScreen) {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the regularToolbarContent property]
-```
-
-### id (Line 413)
-
-**Context:**
-
-```swift
-    /// Returns the view for the active sheet.
-    private func sheetContent(for sheet: ActiveSheet) -> some View {
-        switch sheet {
-        case .inspector(let id):
-            return AnyView(
-                ReservationInfoCard(
-                    reservationID: id,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the id property]
-```
-
-### message (Line 482)
-
-**Context:**
-
-```swift
-                message: Text("Nothing"),
-                dismissButton: .default(Text("OK"))
-            )
-        case .error(let message):
-            return Alert(
-                title: Text("Errore:"),
-                message: Text(message),
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the message property]
 ```
 
 ### filtered (Line 543)
@@ -2333,5 +2213,5 @@ struct DatabaseView: View {
 ```
 
 
-Total documentation suggestions: 113
+Total documentation suggestions: 107
 

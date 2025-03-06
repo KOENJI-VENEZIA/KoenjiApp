@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 12.50%
-- **Items:** 1/8
+- **Coverage:** 50.00%
+- **Items:** 4/8
 
 ## Missing Documentation
 
@@ -11,9 +11,6 @@
 - `getCurrentGroupConfig`
 
 ### Properties
-- `groupOption`
-- `sortOption`
-- `onGroupChange`
 - `groupOptionConfig`
 - `body`
 - `config`

@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Helpers/webReservation
 # Documentation Suggestions for webReservationNotificationHandler.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Helpers/webReservationNotificationHandler.swift
-Total suggestions: 36
+Total suggestions: 29
 
 ## Class Documentation (2)
 
@@ -196,7 +196,7 @@ extension AppDependencies {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (28)
+## Property Documentation (21)
 
 ### approveAction (Line 27)
 
@@ -278,26 +278,6 @@ extension AppDependencies {
 /// [Description of the existingDelegate property]
 ```
 
-### userInfo (Line 69)
-
-**Context:**
-
-```swift
-                _ center: UNUserNotificationCenter,
-                didReceive response: UNNotificationResponse
-            ) async {
-                let userInfo = response.notification.request.content.userInfo
-    
-                // Check if this is one of our web-reservation notifications
-                guard
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the userInfo property]
-```
-
 ### type (Line 73)
 
 **Context:**
@@ -376,126 +356,6 @@ extension AppDependencies {
 
 ```swift
 /// [Description of the action property]
-```
-
-### handlerBox (Line 116)
-
-**Context:**
-
-```swift
-            response: UNNotificationResponse
-          ) async {
-            // 1) Read the box from the main actor
-            let handlerBox = await MainActor.run { self.originalNotificationHandler }
-            guard let box = handlerBox else { return }
-    
-            // 2) Bridge the completion-based callback
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the handlerBox property]
-```
-
-### box (Line 117)
-
-**Context:**
-
-```swift
-          ) async {
-            // 1) Read the box from the main actor
-            let handlerBox = await MainActor.run { self.originalNotificationHandler }
-            guard let box = handlerBox else { return }
-    
-            // 2) Bridge the completion-based callback
-            await withCheckedContinuation { continuation in
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the box property]
-```
-
-### dependencies (Line 129)
-
-**Context:**
-
-```swift
-    
-            /// MainActor-isolated approach to approving a reservation.
-            @MainActor private func handleApproveReservation(uuid: UUID) {
-                let dependencies = AppDependencies.shared
-                guard let reservation = findReservation(with: uuid, in: dependencies) else {
-                    logger.warning("Could not find reservation with ID: \(uuid)")
-                    return
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the dependencies property]
-```
-
-### reservation (Line 130)
-
-**Context:**
-
-```swift
-            /// MainActor-isolated approach to approving a reservation.
-            @MainActor private func handleApproveReservation(uuid: UUID) {
-                let dependencies = AppDependencies.shared
-                guard let reservation = findReservation(with: uuid, in: dependencies) else {
-                    logger.warning("Could not find reservation with ID: \(uuid)")
-                    return
-                }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservation property]
-```
-
-### dependencies (Line 144)
-
-**Context:**
-
-```swift
-    
-            /// MainActor-isolated approach to declining a reservation.
-            @MainActor private func handleDeclineReservation(uuid: UUID) {
-                let dependencies = AppDependencies.shared
-                guard let reservation = findReservation(with: uuid, in: dependencies) else {
-                    logger.warning("Could not find reservation with ID: \(uuid)")
-                    return
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the dependencies property]
-```
-
-### reservation (Line 145)
-
-**Context:**
-
-```swift
-            /// MainActor-isolated approach to declining a reservation.
-            @MainActor private func handleDeclineReservation(uuid: UUID) {
-                let dependencies = AppDependencies.shared
-                guard let reservation = findReservation(with: uuid, in: dependencies) else {
-                    logger.warning("Could not find reservation with ID: \(uuid)")
-                    return
-                }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservation property]
 ```
 
 ### updatedReservation (Line 153)
@@ -759,5 +619,5 @@ extension AppDependencies {
 ```
 
 
-Total documentation suggestions: 36
+Total documentation suggestions: 29
 

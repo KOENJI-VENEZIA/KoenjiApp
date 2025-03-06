@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/App Database/SQLiteManager.sw
 # Documentation Suggestions for SQLiteManager.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/App Database/SQLiteManager.swift
-Total suggestions: 61
+Total suggestions: 49
 
 ## Class Documentation (1)
 
@@ -198,7 +198,7 @@ class SQLiteManager {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (53)
+## Property Documentation (41)
 
 ### logger (Line 17)
 
@@ -920,66 +920,6 @@ class SQLiteManager {
 /// [Description of the hasPreferredLanguage property]
 ```
 
-### encoder (Line 142)
-
-**Context:**
-
-```swift
-    /// Inserts a Reservation into the database.
-    func insertReservation(_ reservation: Reservation) {
-        do {
-           let encoder = JSONEncoder()
-           let tablesData = try encoder.encode(reservation.tables)
-           let tablesString = String(data: tablesData, encoding: .utf8)
-           
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the encoder property]
-```
-
-### tablesData (Line 143)
-
-**Context:**
-
-```swift
-    func insertReservation(_ reservation: Reservation) {
-        do {
-           let encoder = JSONEncoder()
-           let tablesData = try encoder.encode(reservation.tables)
-           let tablesString = String(data: tablesData, encoding: .utf8)
-           
-           let insert = reservationsTable.insert(or: .replace,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the tablesData property]
-```
-
-### tablesString (Line 144)
-
-**Context:**
-
-```swift
-        do {
-           let encoder = JSONEncoder()
-           let tablesData = try encoder.encode(reservation.tables)
-           let tablesString = String(data: tablesData, encoding: .utf8)
-           
-           let insert = reservationsTable.insert(or: .replace,
-               id <- reservation.id.uuidString,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the tablesString property]
-```
-
 ### insert (Line 146)
 
 **Context:**
@@ -1020,126 +960,6 @@ class SQLiteManager {
 /// [Description of the insert property]
 ```
 
-### encoder (Line 196)
-
-**Context:**
-
-```swift
-    /// Updates an existing Reservation in the database.
-    func updateReservation(_ reservation: Reservation) {
-        do {
-            let encoder = JSONEncoder()
-            // Optionally set any encoder settings you use (e.g., dateEncodingStrategy)
-            let tablesData = try encoder.encode(reservation.tables)
-            let tablesString = String(data: tablesData, encoding: .utf8)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the encoder property]
-```
-
-### tablesData (Line 198)
-
-**Context:**
-
-```swift
-        do {
-            let encoder = JSONEncoder()
-            // Optionally set any encoder settings you use (e.g., dateEncodingStrategy)
-            let tablesData = try encoder.encode(reservation.tables)
-            let tablesString = String(data: tablesData, encoding: .utf8)
-            let row = reservationsTable.filter(id == reservation.id.uuidString)
-            let update = row.update(
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the tablesData property]
-```
-
-### tablesString (Line 199)
-
-**Context:**
-
-```swift
-            let encoder = JSONEncoder()
-            // Optionally set any encoder settings you use (e.g., dateEncodingStrategy)
-            let tablesData = try encoder.encode(reservation.tables)
-            let tablesString = String(data: tablesData, encoding: .utf8)
-            let row = reservationsTable.filter(id == reservation.id.uuidString)
-            let update = row.update(
-                name <- reservation.name,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the tablesString property]
-```
-
-### row (Line 200)
-
-**Context:**
-
-```swift
-            // Optionally set any encoder settings you use (e.g., dateEncodingStrategy)
-            let tablesData = try encoder.encode(reservation.tables)
-            let tablesString = String(data: tablesData, encoding: .utf8)
-            let row = reservationsTable.filter(id == reservation.id.uuidString)
-            let update = row.update(
-                name <- reservation.name,
-                phone <- reservation.phone,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the row property]
-```
-
-### update (Line 201)
-
-**Context:**
-
-```swift
-            let tablesData = try encoder.encode(reservation.tables)
-            let tablesString = String(data: tablesData, encoding: .utf8)
-            let row = reservationsTable.filter(id == reservation.id.uuidString)
-            let update = row.update(
-                name <- reservation.name,
-                phone <- reservation.phone,
-                numberOfPersons <- reservation.numberOfPersons,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the update property]
-```
-
-### row (Line 232)
-
-**Context:**
-
-```swift
-    /// Deletes a Reservation from the database.
-    func deleteReservation(withID reservationID: UUID) {
-        do {
-            let row = reservationsTable.filter(id == reservationID.uuidString)
-            try db.run(row.delete())
-            logger.info("Deleted reservation: \(reservationID)")
-        } catch {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the row property]
-```
-
 ### row (Line 242)
 
 **Context:**
@@ -1158,66 +978,6 @@ class SQLiteManager {
 
 ```swift
 /// [Description of the row property]
-```
-
-### reservations (Line 271)
-
-**Context:**
-
-```swift
-    
-    /// Fetches all Reservations from the database.
-    func fetchReservations() -> [Reservation] {
-        var reservations: [Reservation] = []
-        do {
-            for row in try db.prepare(reservationsTable) {
-                logger.debug("Processing row for reservation")
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservations property]
-```
-
-### reservation (Line 275)
-
-**Context:**
-
-```swift
-        do {
-            for row in try db.prepare(reservationsTable) {
-                logger.debug("Processing row for reservation")
-                if let reservation = ReservationMapper.reservation(from: row) {
-                    logger.debug("Successfully mapped reservation: \(reservation.name)")
-                    reservations.append(reservation)
-                }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservation property]
-```
-
-### uniqueReservations (Line 283)
-
-**Context:**
-
-```swift
-        } catch {
-            logger.error("Failed to fetch reservations: \(error.localizedDescription)")
-        }
-        let uniqueReservations = Dictionary(grouping: reservations, by: { $0.id }).compactMap { $0.value.first }
-        logger.info("Fetched \(uniqueReservations.count) unique reservations")
-        return uniqueReservations
-    }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the uniqueReservations property]
 ```
 
 ### sessions (Line 289)
@@ -1261,5 +1021,5 @@ class SQLiteManager {
 ```
 
 
-Total documentation suggestions: 61
+Total documentation suggestions: 49
 

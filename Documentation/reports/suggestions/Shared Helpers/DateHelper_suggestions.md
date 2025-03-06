@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Helpers/DateHelper.swi
 # Documentation Suggestions for DateHelper.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Helpers/DateHelper.swift
-Total suggestions: 75
+Total suggestions: 70
 
 ## Class Documentation (2)
 
@@ -508,7 +508,7 @@ extension Calendar {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (54)
+## Property Documentation (49)
 
 ### logger (Line 14)
 
@@ -1230,66 +1230,6 @@ struct DateHelper {
 /// [Description of the combinedComponents property]
 ```
 
-### calendar (Line 219)
-
-**Context:**
-
-```swift
-      ///   - range: The range of hours (e.g., (12, 23) for lunch to dinner).
-      /// - Returns: A `Date` with a randomized time within the specified range.
-      static func randomTime(for date: Date, range: (Int, Int)) -> Date {
-          let calendar = Calendar.current
-          let startHour = range.0
-          let endHour = range.1
-
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the calendar property]
-```
-
-### startHour (Line 220)
-
-**Context:**
-
-```swift
-      /// - Returns: A `Date` with a randomized time within the specified range.
-      static func randomTime(for date: Date, range: (Int, Int)) -> Date {
-          let calendar = Calendar.current
-          let startHour = range.0
-          let endHour = range.1
-
-          let randomHour = Int.random(in: startHour...endHour)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the startHour property]
-```
-
-### endHour (Line 221)
-
-**Context:**
-
-```swift
-      static func randomTime(for date: Date, range: (Int, Int)) -> Date {
-          let calendar = Calendar.current
-          let startHour = range.0
-          let endHour = range.1
-
-          let randomHour = Int.random(in: startHour...endHour)
-          let randomMinute = Int.random(in: 0...59)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the endHour property]
-```
-
 ### randomHour (Line 223)
 
 **Context:**
@@ -1550,46 +1490,6 @@ struct DateHelper {
 /// [Description of the formatter property]
 ```
 
-### minuteOfHour (Line 295)
 
-**Context:**
-
-```swift
-extension Calendar {
-    /// Rounds a given date down to the nearest multiple of 15 minutes.
-    func roundedDownToNearest15(_ date: Date) -> Date {
-        let minuteOfHour = component(.minute, from: date)
-        let remainder = minuteOfHour % 15
-        // Subtract 'remainder' minutes to get down to 0, 15, 30, or 45.
-        return self.date(byAdding: .minute, value: -remainder, to: date)!
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the minuteOfHour property]
-```
-
-### remainder (Line 296)
-
-**Context:**
-
-```swift
-    /// Rounds a given date down to the nearest multiple of 15 minutes.
-    func roundedDownToNearest15(_ date: Date) -> Date {
-        let minuteOfHour = component(.minute, from: date)
-        let remainder = minuteOfHour % 15
-        // Subtract 'remainder' minutes to get down to 0, 15, 30, or 45.
-        return self.date(byAdding: .minute, value: -remainder, to: date)!
-    }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the remainder property]
-```
-
-
-Total documentation suggestions: 75
+Total documentation suggestions: 70
 

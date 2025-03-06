@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 5.26%
-- **Items:** 2/38
+- **Coverage:** 10.53%
+- **Items:** 4/38
 
 ## Missing Documentation
 
@@ -42,8 +42,6 @@
 - `cachedDate`
 - `formatter`
 - `parsedDate`
-- `formatter`
-- `time`
 - `dateFormatter`
 - `startDate`
 - `endDate`

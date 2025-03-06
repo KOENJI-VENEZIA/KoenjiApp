@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Caching/CurrentR
 # Documentation Suggestions for CurrentReservationsCache.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Caching/CurrentReservationsCache.swift
-Total suggestions: 109
+Total suggestions: 91
 
 ## Class Documentation (2)
 
@@ -50,7 +50,7 @@ struct ActiveReservationCacheKey: Hashable, Codable {
 /// [Add a description of what this class does and its responsibilities]
 ```
 
-## Method Documentation (9)
+## Method Documentation (7)
 
 ### preloadDates (Line 21)
 
@@ -172,54 +172,6 @@ struct ActiveReservationCacheKey: Hashable, Codable {
 /// - Returns: [Description of the return value]
 ```
 
-### fetchReservations (Line 167)
-
-**Context:**
-
-```swift
-    
-    /// Fetches reservations for a specific date directly from Firebase
-    @MainActor
-    func fetchReservations(for date: Date) async throws -> [Reservation] {
-        let targetDateString = DateHelper.formatDate(date)
-        logger.info("Fetching reservations from Firebase for date: \(targetDateString)")
-        
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the fetchReservations method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### reservation (Line 290)
-
-**Context:**
-
-```swift
-    /// Retrieves reservations for a specific table, date, and time
-    /// Retrieves a single reservation for a specific table, date, and time
-    @MainActor
-    func reservation(forTable tableID: Int, datetime: Date, category: Reservation.ReservationCategory) -> Reservation? {
-        let normalizedDate = calendar.startOfDay(for: datetime)
-        guard let normalizedTime = calendar.date(
-            bySettingHour: calendar.component(.hour, from: datetime),
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the reservation method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
 ### clearAllCache (Line 372)
 
 **Context:**
@@ -268,7 +220,7 @@ struct ActiveReservationCacheKey: Hashable, Codable {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (98)
+## Property Documentation (82)
 
 ### logger (Line 7)
 
@@ -570,46 +522,6 @@ class CurrentReservationsCache: ObservableObject {
 /// [Description of the reservationsForDate property]
 ```
 
-### dateSet (Line 62)
-
-**Context:**
-
-```swift
-
-    /// Calculates a range of dates around a selected date
-    private func calculateDateRange(around date: Date, range: Int) -> Set<Date> {
-        var dateSet: Set<Date> = []
-        for offset in -range...range {
-            if let newDate = calendar.date(byAdding: .day, value: offset, to: date) {
-                dateSet.insert(calendar.startOfDay(for: newDate))  // Normalize to start of the day
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the dateSet property]
-```
-
-### newDate (Line 64)
-
-**Context:**
-
-```swift
-    private func calculateDateRange(around date: Date, range: Int) -> Set<Date> {
-        var dateSet: Set<Date> = []
-        for offset in -range...range {
-            if let newDate = calendar.date(byAdding: .day, value: offset, to: date) {
-                dateSet.insert(calendar.startOfDay(for: newDate))  // Normalize to start of the day
-            }
-        }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the newDate property]
-```
-
 ### reservationsForDate (Line 73)
 
 **Context:**
@@ -730,26 +642,6 @@ class CurrentReservationsCache: ObservableObject {
 /// [Description of the normalizedMinute property]
 ```
 
-### normalizedMinute (Line 103)
-
-**Context:**
-
-```swift
-
-    /// Retrieves active reservations for a specific time
-    func activeReservations(for date: Date, at time: Date) -> [Reservation] {
-        let normalizedMinute = calendar.date(bySetting: .second, value: 0, of: time)!
-        return activeReservationsByMinute[date]?[normalizedMinute] ?? []
-    }
-
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the normalizedMinute property]
-```
-
 ### currentTime (Line 118)
 
 **Context:**
@@ -830,46 +722,6 @@ class CurrentReservationsCache: ObservableObject {
 /// [Description of the reservationsLate property]
 ```
 
-### startDate (Line 142)
-
-**Context:**
-
-```swift
-    func generateCacheKey(for reservation: Reservation, at time: Date, tableID: Int)
-        -> ActiveReservationCacheKey?
-    {
-        guard let startDate = reservation.startTimeDate,
-            let endDate = reservation.endTimeDate
-        else {
-            return nil
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the startDate property]
-```
-
-### endDate (Line 143)
-
-**Context:**
-
-```swift
-        -> ActiveReservationCacheKey?
-    {
-        guard let startDate = reservation.startTimeDate,
-            let endDate = reservation.endTimeDate
-        else {
-            return nil
-        }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the endDate property]
-```
-
 ### normalizedDate (Line 154)
 
 **Context:**
@@ -888,46 +740,6 @@ class CurrentReservationsCache: ObservableObject {
 
 ```swift
 /// [Description of the normalizedDate property]
-```
-
-### normalizedDate (Line 161)
-
-**Context:**
-
-```swift
-
-    /// Retrieves all reservations for a specific date
-    func reservations(for date: Date) -> [Reservation] {
-        let normalizedDate = calendar.startOfDay(for: date)  // Normalize to start of the day
-        return cache[normalizedDate] ?? []
-    }
-    
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the normalizedDate property]
-```
-
-### targetDateString (Line 168)
-
-**Context:**
-
-```swift
-    /// Fetches reservations for a specific date directly from Firebase
-    @MainActor
-    func fetchReservations(for date: Date) async throws -> [Reservation] {
-        let targetDateString = DateHelper.formatDate(date)
-        logger.info("Fetching reservations from Firebase for date: \(targetDateString)")
-        
-        #if DEBUG
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the targetDateString property]
 ```
 
 ### reservationsRef (Line 172)
@@ -1028,26 +840,6 @@ class CurrentReservationsCache: ObservableObject {
 
 ```swift
 /// [Description of the reservation property]
-```
-
-### data (Line 209)
-
-**Context:**
-
-```swift
-    
-    /// Converts a Firebase document to a Reservation object
-    private func reservationFromFirebaseDocument(_ document: DocumentSnapshot) throws -> Reservation {
-        guard let data = document.data() else {
-            throw NSError(domain: "com.koenjiapp", code: 1, userInfo: [NSLocalizedDescriptionKey: "Document data is nil"])
-        }
-        
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the data property]
 ```
 
 ### idString (Line 214)
@@ -1690,46 +1482,6 @@ class CurrentReservationsCache: ObservableObject {
 /// [Description of the colorHue property]
 ```
 
-### normalizedDate (Line 291)
-
-**Context:**
-
-```swift
-    /// Retrieves a single reservation for a specific table, date, and time
-    @MainActor
-    func reservation(forTable tableID: Int, datetime: Date, category: Reservation.ReservationCategory) -> Reservation? {
-        let normalizedDate = calendar.startOfDay(for: datetime)
-        guard let normalizedTime = calendar.date(
-            bySettingHour: calendar.component(.hour, from: datetime),
-            minute: calendar.component(.minute, from: datetime),
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the normalizedDate property]
-```
-
-### normalizedTime (Line 292)
-
-**Context:**
-
-```swift
-    @MainActor
-    func reservation(forTable tableID: Int, datetime: Date, category: Reservation.ReservationCategory) -> Reservation? {
-        let normalizedDate = calendar.startOfDay(for: datetime)
-        guard let normalizedTime = calendar.date(
-            bySettingHour: calendar.component(.hour, from: datetime),
-            minute: calendar.component(.minute, from: datetime),
-            second: 0,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the normalizedTime property]
-```
-
 ### reservationsForDate (Line 302)
 
 **Context:**
@@ -1848,106 +1600,6 @@ class CurrentReservationsCache: ObservableObject {
 
 ```swift
 /// [Description of the index property]
-```
-
-### normalizedDate (Line 352)
-
-**Context:**
-
-```swift
-
-    /// Removes a specific reservation
-    func removeReservation(_ reservation: Reservation) {
-        let normalizedDate = calendar.startOfDay(for: reservation.startTimeDate ?? Date())
-        cache[normalizedDate]?.removeAll(where: { $0.id == reservation.id })
-        logger.info("Removed reservation: \(reservation.id) from cache")
-        precomputeActiveReservations(for: normalizedDate)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the normalizedDate property]
-```
-
-### lateReservations (Line 382)
-
-**Context:**
-
-```swift
-
-    /// Retrieves reservations that are late
-    func lateReservations(currentTime: Date) -> [Reservation] {
-        let lateReservations = cache.flatMap { $0.value }.filter { reservation in
-            reservation.startTimeDate?.addingTimeInterval(15 * 60) ?? Date() < currentTime
-            && reservation.status != .showedUp
-        }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the lateReservations property]
-```
-
-### nearingEndReservations (Line 392)
-
-**Context:**
-
-```swift
-
-    /// Retrieves reservations nearing their end
-    func nearingEndReservations(currentTime: Date) -> [Reservation] {
-        let nearingEndReservations = cache.flatMap { $0.value }.filter { reservation in
-            reservation.endTimeDate?.timeIntervalSince(currentTime) ?? 0 <= 30 * 60
-                && reservation.endTimeDate ?? Date() > currentTime
-        }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the nearingEndReservations property]
-```
-
-### normalizedDate (Line 407)
-
-**Context:**
-
-```swift
-        time: Date,
-        category: Reservation.ReservationCategory
-    ) -> Reservation? {
-        let normalizedDate = calendar.startOfDay(for: date)
-        let normalizedTime = calendar.date(bySetting: .second, value: 0, of: time) ?? time
-
-        // Define category-specific time windows
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the normalizedDate property]
-```
-
-### normalizedTime (Line 408)
-
-**Context:**
-
-```swift
-        category: Reservation.ReservationCategory
-    ) -> Reservation? {
-        let normalizedDate = calendar.startOfDay(for: date)
-        let normalizedTime = calendar.date(bySetting: .second, value: 0, of: time) ?? time
-
-        // Define category-specific time windows
-        let lunchStartTime = calendar.date(
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the normalizedTime property]
 ```
 
 ### lunchStartTime (Line 411)
@@ -2110,26 +1762,6 @@ class CurrentReservationsCache: ObservableObject {
 /// [Description of the reservation property]
 ```
 
-### totalRemoved (Line 472)
-
-**Context:**
-
-```swift
-    /// Validates the cache and removes any invalid reservations
-    func validateCache() {
-        logger.info("Validating reservation cache")
-        var totalRemoved = 0
-        
-        // Note: Cancelled and waiting list reservations are intentionally filtered out of the cache.
-        // Special views like ReservationCancelledView and ReservationWaitingListView need to fetch
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the totalRemoved property]
-```
-
 ### validReservations (Line 478)
 
 **Context:**
@@ -2231,5 +1863,5 @@ struct ActiveReservationCacheKey: Hashable, Codable {
 ```
 
 
-Total documentation suggestions: 109
+Total documentation suggestions: 91
 

@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Auth/UserOnboardingView.swift
 # Documentation Suggestions for UserOnboardingView.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Auth/UserOnboardingView.swift
-Total suggestions: 42
+Total suggestions: 40
 
 ## Class Documentation (1)
 
@@ -150,7 +150,7 @@ struct UserOnboardingView: View {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (36)
+## Property Documentation (34)
 
 ### dismiss (Line 5)
 
@@ -712,46 +712,6 @@ struct UserOnboardingView: View {
 /// [Description of the isFormValid property]
 ```
 
-### trimmedFirstName (Line 225)
-
-**Context:**
-
-```swift
-    
-    /// Formats the name as "Firstname L." where L is the last name initial
-    private func formatDisplayName(firstName: String, lastName: String) -> String {
-        let trimmedFirstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedLastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Get the first letter of the last name if available
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the trimmedFirstName property]
-```
-
-### trimmedLastName (Line 226)
-
-**Context:**
-
-```swift
-    /// Formats the name as "Firstname L." where L is the last name initial
-    private func formatDisplayName(firstName: String, lastName: String) -> String {
-        let trimmedFirstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedLastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Get the first letter of the last name if available
-        if let initialLetter = trimmedLastName.first {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the trimmedLastName property]
-```
-
 ### initialLetter (Line 229)
 
 **Context:**
@@ -873,5 +833,5 @@ struct UserOnboardingView: View {
 ```
 
 
-Total documentation suggestions: 42
+Total documentation suggestions: 40
 

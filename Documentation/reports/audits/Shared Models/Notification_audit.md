@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 10.00%
-- **Items:** 1/10
+- **Coverage:** 70.00%
+- **Items:** 7/10
 
 ## Missing Documentation
 
@@ -12,10 +12,4 @@
 - `NotificationType`
 
 ### Properties
-- `id`
-- `title`
-- `message`
-- `date`
-- `reservation`
-- `type`
 - `localized`

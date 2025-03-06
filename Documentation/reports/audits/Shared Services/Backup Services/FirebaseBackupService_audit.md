@@ -2,17 +2,14 @@
 
 ## Summary
 
-- **Coverage:** 16.67%
-- **Items:** 2/12
+- **Coverage:** 41.67%
+- **Items:** 5/12
 
 ## Missing Documentation
 
 ### Properties
 - `errorDescription`
 - `message`
-- `isWritingToFirebase`
-- `localBackupFileURL`
-- `logger`
 - `db`
 - `storage`
 - `store`

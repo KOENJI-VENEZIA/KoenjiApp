@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 10.00%
-- **Items:** 4/40
+- **Coverage:** 27.50%
+- **Items:** 11/40
 
 ## Missing Documentation
 
@@ -24,17 +24,10 @@
 - `declineAction`
 - `webReservationCategory`
 - `existingDelegate`
-- `userInfo`
 - `type`
 - `reservationId`
 - `uuid`
 - `action`
-- `handlerBox`
-- `box`
-- `dependencies`
-- `reservation`
-- `dependencies`
-- `reservation`
 - `updatedReservation`
 - `userId`
 - `data`

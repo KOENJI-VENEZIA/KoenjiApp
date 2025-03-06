@@ -2,33 +2,9 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Services/Notification 
 # Documentation Suggestions for AppNotification.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Services/Notification Service/AppNotification.swift
-Total suggestions: 24
+Total suggestions: 19
 
-## Class Documentation (1)
-
-### NotificationManager (Line 16)
-
-**Context:**
-
-```swift
-
-/// A manager to handle scheduling local notifications and keeping an in‑app log.
-@MainActor
-final class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
-    @Published var notifications: [AppNotification] = []
-    @Published var selectedReservationID: UUID?
-    
-```
-
-**Suggested Documentation:**
-
-```swift
-/// NotificationManager manager.
-///
-/// [Add a description of what this manager does and its responsibilities]
-```
-
-## Method Documentation (6)
+## Method Documentation (5)
 
 ### requestNotificationAuthorization (Line 50)
 
@@ -126,30 +102,6 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 /// - Returns: [Description of the return value]
 ```
 
-### removeNotification (Line 119)
-
-**Context:**
-
-```swift
-    
-    /// Removes a specific notification from the in‑app log.
-    @MainActor
-    func removeNotification(_ notification: AppNotification) {
-        notifications.removeAll { $0.id == notification.id }
-    }
-
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the removeNotification method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
 ### clearNotifications (Line 124)
 
 **Context:**
@@ -174,47 +126,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (17)
-
-### notifications (Line 17)
-
-**Context:**
-
-```swift
-/// A manager to handle scheduling local notifications and keeping an in‑app log.
-@MainActor
-final class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
-    @Published var notifications: [AppNotification] = []
-    @Published var selectedReservationID: UUID?
-    
-    let logger = Logger(subsystem: "com.koenjiapp", category: "NotificationManager")
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the notifications property]
-```
-
-### selectedReservationID (Line 18)
-
-**Context:**
-
-```swift
-@MainActor
-final class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
-    @Published var notifications: [AppNotification] = []
-    @Published var selectedReservationID: UUID?
-    
-    let logger = Logger(subsystem: "com.koenjiapp", category: "NotificationManager")
-    
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the selectedReservationID property]
-```
+## Property Documentation (14)
 
 ### logger (Line 20)
 
@@ -274,26 +186,6 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
 ```swift
 /// [Description of the shared property]
-```
-
-### key (Line 33)
-
-**Context:**
-
-```swift
-        }
-    /// Checks if enough time has passed to send another notification
-    func canSendNotification(for reservationId: UUID, type: NotificationType, minimumInterval: TimeInterval) async -> Bool {
-        let key = "\(reservationId)-\(type.localized)"
-        
-        if let lastTime = lastNotificationTimes[key] {
-            let timeSinceLastNotification = Date().timeIntervalSince(lastTime)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the key property]
 ```
 
 ### lastTime (Line 35)
@@ -517,5 +409,5 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 ```
 
 
-Total documentation suggestions: 24
+Total documentation suggestions: 19
 

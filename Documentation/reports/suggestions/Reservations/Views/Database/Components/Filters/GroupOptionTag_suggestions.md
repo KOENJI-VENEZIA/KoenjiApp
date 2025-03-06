@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Database/C
 # Documentation Suggestions for GroupOptionTag.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Database/Components/Filters/GroupOptionTag.swift
-Total suggestions: 7
+Total suggestions: 4
 
 ## Method Documentation (1)
 
@@ -30,67 +30,7 @@ Total suggestions: 7
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (6)
-
-### groupOption (Line 6)
-
-**Context:**
-
-```swift
-/// A tag-based menu for grouping options that matches the design language
-/// of the other filter components
-struct GroupOptionTag: View {
-    @Binding var groupOption: GroupOption
-    @Binding var sortOption: SortOption?
-    var onGroupChange: (() -> Void)?
-    
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the groupOption property]
-```
-
-### sortOption (Line 7)
-
-**Context:**
-
-```swift
-/// of the other filter components
-struct GroupOptionTag: View {
-    @Binding var groupOption: GroupOption
-    @Binding var sortOption: SortOption?
-    var onGroupChange: (() -> Void)?
-    
-    // Icon and color mappings for group options
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the sortOption property]
-```
-
-### onGroupChange (Line 8)
-
-**Context:**
-
-```swift
-struct GroupOptionTag: View {
-    @Binding var groupOption: GroupOption
-    @Binding var sortOption: SortOption?
-    var onGroupChange: (() -> Void)?
-    
-    // Icon and color mappings for group options
-    private let groupOptionConfig: [(GroupOption, String, Color)] = [
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the onGroupChange property]
-```
+## Property Documentation (3)
 
 ### groupOptionConfig (Line 11)
 
@@ -153,5 +93,5 @@ struct GroupOptionTag: View {
 ```
 
 
-Total documentation suggestions: 7
+Total documentation suggestions: 4
 

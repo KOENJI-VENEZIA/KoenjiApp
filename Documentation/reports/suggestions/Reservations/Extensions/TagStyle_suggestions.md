@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Extensions/TagSt
 # Documentation Suggestions for TagStyle.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Extensions/TagStyle.swift
-Total suggestions: 12
+Total suggestions: 7
 
 ## Class Documentation (2)
 
@@ -76,107 +76,7 @@ extension View {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (9)
-
-### height (Line 14)
-
-**Context:**
-
-```swift
-/// Common styling for all tag-based toolbar items to ensure consistent appearance
-struct TagStyle {
-    // Fixed dimensions for all tags
-    static let height: CGFloat = 32
-    static let horizontalPadding: CGFloat = 8
-    static let verticalPadding: CGFloat = 4
-    static let cornerRadius: CGFloat = 12
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the height property]
-```
-
-### horizontalPadding (Line 15)
-
-**Context:**
-
-```swift
-struct TagStyle {
-    // Fixed dimensions for all tags
-    static let height: CGFloat = 32
-    static let horizontalPadding: CGFloat = 8
-    static let verticalPadding: CGFloat = 4
-    static let cornerRadius: CGFloat = 12
-    static let iconSpacing: CGFloat = 6
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the horizontalPadding property]
-```
-
-### verticalPadding (Line 16)
-
-**Context:**
-
-```swift
-    // Fixed dimensions for all tags
-    static let height: CGFloat = 32
-    static let horizontalPadding: CGFloat = 8
-    static let verticalPadding: CGFloat = 4
-    static let cornerRadius: CGFloat = 12
-    static let iconSpacing: CGFloat = 6
-    
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the verticalPadding property]
-```
-
-### cornerRadius (Line 17)
-
-**Context:**
-
-```swift
-    static let height: CGFloat = 32
-    static let horizontalPadding: CGFloat = 8
-    static let verticalPadding: CGFloat = 4
-    static let cornerRadius: CGFloat = 12
-    static let iconSpacing: CGFloat = 6
-    
-    // Common font for all tags
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the cornerRadius property]
-```
-
-### iconSpacing (Line 18)
-
-**Context:**
-
-```swift
-    static let horizontalPadding: CGFloat = 8
-    static let verticalPadding: CGFloat = 4
-    static let cornerRadius: CGFloat = 12
-    static let iconSpacing: CGFloat = 6
-    
-    // Common font for all tags
-    static let font: Font = .caption.weight(.semibold)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the iconSpacing property]
-```
+## Property Documentation (4)
 
 ### font (Line 21)
 
@@ -259,5 +159,5 @@ struct TagStyle {
 ```
 
 
-Total documentation suggestions: 12
+Total documentation suggestions: 7
 

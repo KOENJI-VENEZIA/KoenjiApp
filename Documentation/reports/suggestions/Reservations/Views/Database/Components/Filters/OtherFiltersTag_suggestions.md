@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Database/C
 # Documentation Suggestions for OtherFiltersTag.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Database/Components/Filters/OtherFiltersTag.swift
-Total suggestions: 15
+Total suggestions: 14
 
 ## Method Documentation (2)
 
@@ -54,27 +54,7 @@ Total suggestions: 15
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (13)
-
-### env (Line 6)
-
-**Context:**
-
-```swift
-/// A tag-based menu for additional filters that matches the design language
-/// of ReservationStateFilter and ReservationInfoCard
-struct OtherFiltersTag: View {
-    @EnvironmentObject var env: AppDependencies
-    
-    // State for popovers
-    @Binding var showPeoplePopover: Bool
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the env property]
-```
+## Property Documentation (12)
 
 ### showPeoplePopover (Line 9)
 
@@ -317,5 +297,5 @@ struct OtherFiltersTag: View {
 ```
 
 
-Total documentation suggestions: 15
+Total documentation suggestions: 14
 

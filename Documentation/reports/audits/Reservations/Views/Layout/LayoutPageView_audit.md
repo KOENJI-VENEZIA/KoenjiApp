@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 14.10%
-- **Items:** 11/78
+- **Coverage:** 19.23%
+- **Items:** 15/78
 
 ## Missing Documentation
 
@@ -60,8 +60,6 @@
 - `reservations`
 - `reservations`
 - `reservations`
-- `clusterTables`
-- `overlayFrame`
 - `newDrawingModel`
 - `reservationsForDate`
 - `previousAdjacentTables`
@@ -76,6 +74,4 @@
 - `newTables`
 - `key`
 - `baseTables`
-- `newWorkItem`
-- `newWorkItem`
 - `backgroundColor`

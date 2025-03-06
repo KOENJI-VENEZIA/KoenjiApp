@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 14.29%
-- **Items:** 1/7
+- **Coverage:** 42.86%
+- **Items:** 3/7
 
 ## Missing Documentation
 
@@ -11,8 +11,6 @@
 - `getCurrentSortConfig`
 
 ### Properties
-- `sortOption`
-- `onSortChange`
 - `sortOptionConfig`
 - `body`
 - `config`

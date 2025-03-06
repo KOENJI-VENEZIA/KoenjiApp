@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Layout/Lay
 # Documentation Suggestions for LayoutPageView.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Layout/LayoutPageView.swift
-Total suggestions: 67
+Total suggestions: 63
 
 ## Class Documentation (4)
 
@@ -312,7 +312,7 @@ extension Reservation.ReservationCategory {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (54)
+## Property Documentation (50)
 
 ### logger (Line 14)
 
@@ -1014,46 +1014,6 @@ struct LayoutPageView: View {
 /// [Description of the reservations property]
 ```
 
-### clusterTables (Line 244)
-
-**Context:**
-
-```swift
-    /// The clusters overlay views.
-    private var clustersOverlay: some View {
-        ForEach(clusterManager.clusters) { cluster in
-            let clusterTables = layoutUI.tables.filter { cluster.tableIDs.contains($0.id) }
-            let overlayFrame = cluster.frame
-
-            return Group {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the clusterTables property]
-```
-
-### overlayFrame (Line 245)
-
-**Context:**
-
-```swift
-    private var clustersOverlay: some View {
-        ForEach(clusterManager.clusters) { cluster in
-            let clusterTables = layoutUI.tables.filter { cluster.tableIDs.contains($0.id) }
-            let overlayFrame = cluster.frame
-
-            return Group {
-                ClusterView(
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the overlayFrame property]
-```
-
 ### newDrawingModel (Line 333)
 
 **Context:**
@@ -1334,46 +1294,6 @@ struct LayoutPageView: View {
 /// [Description of the baseTables property]
 ```
 
-### newWorkItem (Line 489)
-
-**Context:**
-
-```swift
-    /// A simple debounce helper.
-    private func debounce(action: @escaping () -> Void, delay: TimeInterval = 0.1) {
-        debounceWorkItem?.cancel()
-        let newWorkItem = DispatchWorkItem { action() }
-        debounceWorkItem = newWorkItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: newWorkItem)
-    }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the newWorkItem property]
-```
-
-### newWorkItem (Line 497)
-
-**Context:**
-
-```swift
-    /// A debounce helper for async actions with error handling.
-    private func debounceAsync(action: @escaping () async throws -> Void, delay: TimeInterval = 0.1) {
-        debounceWorkItem?.cancel()
-        let newWorkItem = DispatchWorkItem {
-            Task {
-                do {
-                    try await action()
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the newWorkItem property]
-```
-
 ### backgroundColor (Line 513)
 
 **Context:**
@@ -1395,5 +1315,5 @@ extension Reservation.ReservationCategory {
 ```
 
 
-Total documentation suggestions: 67
+Total documentation suggestions: 63
 

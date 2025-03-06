@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 2.60%
-- **Items:** 2/77
+- **Coverage:** 9.09%
+- **Items:** 7/77
 
 ## Missing Documentation
 
@@ -69,9 +69,6 @@
 - `dateComponents`
 - `timeComponents`
 - `combinedComponents`
-- `calendar`
-- `startHour`
-- `endHour`
 - `randomHour`
 - `randomMinute`
 - `components`
@@ -85,5 +82,3 @@
 - `reservationDateComponents`
 - `reservationStartDate`
 - `formatter`
-- `minuteOfHour`
-- `remainder`

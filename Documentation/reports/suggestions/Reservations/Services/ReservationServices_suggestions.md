@@ -2,9 +2,31 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Services/Reserva
 # Documentation Suggestions for ReservationServices.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Services/ReservationServices.swift
-Total suggestions: 226
+Total suggestions: 165
 
-## Class Documentation (7)
+## Class Documentation (8)
+
+### responsible (Line 16)
+
+**Context:**
+
+```swift
+import SwiftUI
+import OSLog
+
+/// A service class responsible for high-level operations on reservations.
+/// This class serves as the central coordinator for all reservation-related functionality in the app.
+/// It manages the lifecycle of reservations including creation, updating, deletion, and synchronization with Firebase.
+/// The service also handles table assignments, reservation status changes, and data persistence.
+```
+
+**Suggested Documentation:**
+
+```swift
+/// responsible class.
+///
+/// [Add a description of what this class does and its responsibilities]
+```
 
 ### ReservationService (Line 961)
 
@@ -160,561 +182,7 @@ extension ReservationService {
 /// [Add a description of what this service does and its responsibilities]
 ```
 
-## Method Documentation (23)
-
-### migrateDatabaseIfNeeded (Line 146)
-
-**Context:**
-
-```swift
-    /// - Note: When making schema changes, increment the `targetVersion` and add
-    ///         the migration code for each version step.
-    @MainActor
-    func migrateDatabaseIfNeeded() {
-        do {
-            // Get the current database version.
-            let currentVersion = try SQLiteManager.shared.db.scalar("PRAGMA user_version") as? Int64 ?? 0
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the migrateDatabaseIfNeeded method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### upsertSession (Line 177)
-
-**Context:**
-
-```swift
-    ///
-    /// - Parameter session: The session to insert or update
-    @MainActor
-    func upsertSession(_ session: Session) {
-        SQLiteManager.shared.insertSession(session)
-        
-        DispatchQueue.main.async {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the upsertSession method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### addReservation (Line 215)
-
-**Context:**
-
-```swift
-    ///
-    /// - Parameter reservation: The reservation to add
-    @MainActor
-    func addReservation(_ reservation: Reservation) {
-        // Update Database
-        SQLiteManager.shared.insertReservation(reservation)
-
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the addReservation method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### addReservations (Line 255)
-
-**Context:**
-
-```swift
-    ///
-    /// - Parameter reservations: An array of reservations to add
-    @MainActor
-    func addReservations(_ reservations: [Reservation]) {
-        for reservation in reservations {
-            SQLiteManager.shared.insertReservation(reservation)
-        }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the addReservations method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### convertSessionToDictionary (Line 266)
-
-**Context:**
-
-```swift
-    /// - Parameter session: The session to convert
-    /// - Returns: A dictionary representation of the session
-    @MainActor
-    private func convertSessionToDictionary(session: Session) -> [String: Any] {
-        return [
-            "id": session.id,
-            "uuid": session.uuid,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the convertSessionToDictionary method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### convertReservationToDictionary (Line 285)
-
-**Context:**
-
-```swift
-    /// - Parameter reservation: The reservation to convert
-    /// - Returns: A dictionary representation of the reservation
-    @MainActor
-    private func convertReservationToDictionary(reservation: Reservation) -> [String: Any] {
-        var updatedReservation = reservation
-        
-        // Check if this is a confirmed reservation with no tables
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the convertReservationToDictionary method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### updateReservation (Line 377)
-
-**Context:**
-
-```swift
-    ///   - shouldPersist: Whether to persist changes to Firebase (defaults to true)
-    ///   - completion: Closure to call when the update is complete
-    @MainActor
-    func updateReservation(_ oldReservation: Reservation, newReservation: Reservation? = nil, at index: Int? = nil, shouldPersist: Bool = true, completion: @escaping () -> Void) {
-        // Remove from active cache
-        self.invalidateClusterCache(for: oldReservation)
-        resCache.removeReservation(oldReservation)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the updateReservation method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### updateAllReservationsInFirestore (Line 467)
-
-**Context:**
-
-```swift
-    ///
-    /// - Note: This operation can be resource-intensive for large datasets.
-    @MainActor
-    func updateAllReservationsInFirestore() async {
-        logger.info("Beginning update of all reservations in Firestore...")
-        
-        let allReservations = self.store.reservations
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the updateAllReservationsInFirestore method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### handleConfirm (Line 510)
-
-**Context:**
-
-```swift
-    ///
-    /// - Parameter reservation: The reservation to confirm
-    @MainActor
-    func handleConfirm(_ reservation: Reservation) {
-        var updatedReservation = reservation
-        if updatedReservation.reservationType == .waitingList || updatedReservation.status == .canceled {
-            let assignmentResult = layoutServices.assignTables(for: updatedReservation, selectedTableID: nil)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the handleConfirm method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### clearAllDataFromFirestore (Line 551)
-
-**Context:**
-
-```swift
-    ///
-    /// - Parameter completion: Closure called when the operation completes, with an optional error
-    @MainActor
-    func clearAllDataFromFirestore(completion: @escaping (Error?) -> Void) {
-        let db = Firestore.firestore()
-        #if DEBUG
-        let reservationsRef = db.collection("reservations")
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the clearAllDataFromFirestore method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### clearAllData (Line 596)
-
-**Context:**
-
-```swift
-    ///
-    /// Use with extreme caution as this operation cannot be undone.
-    @MainActor 
-    func clearAllData() {
-        store.reservations.removeAll() // Clear in-memory reservations
-        
-        SQLiteManager.shared.deleteAllReservations()
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the clearAllData method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### loadReservationsFromFirebase (Line 672)
-
-**Context:**
-
-```swift
-    /// and updates the local database and caches with the retrieved data.
-    /// It also ensures that confirmed reservations have tables assigned.
-    @MainActor
-    func loadReservationsFromFirebase() {
-        logger.info("Loading reservations directly from Firebase...")
-        
-        withAnimation {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the loadReservationsFromFirebase method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### loadSessionsFromFirebase (Line 757)
-
-**Context:**
-
-```swift
-    /// This method fetches all session data from Firebase, processes it,
-    /// and updates the session store with the retrieved data.
-    @MainActor
-    func loadSessionsFromFirebase() {
-        logger.info("Loading sessions directly from Firebase...")
-        
-        withAnimation {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the loadSessionsFromFirebase method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### convertDictionaryToSession (Line 893)
-
-**Context:**
-
-```swift
-    /// - Parameter data: Dictionary containing session data from Firebase
-    /// - Returns: A Session object if conversion is successful, nil otherwise
-    @MainActor
-    private func convertDictionaryToSession(data: [String: Any]) -> Session? {
-        guard let id = data["id"] as? String,
-              let userName = data["userName"] as? String,
-              let isEditing = data["isEditing"] as? Bool,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the convertDictionaryToSession method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### mockData (Line 967)
-
-**Context:**
-
-```swift
-    /// This method creates and adds mock reservations to the system
-    /// for testing and demonstration purposes.
-    @MainActor
-    private func mockData() {
-        layoutServices.setTables(tableStore.baseTables)
-        self.logger.debug("Tables populated in mockData: \(self.layoutServices.tables.map { $0.name })")
-        
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the mockData method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### generateReservations (Line 1022)
-
-**Context:**
-
-```swift
-    ///   - force: Whether to force generation even if data already exists
-    ///   - startFromLastSaved: Whether to start from the last saved reservation date
-    @MainActor
-    func generateReservations(
-        daysToSimulate: Int,
-        force: Bool = false,
-        startFromLastSaved: Bool = true
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the generateReservations method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### generateReservationsForDay (Line 1085)
-
-**Context:**
-
-```swift
-    ///   - phoneNumbers: Array of phone numbers to use for reservations
-    ///   - notes: Array of notes to use for reservations
-    @MainActor
-    private func generateReservationsForDay(
-        dayOffset: Int,
-        startDate: Date,
-        names: [String],
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the generateReservationsForDay method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### simulateUserActions (Line 1283)
-
-**Context:**
-
-```swift
-    ///
-    /// - Parameter actionCount: Number of actions to simulate
-    @MainActor
-    func simulateUserActions(actionCount: Int = 1000) {
-        Task {
-            do {
-                for _ in 0..<actionCount {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the simulateUserActions method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### flushAllCaches (Line 1355)
-
-**Context:**
-
-```swift
-    /// This method removes all cached data from memory and persists
-    /// the changes to disk to ensure a clean state.
-    @MainActor
-    func flushAllCaches() {
-        DispatchQueue.main.async {
-            // Clear cached layouts
-            self.layoutServices.cachedLayouts.removeAll()
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the flushAllCaches method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### separateReservation (Line 1390)
-
-**Context:**
-
-```swift
-    ///   - notesToAdd: Optional notes to add to the reservation
-    /// - Returns: The updated reservation
-    @MainActor
-    func separateReservation(_ reservation: Reservation, notesToAdd: String = "") -> Reservation {
-        var updatedReservation = reservation  // Create a mutable copy
-        let finalNotes = notesToAdd == "" ? "" : "\(notesToAdd)\n\n"
-        updatedReservation.status = .pending
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the separateReservation method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### deleteReservation (Line 1405)
-
-**Context:**
-
-```swift
-    ///
-    /// - Parameter reservation: The reservation to delete
-    @MainActor
-    func deleteReservation(_ reservation: Reservation) {
-        var updatedReservation = reservation  // Create a mutable copy
-        updatedReservation.reservationType = .na
-        updatedReservation.status = .deleted
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the deleteReservation method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### ensureConfirmedReservationsHaveTables (Line 1423)
-
-**Context:**
-
-```swift
-    /// This method scans the database for confirmed reservations without
-    /// tables and attempts to assign tables to them.
-    @MainActor
-    func ensureConfirmedReservationsHaveTables() {
-        logger.info("Scanning database for confirmed reservations without tables...")
-        
-        var updatedCount = 0
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the ensureConfirmedReservationsHaveTables method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-### removeDuplicateReservations (Line 1491)
-
-**Context:**
-
-```swift
-    /// This method identifies reservations with the same ID, keeps the best one
-    /// (prioritizing those with tables or the most recently edited), and removes the others.
-    @MainActor
-    func removeDuplicateReservations() {
-        logger.info("Checking for duplicate reservations...")
-        
-        // Group reservations by ID
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the removeDuplicateReservations method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
-## Property Documentation (196)
+## Property Documentation (157)
 
 ### today (Line 127)
 
@@ -734,46 +202,6 @@ extension ReservationService {
 
 ```swift
 /// [Description of the today property]
-```
-
-### currentVersion (Line 149)
-
-**Context:**
-
-```swift
-    func migrateDatabaseIfNeeded() {
-        do {
-            // Get the current database version.
-            let currentVersion = try SQLiteManager.shared.db.scalar("PRAGMA user_version") as? Int64 ?? 0
-            let targetVersion: Int64 = 2  // Increment this whenever you change your schema
-            
-            if currentVersion < targetVersion {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the currentVersion property]
-```
-
-### targetVersion (Line 150)
-
-**Context:**
-
-```swift
-        do {
-            // Get the current database version.
-            let currentVersion = try SQLiteManager.shared.db.scalar("PRAGMA user_version") as? Int64 ?? 0
-            let targetVersion: Int64 = 2  // Increment this whenever you change your schema
-            
-            if currentVersion < targetVersion {
-                // Example: For version 2, add the sessionUUID column to sessions table.
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the targetVersion property]
 ```
 
 ### dbRef (Line 187)
@@ -934,26 +362,6 @@ extension ReservationService {
 
 ```swift
 /// [Description of the error property]
-```
-
-### updatedReservation (Line 286)
-
-**Context:**
-
-```swift
-    /// - Returns: A dictionary representation of the reservation
-    @MainActor
-    private func convertReservationToDictionary(reservation: Reservation) -> [String: Any] {
-        var updatedReservation = reservation
-        
-        // Check if this is a confirmed reservation with no tables
-        if updatedReservation.acceptance == .confirmed && updatedReservation.tables.isEmpty {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the updatedReservation property]
 ```
 
 ### layoutServices (Line 294)
@@ -1496,66 +904,6 @@ extension ReservationService {
 /// [Description of the data property]
 ```
 
-### updatedReservation (Line 511)
-
-**Context:**
-
-```swift
-    /// - Parameter reservation: The reservation to confirm
-    @MainActor
-    func handleConfirm(_ reservation: Reservation) {
-        var updatedReservation = reservation
-        if updatedReservation.reservationType == .waitingList || updatedReservation.status == .canceled {
-            let assignmentResult = layoutServices.assignTables(for: updatedReservation, selectedTableID: nil)
-            switch assignmentResult {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the updatedReservation property]
-```
-
-### assignmentResult (Line 513)
-
-**Context:**
-
-```swift
-    func handleConfirm(_ reservation: Reservation) {
-        var updatedReservation = reservation
-        if updatedReservation.reservationType == .waitingList || updatedReservation.status == .canceled {
-            let assignmentResult = layoutServices.assignTables(for: updatedReservation, selectedTableID: nil)
-            switch assignmentResult {
-            case .success(let assignedTables):
-                DispatchQueue.main.async {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the assignmentResult property]
-```
-
-### assignedTables (Line 515)
-
-**Context:**
-
-```swift
-        if updatedReservation.reservationType == .waitingList || updatedReservation.status == .canceled {
-            let assignmentResult = layoutServices.assignTables(for: updatedReservation, selectedTableID: nil)
-            switch assignmentResult {
-            case .success(let assignedTables):
-                DispatchQueue.main.async {
-                    // do actual saving logic here
-                    updatedReservation.tables = assignedTables
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the assignedTables property]
-```
-
 ### error (Line 526)
 
 **Context:**
@@ -1568,86 +916,6 @@ extension ReservationService {
                 switch error {
                     case .noTablesLeft:
                     pushAlerts.alertMessage = String(localized: "Non ci sono tavoli disponibili.")
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the error property]
-```
-
-### db (Line 552)
-
-**Context:**
-
-```swift
-    /// - Parameter completion: Closure called when the operation completes, with an optional error
-    @MainActor
-    func clearAllDataFromFirestore(completion: @escaping (Error?) -> Void) {
-        let db = Firestore.firestore()
-        #if DEBUG
-        let reservationsRef = db.collection("reservations")
-        #else
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the db property]
-```
-
-### reservationsRef (Line 554)
-
-**Context:**
-
-```swift
-    func clearAllDataFromFirestore(completion: @escaping (Error?) -> Void) {
-        let db = Firestore.firestore()
-        #if DEBUG
-        let reservationsRef = db.collection("reservations")
-        #else
-        let reservationsRef = db.collection("reservations_release")
-        #endif
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservationsRef property]
-```
-
-### reservationsRef (Line 556)
-
-**Context:**
-
-```swift
-        #if DEBUG
-        let reservationsRef = db.collection("reservations")
-        #else
-        let reservationsRef = db.collection("reservations_release")
-        #endif
-        reservationsRef.getDocuments { snapshot, error in
-            if let error = error {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservationsRef property]
-```
-
-### error (Line 559)
-
-**Context:**
-
-```swift
-        let reservationsRef = db.collection("reservations_release")
-        #endif
-        reservationsRef.getDocuments { snapshot, error in
-            if let error = error {
-                self.logger.error("Error fetching documents for deletion: \(error)")
-                completion(error)
-                return
 ```
 
 **Suggested Documentation:**
@@ -1734,66 +1002,6 @@ extension ReservationService {
 
 ```swift
 /// [Description of the error property]
-```
-
-### targetDateString (Line 617)
-
-**Context:**
-
-```swift
-    /// - Parameter date: The date for which to fetch reservations.
-    /// - Returns: A list of reservations for the given date.
-    func fetchReservations(on date: Date) -> [Reservation] {
-        let targetDateString = DateHelper.formatDate(date) // Use centralized helper
-        return store.reservations.filter { $0.dateString == targetDateString }
-    }
-    
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the targetDateString property]
-```
-
-### reservationDate (Line 640)
-
-**Context:**
-
-```swift
-    ///
-    /// - Parameter reservation: The reservation to invalidate cache for
-    private func invalidateClusterCache(for reservation: Reservation) {
-        guard let reservationDate = reservation.normalizedDate else {
-            self.logger.error("Failed to parse dateString \(reservation.normalizedDate ?? Date()). Cache invalidation skipped.")
-            return
-        }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservationDate property]
-```
-
-### allReservations (Line 655)
-
-**Context:**
-
-```swift
-    /// - Returns: A list of reservations matching the category.
-    func getReservations(by category: Reservation.ReservationCategory) -> [Reservation] {
-        // Retrieve all reservations from the ReservationStore
-        let allReservations = store.getReservations()
-        
-        // Filter reservations matching the specified category
-        let filteredReservations = allReservations.filter { $0.category == category }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the allReservations property]
 ```
 
 ### filteredReservations (Line 658)
@@ -2114,26 +1322,6 @@ extension ReservationService {
 
 ```swift
 /// [Description of the session property]
-```
-
-### data (Line 810)
-
-**Context:**
-
-```swift
-    /// - Returns: A Reservation object
-    /// - Throws: An error if required fields are missing or invalid
-    func reservationFromFirebaseDocument(_ document: DocumentSnapshot) throws -> Reservation {
-        guard let data = document.data() else {
-            throw NSError(domain: "com.koenjiapp", code: 1, userInfo: [NSLocalizedDescriptionKey: "Document data is nil"])
-        }
-        
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the data property]
 ```
 
 ### idString (Line 815)
@@ -2776,106 +1964,6 @@ extension ReservationService {
 /// [Description of the colorHue property]
 ```
 
-### id (Line 894)
-
-**Context:**
-
-```swift
-    /// - Returns: A Session object if conversion is successful, nil otherwise
-    @MainActor
-    private func convertDictionaryToSession(data: [String: Any]) -> Session? {
-        guard let id = data["id"] as? String,
-              let userName = data["userName"] as? String,
-              let isEditing = data["isEditing"] as? Bool,
-              let lastUpdateTimestamp = data["lastUpdate"] as? TimeInterval,
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the id property]
-```
-
-### userName (Line 895)
-
-**Context:**
-
-```swift
-    @MainActor
-    private func convertDictionaryToSession(data: [String: Any]) -> Session? {
-        guard let id = data["id"] as? String,
-              let userName = data["userName"] as? String,
-              let isEditing = data["isEditing"] as? Bool,
-              let lastUpdateTimestamp = data["lastUpdate"] as? TimeInterval,
-              let isActive = data["isActive"] as? Bool else {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the userName property]
-```
-
-### isEditing (Line 896)
-
-**Context:**
-
-```swift
-    private func convertDictionaryToSession(data: [String: Any]) -> Session? {
-        guard let id = data["id"] as? String,
-              let userName = data["userName"] as? String,
-              let isEditing = data["isEditing"] as? Bool,
-              let lastUpdateTimestamp = data["lastUpdate"] as? TimeInterval,
-              let isActive = data["isActive"] as? Bool else {
-            logger.error("Missing required fields in session data")
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the isEditing property]
-```
-
-### lastUpdateTimestamp (Line 897)
-
-**Context:**
-
-```swift
-        guard let id = data["id"] as? String,
-              let userName = data["userName"] as? String,
-              let isEditing = data["isEditing"] as? Bool,
-              let lastUpdateTimestamp = data["lastUpdate"] as? TimeInterval,
-              let isActive = data["isActive"] as? Bool else {
-            logger.error("Missing required fields in session data")
-            return nil
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the lastUpdateTimestamp property]
-```
-
-### isActive (Line 898)
-
-**Context:**
-
-```swift
-              let userName = data["userName"] as? String,
-              let isEditing = data["isEditing"] as? Bool,
-              let lastUpdateTimestamp = data["lastUpdate"] as? TimeInterval,
-              let isActive = data["isActive"] as? Bool else {
-            logger.error("Missing required fields in session data")
-            return nil
-        }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the isActive property]
-```
-
 ### lastUpdate (Line 903)
 
 **Context:**
@@ -2914,26 +2002,6 @@ extension ReservationService {
 
 ```swift
 /// [Description of the uuid property]
-```
-
-### data (Line 925)
-
-**Context:**
-
-```swift
-    /// - Returns: A Session object
-    /// - Throws: An error if required fields are missing or invalid
-    private func sessionFromFirebaseDocument(_ document: DocumentSnapshot) throws -> Session {
-        guard let data = document.data() else {
-            throw NSError(domain: "com.koenjiapp", code: 1, userInfo: [NSLocalizedDescriptionKey: "Document data is nil"])
-        }
-        
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the data property]
 ```
 
 ### id (Line 930)
@@ -3056,26 +2124,6 @@ extension ReservationService {
 /// [Description of the uuid property]
 ```
 
-### documentDirectory (Line 955)
-
-**Context:**
-
-```swift
-    ///
-    /// - Returns: URL to the reservations file
-    private func getReservationsFileURL() -> URL {
-        let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        return documentDirectory.appendingPathComponent(store.reservationsFileName)
-    }
-}
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the documentDirectory property]
-```
-
 ### mockReservation1 (Line 971)
 
 **Context:**
@@ -3114,26 +2162,6 @@ extension ReservationService {
 
 ```swift
 /// [Description of the mockReservation2 property]
-```
-
-### startDate (Line 1028)
-
-**Context:**
-
-```swift
-        startFromLastSaved: Bool = true
-    ) async {
-        // 1. Determine start date
-        var startDate = Calendar.current.startOfDay(for: Date())
-
-        if startFromLastSaved {
-            if let maxReservation = self.store.reservations.max(by: { lhs, rhs in
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the startDate property]
 ```
 
 ### maxReservation (Line 1031)
@@ -3294,46 +2322,6 @@ extension ReservationService {
 
 ```swift
 /// [Description of the notes property]
-```
-
-### reservationDate (Line 1092)
-
-**Context:**
-
-```swift
-        phoneNumbers: [String],
-        notes: [String]
-    ) async {
-        let reservationDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: startDate)!
-        let dayOfWeek = Calendar.current.component(.weekday, from: reservationDate)
-
-        // Skip Mondays
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservationDate property]
-```
-
-### dayOfWeek (Line 1093)
-
-**Context:**
-
-```swift
-        notes: [String]
-    ) async {
-        let reservationDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: startDate)!
-        let dayOfWeek = Calendar.current.component(.weekday, from: reservationDate)
-
-        // Skip Mondays
-        if dayOfWeek == 2 {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the dayOfWeek property]
 ```
 
 ### maxDailyReservations (Line 1101)
@@ -3716,186 +2704,6 @@ extension ReservationService {
 /// [Description of the error property]
 ```
 
-### slots (Line 1211)
-
-**Context:**
-
-```swift
-    ///   - range: Tuple containing start and end hour (inclusive/exclusive)
-    /// - Returns: Array of dates representing time slots at 5-minute intervals
-    private func generateTimeSlots(for date: Date, range: (Int, Int)) -> [Date] {
-        var slots: [Date] = []
-        for hour in range.0..<range.1 {
-            for minute in stride(from: 0, to: 60, by: 5) { // Step of 5 minutes
-                if let slot = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: date) {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the slots property]
-```
-
-### slot (Line 1214)
-
-**Context:**
-
-```swift
-        var slots: [Date] = []
-        for hour in range.0..<range.1 {
-            for minute in stride(from: 0, to: 60, by: 5) { // Step of 5 minutes
-                if let slot = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: date) {
-                    slots.append(slot)
-                }
-            }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the slot property]
-```
-
-### calendar (Line 1227)
-
-**Context:**
-
-```swift
-    /// - Parameter date: The date to round
-    /// - Returns: The rounded date
-    private func roundToNearestFiveMinutes(_ date: Date) -> Date {
-        let calendar = Calendar.current
-        let minute = calendar.component(.minute, from: date)
-        let remainder = minute % 5
-        let adjustment = remainder < 3 ? -remainder : (5 - remainder)
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the calendar property]
-```
-
-### minute (Line 1228)
-
-**Context:**
-
-```swift
-    /// - Returns: The rounded date
-    private func roundToNearestFiveMinutes(_ date: Date) -> Date {
-        let calendar = Calendar.current
-        let minute = calendar.component(.minute, from: date)
-        let remainder = minute % 5
-        let adjustment = remainder < 3 ? -remainder : (5 - remainder)
-        return calendar.date(byAdding: .minute, value: adjustment, to: date)!
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the minute property]
-```
-
-### remainder (Line 1229)
-
-**Context:**
-
-```swift
-    private func roundToNearestFiveMinutes(_ date: Date) -> Date {
-        let calendar = Calendar.current
-        let minute = calendar.component(.minute, from: date)
-        let remainder = minute % 5
-        let adjustment = remainder < 3 ? -remainder : (5 - remainder)
-        return calendar.date(byAdding: .minute, value: adjustment, to: date)!
-    }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the remainder property]
-```
-
-### adjustment (Line 1230)
-
-**Context:**
-
-```swift
-        let calendar = Calendar.current
-        let minute = calendar.component(.minute, from: date)
-        let remainder = minute % 5
-        let adjustment = remainder < 3 ? -remainder : (5 - remainder)
-        return calendar.date(byAdding: .minute, value: adjustment, to: date)!
-    }
-
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the adjustment property]
-```
-
-### random (Line 1241)
-
-**Context:**
-
-```swift
-    ///
-    /// - Returns: A party size between 2 and 14
-    private func generateWeightedGroupSize() -> Int {
-        let random = Double.random(in: 0...1)
-        switch random {
-        case 0..<0.5: return Int.random(in: 2...3) // 50% chance for groups of 2-3
-        case 0.5..<0.7: return Int.random(in: 4...5) // 20% chance for groups of 4-5
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the random property]
-```
-
-### resourceName (Line 1259)
-
-**Context:**
-
-```swift
-    ///   - folder: Optional folder containing the file
-    /// - Returns: Array of strings from the file
-    func loadStringsFromFile(fileName: String, folder: String? = nil) -> [String] {
-        let resourceName = folder != nil ? "\(String(describing: folder))/\(fileName)" : fileName
-        guard let fileURL = Bundle.main.url(forResource: resourceName, withExtension: "txt") else {
-            self.logger.warning("Failed to load \(fileName) from folder \(String(describing: folder)).")
-            return []
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the resourceName property]
-```
-
-### fileURL (Line 1260)
-
-**Context:**
-
-```swift
-    /// - Returns: Array of strings from the file
-    func loadStringsFromFile(fileName: String, folder: String? = nil) -> [String] {
-        let resourceName = folder != nil ? "\(String(describing: folder))/\(fileName)" : fileName
-        guard let fileURL = Bundle.main.url(forResource: resourceName, withExtension: "txt") else {
-            self.logger.warning("Failed to load \(fileName) from folder \(String(describing: folder)).")
-            return []
-        }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the fileURL property]
-```
-
 ### content (Line 1266)
 
 **Context:**
@@ -4036,46 +2844,6 @@ extension ReservationService {
 /// [Description of the result property]
 ```
 
-### reservationDate (Line 1312)
-
-**Context:**
-
-```swift
-    ///
-    /// - Parameter reservation: The reservation to update adjacency counts for
-    func updateActiveReservationAdjacencyCounts(for reservation: Reservation) {
-        guard let reservationDate = reservation.normalizedDate,
-              let combinedDateTime = reservation.startTimeDate else {
-            self.logger.warning("Invalid reservation date or time for updating adjacency counts.")
-            return
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the reservationDate property]
-```
-
-### combinedDateTime (Line 1313)
-
-**Context:**
-
-```swift
-    /// - Parameter reservation: The reservation to update adjacency counts for
-    func updateActiveReservationAdjacencyCounts(for reservation: Reservation) {
-        guard let reservationDate = reservation.normalizedDate,
-              let combinedDateTime = reservation.startTimeDate else {
-            self.logger.warning("Invalid reservation date or time for updating adjacency counts.")
-            return
-        }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the combinedDateTime property]
-```
-
 ### activeTables (Line 1319)
 
 **Context:**
@@ -4214,66 +2982,6 @@ extension ReservationService {
 
 ```swift
 /// [Description of the cachedIndex property]
-```
-
-### updatedReservation (Line 1391)
-
-**Context:**
-
-```swift
-    /// - Returns: The updated reservation
-    @MainActor
-    func separateReservation(_ reservation: Reservation, notesToAdd: String = "") -> Reservation {
-        var updatedReservation = reservation  // Create a mutable copy
-        let finalNotes = notesToAdd == "" ? "" : "\(notesToAdd)\n\n"
-        updatedReservation.status = .pending
-        updatedReservation.notes = "\(finalNotes)[da controllare];"
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the updatedReservation property]
-```
-
-### finalNotes (Line 1392)
-
-**Context:**
-
-```swift
-    @MainActor
-    func separateReservation(_ reservation: Reservation, notesToAdd: String = "") -> Reservation {
-        var updatedReservation = reservation  // Create a mutable copy
-        let finalNotes = notesToAdd == "" ? "" : "\(notesToAdd)\n\n"
-        updatedReservation.status = .pending
-        updatedReservation.notes = "\(finalNotes)[da controllare];"
-        return updatedReservation
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the finalNotes property]
-```
-
-### updatedReservation (Line 1406)
-
-**Context:**
-
-```swift
-    /// - Parameter reservation: The reservation to delete
-    @MainActor
-    func deleteReservation(_ reservation: Reservation) {
-        var updatedReservation = reservation  // Create a mutable copy
-        updatedReservation.reservationType = .na
-        updatedReservation.status = .deleted
-        updatedReservation.acceptance = .na
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the updatedReservation property]
 ```
 
 ### updatedCount (Line 1426)
@@ -4434,26 +3142,6 @@ extension ReservationService {
 
 ```swift
 /// [Description of the error property]
-```
-
-### nextMinute (Line 1471)
-
-**Context:**
-
-```swift
-extension Date {
-    /// Returns the start of the next minute for the current date.
-    func startOfNextMinute() -> Date {
-        let nextMinute = Calendar.current.date(byAdding: .minute, value: 1, to: self)!
-        return Calendar.current.date(from: Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: nextMinute))!
-    }
-}
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the nextMinute property]
 ```
 
 ### groupedReservations (Line 1495)
@@ -4637,5 +3325,5 @@ extension Date {
 ```
 
 
-Total documentation suggestions: 226
+Total documentation suggestions: 165
 

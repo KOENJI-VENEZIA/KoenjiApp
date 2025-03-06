@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Database/C
 # Documentation Suggestions for ReservationStateFilter.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Reservations/Views/Database/Components/Filters/ReservationStateFilter.swift
-Total suggestions: 8
+Total suggestions: 7
 
 ## Method Documentation (2)
 
@@ -54,27 +54,7 @@ Total suggestions: 8
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (6)
-
-### filterOption (Line 6)
-
-**Context:**
-
-```swift
-/// A filter for reservation states that uses the design language of ReservationInfoCard
-struct ReservationStateFilter: View {
-    // Remove direct environment object usage, use binding instead
-    @Binding var filterOption: Set<FilterOption>
-    
-    // Callback when state filter changes
-    var onFilterChange: (() -> Void)?
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the filterOption property]
-```
+## Property Documentation (5)
 
 ### onFilterChange (Line 9)
 
@@ -177,5 +157,5 @@ struct ReservationStateFilter: View {
 ```
 
 
-Total documentation suggestions: 8
+Total documentation suggestions: 7
 

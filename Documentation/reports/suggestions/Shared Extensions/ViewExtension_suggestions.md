@@ -2,7 +2,7 @@ Analyzing /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Extensions/ViewExtensi
 # Documentation Suggestions for ViewExtension.swift
 
 File: /Users/matteonassini/KoenjiApp/KoenjiApp/Shared Extensions/ViewExtension.swift
-Total suggestions: 63
+Total suggestions: 56
 
 ## Class Documentation (26)
 
@@ -578,7 +578,7 @@ extension View {
 /// [Add a description of what this view does and its responsibilities]
 ```
 
-## Method Documentation (8)
+## Method Documentation (7)
 
 ### makeUIView (Line 10)
 
@@ -700,30 +700,6 @@ extension View {
 /// - Returns: [Description of the return value]
 ```
 
-### body (Line 101)
-
-**Context:**
-
-```swift
-
-/// A ViewModifier that overrides the system locale to Italian.
-struct ItalianLocaleModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .environment(\.locale, Locale(identifier: String(localized: "it_IT"))) // Set locale to Italian
-    }
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Add a description of what the body method does]
-///
-/// - Parameters:
-///   - [parameter]: [Description of parameter]
-/// - Returns: [Description of the return value]
-```
-
 ### body (Line 146)
 
 **Context:**
@@ -772,7 +748,7 @@ extension View {
 /// - Returns: [Description of the return value]
 ```
 
-## Property Documentation (29)
+## Property Documentation (23)
 
 ### blurStyle (Line 8)
 
@@ -794,46 +770,6 @@ struct VisualEffectBlur: UIViewRepresentable {
 /// [Description of the blurStyle property]
 ```
 
-### hex (Line 44)
-
-**Context:**
-
-```swift
-    /// - Parameter hex: The hexadecimal string representing the color. It can start with or without a `#` and support RGB or ARGB formats.
-    init(hex: String) {
-        // Remove any leading '#' and ensure the string has valid characters
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the hex property]
-```
-
-### int (Line 45)
-
-**Context:**
-
-```swift
-    init(hex: String) {
-        // Remove any leading '#' and ensure the string has valid characters
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        
-        let a, r, g, b: UInt64
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the int property]
-```
-
 ### a (Line 48)
 
 **Context:**
@@ -852,86 +788,6 @@ struct VisualEffectBlur: UIViewRepresentable {
 
 ```swift
 /// [Description of the a property]
-```
-
-### colorScheme (Line 83)
-
-**Context:**
-
-```swift
-
-/// A ViewModifier that applies a dynamic background color based on the system's color scheme.
-struct ColorSchemeBackgroundModifier: ViewModifier {
-    @Environment(\.colorScheme) var colorScheme
-    
-    /// The background color determined by the current color scheme.
-    private var backgroundColor: Color {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the colorScheme property]
-```
-
-### colorScheme (Line 142)
-
-**Context:**
-
-```swift
-
-/// A ViewModifier that applies a dynamic background color based on the system's color scheme with custom colors.
-struct ColorSchemeBackgroundModifierCustom: ViewModifier {
-    @Environment(\.colorScheme) var colorScheme
-    var lightColor: Color
-    var darkColor: Color
-    
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the colorScheme property]
-```
-
-### lightColor (Line 143)
-
-**Context:**
-
-```swift
-/// A ViewModifier that applies a dynamic background color based on the system's color scheme with custom colors.
-struct ColorSchemeBackgroundModifierCustom: ViewModifier {
-    @Environment(\.colorScheme) var colorScheme
-    var lightColor: Color
-    var darkColor: Color
-    
-    func body(content: Content) -> some View {
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the lightColor property]
-```
-
-### darkColor (Line 144)
-
-**Context:**
-
-```swift
-struct ColorSchemeBackgroundModifierCustom: ViewModifier {
-    @Environment(\.colorScheme) var colorScheme
-    var lightColor: Color
-    var darkColor: Color
-    
-    func body(content: Content) -> some View {
-        content
-```
-
-**Suggested Documentation:**
-
-```swift
-/// [Description of the darkColor property]
 ```
 
 ### grid_background_dinner (Line 153)
@@ -1355,5 +1211,5 @@ extension View {
 ```
 
 
-Total documentation suggestions: 63
+Total documentation suggestions: 56
 

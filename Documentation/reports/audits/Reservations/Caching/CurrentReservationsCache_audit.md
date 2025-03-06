@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Coverage:** 11.38%
-- **Items:** 14/123
+- **Coverage:** 26.02%
+- **Items:** 32/123
 
 ## Missing Documentation
 
@@ -17,8 +17,6 @@
 - `precomputeActiveReservations`
 - `startMonitoring`
 - `checkForSignificantChanges`
-- `fetchReservations`
-- `reservation`
 - `clearAllCache`
 - `hash`
 
@@ -38,30 +36,22 @@
 - `dateString`
 - `dateString`
 - `reservationsForDate`
-- `dateSet`
-- `newDate`
 - `reservationsForDate`
 - `activeReservations`
 - `startTime`
 - `endTime`
 - `current`
 - `normalizedMinute`
-- `normalizedMinute`
 - `currentTime`
 - `activeReservations`
 - `reservationsEndingSoon`
 - `reservationsLate`
-- `startDate`
-- `endDate`
 - `normalizedDate`
-- `normalizedDate`
-- `targetDateString`
 - `reservationsRef`
 - `reservationsRef`
 - `snapshot`
 - `results`
 - `reservation`
-- `data`
 - `idString`
 - `id`
 - `name`
@@ -94,19 +84,12 @@
 - `imageData`
 - `preferredLanguage`
 - `colorHue`
-- `normalizedDate`
-- `normalizedTime`
 - `reservationsForDate`
 - `currentReservation`
 - `reservation`
 - `normalizedDate`
 - `reservationsForDate`
 - `index`
-- `normalizedDate`
-- `lateReservations`
-- `nearingEndReservations`
-- `normalizedDate`
-- `normalizedTime`
 - `lunchStartTime`
 - `lunchEndTime`
 - `dinnerStartTime`
@@ -115,7 +98,6 @@
 - `reservationsForDate`
 - `firstUpcoming`
 - `reservation`
-- `totalRemoved`
 - `validReservations`
 - `isValid`
 - `date`
