@@ -21,6 +21,16 @@
 		A0C599D82D42B0FD004A3423 /* Launchscreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		A0D2CE532D7929AB004E8969 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A0775E1C2D1CAA1F00068B00 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A0775E232D1CAA1F00068B00;
+			remoteInfo = KoenjiApp;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		A030D8682D27798300EA08E2 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -37,6 +47,7 @@
 /* Begin PBXFileReference section */
 		A0775E242D1CAA1F00068B00 /* KoenjiApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KoenjiApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Launchscreen.storyboard; sourceTree = "<group>"; };
+		A0D2CE4F2D7929AB004E8969 /* KoenjiAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KoenjiAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -56,6 +67,11 @@
 				A0C599DB2D42B84E004A3423 /* Exceptions for "KoenjiApp" folder in "KoenjiApp" target */,
 			);
 			path = KoenjiApp;
+			sourceTree = "<group>";
+		};
+		A0D2CE502D7929AB004E8969 /* KoenjiAppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = KoenjiAppTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -79,6 +95,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A0D2CE4C2D7929AB004E8969 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -94,6 +117,7 @@
 			children = (
 				A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */,
 				A03E7C192D316538000A38AC /* KoenjiApp */,
+				A0D2CE502D7929AB004E8969 /* KoenjiAppTests */,
 				A03B7B6F2D43B18200FF8FF7 /* Frameworks */,
 				A0775E252D1CAA1F00068B00 /* Products */,
 			);
@@ -103,6 +127,7 @@
 			isa = PBXGroup;
 			children = (
 				A0775E242D1CAA1F00068B00 /* KoenjiApp.app */,
+				A0D2CE4F2D7929AB004E8969 /* KoenjiAppTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -144,6 +169,29 @@
 			productReference = A0775E242D1CAA1F00068B00 /* KoenjiApp.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A0D2CE4E2D7929AB004E8969 /* KoenjiAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A0D2CE552D7929AB004E8969 /* Build configuration list for PBXNativeTarget "KoenjiAppTests" */;
+			buildPhases = (
+				A0D2CE4B2D7929AB004E8969 /* Sources */,
+				A0D2CE4C2D7929AB004E8969 /* Frameworks */,
+				A0D2CE4D2D7929AB004E8969 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A0D2CE542D7929AB004E8969 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A0D2CE502D7929AB004E8969 /* KoenjiAppTests */,
+			);
+			name = KoenjiAppTests;
+			packageProductDependencies = (
+			);
+			productName = KoenjiAppTests;
+			productReference = A0D2CE4F2D7929AB004E8969 /* KoenjiAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -151,11 +199,18 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
+				KnownAssetTags = (
+					New,
+				);
 				LastSwiftUpdateCheck = 1620;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					A0775E232D1CAA1F00068B00 = {
 						CreatedOnToolsVersion = 16.2;
+					};
+					A0D2CE4E2D7929AB004E8969 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = A0775E232D1CAA1F00068B00;
 					};
 				};
 			};
@@ -183,6 +238,7 @@
 			projectRoot = "";
 			targets = (
 				A0775E232D1CAA1F00068B00 /* KoenjiApp */,
+				A0D2CE4E2D7929AB004E8969 /* KoenjiAppTests */,
 			);
 		};
 /* End PBXProject section */
@@ -196,6 +252,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A0D2CE4D2D7929AB004E8969 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -206,7 +269,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A0D2CE4B2D7929AB004E8969 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A0D2CE542D7929AB004E8969 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A0775E232D1CAA1F00068B00 /* KoenjiApp */;
+			targetProxy = A0D2CE532D7929AB004E8969 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A0775E302D1CAA2100068B00 /* Debug */ = {
@@ -418,6 +496,43 @@
 			};
 			name = Release;
 		};
+		A0D2CE562D7929AB004E8969 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = BVRFYCSRU7;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.koenjiapp.KoenjiAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KoenjiApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/KoenjiApp";
+			};
+			name = Debug;
+		};
+		A0D2CE572D7929AB004E8969 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BVRFYCSRU7;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.koenjiapp.KoenjiAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/KoenjiApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/KoenjiApp";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -435,6 +550,15 @@
 			buildConfigurations = (
 				A0775E332D1CAA2100068B00 /* Debug */,
 				A0775E342D1CAA2100068B00 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A0D2CE552D7929AB004E8969 /* Build configuration list for PBXNativeTarget "KoenjiAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A0D2CE562D7929AB004E8969 /* Debug */,
+				A0D2CE572D7929AB004E8969 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
