@@ -17,13 +17,13 @@ extension ReservationService {
     @MainActor
     func startWebReservationListener() {
         #if DEBUG
-        let dbRef = backupService.db.collection("reservations")
+        let dbRef = backupService.db?.collection("reservations")
         #else
-        let dbRef = backupService.db.collection("reservations_release")
+        let dbRef = backupService.db?.collection("reservations_release")
         #endif
         
         // Listen for new web reservations with toConfirm status
-        webReservationListener = dbRef.whereField("source", isEqualTo: "web")
+        webReservationListener = dbRef?.whereField("source", isEqualTo: "web")
              .whereField("acceptance", isEqualTo: "toConfirm")
              .addSnapshotListener { [weak self] snapshot, error in
                  if let error = error {
@@ -174,12 +174,12 @@ extension ReservationService {
         // 4. Delete the original reservation from Firestore using async/await
         do {
             #if DEBUG
-            let dbRef = backupService.db.collection("reservations")
+            let dbRef = backupService.db?.collection("reservations")
             #else
-            let dbRef = backupService.db.collection("reservations_release")
+            let dbRef = backupService.db?.collection("reservations_release")
             #endif
             
-            try await dbRef.document(reservation.id.uuidString.lowercased()).delete()
+            try await dbRef?.document(reservation.id.uuidString.lowercased()).delete()
             logger.debug("Original web reservation deleted successfully")
         } catch {
             logger.error("Error deleting original web reservation: \(error)")
@@ -234,12 +234,12 @@ extension ReservationService {
         // 4. Delete the original reservation from Firestore
         do {
             #if DEBUG
-            let dbRef = backupService.db.collection("reservations")
+            let dbRef = backupService.db?.collection("reservations")
             #else
-            let dbRef = backupService.db.collection("reservations_release")
+            let dbRef = backupService.db?.collection("reservations_release")
             #endif
             
-            try await dbRef.document(reservation.id.uuidString.lowercased()).delete()
+            try await dbRef?.document(reservation.id.uuidString.lowercased()).delete()
             logger.debug("Original web reservation deleted successfully")
         } catch {
             logger.error("Error deleting original web reservation: \(error)")

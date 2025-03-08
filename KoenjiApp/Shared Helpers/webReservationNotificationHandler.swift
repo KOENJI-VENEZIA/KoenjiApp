@@ -61,7 +61,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             }
     
             /// nonisolated delegate method so we can accept the non-Sendable UNNotificationResponse.
-            /// Then we hop to the main actor for anything that’s main-actor isolated.
+            /// Then we hop to the main actor for anything that's main-actor isolated.
             nonisolated func userNotificationCenter(
                 _ center: UNUserNotificationCenter,
                 didReceive response: UNNotificationResponse
@@ -174,36 +174,46 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     
         // Register device for push notifications
         // Register device token with completely detached task
-            func registerDeviceWithFirebaseSafely(token: String, deviceId: String) {
-                // Create a fire-and-forget Task that's completely detached from calling context
-                // This avoids crossing any actor boundaries with the Firebase result
-                Task.detached {
-                    do {
-                        let userId = UserDefaults.standard.string(forKey: "userIdentifier") ?? deviceId
+        func registerDeviceWithFirebaseSafely(token: String, deviceId: String) {
+            // Check if we're running in preview mode
+            if AppDependencies.isPreviewMode {
+                logger.debug("Preview mode: Skipping device registration with Firebase")
+                return
+            }
+            
+            // Create a fire-and-forget Task that's completely detached from calling context
+            // This avoids crossing any actor boundaries with the Firebase result
+            Task.detached {
+                do {
+                    let userId = UserDefaults.standard.string(forKey: "userIdentifier") ?? deviceId
     
-                        let data: [String: Any] = [
-                            "token": token,
-                            "deviceId": deviceId,
-                            "userId": userId
-                        ]
+                    let data: [String: Any] = [
+                        "token": token,
+                        "deviceId": deviceId,
+                        "userId": userId
+                    ]
     
-                        let deviceRegistrationFunctions = Functions.functions()
-    
-                        // Log from within the detached task
-                        let logger = Logger(subsystem: "com.koenjiapp", category: "FirebaseTask")
-                        logger.info("Registering device token with Firebase")
-    
-                        // Since this entire Task is detached, the non-Sendable result stays within
-                        // the context of this task and never needs to cross boundaries
-                        _ = try await deviceRegistrationFunctions.httpsCallable("registerDeviceToken").call(data)
-    
-                        logger.info("Device successfully registered for push notifications")
-                    } catch {
-                        let logger = Logger(subsystem: "com.koenjiapp", category: "FirebaseTask")
-                        logger.error("Error registering device: \(error.localizedDescription)")
+                    // Use the safe Firebase initialization method
+                    guard let functions = AppDependencies.getFunctions() else {
+                        // This should never happen since we already checked for preview mode
+                        return
                     }
+    
+                    // Log from within the detached task
+                    let logger = Logger(subsystem: "com.koenjiapp", category: "FirebaseTask")
+                    logger.info("Registering device token with Firebase")
+    
+                    // Since this entire Task is detached, the non-Sendable result stays within
+                    // the context of this task and never needs to cross boundaries
+                    _ = try await functions.httpsCallable("registerDeviceToken").call(data)
+    
+                    logger.info("Device successfully registered for push notifications")
+                } catch {
+                    let logger = Logger(subsystem: "com.koenjiapp", category: "FirebaseTask")
+                    logger.error("Error registering device: \(error.localizedDescription)")
                 }
             }
+        }
     
             // Handle notification registration failures
             func application(

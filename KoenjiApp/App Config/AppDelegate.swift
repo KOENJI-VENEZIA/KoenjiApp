@@ -14,7 +14,11 @@ struct LegacyNotificationHandlerBox: @unchecked Sendable {
 final class AppDelegate: UIResponder, UIApplicationDelegate {
     let logger = Logger(subsystem: "com.koenjiapp", category: "AppDelegate")
     var originalNotificationHandler: LegacyNotificationHandlerBox? = nil
-
+    
+    // Check if we're running in preview mode
+    private var isPreview: Bool {
+        ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+    }
 
     func application(
         _ application: UIApplication,
@@ -22,7 +26,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     ) -> Bool {
         logger.info("Application finished launching")
 
-        setupWebReservationNotifications()
+        // Only setup web reservation notifications if not in preview mode
+        if !isPreview {
+            setupWebReservationNotifications()
+        } else {
+            logger.debug("Preview mode: Skipping web reservation notifications setup")
+        }
         
         // Set NotificationManager as the delegate
         UNUserNotificationCenter.current().delegate = NotificationManager.shared
@@ -41,6 +50,12 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationWillTerminate(_ application: UIApplication) {
         logger.info("Application will terminate")
         
+        // Skip session updates in preview mode
+        if isPreview {
+            logger.debug("Preview mode: Skipping session update on termination")
+            return
+        }
+        
         // Get the device UUID from UserDefaults
         if let deviceUUID = UserDefaults.standard.string(forKey: "deviceUUID"),
            var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID }) {
@@ -50,8 +65,6 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             logger.debug("Session marked as inactive for device: \(deviceUUID)")
         }
     }
-    
-    
 }
 
 extension UNUserNotificationCenter {

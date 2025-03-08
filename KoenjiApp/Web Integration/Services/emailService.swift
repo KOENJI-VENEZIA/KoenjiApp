@@ -47,14 +47,37 @@ class LegacyEmailSender {
     private let serialQueue = DispatchQueue(label: "com.koenjiapp.emailQueue", qos: .userInitiated)
     private var isProcessing = false
     // Create a single Functions instance
-    private let functions = Functions.functions()
+    private let functions: Functions?
     private let logger = Logger(subsystem: "com.koenjiapp", category: "LegacyEmailSender")
+    private let isPreview: Bool
+
+    init() {
+        // Check if we're running in preview mode
+        self.isPreview = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        
+        // Only initialize Firebase Functions if not in preview mode
+        if !isPreview {
+            self.functions = Functions.functions()
+        } else {
+            self.functions = nil
+            logger.debug("Preview mode: Firebase Functions not initialized")
+        }
+    }
 
     func sendEmail(emailType: EmailType, completionHandler: @escaping @Sendable (Bool) -> Void) {
         // Queue this operation
         serialQueue.async { [weak self] in
             guard let self = self else {
                 completionHandler(false)
+                return
+            }
+
+            // If in preview mode, just return success without calling Firebase
+            if self.isPreview {
+                self.logger.debug("Preview mode: Skipping email send")
+                DispatchQueue.main.async {
+                    completionHandler(true)
+                }
                 return
             }
 
@@ -102,7 +125,7 @@ class LegacyEmailSender {
             }
 
             // Make the call - Move the completion handler call inside this callback
-            self.functions.httpsCallable("sendEmail").call(parameters) { result, error in
+            self.functions?.httpsCallable("sendEmail").call(parameters) { result, error in
                 // Mark as no longer processing first to prevent deadlocks
                 self.isProcessing = false
 

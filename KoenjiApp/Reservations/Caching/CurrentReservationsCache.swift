@@ -15,7 +15,12 @@ class CurrentReservationsCache: ObservableObject {
     private var activeReservationsByMinute: [Date: [Date: [Reservation]]] = [:]
     private var timer: Timer?
     private let calendar = Calendar.current
-    private let db = Firestore.firestore()
+    private let db: Firestore?
+    
+    init() {
+        // Use the safe Firebase initialization method
+        self.db = AppDependencies.getFirestore()
+    }
     
     // MARK: - Cache Management
     func preloadDates(around selectedDate: Date, range: Int, reservations: [Reservation]) {
@@ -169,15 +174,15 @@ class CurrentReservationsCache: ObservableObject {
         logger.info("Fetching reservations from Firebase for date: \(targetDateString)")
         
         #if DEBUG
-        let reservationsRef = db.collection("reservations")
+        let reservationsRef = db?.collection("reservations")
         #else
-        let reservationsRef = db.collection("reservations_release")
+        let reservationsRef = db?.collection("reservations_release")
         #endif
         
         do {
-            let snapshot = try await reservationsRef
+            guard let snapshot = try await reservationsRef?
                 .whereField("dateString", isEqualTo: targetDateString)
-                .getDocuments()
+                .getDocuments() else { return [] }
             
             var results: [Reservation] = []
             
@@ -257,7 +262,6 @@ class CurrentReservationsCache: ObservableObject {
         let assignedEmoji = data["assignedEmoji"] as? String
         let imageData = data["imageData"] as? Data
         let preferredLanguage = data["preferredLanguage"] as? String
-        let colorHue = data["colorHue"] as? Double ?? 0.0
         
         // Create and return the reservation
         return Reservation(

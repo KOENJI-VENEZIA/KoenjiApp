@@ -1,10 +1,3 @@
-//
-//  WebReservationsTab.swift
-//  KoenjiApp
-//
-//  Created on 3/4/25.
-//
-
 import SwiftUI
 import OSLog
 
@@ -13,8 +6,16 @@ struct WebReservationsTab: View {
     @State private var searchText = ""
     @State private var selectedReservation: Reservation?
     @State private var refreshID = UUID()
+    @Binding var columnVisibility: NavigationSplitViewVisibility
+    
+    @Environment(\.dismiss) var dismiss
     
     private let logger = Logger(subsystem: "com.koenjiapp", category: "WebReservationsTab")
+    
+    // Initialize with columnVisibility binding
+    init(columnVisibility: Binding<NavigationSplitViewVisibility> = .constant(.automatic)) {
+        self._columnVisibility = columnVisibility
+    }
     
     // Filter web reservations
     private var webReservations: [Reservation] {
@@ -34,7 +35,6 @@ struct WebReservationsTab: View {
     }
     
     var body: some View {
-        NavigationStack {
             ZStack {
                 if webReservations.isEmpty {
                     emptyStateView
@@ -53,10 +53,12 @@ struct WebReservationsTab: View {
                     onApprove: {
                         // Callback when reservation is approved
                         refreshID = UUID()
+                        dismiss()
                     },
                     onDecline: {
                         // Callback when reservation is declined
                         refreshID = UUID()
+                        dismiss()
                     }
                 )
                 .environmentObject(env)
@@ -67,7 +69,10 @@ struct WebReservationsTab: View {
                     selectedReservation = reservation
                 }
             }
-        }
+            .onAppear {
+                // Make sure the detail view is visible when this view appears
+                columnVisibility = .detailOnly
+            }
     }
     
     // Empty state view
@@ -107,7 +112,7 @@ struct WebReservationsTab: View {
     }
 }
 
-//#Preview {
-//    WebReservationsTab()
-//        .environmentObject(AppDependencies.previewInstance)
-//}
+#Preview {
+    WebReservationsTab(columnVisibility: .constant(.automatic))
+        .environmentObject(AppDependencies.createPreviewInstance())
+}

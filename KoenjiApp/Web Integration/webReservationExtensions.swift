@@ -234,7 +234,7 @@ extension DatabaseView {
                 env.listView.selectedFilters.insert(.webPending)
                 
                 // Print debug information
-                logger.debug("Web pending filter enabled: \(env.listView.selectedFilters)")
+                logger.debug("Web pending filter enabled: \(env.listView.selectedFilters, privacy: .public)")
             }
             
             // Force refresh of the list view

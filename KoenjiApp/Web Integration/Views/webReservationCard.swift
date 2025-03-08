@@ -28,7 +28,7 @@ struct WebReservationCard: View {
                     
                     Spacer()
                     
-                    Text("Pending")
+                    Text("Pending approval")
                         .font(.caption)
                         .fontWeight(.medium)
                         .padding(.horizontal, 8)
