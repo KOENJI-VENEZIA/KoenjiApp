@@ -128,7 +128,14 @@ struct ReservationWaitingListView: View {
             do {
                 // Fetch all waiting list reservations for the date directly from Firebase
                 let targetDateString = DateHelper.formatDate(appState.selectedDate)
-                let db = Firestore.firestore()
+                
+                // Use the safe Firebase initialization method
+                guard let db = AppDependencies.getFirestore() else {
+                    // In preview mode, use mock data
+//                    waitingListReservations = MockData.mockWaitingListReservations
+                    isLoading = false
+                    return
+                }
                 
                 #if DEBUG
                 let reservationsRef = db.collection("reservations")
@@ -214,8 +221,6 @@ struct ReservationWaitingListView: View {
         let assignedEmoji = data["assignedEmoji"] as? String
         let imageData = data["imageData"] as? Data
         let preferredLanguage = data["preferredLanguage"] as? String
-        let colorHue = data["colorHue"] as? Double ?? 0.0
-        
         // Create and return the reservation
         return Reservation(
             id: id,
@@ -267,14 +272,12 @@ struct ReservationWaitingListView: View {
             
             Task {
                 do {
-                    await env.reservationService.updateReservation(updatedReservation) {
+                    env.reservationService.updateReservation(updatedReservation) {
                         print("Confirmed waiting list reservation with tables.")
                     }
                     
                     // Refresh the reservations after update
                     loadWaitingListReservations()
-                } catch {
-                    print("Error confirming waiting list reservation: \(error.localizedDescription)")
                 }
             }
         case .failure(let error):
@@ -284,14 +287,12 @@ struct ReservationWaitingListView: View {
             
             Task {
                 do {
-                    await env.reservationService.updateReservation(updatedReservation) {
+                    env.reservationService.updateReservation(updatedReservation) {
                         print("Could not assign tables due to error: \(error)")
                     }
                     
                     // Refresh the reservations after update
                     loadWaitingListReservations()
-                } catch {
-                    print("Error updating waiting list reservation: \(error.localizedDescription)")
                 }
             }
         }

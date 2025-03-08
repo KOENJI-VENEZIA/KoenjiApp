@@ -116,25 +116,12 @@ struct InspectorSideView: View {
         .padding()
         .onAppear {
             currentTime = appState.selectedDate
-            // Fetch reservations when the view appears
-            Task {
-                do {
-                    try await env.resCache.fetchReservations(for: appState.selectedDate)
-                } catch {
-                    print("Error fetching reservations: \(error.localizedDescription)")
-                }
-            }
+        
         }
         .onChange(of: appState.selectedDate) { _, newDate in
             currentTime = newDate
             // Fetch reservations when the selected date changes
-            Task {
-                do {
-                    try await env.resCache.fetchReservations(for: newDate)
-                } catch {
-                    print("Error fetching reservations: \(error.localizedDescription)")
-                }
-            }
+        
         }
     }
     

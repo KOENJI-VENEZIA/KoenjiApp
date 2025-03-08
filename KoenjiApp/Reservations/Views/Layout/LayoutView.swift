@@ -220,17 +220,7 @@ extension LayoutView {
                 .animation(.easeInOut(duration: 0.3), value: env.backupService.isWritingToFirebase)
                 .allowsHitTesting(env.backupService.isWritingToFirebase)
             
-            SessionsView()
-                .transition(.opacity)
-                .animation(.easeInOut(duration: 0.5), value: SessionStore.shared.sessions)
-                .padding(.leading, 16)
-                .padding(.bottom, 16)
-                .environmentObject(env)
             
-            
-            LockOverlay(isLayoutLocked: unitView.isLayoutLocked)
-                .position(x: geometry.size.width / 2, y: geometry.size.height * 0.04)
-                .animation(.easeInOut(duration: 0.3), value: unitView.isLayoutLocked)
         }
     }
 }
@@ -255,6 +245,7 @@ extension LayoutView {
 }
     
     private func initializeView() {
+        columnVisibility = .detailOnly
         unitView.dates = generateInitialDates()
         Self.logger.info("Initialized with date: \(DateHelper.formatDate(appState.selectedDate)), category: \(appState.selectedCategory.localized)")
         clusterManager.loadClusters()

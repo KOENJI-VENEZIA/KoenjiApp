@@ -11,12 +11,8 @@ struct MonthlySalesView: View {
     @State private var selectedDate: Date?
     @State private var showingDailyView = false
     @State private var monthlyRecap: MonthlySalesRecap?
-    @State private var showExportOptions = false
     @State private var showAuthView = false
-    
-    // Export service
-    private let exportService = ExcelExportService()
-    
+        
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -29,7 +25,7 @@ struct MonthlySalesView: View {
                 // Monthly summary
                 if let recap = monthlyRecap {
                     // Only show summary if authorized
-                    if env.salesStore?.isAuthorized == true {
+                    if env.salesStore.isAuthorized == true {
                         monthlySummarySection(recap: recap)
                     } else {
                         // Show auth required message
@@ -47,7 +43,7 @@ struct MonthlySalesView: View {
                 NavigationStack {
                     DailySalesView(
                         date: selectedDate,
-                        existingSales: env.salesStore?.getSalesForDay(date: selectedDate)
+                        existingSales: env.salesStore.getSalesForDay(date: selectedDate)
                     )
                     .environmentObject(env)
                 }
@@ -63,37 +59,12 @@ struct MonthlySalesView: View {
                     Label("Indietro", systemImage: "chevron.left")
                 }
             }
-            
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    if env.salesStore?.isAuthorized == true {
-                        showExportOptions = true
-                    } else {
-                        showAuthView = true
-                    }
-                } label: {
-                    Label("Esporta", systemImage: "square.and.arrow.up")
-                }
-                .disabled(monthlyRecap == nil)
-            }
         }
         .onAppear {
             updateMonthlyRecap()
         }
-        .onChange(of: env.salesStore?.allSales) {
+        .onChange(of: env.salesStore.allSales) {
             updateMonthlyRecap()
-        }
-        .actionSheet(isPresented: $showExportOptions) {
-            ActionSheet(
-                title: Text("Esporta vendite \(monthName)"),
-                message: Text("Scegli il formato del file"),
-                buttons: [
-                    .default(Text("Excel/CSV")) {
-                        exportToExcel()
-                    },
-                    .cancel()
-                ]
-            )
         }
         .overlay {
             if showAuthView {
@@ -120,7 +91,7 @@ struct MonthlySalesView: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
             
-            if let recap = monthlyRecap, env.salesStore?.isAuthorized == true {
+            if let recap = monthlyRecap, env.salesStore.isAuthorized == true {
                 Text("Totale mensile: \(recap.totalSales, format: .currency(code: "EUR"))")
                     .font(.title3)
                     .foregroundColor(.green)
@@ -173,7 +144,7 @@ struct MonthlySalesView: View {
                                     .font(.callout)
                                     .fontWeight(isToday(day: day) ? .bold : .regular)
                                 
-                                if let total = daySales?.totalSales, total > 0, env.salesStore?.isAuthorized == true {
+                                if let total = daySales?.totalSales, total > 0, env.salesStore.isAuthorized == true {
                                     Text("\(Int(total))€")
                                         .font(.caption2)
                                         .foregroundColor(.green)
@@ -439,23 +410,10 @@ struct MonthlySalesView: View {
     }
     
     private func updateMonthlyRecap() {
-        guard let salesStore = env.salesStore else { return }
+        let salesStore = env.salesStore
         DispatchQueue.main.async {
             self.monthlyRecap = salesStore.getMonthlyRecap(year: self.year, month: self.month)
         }
     }
-    
-    // Export to Excel function
-    private func exportToExcel() {
-        guard let recap = monthlyRecap, let fileURL = exportService.exportMonthlySales(recap) else {
-            return
-        }
-        
-        // Access UIViewController to present share sheet
-        guard let rootVC = UIApplication.shared.windows.first?.rootViewController else {
-            return
-        }
-        
-        rootVC.presentShareSheet(url: fileURL)
-    }
+
 }

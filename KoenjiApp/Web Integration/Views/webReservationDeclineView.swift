@@ -192,7 +192,7 @@ struct WebReservationDeclineView: View {
                 isDeclining = false
                 if success {
                     alertMessage = "Reservation has been declined successfully."
-                    if let email = reservation.emailAddress {
+                    if reservation.emailAddress != nil {
                         alertMessage += " A notification email has been sent to the guest."
                     }
                 } else {

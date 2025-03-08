@@ -12,10 +12,12 @@ struct DatabaseView: View {
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.horizontalSizeClass) var sizeClass
 
     // MARK: View Model & Bindings
     @Binding var columnVisibility: NavigationSplitViewVisibility
+    @Binding var isDatabase: Bool
+    
     @State var unitView = LayoutUnitViewModel()
 
     // MARK: Local State (Filters, Debug, etc.)
@@ -29,8 +31,9 @@ struct DatabaseView: View {
     @State var refreshID: UUID = UUID()
     @State private var isExpandedToolbar: Bool = false
     
-    @State private var scrollOffset: CGFloat = 0
     @State private var isNavigationBarCompact: Bool = false
+
+    @State private var scrollOffset: CGFloat = 0
     
     private var isSorted: Bool { env.listView.sortOption != .removeSorting }
     private var isCompact: Bool { sizeClass == .compact }
@@ -43,29 +46,63 @@ struct DatabaseView: View {
     }
     
     // MARK: - Initializer
-    init(columnVisibility: Binding<NavigationSplitViewVisibility>) {
+    init(columnVisibility: Binding<NavigationSplitViewVisibility>, isDatabase: Binding<Bool>) {
         self._columnVisibility = columnVisibility
+        self._isDatabase = isDatabase
     }
     
     // MARK: - Body
     var body: some View {
-        ZStack(alignment: .top) {
+        ZStack(alignment: .bottom) {
+            
+            
             mainContent
-                .ignoresSafeArea(edges: .bottom)
+                .safeAreaPadding(.bottom, isCompact ? 95 : 0)
                 .id(refreshID)
                 .searchable(text: $env.listView.searchText,
                           placement: .navigationBarDrawer(displayMode: .automatic),
                           prompt: "Cerca prenotazioni")
                 .autocapitalization(.none)
+                
                 .toolbar {
                     if !isCompact {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button(action: toggleFullScreen) {
+                                Label("Toggle Full Screen",
+                                      systemImage: appState.isFullScreen
+                                      ? "arrow.down.right.and.arrow.up.left"
+                                      : "arrow.up.left.and.arrow.down.right")
+                            }
+                        }
+                    }
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            unitView.showNotifsCenter.toggle()
+                        }
+                        label: {
+                           Image(systemName: "app.badge")
+                        }
+                    }
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            env.listView.activeSheet = .debugConfig
+                        } label: {
+                            Image(systemName: "ladybug.circle.fill")
+                        }
+                    }
+                    
+                    if !isCompact {
                         regularToolbarContent
+                    } else {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            webReservationFilter
+                        }
                     }
                     
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(action: {
                             Task {
-                                await refreshReservations()
+                                refreshReservations()
                             }
                         }) {
                             Label("Refresh", systemImage: "arrow.clockwise")
@@ -73,17 +110,9 @@ struct DatabaseView: View {
                     }
                 }
             
-            
-            
-            // Position the dropdown toolbar precisely
             if isCompact {
-                GeometryReader { geometry in
-                    dropdownToolbar
-                        .offset(y: geometry.safeAreaInsets.top) // Position right after safe area
-                        .edgesIgnoringSafeArea(.top)
-                        .zIndex(1)
+                        dropdownToolbar
                 }
-            }
         }
         .sheet(item: $env.listView.activeSheet, content: sheetContent)
         .sheet(item: $env.listView.currentReservation, content: editReservationSheet)
@@ -96,12 +125,23 @@ struct DatabaseView: View {
         .alert(item: $env.listView.activeAlert, content: activeAlertContent)
         .alert(isPresented: $env.listView.showingResetConfirmation, content: resetConfirmationAlert)
         .onAppear {
+            columnVisibility = .detailOnly
+            if isCompact {
+                withAnimation {
+                    isDatabase = true
+                }
+            }
             Task {
-                await refreshReservations()
+                refreshReservations()
+            }
+        }
+        .onDisappear {
+            withAnimation {
+                isDatabase = false
             }
         }
         .onReceive(env.store.$reservations) { new in
-            logger.info("Received \(new.count) reservations from store")
+            logger.info("Received \(new.count, privacy: .public) reservations from store")
             env.listView.currentReservations = new
             refreshID = UUID()
         }
@@ -128,9 +168,10 @@ struct DatabaseView: View {
     // MARK: - Helper Methods
     
     @MainActor
-    private func refreshReservations() async {
-        logger.info("Manually refreshing reservations from Firebase")
-        await env.reservationService.loadReservationsFromFirebase()
+    private func refreshReservations() {
+        logger.info("\("Manually refreshing reservations from Firebase")")
+
+        env.reservationService.loadReservationsFromFirebase()
     }
 }
 
@@ -142,61 +183,56 @@ extension DatabaseView {
     private var mainContent: some View {
         ZStack(alignment: .bottomLeading) {
             reservationsList
-                .padding(.top, isCompact ? (isExpandedToolbar ? 130 : 50) : 0)
-            
-            SessionsView()
-                .transition(.opacity)
-                .animation(.easeInOut(duration: 0.5), value: SessionStore.shared.sessions)
-                .padding(.leading, 16)
-                .padding(.bottom, 16)
-                .environmentObject(env)
+
         }
     }
     
     /// The reservations list with sections based on grouping.
     private var reservationsList: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16, pinnedViews: .sectionHeaders) {
-                let grouped = groupReservations(
-                    reservations: filtered,
-                    by: env.listView.groupOption,
-                    sortOption: env.listView.sortOption)
-                
-                let sortedGrouped = sortGroupedReservations(groups: grouped,
-                                                            by: env.listView.groupOption)
-                
-                ForEach(sortedGrouped, id: \.id) { group in
-                    Section(header: groupHeader(for: group)) {
-                        let columns = [
-                            GridItem(.adaptive(minimum: isCompact ? 250 : 300, maximum: 400), spacing: 12)
-                        ]
-                        
-                        LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(group.reservations) { reservation in
-                                ReservationCard(
-                                    reservation: reservation,
-                                    notesAlertShown: $env.listView.showingNotesAlert,
-                                    notesToShow: $env.listView.notesToShow,
-                                    currentReservation: $env.listView.currentReservation,
-                                    onTap: { env.listView.handleEditTap(reservation) },
-                                    onCancel: { env.listView.handleCancel(reservation) },
-                                    onRecover: { env.listView.handleRecover(reservation) },
-                                    onDelete: { env.listView.handleDelete(reservation) },
-                                    onEdit: { env.listView.currentReservation = reservation },
-                                    searchText: env.listView.searchText
-                                )
-                                .onTapGesture {
-                                    env.listView.selectedReservationID = reservation.id
-                                    env.listView.activeSheet = .inspector(reservation.id)
+                LazyVStack(alignment: .leading, spacing: 16, pinnedViews: .sectionHeaders) {
+                    let grouped = groupReservations(
+                        reservations: filtered,
+                        by: env.listView.groupOption,
+                        sortOption: env.listView.sortOption)
+                    
+                    let sortedGrouped = sortGroupedReservations(groups: grouped,
+                                                                by: env.listView.groupOption)
+                    
+                    ForEach(sortedGrouped, id: \.id) { group in
+                        Section(header: groupHeader(for: group)) {
+                            let columns = [
+                                GridItem(.adaptive(minimum: isCompact ? 250 : 300, maximum: 400), spacing: 12)
+                            ]
+                            
+                            LazyVGrid(columns: columns, spacing: 12) {
+                                ForEach(group.reservations) { reservation in
+                                    ReservationCard(
+                                        reservation: reservation,
+                                        notesAlertShown: $env.listView.showingNotesAlert,
+                                        notesToShow: $env.listView.notesToShow,
+                                        currentReservation: $env.listView.currentReservation,
+                                        onTap: { env.listView.handleEditTap(reservation) },
+                                        onCancel: { env.listView.handleCancel(reservation) },
+                                        onRecover: { env.listView.handleRecover(reservation) },
+                                        onDelete: { env.listView.handleDelete(reservation) },
+                                        onEdit: { env.listView.currentReservation = reservation },
+                                        searchText: env.listView.searchText
+                                    )
+                                    .onTapGesture {
+                                        env.listView.selectedReservationID = reservation.id
+                                        env.listView.activeSheet = .inspector(reservation.id)
+                                    }
                                 }
                             }
+                            .padding(.horizontal, 8)
                         }
-                        .padding(.horizontal, 8)
                     }
                 }
-            }
+            
         }
     }
+    
     
     /// A header view for each section.
     private func groupHeader(for group: GroupedReservations) -> some View {
@@ -223,140 +259,47 @@ extension DatabaseView {
     
     /// Custom dropdown toolbar for iPhone
     private var dropdownToolbar: some View {
-        VStack(spacing: 0) {
-            // Main toolbar row - always visible
-            HStack(spacing: 8) {
-                // Left side buttons
-                HStack(spacing: 12) {
-                    Button(action: toggleFullScreen) {
-                        Image(systemName: appState.isFullScreen
-                              ? "arrow.down.right.and.arrow.up.left"
-                              : "arrow.up.left.and.arrow.down.right")
-                    }
-                    
-                    Button {
-                        unitView.showNotifsCenter.toggle()
-                    } label: {
-                        Image(systemName: "app.badge")
-                    }
-                    
-                    Button {
-                        env.listView.activeSheet = .debugConfig
-                    } label: {
-                        Image(systemName: "ladybug.slash.fill")
-                    }
-                }
-                
-                Spacer()
-                
-                // Right side - essential controls
+            VStack {
                 HStack(spacing: 8) {
-                    // State filter
+                    // Left side buttons
                     ReservationStateFilter(
                         filterOption: $env.listView.selectedFilters,
                         onFilterChange: {
+                            refreshID = UUID()
+                        })
+                    
+                    GroupOptionTag(groupOption: $env.listView.groupOption, sortOption: $env.listView.sortOption, onGroupChange: {
+                        refreshID = UUID()
+                    })
+                    // Right side - essential controls
+                    // State filter
+                    SortOptionTag(sortOption: $env.listView.sortOption, onSortChange: {
                         refreshID = UUID()
                     })
                     
-                    // Expand/collapse button
-                    Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            isExpandedToolbar.toggle()
+                    OtherFiltersTag(
+                        showPeoplePopover: $env.listView.showPeoplePopover,
+                        showStartDatePopover: $env.listView.showStartDatePopover,
+                        showEndDatePopover: $env.listView.showEndDatePopover,
+                        filterPeople: $filterPeople,
+                        filterStartDate: $filterStartDate,
+                        filterEndDate: $filterEndDate,
+                        selectedFilters: $env.listView.selectedFilters,
+                        onFilterChange: {
+                            refreshID = UUID()
                         }
-                    } label: {
-                        Image(systemName: isExpandedToolbar ? "chevron.up" : "chevron.down")
-                            .foregroundColor(.secondary)
-                            .padding(6)
-                            .background(Color.gray.opacity(0.1))
-                            .clipShape(Circle())
-                    }
-                    
-                    // Add button
-                    Button {
-                        env.listView.activeSheet = .addReservation
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.title3)
-                    }
+                    )
                 }
             }
-            .padding(.horizontal)
+            .frame(maxWidth: .infinity, maxHeight: 65)
             .padding(.vertical, 8)
-            .background(.bar) // Use system bar material backdrop
-            .shadow(color: Color.black.opacity(0.1), radius: 2, y: 1)
-            
-            // Expandable section - additional filters
-            if isExpandedToolbar {
-                VStack(spacing: 12) {
-                    HStack(spacing: 12) {
-                        // Group option
-                        GroupOptionTag(groupOption: $env.listView.groupOption, sortOption: $env.listView.sortOption, onGroupChange: {
-                            refreshID = UUID()
-                        })
-                        
-                        Spacer()
-                        
-                        // Sort option
-                        SortOptionTag(sortOption: $env.listView.sortOption, onSortChange: {
-                            refreshID = UUID()
-                        })
-                    }
-                    
-                    HStack {
-                        // Other filters
-                        OtherFiltersTag(
-                            showPeoplePopover: $env.listView.showPeoplePopover,
-                            showStartDatePopover: $env.listView.showStartDatePopover,
-                            showEndDatePopover: $env.listView.showEndDatePopover,
-                            filterPeople: $filterPeople,
-                            filterStartDate: $filterStartDate,
-                            filterEndDate: $filterEndDate,
-                            selectedFilters: $env.listView.selectedFilters,
-                            onFilterChange: {
-                                refreshID = UUID()
-                            }
-                        )
-                        
-                        Spacer()
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(.bar) // Use system bar material backdrop
-                .transition(.move(edge: .top).combined(with: .opacity))
-                .shadow(color: Color.black.opacity(0.1), radius: 2, y: 1)
-            }
-        }
+            .background(.ultraThinMaterial)
+
     }
     
 /// Regular toolbar content for iPad
     @ToolbarContentBuilder
     private var regularToolbarContent: some ToolbarContent {
-        // Left side items
-        ToolbarItem(placement: .topBarLeading) {
-            Button(action: toggleFullScreen) {
-                Label("Toggle Full Screen",
-                      systemImage: appState.isFullScreen
-                      ? "arrow.down.right.and.arrow.up.left"
-                      : "arrow.up.left.and.arrow.down.right")
-            }
-        }
-        ToolbarItem(placement: .topBarLeading) {
-            Button {
-                unitView.showNotifsCenter.toggle()
-            }
-            label: {
-               Image(systemName: "app.badge")
-            }
-        }
-        ToolbarItem(placement: .topBarLeading) {
-            Button {
-                env.listView.activeSheet = .debugConfig
-            } label: {
-                Image(systemName: "ladybug.slash.fill")
-            }
-        }
-        
         // Right side items
         ToolbarItem(placement: .topBarTrailing) {
             ReservationStateFilter(
@@ -539,7 +482,7 @@ extension DatabaseView {
         searchText: String,
         currentReservations: [Reservation]
     ) -> [Reservation] {
-        print("Executing filtering logic... (should reflect in the UI)")
+        logger.info("\("Executing filtering logic... (should reflect in the UI)")")
         var filtered = currentReservations
         if !filters.isEmpty && !filters.contains(.none) {
             filtered = filtered.filter { reservation in
@@ -813,5 +756,17 @@ extension DatabaseView {
         case .removeSorting:
             return reservations
         }
+    }
+}
+
+
+
+// MARK: - Preview
+#Preview {
+    NavigationStack {
+        DatabaseView(columnVisibility: .constant(.automatic),
+                     isDatabase: .constant(true))
+            .environmentObject(AppDependencies.createPreviewInstance())
+            .environmentObject(AppState())
     }
 }

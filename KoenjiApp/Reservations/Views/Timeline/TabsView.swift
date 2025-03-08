@@ -20,6 +20,7 @@ struct TabsView: View {
     @EnvironmentObject var appState: AppState
 
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.horizontalSizeClass) var sizeClass
 
     @State var unitView = LayoutUnitViewModel()
     @State var toolbarManager = ToolbarStateManager()
@@ -29,16 +30,15 @@ struct TabsView: View {
     @State var showingAddReservationSheet: Bool = false
 
     @Binding var columnVisibility: NavigationSplitViewVisibility
+    @Binding var isSessionIconShift: Bool
+    
+    private var isCompact: Bool { sizeClass == .compact }
 
     // MARK: - Dependencies
     private static let logger = Logger(
         subsystem: "com.koenjiapp",
         category: "TabsView"
     )
-
-    var isPhone: Bool {
-        UIDevice.current.userInterfaceIdiom == .phone
-    }
 
     // MARK: - Body
     var body: some View {
@@ -50,37 +50,24 @@ struct TabsView: View {
                 TimelineGantView(reservations: reservations, columnVisibility: $columnVisibility)
 //                    .ignoresSafeArea(.all)
 
-                ZStack {
-                    ToolbarExtended(
-                        geometry: geometry, toolbarState: $toolbarManager.toolbarState,
-                        small: true, timeline: true)
-
-                    // MARK: Toolbar Content
-                    toolbarContent(in: geometry, selectedDate: appState.selectedDate)
+                if isCompact {
+                    bottomToolbar
                 }
-                .opacity(toolbarManager.isToolbarVisible ? 1 : 0)
-                .ignoresSafeArea(.keyboard)
-                .position(
-                    toolbarManager.isDragging
-                        ? toolbarManager.dragAmount
-                    : toolbarManager.calculatePosition(geometry: geometry, isPhone: isPhone)
-                )
-                .animation(
-                    toolbarManager.isDragging ? .none : .spring(),
-                    value: toolbarManager.isDragging
-                )
-                .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
-                .gesture(
-                    toolbarManager.toolbarGesture(geometry: geometry)
-                )
-
-                ToolbarMinimized()
-                    .opacity(!toolbarManager.isToolbarVisible ? 1 : 0)
+                if !isCompact {
+                    ZStack {
+                        ToolbarExtended(
+                            geometry: geometry, toolbarState: $toolbarManager.toolbarState,
+                            small: true, timeline: true)
+                        
+                        // MARK: Toolbar Content
+                        toolbarContent(in: geometry, selectedDate: appState.selectedDate)
+                    }
+                    .opacity(toolbarManager.isToolbarVisible ? 1 : 0)
                     .ignoresSafeArea(.keyboard)
                     .position(
                         toolbarManager.isDragging
-                            ? toolbarManager.dragAmount
-                        : toolbarManager.calculatePosition(geometry: geometry, isPhone: isPhone)
+                        ? toolbarManager.dragAmount
+                        : toolbarManager.calculatePosition(geometry: geometry, isPhone: isCompact)
                     )
                     .animation(
                         toolbarManager.isDragging ? .none : .spring(),
@@ -88,23 +75,34 @@ struct TabsView: View {
                     )
                     .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
                     .gesture(
-                        TapGesture()
-                            .onEnded {
-                                withAnimation {
-                                    toolbarManager.isToolbarVisible = true
-                                }
-                            }
-                    )
-                    .simultaneousGesture(
                         toolbarManager.toolbarGesture(geometry: geometry)
                     )
-                
-                SessionsView()
-                    .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.5), value: SessionStore.shared.sessions)
-                    .padding(.leading, 16)
-                    .padding(.bottom, 16)
-                    .environmentObject(env)
+                    
+                    ToolbarMinimized()
+                        .opacity(!toolbarManager.isToolbarVisible ? 1 : 0)
+                        .ignoresSafeArea(.keyboard)
+                        .position(
+                            toolbarManager.isDragging
+                            ? toolbarManager.dragAmount
+                            : toolbarManager.calculatePosition(geometry: geometry, isPhone: isCompact)
+                        )
+                        .animation(
+                            toolbarManager.isDragging ? .none : .spring(),
+                            value: toolbarManager.isDragging
+                        )
+                        .transition(toolbarManager.transitionForCurrentState(geometry: geometry))
+                        .gesture(
+                            TapGesture()
+                                .onEnded {
+                                    withAnimation {
+                                        toolbarManager.isToolbarVisible = true
+                                    }
+                                }
+                        )
+                        .simultaneousGesture(
+                            toolbarManager.toolbarGesture(geometry: geometry)
+                        )
+                }
             }
         }
         .task {
@@ -116,12 +114,10 @@ struct TabsView: View {
                 // Set initial category and time based on current hour
                 if hour < 15 {
                     if let lunchTime = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) {
-                        appState.selectedCategory = .lunch
                         appState.selectedDate = DateHelper.combine(date: Date(), time: lunchTime)
                     }
                 } else {
                     if let dinnerTime = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) {
-                        appState.selectedCategory = .dinner
                         appState.selectedDate = DateHelper.combine(date: Date(), time: dinnerTime)
                     }
                 }
@@ -216,10 +212,19 @@ struct TabsView: View {
                        .environment(unitView)
                }
         .onAppear {
+            withAnimation {
+                columnVisibility = .detailOnly
+                isSessionIconShift = true
+            }
             Task {
                 await updateActiveReservations()
             }
             bindableDate = appState.selectedDate
+        }
+        .onDisappear {
+            withAnimation {
+                isSessionIconShift = false
+            }
         }
         .onChange(of: env.store.reservations) {
             Task {
@@ -254,6 +259,19 @@ struct TabsView: View {
             return (geometry.size.width * 0.7, 80)
         }
     }
+    
+    @ViewBuilder
+    private var bottomToolbar: some View {
+        HStack(spacing: 25) {
+            resetDateButton
+            dateBackward
+            dateForward
+            datePicker(selectedDate: appState.selectedDate)
+        }
+        .frame(maxWidth: .infinity, maxHeight: 65)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial)
+    }
 
     @ViewBuilder
     private func toolbarContent(in geometry: GeometryProxy, selectedDate: Date) -> some View {
@@ -287,9 +305,6 @@ struct TabsView: View {
                 .frame(minWidth: size.width, alignment: .center)
             }
             .frame(width: size.width, height: size.height, alignment: .center)
-            
-        default:
-            EmptyView()
         }
     }
 

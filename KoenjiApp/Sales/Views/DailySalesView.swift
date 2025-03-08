@@ -300,11 +300,7 @@ struct DailySalesView: View {
     private func saveSalesData() {
         isLoading = true
         
-        guard let salesService = env.salesService else {
-            errorMessage = "Servizio di vendite non disponibile"
-            isLoading = false
-            return
-        }
+        let salesService = env.salesService
         
         salesService.saveDailySales(dailySales) { error in
             DispatchQueue.main.async {
@@ -320,13 +316,10 @@ struct DailySalesView: View {
     }
     
     private func updateDailySales(for date: Date) {
-        if let existingSales = env.salesStore?.getSalesForDay(date: date) {
+        let existingSales = env.salesStore.getSalesForDay(date: date)
             // Use existing sales data if we have it
             dailySales = existingSales
-        } else {
-            // Create a new empty sales entry for this date
-            dailySales = DailySales.createEmpty(for: date)
-        }
+        
         
         // Hide the date picker after selection
         showDatePicker = false

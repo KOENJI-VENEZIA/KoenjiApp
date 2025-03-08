@@ -108,7 +108,8 @@ struct AuthenticationView: View {
         
         // Simulate a slight delay for better UX
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            if let salesStore = env.salesStore, salesStore.authenticate(password: password) {
+            let salesStore = env.salesStore
+            if salesStore.authenticate(password: password) {
                 // Authentication succeeded
                 isAuthenticating = false
                 isPresented = false

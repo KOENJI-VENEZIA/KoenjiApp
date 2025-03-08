@@ -53,7 +53,7 @@ struct NotificationCenterView: View {
                 notificationListView
             }
         }
-        .background(Color(.systemBackground).opacity(0.9))
+        .background(.clear)
         .alert("Pulire tutte le notifiche?", isPresented: $showingAlert) {
             Button("Annulla", role: .cancel) {}
             Button("Pulisci", role: .destructive) {

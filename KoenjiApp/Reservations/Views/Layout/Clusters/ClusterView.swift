@@ -125,14 +125,10 @@ struct ClusterView: View {
         .onChange(of: appState.selectedDate) { _, newDate in
             Task {
                 do {
-                    try await env.resCache.fetchReservations(for: newDate)
-                    
                     await MainActor.run {
                         updateNearEndReservation()
                         updateRemainingTime()
                     }
-                } catch {
-                    print("Error fetching reservations for cluster: \(error.localizedDescription)")
                 }
             }
         }

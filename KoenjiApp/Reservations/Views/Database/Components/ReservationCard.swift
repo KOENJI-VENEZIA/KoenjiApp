@@ -101,6 +101,9 @@ struct ReservationCard: View {
                                 notesToShow = notes
                                 notesAlertShown = true
                             }
+                        Spacer()
+                        
+                        detailRow(icon: "document.badge.plus", text: "\(DateHelper.formatFullDate(reservation.creationDate))")
                     }
                     .frame(width: geometry.size.width * 0.35)
                 }

@@ -127,8 +127,6 @@ struct TableView: View {
                         updateResData(
                             appState.selectedDate, refreshedKey: "env.store.reservations")
                     }
-                } catch {
-                    print("Error updating table view with new reservations: \(error.localizedDescription)")
                 }
             }
         }
@@ -592,8 +590,6 @@ extension TableView {
         formatter.timeZone = TimeZone(identifier: "UTC")
 
         let formattedDate = formatter.string(from: date)
-        let key =
-            "\(formattedDate)-\(refreshedKey)-\(appState.selectedCategory.rawValue)-\(table.id)"
 
         // Check if we need to fetch fresh data from Firebase
         if forceUpdate {
@@ -730,7 +726,7 @@ extension TableView {
         
         Task {
             do {
-                await env.reservationService.updateReservation(updatedReservation) { }
+                env.reservationService.updateReservation(updatedReservation) { }
                 
                 await MainActor.run {
                     appState.changedReservation = updatedReservation
@@ -738,8 +734,6 @@ extension TableView {
                     // Refresh the table view with the updated reservation
                     updateResData(appState.selectedDate, refreshedKey: "handleCancelled", forceUpdate: true)
                 }
-            } catch {
-                print("Error cancelling reservation: \(error.localizedDescription)")
             }
         }
     }
@@ -751,7 +745,7 @@ extension TableView {
         
         Task {
             do {
-                await env.reservationService.updateReservation(reservationActive) { }
+                env.reservationService.updateReservation(reservationActive) { }
                 
                 await MainActor.run {
                     appState.changedReservation = reservationActive
@@ -760,8 +754,6 @@ extension TableView {
                     // Refresh the table view with the updated reservation
                     updateResData(appState.selectedDate, refreshedKey: "handleEmojiAssignment", forceUpdate: true)
                 }
-            } catch {
-                print("Error assigning emoji to reservation: \(error.localizedDescription)")
             }
         }
     }
@@ -777,7 +769,7 @@ extension TableView {
             
             Task {
                 do {
-                    await env.reservationService.updateReservation(currentReservation) { }
+                    env.reservationService.updateReservation(currentReservation) { }
                     
                     await MainActor.run {
                         appState.changedReservation = currentReservation
@@ -785,8 +777,6 @@ extension TableView {
                         // Refresh the table view with the updated reservation
                         updateResData(appState.selectedDate, refreshedKey: "handleTap", forceUpdate: true)
                     }
-                } catch {
-                    print("Error updating reservation status to showed up: \(error.localizedDescription)")
                 }
             }
         } else if currentReservation.status == .showedUp {
@@ -796,7 +786,7 @@ extension TableView {
             
             Task {
                 do {
-                    await env.reservationService.updateReservation(currentReservation) { }
+                    env.reservationService.updateReservation(currentReservation) { }
                     
                     await MainActor.run {
                         appState.changedReservation = currentReservation
@@ -804,8 +794,6 @@ extension TableView {
                         // Refresh the table view with the updated reservation
                         updateResData(appState.selectedDate, refreshedKey: "handleTap", forceUpdate: true)
                     }
-                } catch {
-                    print("Error updating reservation status from showed up: \(error.localizedDescription)")
                 }
             }
         }

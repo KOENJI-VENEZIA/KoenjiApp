@@ -65,6 +65,13 @@ extension LayoutView {
             }
             .id(unitView.refreshID)
         }
+        #if os(iOS)
+        ToolbarItem(placement: .principal) {
+            LockOverlay(isLayoutLocked: unitView.isLayoutLocked)
+                .animation(.easeInOut(duration: 0.3), value: unitView.isLayoutLocked)
+                .id(unitView.refreshID)
+        }
+        #endif
         ToolbarItem(placement: .topBarTrailing) {
             Button(action: {
                 withAnimation {

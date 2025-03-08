@@ -121,7 +121,14 @@ struct ReservationCancelledView: View {
             do {
                 // Fetch all reservations for the date directly from Firebase
                 let targetDateString = DateHelper.formatDate(currentTime)
-                let db = Firestore.firestore()
+                
+                // Use the safe Firebase initialization method
+                guard let db = AppDependencies.getFirestore() else {
+                    // In preview mode, use mock data
+//                    cancelledReservations = MockData.mockCancelledReservations
+                    isLoading = false
+                    return
+                }
                 
                 #if DEBUG
                 let reservationsRef = db.collection("reservations")
@@ -207,7 +214,6 @@ struct ReservationCancelledView: View {
         let assignedEmoji = data["assignedEmoji"] as? String
         let imageData = data["imageData"] as? Data
         let preferredLanguage = data["preferredLanguage"] as? String
-        let colorHue = data["colorHue"] as? Double ?? 0.0
         
         // Create and return the reservation
         return Reservation(
@@ -267,14 +273,12 @@ struct ReservationCancelledView: View {
                 
                 Task {
                     do {
-                        await env.reservationService.updateReservation(updatedReservation) {
+                        env.reservationService.updateReservation(updatedReservation) {
                             print("Restored reservation with tables.")
                         }
                         
                         // Refresh the reservations after update
                         loadCancelledReservations()
-                    } catch {
-                        print("Error restoring reservation: \(error.localizedDescription)")
                     }
                 }
             case .failure(let error):
@@ -287,15 +291,13 @@ struct ReservationCancelledView: View {
                 
                 Task {
                     do {
-                        await env.reservationService.updateReservation(updatedReservation) {
+                        env.reservationService.updateReservation(updatedReservation) {
                             print("Restored reservation without tables due to error: \(error)")
                         }
                         
                         // Refresh the reservations after update
                         loadCancelledReservations()
-                    } catch {
-                        print("Error restoring reservation without tables: \(error.localizedDescription)")
-                    }
+                    } 
                 }
             }
         }

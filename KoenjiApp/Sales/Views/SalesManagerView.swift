@@ -14,11 +14,18 @@ struct SalesManagerView: View {
     @State private var showConfirmationDialog = false // For delete confirmations
     @State private var itemToDelete: DeletionItem? // Track what's being deleted
     
+    @Binding private var columnVisibility: NavigationSplitViewVisibility
     // Enum to track what type of item is being deleted
     enum DeletionItem {
         case year(Int)
         case month(Int, Int) // year, month
     }
+    
+    // Initialize with columnVisibility binding
+    init(columnVisibility: Binding<NavigationSplitViewVisibility> = .constant(.automatic)) {
+        self._columnVisibility = columnVisibility
+    }
+
     
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -54,13 +61,6 @@ struct SalesManagerView: View {
                     }
                 }
             }
-            
-            SessionsView()
-                .transition(.opacity)
-                .animation(.easeInOut(duration: 0.5), value: SessionStore.shared.sessions)
-                .padding(.leading, 16)
-                .padding(.bottom, 16)
-                .environmentObject(env)
         }
         .ignoresSafeArea(edges: .bottom)
         .navigationTitle("Gestione Vendite")
@@ -69,17 +69,17 @@ struct SalesManagerView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack {
                     Button {
-                        if env.salesStore?.isAuthorized == true {
+                        if env.salesStore.isAuthorized == true {
                             // If already authorized, log out
-                            env.salesStore?.logout()
+                            env.salesStore.logout()
                         } else {
                             // Show auth dialog
                             showAuthView = true
                         }
                     } label: {
                         Label(
-                            env.salesStore?.isAuthorized == true ? "Logout" : "Login",
-                            systemImage: env.salesStore?.isAuthorized == true ? "lock.open.fill" : "lock.fill"
+                            env.salesStore.isAuthorized == true ? "Logout" : "Login",
+                            systemImage: env.salesStore.isAuthorized == true ? "lock.open.fill" : "lock.fill"
                         )
                     }
                     
@@ -134,7 +134,7 @@ struct SalesManagerView: View {
                         // Actual content with opacity animation
                         DailySalesView(
                             date: selectedDate,
-                            existingSales: env.salesStore?.getSalesForDay(date: selectedDate)
+                            existingSales: env.salesStore.getSalesForDay(date: selectedDate)
                         )
                         .environmentObject(env)
                         .opacity(sheetContentReady ? 1 : 0)
@@ -150,12 +150,16 @@ struct SalesManagerView: View {
             }
         }
         .onAppear {
+            columnVisibility = .detailOnly
+            
             updateAvailableYears()
             
             // Ensure the Firebase listener is active
-            env.salesService?.startSalesListener()
+            Task {
+               await env.salesService.startSalesListener()
+            }
         }
-        .onChange(of: env.salesStore?.allSales) {
+        .onChange(of: env.salesStore.allSales) {
             updateAvailableYears()
             
         }
@@ -179,7 +183,7 @@ struct SalesManagerView: View {
                 Spacer()
                 
                 // Authorization status indicator
-                if let isAuthorized = env.salesStore?.isAuthorized, isAuthorized {
+                if env.salesStore.isAuthorized {
                     Label("Autorizzato", systemImage: "checkmark.shield.fill")
                         .font(.caption)
                         .foregroundColor(.green)
@@ -301,7 +305,7 @@ struct SalesManagerView: View {
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .contextMenu {
-                                if env.salesStore?.isAuthorized == true && availableYears.count > 1 {
+                                if env.salesStore.isAuthorized == true && availableYears.count > 1 {
                                     Button(role: .destructive) {
                                         itemToDelete = .year(year)
                                         showConfirmationDialog = true
@@ -314,11 +318,11 @@ struct SalesManagerView: View {
                         .buttonStyle(PlainButtonStyle())
                         .id("year-\(year)") // Ensure unique ID
                         // Hide total values if not authorized
-                        .opacity(env.salesStore?.isAuthorized == true ? 1.0 : 0.5)
-                        .disabled(env.salesStore?.isAuthorized != true)
+                        .opacity(env.salesStore.isAuthorized == true ? 1.0 : 0.5)
+                        .disabled(env.salesStore.isAuthorized != true)
                         .overlay(
                             Group {
-                                if env.salesStore?.isAuthorized != true {
+                                if env.salesStore.isAuthorized != true {
                                     Button {
                                         showAuthView = true
                                     } label: {
@@ -402,12 +406,12 @@ struct SalesManagerView: View {
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                             
-                            if let monthlySales = getMonthlySalesTotal(month: index + 1), env.salesStore?.isAuthorized == true {
+                            if let monthlySales = getMonthlySalesTotal(month: index + 1), env.salesStore.isAuthorized == true {
                                 Text("\(Int(monthlySales))€")
                                     .font(.caption)
                                     .foregroundColor(.green)
                             } else {
-                                Text(env.salesStore?.isAuthorized == true ? "Nessun dato" : "")
+                                Text(env.salesStore.isAuthorized == true ? "Nessun dato" : "")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -422,7 +426,7 @@ struct SalesManagerView: View {
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .contextMenu {
-                            if env.salesStore?.isAuthorized == true {
+                            if env.salesStore.isAuthorized == true {
                                 Button(role: .destructive) {
                                     itemToDelete = .month(selectedYear, index + 1)
                                     showConfirmationDialog = true
@@ -437,7 +441,7 @@ struct SalesManagerView: View {
                     // Hide total values if not authorized
                     .overlay(
                         Group {
-                            if env.salesStore?.isAuthorized != true {
+                            if env.salesStore.isAuthorized != true {
                                 Button {
                                     showAuthView = true
                                 } label: {
@@ -487,7 +491,7 @@ struct SalesManagerView: View {
                             Spacer()
                             
                             HStack(spacing: 16) {
-                                if env.salesStore?.isAuthorized == true {
+                                if env.salesStore.isAuthorized == true {
                                     categoryValue(title: "Pranzo", value: getLunchTotal(sale), color: .orange)
                                     categoryValue(title: "Cena", value: getDinnerTotal(sale), color: .indigo)
                                     categoryValue(title: "Totale", value: sale.totalSales, color: .green)
@@ -612,14 +616,15 @@ struct SalesManagerView: View {
     }
     
     private func getMonthlySalesTotal(month: Int) -> Double? {
-        guard let salesStore = env.salesStore else { return nil }
+        let salesStore = env.salesStore
         
         let monthlyRecap = salesStore.getMonthlyRecap(year: selectedYear, month: month)
         return monthlyRecap.totalSales > 0 ? monthlyRecap.totalSales : nil
     }
     
     private func getRecentSales() -> [DailySales]? {
-        guard let salesStore = env.salesStore, !salesStore.allSales.isEmpty else { return nil }
+        let salesStore = env.salesStore
+        guard !salesStore.allSales.isEmpty else { return nil }
         
         let sortedSales = salesStore.allSales.sorted {
             $0.lastEditedOn > $1.lastEditedOn
@@ -640,11 +645,11 @@ struct SalesManagerView: View {
     
     // Helper methods for deletion and month name
     private func deleteYear(_ year: Int) {
-        guard env.salesStore?.isAuthorized == true else { return }
+        guard env.salesStore.isAuthorized == true else { return }
         
         // Implement year deletion logic in your sales store
-        env.salesStore?.deleteYear(year)
-        env.salesService?.deleteYear(year) { error in
+        env.salesStore.deleteYear(year)
+        env.salesService.deleteYear(year) { error in
             if let error = error {
                print("Error deleting year in Firebase: \(error)")
            }
@@ -654,11 +659,11 @@ struct SalesManagerView: View {
     }
     
     private func deleteMonth(year: Int, month: Int) {
-        guard env.salesStore?.isAuthorized == true else { return }
+        guard env.salesStore.isAuthorized == true else { return }
         
         // Implement month deletion logic in your sales store
-        env.salesStore?.deleteMonth(year: year, month: month)
-        env.salesService?.deleteMonth(year: year, month: month) { error in
+        env.salesStore.deleteMonth(year: year, month: month)
+        env.salesService.deleteMonth(year: year, month: month) { error in
             if let error = error {
                 print("Error deleting month in Firebase: \(error)")
             }
@@ -668,7 +673,7 @@ struct SalesManagerView: View {
     }
     
     private func updateAvailableYears() {
-        guard let salesStore = env.salesStore else { return }
+        let salesStore = env.salesStore
         
         let years = salesStore.getAvailableYears()
         
@@ -708,9 +713,9 @@ struct SalesManagerView: View {
         selectedDate = date
         
         // Pre-fetch the data with adequate time for it to load
-        if let store = env.salesStore {
-            _ = store.getSalesForDay(date: date)
-        }
+        let store = env.salesStore
+        _ = store.getSalesForDay(date: date)
+        
         
         // Show the sheet with a delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -723,7 +728,6 @@ struct SalesManagerView: View {
         let currentDate = Date()
         let calendar = Calendar.current
         let currentYear = calendar.component(.year, from: currentDate)
-        let currentMonth = calendar.component(.month, from: currentDate)
         
         // Update selected year if needed
         self.selectedYear = currentYear

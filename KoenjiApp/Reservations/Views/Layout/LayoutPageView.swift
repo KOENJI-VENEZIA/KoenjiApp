@@ -361,7 +361,7 @@ extension LayoutPageView {
             
             // Reload layout with the fetched reservations
             Task {
-                await reloadLayout(appState.selectedCategory, reservationsForDate)
+                reloadLayout(appState.selectedCategory, reservationsForDate)
             }
             
             // Load clusters and start monitoring

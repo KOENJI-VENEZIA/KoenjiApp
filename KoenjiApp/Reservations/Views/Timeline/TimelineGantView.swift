@@ -64,18 +64,30 @@ struct TimelineGantView: View {
     
     // MARK: - Time & Category Computations
     private var totalHours: Int {
+        let currentHour = Calendar.current.component(.hour, from: Date())
         switch appState.selectedCategory {
         case .lunch:  return 4
         case .dinner: return 6
-        default:      return 2
+        case .noBookingZone:
+            if currentHour < 18 && currentHour >= 12 {
+                return 3
+            } else {
+                return 13
+            }
         }
     }
     
     private var startHour: Int {
+        let currentHour = Calendar.current.component(.hour, from: Date())
         switch appState.selectedCategory {
         case .lunch:  return 12
         case .dinner: return 18
-        default:      return 15
+        case .noBookingZone:
+            if currentHour < 18 && currentHour >= 12 {
+                        return 15
+                    } else {
+                        return 23
+                    }
         }
     }
     
@@ -91,7 +103,6 @@ struct TimelineGantView: View {
                 fullScreenToggleOverlay()
                 contentView()
                 reservationCountText()
-                dragOverlay() // Add the drag overlay
                 
                 // Current time scrubber overlay
                 currentTimeScrubber()
@@ -133,32 +144,6 @@ struct TimelineGantView: View {
 
 // MARK: - Subviews & Helper Functions
 extension TimelineGantView {
-    private func dragOverlay() -> some View {
-        Group {
-            if let draggedID = draggedRowID, isDragging {
-                let tableID = tableIdForRow(draggedID)
-                ZStack(alignment: .leading) {
-//                    RoundedRectangle(cornerRadius: 12)
-//                        .fill(Color.white)
-//                        .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 5)
-                    
-//                    HStack {
-//                        Text("T\(tableID)")
-//                            .font(.headline)
-//                            .bold()
-//                            .padding(.horizontal, 12)
-//                            .padding(.vertical, 8)
-//                    }
-                }
-                .frame(width: 100, height: 40)
-                .position(
-                    x: dragLocation.x,
-                    y: dragLocation.y
-                )
-                .transition(.scale.combined(with: .opacity))
-            }
-        }
-    }
     /// Displays the header with the day of week and full date.
     private func headerText(in geometry: GeometryProxy) -> some View {
         Text("\(DateHelper.dayOfWeek(for: appState.selectedDate)), \(DateHelper.formatFullDate(appState.selectedDate))")
@@ -309,11 +294,13 @@ extension TimelineGantView {
         HStack(spacing: 0) {
             ForEach(0..<totalColumns, id: \.self) { columnIndex in
                 let totalMinutes = columnIndex * 15
-                let currentHour = startHour + (totalMinutes / 60)
+                let hour = startHour + (totalMinutes / 60)
+                let displayHour = hour % 24 // Wrap around at 24
                 let currentMinute = totalMinutes % 60
-                Text(String(format: "%02d:%02d", currentHour, currentMinute))
+                Text(String(format: "%02d:%02d", displayHour, currentMinute))
                     .frame(width: cellSize)
             }
+
         }
     }
     
@@ -482,17 +469,19 @@ extension TimelineGantView {
         let timeComponents = calendar.dateComponents([.hour, .minute], from: date)
         let hour = timeComponents.hour ?? 0
         let minute = timeComponents.minute ?? 0
-        
-        // Calculate hours and minutes since category start
-        let hoursSinceStart = hour - startHour
+
+        // If the hour is less than startHour, assume the time is after midnight and add 24.
+        let effectiveHour = hour < startHour ? hour + 24 : hour
+        let hoursSinceStart = effectiveHour - startHour
         let minutesFraction = CGFloat(minute) / 60.0
-        
-        // Calculate position (each hour is cellSize * 4 wide)
-        let position = (CGFloat(hoursSinceStart) * cellSize * 4) + (minutesFraction * cellSize * 4)
-        print("Time position calculation: \(hour):\(minute) → \(position) points from start")
+
+        // Each hour corresponds to (cellSize * 4) points.
+        let position = (CGFloat(hoursSinceStart) + minutesFraction) * cellSize * 4
+        print("Time position calculation: \(hour):\(minute) (effective: \(effectiveHour)) → \(position) points from start")
         
         return position
     }
+
     
     // Format time for display
     private func formatTime(_ date: Date) -> String {

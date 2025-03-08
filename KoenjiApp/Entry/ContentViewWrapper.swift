@@ -15,6 +15,7 @@ struct ContentViewWrapper: View {
 
     var body: some View {
         ContentView()
+            .environment(\.appDependencies, env)
             .onAppear {
                 print("App appearing. Loading data...")
             }

@@ -121,33 +121,9 @@ struct ReservationsInfoListView: View {
             .padding(16)
         }
         .background(Color.clear)
-        .onAppear {
-            loadReservations()
-        }
-        .onChange(of: appState.selectedDate) { _, _ in
-            loadReservations()
-        }
-        .onChange(of: appState.changedReservation) { _, _ in
-            loadReservations()
-        }
     }
     
-    private func loadReservations() {
-        isLoading = true
-        Task {
-            do {
-                try await env.resCache.fetchReservations(for: appState.selectedDate)
-                await MainActor.run {
-                    isLoading = false
-                }
-            } catch {
-                print("Error fetching reservations: \(error.localizedDescription)")
-                await MainActor.run {
-                    isLoading = false
-                }
-            }
-        }
-    }
+
     
     private func groupByCategory(_ activeReservations: [Reservation]) -> [String:
         [Reservation]]
@@ -188,18 +164,6 @@ struct ReservationsInfoListView: View {
             }
         }
         
-        Task {
-            do {
-                await env.reservationService.updateReservation(updatedReservation) {
-                    print("Update reservation.")
-                }
-                
-                // Refresh the reservations after update
-                try await env.resCache.fetchReservations(for: appState.selectedDate)
-            } catch {
-                print("Error updating reservation: \(error.localizedDescription)")
-            }
-        }
     }
     
     
@@ -218,19 +182,6 @@ struct ReservationsInfoListView: View {
         }
         else if updatedReservation.startTimeDate != nil {
             updatedReservation.status = .pending
-        }
-        
-        Task {
-            do {
-                await env.reservationService.updateReservation(updatedReservation) {
-                    print("Update reservation.")
-                }
-                
-                // Refresh the reservations after update
-                try await env.resCache.fetchReservations(for: appState.selectedDate)
-            } catch {
-                print("Error updating reservation status: \(error.localizedDescription)")
-            }
         }
     }
 }

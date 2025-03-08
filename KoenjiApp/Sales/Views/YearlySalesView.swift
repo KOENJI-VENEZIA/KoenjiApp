@@ -8,12 +8,8 @@ struct YearlySalesView: View {
     let year: Int
     
     @State private var yearlyRecap: YearlySalesRecap?
-    @State private var showExportOptions = false
     @State private var showAuthView = false
-    
-    // Export service
-    private let exportService = ExcelExportService()
-    
+        
     private let months = [
         String(localized: "Gennaio"),
         String(localized: "Febbraio"),
@@ -41,7 +37,7 @@ struct YearlySalesView: View {
                 // Annual summary
                 if let recap = yearlyRecap {
                     // Only show summary if authorized
-                    if env.salesStore?.isAuthorized == true {
+                    if env.salesStore.isAuthorized == true {
                         annualSummarySection(recap: recap)
                     } else {
                         // Show auth required message
@@ -64,37 +60,12 @@ struct YearlySalesView: View {
                     Label("Indietro", systemImage: "chevron.left")
                 }
             }
-            
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    if env.salesStore?.isAuthorized == true {
-                        showExportOptions = true
-                    } else {
-                        showAuthView = true
-                    }
-                } label: {
-                    Label("Esporta", systemImage: "square.and.arrow.up")
-                }
-                .disabled(yearlyRecap == nil)
-            }
         }
         .onAppear {
             updateYearlyRecap()
         }
-        .onChange(of: env.salesStore?.allSales) {
+        .onChange(of: env.salesStore.allSales) {
             updateYearlyRecap()
-        }
-        .actionSheet(isPresented: $showExportOptions) {
-            ActionSheet(
-                title: Text("Esporta vendite \(String(year))"),
-                message: Text("Scegli il formato del file"),
-                buttons: [
-                    .default(Text("Excel/CSV")) {
-                        exportToExcel()
-                    },
-                    .cancel()
-                ]
-            )
         }
         .overlay {
             if showAuthView {
@@ -117,7 +88,7 @@ struct YearlySalesView: View {
                 .font(.title)
                 .fontWeight(.bold)
             
-            if let recap = yearlyRecap, env.salesStore?.isAuthorized == true {
+            if let recap = yearlyRecap, env.salesStore.isAuthorized == true {
                 Text("Totale annuale netto: \(recap.totalSales, format: .currency(code: "EUR"))")
                     .font(.title3)
                     .foregroundColor(.green)
@@ -239,7 +210,7 @@ struct YearlySalesView: View {
             
             Spacer()
             
-            if env.salesStore?.isAuthorized == true {
+            if env.salesStore.isAuthorized == true {
                 Text(recap.totalLunchSales, format: .currency(code: "EUR"))
                     .font(.subheadline)
                     .frame(width: 80, alignment: .trailing)
@@ -375,23 +346,9 @@ struct YearlySalesView: View {
     }
     
     private func updateYearlyRecap() {
-        guard let salesStore = env.salesStore else { return }
+        let salesStore = env.salesStore
         DispatchQueue.main.async {
             self.yearlyRecap = salesStore.getYearlyRecap(year: self.year)
         }
-    }
-    
-    // Export to Excel function
-    private func exportToExcel() {
-        guard let recap = yearlyRecap, let fileURL = exportService.exportYearlySales(recap) else {
-            return
-        }
-        
-        // Access UIViewController to present share sheet
-        guard let rootVC = UIApplication.shared.windows.first?.rootViewController else {
-            return
-        }
-        
-        rootVC.presentShareSheet(url: fileURL)
     }
 }

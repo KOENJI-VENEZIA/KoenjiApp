@@ -95,14 +95,10 @@ struct ClusterOverlayView: View {
         .onChange(of: appState.selectedDate) { _, newDate in
             Task {
                 do {
-                    try await env.resCache.fetchReservations(for: newDate)
-                    
                     await MainActor.run {
                         updateNearEndReservation()
                         updateReservation()
                     }
-                } catch {
-                    print("Error fetching reservations for cluster overlay: \(error.localizedDescription)")
                 }
             }
         }
@@ -146,14 +142,10 @@ struct ClusterOverlayView: View {
             
             Task {
                 do {
-                    await env.reservationService.updateReservation(currentReservation) {
+                    env.reservationService.updateReservation(currentReservation) {
                         appState.changedReservation = currentReservation
                     }
                     
-                    // Refresh the reservations after update
-                    try await env.resCache.fetchReservations(for: appState.selectedDate)
-                } catch {
-                    print("Error updating reservation status to showed up: \(error.localizedDescription)")
                 }
             }
         } else if currentReservation.status == .showedUp {
@@ -163,14 +155,9 @@ struct ClusterOverlayView: View {
             
             Task {
                 do {
-                    await env.reservationService.updateReservation(currentReservation) {
+                    env.reservationService.updateReservation(currentReservation) {
                         appState.changedReservation = currentReservation
                     }
-                    
-                    // Refresh the reservations after update
-                    try await env.resCache.fetchReservations(for: appState.selectedDate)
-                } catch {
-                    print("Error updating reservation status from showed up: \(error.localizedDescription)")
                 }
             }
         }
