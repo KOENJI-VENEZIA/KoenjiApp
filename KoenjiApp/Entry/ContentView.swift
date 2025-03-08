@@ -2,6 +2,7 @@ import SwiftUI
 import FirebaseAuth
 import OSLog
 import FirebaseDatabase
+import UIKit
 
 // Create the unlocking animation view
 struct UnlockingAnimationView: View {
@@ -102,6 +103,62 @@ struct UnlockingAnimationView: View {
     }
 }
 
+// Custom alert to prevent dismissal
+struct NonDismissibleAlert: ViewModifier {
+    @Binding var isPresented: Bool
+    let title: String
+    let message: String
+    let action: () -> Void
+    
+    func body(content: Content) -> some View {
+        ZStack {
+            content
+                .disabled(isPresented)
+            
+            if isPresented {
+                // Full-screen overlay to prevent interaction with background
+                Color.black.opacity(0.4)
+                    .edgesIgnoringSafeArea(.all)
+                    .zIndex(1000) // Ensure it's above everything
+                
+                // Alert view
+                VStack(spacing: 20) {
+                    Text(title)
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+                    
+                    Text(message)
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                    
+                    Button(action: {
+                        action()
+                        isPresented = false
+                    }) {
+                        Text("OK")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .buttonStyle(PlainButtonStyle()) // Ensure consistent styling
+                }
+                .padding()
+                .background(Color(UIColor.systemBackground))
+                .cornerRadius(15)
+                .shadow(radius: 10)
+                .padding(30)
+                .frame(maxWidth: 400) // Limit width for larger screens
+                .position(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height / 2) // Center on screen
+                .zIndex(1001) // Above the overlay
+            }
+        }
+        .animation(.easeInOut, value: isPresented) // Smooth transition
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
@@ -124,6 +181,7 @@ struct ContentView: View {
     @State private var unlockingCompleted: Bool = false
     @State private var mainAppOpacity: Double = 0
     @State private var mainAppScale: CGFloat = 0.95
+    @State private var isSessionIconShift: Bool = false
     
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @AppStorage("userIdentifier") private var userIdentifier = ""
@@ -131,6 +189,10 @@ struct ContentView: View {
     @AppStorage("deviceUUID") private var deviceUUID: String = ""
     @AppStorage("isProfileComplete") private var isProfileComplete: Bool = false
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
+    
+    @State private var showRemoteLogoutAlert: Bool = false
+    @State private var sheetContent: AnyView? = nil
+    @State private var showSheet: Bool = false
     
     let logger = Logger(subsystem: "com.koenjiapp", category: "ContentView")
     private let lastActiveKey = "lastActiveTimestamp"
@@ -153,37 +215,72 @@ struct ContentView: View {
                 else if !isLoggedIn {
                     LoginView()
                 }
-                // 3. If logged in but profile isn’t complete, show a profile completion view.
-                //    (You could reuse your onboarding flow or create a dedicated ProfileCompletionView)
-                else if !isProfileComplete {
-                    UserOnboardingView()
-                        .onDisappear {
-                            hasCompletedOnboarding = true
-                        }
-                }
-                // 4. If the user is logged in and profile is complete but the unlocking animation hasn't finished, show it
+                // 3. If the user is logged in but the unlocking animation hasn't finished, show it
                 else if !unlockingCompleted {
                     UnlockingAnimationView(isComplete: $unlockingCompleted)
+                        .onAppear {
+                            // If profile isn't complete, show the profile completion view after animation
+                            if !isProfileComplete {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                    showSheet(UserOnboardingView())
+                                }
+                            }
+                        }
                 }
-                // 5. Finally, show the main app view
+                // 4. Finally, show the main app view
                 else {
-                    NavigationSplitView(columnVisibility: $appState.columnVisibility) {
-                        SidebarView(
-                            selectedReservation: $selectedReservation,
-                            currentReservation: $currentReservation,
-                            selectedCategory: $selectedCategory,
-                            columnVisibility: $appState.columnVisibility
-                        )
-                    } detail: {
-                        Text("Seleziona un'opzione dal menu laterale.")
-                            .foregroundColor(.secondary)
+                    ZStack(alignment: .bottomLeading) {
+                        NavigationSplitView(columnVisibility: $appState.columnVisibility) {
+                            SidebarView(
+                                selectedReservation: $selectedReservation,
+                                currentReservation: $currentReservation,
+                                selectedCategory: $selectedCategory,
+                                columnVisibility: $appState.columnVisibility,
+                                isSessionIconShift: $isSessionIconShift
+                            )
+                        } detail: {
+                            #if os(iOS)
+                            DatabaseView(columnVisibility: $appState.columnVisibility, isDatabase: $isSessionIconShift)
+                                .onAppear {
+                                    withAnimation {
+                                        isSessionIconShift = false
+                                    }
+                                }
+                            #endif
+                        }
+                        
+                        SessionsView()
+                            .transition(.opacity)
+                            .animation(.easeInOut(duration: 0.5), value: SessionStore.shared.sessions)
+                            .padding(.trailing, 16)
+                            .padding(.bottom, isSessionIconShift ? 60 : 8)
+                            .environmentObject(env)
                     }
                     .onAppear {
+                        // Load the current profile if available
+                        if !userIdentifier.isEmpty {
+                            Task {
+                                if let profile = env.reservationService.getProfile(withID: userIdentifier) {
+                                    ProfileStore.shared.setCurrentProfile(profile)
+                                }
+                            }
+                        }
+                        
                         // Trigger session initialization if needed.
-                        if isLoggedIn && isProfileComplete {
-                            initializeApp()
+                        if !hasInitializedSession {
+                            initializeSession()
+                            hasInitializedSession = true
                         }
                     }
+                }
+            }
+            .modifier(NonDismissibleAlert(isPresented: $showRemoteLogoutAlert, 
+                                         title: "Sessione terminata", 
+                                         message: "La tua sessione è stata terminata da un altro dispositivo. Effettua nuovamente l'accesso.", 
+                                         action: performLogout))
+            .sheet(isPresented: $showSheet) {
+                if let content = sheetContent {
+                    content
                 }
             }
         .onChange(of: isLoggedIn) { oldValue, newValue in
@@ -222,33 +319,48 @@ struct ContentView: View {
         .onChange(of: scenePhase) { old, newPhase in
             // Only update session state if we've already initialized a session
             if hasInitializedSession {
-                let sessionRef = Database.database().reference().child("sessions").child(deviceUUID)
                 if newPhase == .background {
-                    if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
-                        session.isActive = false
-                        session.isEditing = false
-                        env.reservationService.upsertSession(session)
-                        sessionRef.child("isActive").setValue(false)
+                    Task {
+                         SessionManager.shared.updateSessionStatus(isActive: false)
+                        logger.debug("App entered background, session marked inactive")
                     }
                 } else if newPhase == .active {
-                    if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
-                        session.isActive = true
-                        session.isEditing = false
-                        env.reservationService.upsertSession(session)
-                        sessionRef.child("isActive").setValue(true)
+                    Task {
+                        // Mark the session as active
+                         SessionManager.shared.updateSessionStatus(isActive: true)
+                        logger.debug("App became active, session marked active")
+                        
+                        // Add a delay to allow Firebase to sync
+                        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                        
+                        // Check if we need to refresh the profile data
+                        if let userIdentifier = UserDefaults.standard.string(forKey: "userIdentifier"),
+                           !userIdentifier.isEmpty {
+                            if let profile =  env.reservationService.getProfile(withID: userIdentifier) {
+                                ProfileStore.shared.setCurrentProfile(profile)
+                            }
+                        }
                     }
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RemoteLogoutRequested"))) { _ in
+            logger.warning("Remote logout requested")
+            showRemoteLogoutAlert = true
+        }
     }
     
-    private func initializeApp() {
+    /// Initializes the app by setting up the session and loading data
+    ///
+    /// This method is called when the app is launched and the user is logged in.
+    /// It sets up the session, loads data, and initializes the app state.
+    private func initializeSession() {
         checkLastActiveTimestamp()
         startActivityMonitoring()
         
         if deviceUUID.isEmpty {
-            deviceUUID = UUID().uuidString
-            logger.debug("Generated new deviceUUID: \(deviceUUID)")
+            deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
+            logger.debug("Generated stable deviceUUID: \(deviceUUID)")
         }
         
         authenticateUser()
@@ -276,29 +388,14 @@ struct ContentView: View {
     private func initializeUserSession() {
         logger.debug("Initializing user session with userName: \(userName), userIdentifier: \(userIdentifier)")
         
-        if var session = SessionStore.shared.sessions.first(where: { $0.id == userIdentifier }) {
-            session.uuid = deviceUUID
-            session.userName = userName
-            session.isActive = true
-            session.lastUpdate = Date()
-            env.reservationService.upsertSession(session)
-            logger.info("Updated existing session for user: \(userName)")
-        } else {
-            let session = Session(
-                id: userIdentifier,
-                uuid: deviceUUID,
-                userName: userName,
-                isEditing: false,
-                lastUpdate: Date(),
-                isActive: true
-            )
-            
-            logger.info("Created new session for user: \(userName)")
-            env.reservationService.upsertSession(session)
+        // Use the SessionManager to initialize the session
+        Task {
+            SessionManager.shared.initializeSession(profileID: userIdentifier, userName: userName)
+            hasInitializedSession = true
         }
         
-        env.reservationService.setupRealtimeDatabasePresence(for: deviceUUID)
-        hasInitializedSession = true
+        // Authenticate with Firebase
+        authenticateUser()
     }
     
     func authenticateUser() {
@@ -316,10 +413,11 @@ struct ContentView: View {
             let inactiveInterval = Date().timeIntervalSince(lastTimestamp)
             if inactiveInterval > maxInactiveInterval {
                 // App was likely terminated abnormally
-                if hasInitializedSession, var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID }) {
-                    session.isActive = false
-                    env.reservationService.upsertSession(session)
-                    logger.warning("Session marked inactive due to abnormal termination. Inactive duration: \(Int(inactiveInterval))s")
+                if hasInitializedSession {
+                    Task {
+                        SessionManager.shared.updateSessionStatus(isActive: false)
+                        logger.warning("Session marked inactive due to abnormal termination. Inactive duration: \(Int(inactiveInterval))s")
+                    }
                 }
             }
         }
@@ -330,6 +428,30 @@ struct ContentView: View {
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
             UserDefaults.standard.set(Date(), forKey: lastActiveKey)
         }
+    }
+    
+    private func performLogout() {
+        // Perform the remote logout
+        Task {
+            SessionManager.shared.performRemoteLogout()
+            
+            // Reset user state
+            isLoggedIn = false
+            isProfileComplete = false
+            hasInitializedSession = false
+            
+            // Clear user data
+            userIdentifier = ""
+            userName = ""
+            
+            logger.info("User logged out due to remote deactivation")
+        }
+    }
+    
+    // Helper function to show a sheet with any content
+    private func showSheet<Content: View>(_ content: Content) {
+        sheetContent = AnyView(content)
+        showSheet = true
     }
 }
 

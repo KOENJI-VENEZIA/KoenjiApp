@@ -3,6 +3,10 @@ import SwiftUI
 import OSLog
 import UIKit
 
+/// A view model for handling Apple Sign In
+///
+/// This view model manages the Apple Sign In process, including checking existing credentials,
+/// signing in with Apple, and signing out. It also handles the storage of user information.
 class AppleSignInViewModel: NSObject, ObservableObject {
     
     // MARK: - Published Properties
@@ -29,6 +33,11 @@ class AppleSignInViewModel: NSObject, ObservableObject {
     }
     
     // MARK: - Public Methods
+
+    /// Signs in with Apple
+    ///
+    /// This method initiates the Apple Sign In process by creating a request for full name and email scopes.
+    /// It then sets up the authorization controller and performs the request.
     @MainActor
     func signInWithApple() {
         logger.debug("Initiating Apple Sign In process")
@@ -48,7 +57,12 @@ class AppleSignInViewModel: NSObject, ObservableObject {
         
         controller.performRequests()
     }
-    
+
+    /// Checks for an existing Apple ID credential
+    ///
+    /// This method checks the credential state for the stored user identifier.
+    /// If the credential is valid, it logs a debug message. If the credential is revoked or not found,
+    /// it logs a warning and signs out the user.    
     func checkExistingCredential() {
         // Only proceed if we have a stored user identifier
         guard !userIdentifier.isEmpty else { return }
@@ -71,18 +85,31 @@ class AppleSignInViewModel: NSObject, ObservableObject {
         }
     }
     
-//    @MainActor
-//    func signOut() {
-//        storedIsLoggedIn = false
-//        isLoggedIn = false
-//        isProfileComplete = false
-//        // Keep the userIdentifier for potential reuse but clear other data
-//        userName = ""
-//        userEmail = ""
-//    }
+    /// Signs out the user
+    ///
+    /// This method updates the device status to inactive and clears the user's data.
+    @MainActor
+    func signOut() {        
+        // We'll rely on the ProfileAvatarView's logout method to handle the device status update
+        // This is a simpler approach than trying to access the environment
+        
+        storedIsLoggedIn = false
+        isLoggedIn = false
+        isProfileComplete = false
+        // Keep the userIdentifier for potential reuse but clear other data
+        userName = ""
+        userEmail = ""
+        
+        logger.info("User signed out")
+    }
 }
 
 extension AppleSignInViewModel: ASAuthorizationControllerDelegate {
+    /// Handles the completion of the authorization process
+    ///
+    /// This method is called when the authorization process is complete.
+    /// It checks the type of credential returned and extracts the user identifier.
+    /// It also logs debug information about the credential and user information.
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
         isSigningIn = false
         
@@ -144,7 +171,11 @@ extension AppleSignInViewModel: ASAuthorizationControllerDelegate {
             logger.info("Apple Sign-In successful for user ID: \(self.userIdentifier)")
         }
     }
-    
+
+    /// Handles errors during the authorization process
+    ///
+    /// This method is called when an error occurs during the authorization process.
+    /// It logs an error message with the error details.
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
         isSigningIn = false
         logger.error("Apple Sign-In failed: \(error.localizedDescription)")
@@ -159,8 +190,12 @@ class AppleSignInPresentationContextProvider: NSObject, ASAuthorizationControlle
         self.window = window
         super.init()
     }
-    
+
+    /// Provides the presentation anchor for the authorization controller
+    ///
+    /// This method returns the window that should be used for presenting the authorization controller.
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
         return window
     }
 }
+

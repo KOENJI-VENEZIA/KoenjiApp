@@ -57,9 +57,8 @@ struct SessionsView: View {
             
             // The sessions view itself (wrapped in another container to limit tap area)
             HStack(alignment: .center, spacing: 8) {
-                // Session avatars - positioned at the left edge
-                sessionAvatarsView(sessions: limitedSessions)
-                
+                Spacer() // Push everything to the right
+
                 // Collaboration status label
                 if !limitedSessions.isEmpty && (isShowingInfo || autoShowEditingInfo) {
                     collaborationStatusView(sessions: activeSessions)
@@ -70,22 +69,11 @@ struct SessionsView: View {
                         .transition(.opacity)
                 }
                 
-                Spacer() // Push everything to the left
+                // Session avatars - positioned at the left edge
+                sessionAvatarsView(sessions: limitedSessions)
             }
             .padding(.leading, 10)
             .padding(.bottom, 8)
-//            .background(
-//                // Limited background gradient only behind the sessions row
-//                LinearGradient(
-//                    gradient: Gradient(colors: [
-//                        Color.black.opacity(0.1),
-//                        Color.clear
-//                    ]),
-//                    startPoint: .bottomLeading,
-//                    endPoint: .topTrailing
-//                )
-//                .cornerRadius(10)
-//            )
             // This tap gesture ONLY applies to the HStack containing the session avatars
             .onTapGesture {
                 if isShowingInfo || autoShowEditingInfo {
@@ -95,7 +83,7 @@ struct SessionsView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading) // Only control horizontal alignment
+        .frame(maxWidth: .infinity, alignment: .trailing) // Only control horizontal alignment
         .animation(.easeInOut(duration: 0.3), value: activeSessions)
         .animation(.easeInOut(duration: 0.3), value: isShowingInfo)
         .animation(.easeInOut(duration: 0.3), value: autoShowEditingInfo)
@@ -208,12 +196,11 @@ struct SessionsView: View {
     @ViewBuilder
     private func sessionAvatarsView(sessions: [Session]) -> some View {
         HStack(spacing: -10) {
+            // Extra users indicator
+            extraUsersIndicator(totalCount: activeSessions.count, displayedCount: sessions.count)
             ForEach(Array(sessions.enumerated()), id: \.element.uuid) { index, session in
                 sessionAvatarButton(session: session, index: index, totalCount: sessions.count)
             }
-            
-            // Extra users indicator
-            extraUsersIndicator(totalCount: activeSessions.count, displayedCount: sessions.count)
         }
     }
     
@@ -249,7 +236,7 @@ struct SessionsView: View {
                 .font(.caption)
                 .foregroundColor(.primary)
             
-            Text(session.uuid)
+            Text(session.deviceName ?? "Unknown device")
                 .font(.caption)
                 .foregroundColor(.secondary)
             
@@ -311,10 +298,36 @@ struct SessionAvatarView: View {
                 .frame(width: 38, height: 38)
                 .shadow(color: Color.black.opacity(isHovered ? 0.2 : 0.1), radius: isHovered ? 4 : 2, x: 0, y: 2)
             
-            // User initials - extract and display
-            Text(getInitials(from: session.userName))
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(isHovered ? .white : color.opacity(0.8))
+            // Profile image or initials
+            if let imageURL = session.profileImageURL, !imageURL.isEmpty {
+                AsyncImage(url: URL(string: imageURL)) { phase in
+                    switch phase {
+                    case .empty:
+                        Text(getInitials(from: session.userName))
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(isHovered ? .white : color.opacity(0.8))
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 38, height: 38)
+                            .clipShape(Circle())
+                    case .failure:
+                        Text(getInitials(from: session.userName))
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(isHovered ? .white : color.opacity(0.8))
+                    @unknown default:
+                        Text(getInitials(from: session.userName))
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(isHovered ? .white : color.opacity(0.8))
+                    }
+                }
+            } else {
+                // User initials - extract and display
+                Text(getInitials(from: session.userName))
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(isHovered ? .white : color.opacity(0.8))
+            }
             
             // Editing indicator
             editingIndicator

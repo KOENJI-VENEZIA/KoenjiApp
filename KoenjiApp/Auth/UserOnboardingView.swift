@@ -1,5 +1,6 @@
 import SwiftUI
 import OSLog
+import UIKit
 
 struct UserOnboardingView: View {
     @Environment(\.dismiss) private var dismiss
@@ -12,7 +13,9 @@ struct UserOnboardingView: View {
     
     @State private var firstName: String = ""
     @State private var lastName: String = ""
+    @State private var email: String = ""
     @State private var showAlert: Bool = false
+    @State private var alertMessage: String = ""
     @State private var formScale: CGFloat = 0.95
     @State private var formOpacity: Double = 0
     @State private var buttonScale: CGFloat = 0.95
@@ -22,6 +25,7 @@ struct UserOnboardingView: View {
     @State private var showExistingAccountAlert: Bool = false
     @FocusState private var isFirstNameFocused: Bool
     @FocusState private var isLastNameFocused: Bool
+    @FocusState private var isEmailFocused: Bool
     
     let logger = Logger(subsystem: "com.koenjiapp", category: "UserOnboardingView")
     let showHeader: Bool
@@ -39,6 +43,7 @@ struct UserOnboardingView: View {
                     // Dismiss keyboard when tapping outside text fields
                     isFirstNameFocused = false
                     isLastNameFocused = false
+                    isEmailFocused = false
                 }
             
             VStack(spacing: 24) {
@@ -65,6 +70,10 @@ struct UserOnboardingView: View {
                 VStack(spacing: 20) {
                     formField(title: String(localized: "Nome"), icon: "person.fill", text: $firstName, isFocused: $isFirstNameFocused)
                     formField(title: String(localized: "Cognome"), icon: "person.fill", text: $lastName, isFocused: $isLastNameFocused)
+                    formField(title: String(localized: "Email"), icon: "envelope.fill", text: $email, isFocused: $isEmailFocused)
+                        .keyboardType(.emailAddress)
+                        .autocapitalization(.none)
+                        .autocorrectionDisabled()
                 }
                 .padding(24)
                 .background(Color.white.opacity(0.12))
@@ -93,10 +102,8 @@ struct UserOnboardingView: View {
             }
             .padding(.vertical, 32)
         }
-        .alert("Dati mancanti", isPresented: $showAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Per favore, inserisci nome e cognome per continuare.")
+        .alert(isPresented: $showAlert) {
+            Alert(title: Text("Dati mancanti"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
         }
         .alert("Account esistente rilevato", isPresented: $showExistingAccountAlert) {
             Button("Usa profilo esistente", role: .none) {
@@ -111,8 +118,13 @@ struct UserOnboardingView: View {
         .onAppear {
             // Generate device UUID if needed
             if deviceUUID.isEmpty {
-                deviceUUID = UUID().uuidString
-                logger.debug("Generated new deviceUUID: \(deviceUUID)")
+                deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
+                logger.debug("Generated stable deviceUUID: \(deviceUUID)")
+            }
+            
+            // Pre-fill email if available
+            if !appleSignInVM.userEmail.isEmpty {
+                email = appleSignInVM.userEmail
             }
             
             checkForExistingAccount()
@@ -125,6 +137,7 @@ struct UserOnboardingView: View {
                 Button("Fatto") {
                     isFirstNameFocused = false
                     isLastNameFocused = false
+                    isEmailFocused = false
                 }
             }
         }
@@ -137,26 +150,32 @@ struct UserOnboardingView: View {
             return
         }
         
-        // Check if this user has an existing session
-        if let existingSession = SessionStore.shared.sessions.first(where: { $0.id == userIdentifier }) {
+        // Check if this user has an existing profile
+        if let existingProfile = env.reservationService.getProfile(withID: userIdentifier) {
             existingAccountFound = true
-            existingDisplayName = existingSession.userName
-            logger.info("Found existing account: \(existingDisplayName)")
+            existingDisplayName = existingProfile.displayName
+            logger.info("Found existing profile: \(existingDisplayName)")
             
-            // Show the alert asking if they want to reuse the profile
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                showExistingAccountAlert = true
-            }
+            // Automatically reuse the profile without showing an alert
+            reuseExistingProfile()
         } else {
-            // Also check for saved names in UserDefaults as a fallback
-            if let savedName = UserDefaults.standard.string(forKey: "savedDisplayName_\(userIdentifier)") {
+            // Check if this user has an existing session
+            if let existingSession = SessionStore.shared.sessions.first(where: { $0.id == userIdentifier }) {
                 existingAccountFound = true
-                existingDisplayName = savedName
-                logger.info("Found existing name in UserDefaults: \(existingDisplayName)")
+                existingDisplayName = existingSession.userName
+                logger.info("Found existing session: \(existingDisplayName)")
                 
-                // Show the alert asking if they want to reuse the profile
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    showExistingAccountAlert = true
+                // Automatically reuse the profile without showing an alert
+                reuseExistingProfile()
+            } else {
+                // Also check for saved names in UserDefaults as a fallback
+                if let savedName = UserDefaults.standard.string(forKey: "savedDisplayName_\(userIdentifier)") {
+                    existingAccountFound = true
+                    existingDisplayName = savedName
+                    logger.info("Found existing name in UserDefaults: \(existingDisplayName)")
+                    
+                    // Automatically reuse the profile without showing an alert
+                    reuseExistingProfile()
                 }
             }
         }
@@ -171,35 +190,106 @@ struct UserOnboardingView: View {
         
         // Create or update session with existing data
         if deviceUUID.isEmpty {
-            deviceUUID = UUID().uuidString
-            logger.debug("Generated new deviceUUID during profile reuse: \(deviceUUID)")
+            deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
+            logger.debug("Generated stable deviceUUID during profile reuse: \(deviceUUID)")
         }
         
         do {
-            // Check if a session with this userIdentifier exists
-            if let existingSession = SessionStore.shared.sessions.first(where: { $0.id == userIdentifier }) {
-                // Update the existing session but keep the username
-                var updatedSession = existingSession
-                updatedSession.uuid = deviceUUID  // Update with current device
-                updatedSession.isEditing = false
-                updatedSession.lastUpdate = Date()
-                updatedSession.isActive = true
+            // Get the current device name
+            let currentDeviceName = DeviceInfo.shared.getDeviceName()
+            
+            // Check if a profile with this userIdentifier exists
+            if let existingProfile = env.reservationService.getProfile(withID: userIdentifier) {
+                // Instead of resetting all devices, just add or update the current device
+                var updatedProfile = existingProfile
                 
-                env.reservationService.upsertSession(updatedSession)
-                logger.info("Updated existing session with new device: \(deviceUUID)")
-            } else {
-                // Create a new session with existing profile name
+                // Check if the current device is already in the profile
+                if let deviceIndex = updatedProfile.devices.firstIndex(where: { $0.id == deviceUUID }) {
+                    // Update the existing device
+                    updatedProfile.devices[deviceIndex].name = currentDeviceName
+                    updatedProfile.devices[deviceIndex].lastActive = Date()
+                    updatedProfile.devices[deviceIndex].isActive = true
+                } else {
+                    // Add the current device to the profile
+                    let device = Device(
+                        id: deviceUUID,
+                        name: currentDeviceName,
+                        lastActive: Date(),
+                        isActive: true
+                    )
+                    updatedProfile.devices.append(device)
+                }
+                
+                // Update profile information
+                updatedProfile.firstName = firstName
+                updatedProfile.lastName = lastName
+                updatedProfile.email = email
+                updatedProfile.updatedAt = Date()
+                
+                // Save the updated profile
+                env.reservationService.upsertProfile(updatedProfile)
+                
+                // Set the current profile
+                ProfileStore.shared.setCurrentProfile(updatedProfile)
+                
+                // Create a session for this device
                 let session = Session(
                     id: userIdentifier,
                     uuid: deviceUUID,
-                    userName: existingDisplayName,
+                    userName: existingProfile.displayName,
                     isEditing: false,
                     lastUpdate: Date(),
-                    isActive: true
+                    isActive: true,
+                    deviceName: currentDeviceName
                 )
                 
                 env.reservationService.upsertSession(session)
-                logger.info("Created new session with existing profile: \(existingDisplayName)")
+                logger.info("Updated existing profile and created session")
+            } else {
+                // Create a new profile and session with existing name
+                let components = existingDisplayName.components(separatedBy: " ")
+                let firstName = components.first ?? ""
+                let lastName = components.count > 1 ? components.dropFirst().joined(separator: " ") : ""
+                
+                let device = Device(
+                    id: deviceUUID,
+                    name: currentDeviceName,
+                    lastActive: Date(),
+                    isActive: true
+                )
+                
+                let emailToUse = !email.isEmpty ? email : "user@example.com" // Fallback email
+                
+                let profile = Profile(
+                    id: userIdentifier,
+                    firstName: firstName,
+                    lastName: lastName,
+                    email: emailToUse,
+                    imageURL: nil,
+                    devices: [device],
+                    createdAt: Date(),
+                    updatedAt: Date()
+                )
+                
+                // Save the profile
+                env.reservationService.upsertProfile(profile)
+                
+                // Set the current profile
+                ProfileStore.shared.setCurrentProfile(profile)
+                
+                // Create a session for this device
+                let session = Session(
+                    id: userIdentifier,
+                    uuid: deviceUUID,
+                    userName: profile.displayName,
+                    isEditing: false,
+                    lastUpdate: Date(),
+                    isActive: true,
+                    deviceName: currentDeviceName
+                )
+                
+                env.reservationService.upsertSession(session)
+                logger.info("Created new profile and session with existing name")
             }
             
             // Setup database presence
@@ -210,14 +300,188 @@ struct UserOnboardingView: View {
             
             // Dismiss this view to continue to the main app
             dismiss()
-        } catch {
-            logger.error("Failed to create/update user session: \(error.localizedDescription)")
         }
     }
     
+    /// Checks if the form is valid
+    ///
+    /// This method checks if the form is valid.
+    ///
+    /// - Returns: True if the form is valid, false otherwise
     private var isFormValid: Bool {
-        return !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-               !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let trimmedFirstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        return !trimmedFirstName.isEmpty && !trimmedLastName.isEmpty && isValidEmail(trimmedEmail)
+    }
+    
+    /// Checks if the email is valid
+    ///
+    /// This method checks if the email is valid.
+    ///
+    /// - Returns: True if the email is valid, false otherwise
+    private func isValidEmail(_ email: String) -> Bool {
+        let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailPred = NSPredicate(format:"SELF MATCHES %@", emailRegEx)
+        return emailPred.evaluate(with: email)
+    }
+    
+    /// Saves the user profile
+    ///
+    /// This method saves the user profile.
+    ///
+    /// - Returns: True if the profile is saved, false otherwise
+    private func saveUserProfile() {
+        // Dismiss keyboard
+        isFirstNameFocused = false
+        isLastNameFocused = false
+        isEmailFocused = false
+        
+        let trimmedFirstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if trimmedFirstName.isEmpty || trimmedLastName.isEmpty {
+            alertMessage = "Per favore, inserisci nome e cognome per continuare."
+            showAlert = true
+            return
+        }
+        
+        if !isValidEmail(trimmedEmail) {
+            alertMessage = "Per favore, inserisci un indirizzo email valido."
+            showAlert = true
+            return
+        }
+        
+        // Critical check: Make sure we have a valid userIdentifier
+        guard !userIdentifier.isEmpty else {
+            logger.error("Cannot save user profile: userIdentifier is empty!")
+            alertMessage = "Si è verificato un errore. Riprova più tardi."
+            showAlert = true
+            return
+        }
+        
+        // Format the display name
+        let displayName = formatDisplayName(firstName: trimmedFirstName, lastName: trimmedLastName)
+        userName = displayName
+        appleSignInVM.userName = displayName
+        
+        // Store both the display name and full name in UserDefaults
+        let fullName = "\(trimmedFirstName) \(trimmedLastName)"
+        UserDefaults.standard.set(displayName, forKey: "savedDisplayName_\(userIdentifier)")
+        UserDefaults.standard.set(fullName, forKey: "savedFullName_\(userIdentifier)")
+        
+        logger.debug("Creating profile with userIdentifier: \(userIdentifier), userName: \(displayName), email: \(trimmedEmail)")
+        
+        // Make sure device UUID is valid
+        if deviceUUID.isEmpty {
+            deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
+            logger.debug("Generated stable deviceUUID during profile save: \(deviceUUID)")
+        }
+        
+        do {
+            // Get the current device name
+            let currentDeviceName = DeviceInfo.shared.getDeviceName()
+            
+            // Check if a profile already exists for this user
+            if let existingProfile = env.reservationService.getProfile(withID: userIdentifier) {
+                // Instead of resetting all devices, just add or update the current device
+                var updatedProfile = existingProfile
+                
+                // Check if the current device is already in the profile
+                if let deviceIndex = updatedProfile.devices.firstIndex(where: { $0.id == deviceUUID }) {
+                    // Update the existing device
+                    updatedProfile.devices[deviceIndex].name = currentDeviceName
+                    updatedProfile.devices[deviceIndex].lastActive = Date()
+                    updatedProfile.devices[deviceIndex].isActive = true
+                } else {
+                    // Add the current device to the profile
+                    let device = Device(
+                        id: deviceUUID,
+                        name: currentDeviceName,
+                        lastActive: Date(),
+                        isActive: true
+                    )
+                    updatedProfile.devices.append(device)
+                }
+                
+                // Update profile information
+                updatedProfile.firstName = trimmedFirstName
+                updatedProfile.lastName = trimmedLastName
+                updatedProfile.email = trimmedEmail
+                updatedProfile.updatedAt = Date()
+                
+                // Save the updated profile
+                env.reservationService.upsertProfile(updatedProfile)
+                
+                // Set the current profile
+                ProfileStore.shared.setCurrentProfile(updatedProfile)
+                
+                // Create a session for this device
+                let session = Session(
+                    id: userIdentifier,
+                    uuid: deviceUUID,
+                    userName: displayName,
+                    isEditing: false,
+                    lastUpdate: Date(),
+                    isActive: true,
+                    deviceName: currentDeviceName
+                )
+                
+                env.reservationService.upsertSession(session)
+                logger.info("Updated existing profile and created session")
+            } else {
+                // Create a device for this session
+                let device = Device(
+                    id: deviceUUID,
+                    name: currentDeviceName,
+                    lastActive: Date(),
+                    isActive: true
+                )
+                
+                // Create the profile
+                let profile = Profile(
+                    id: userIdentifier,
+                    firstName: trimmedFirstName,
+                    lastName: trimmedLastName,
+                    email: trimmedEmail,
+                    imageURL: nil,
+                    devices: [device],
+                    createdAt: Date(),
+                    updatedAt: Date()
+                )
+                
+                // Save the profile
+                env.reservationService.upsertProfile(profile)
+                
+                // Set the current profile
+                ProfileStore.shared.setCurrentProfile(profile)
+                
+                // Create a session for this device
+                let session = Session(
+                    id: userIdentifier,
+                    uuid: deviceUUID,
+                    userName: displayName,
+                    isEditing: false,
+                    lastUpdate: Date(),
+                    isActive: true,
+                    deviceName: currentDeviceName
+                )
+                
+                env.reservationService.upsertSession(session)
+                logger.info("Created new profile and session")
+            }
+            
+            // Setup database presence
+            env.reservationService.setupRealtimeDatabasePresence(for: deviceUUID)
+            
+            // Mark profile as complete
+            isProfileComplete = true
+            
+            // Dismiss this view to continue to the main app
+            dismiss()
+        }
     }
     
     /// Formats the name as "Firstname L." where L is the last name initial
@@ -234,83 +498,11 @@ struct UserOnboardingView: View {
         }
     }
     
-    private func saveUserProfile() {
-        // Dismiss keyboard
-        isFirstNameFocused = false
-        isLastNameFocused = false
-        
-        guard isFormValid else {
-            showAlert = true
-            return
-        }
-        
-        // Critical check: Make sure we have a valid userIdentifier
-        guard !userIdentifier.isEmpty else {
-            logger.error("Cannot save user profile: userIdentifier is empty!")
-            showAlert = true
-            return
-        }
-        
-        // Format the display name as "First L."
-        let displayName = formatDisplayName(firstName: firstName, lastName: lastName)
-        userName = displayName
-        appleSignInVM.userName = displayName
-        
-        // Store both the display name and full name in UserDefaults
-        let fullName = "\(firstName.trimmingCharacters(in: .whitespacesAndNewlines)) \(lastName.trimmingCharacters(in: .whitespacesAndNewlines))"
-        UserDefaults.standard.set(displayName, forKey: "savedDisplayName_\(userIdentifier)")
-        UserDefaults.standard.set(fullName, forKey: "savedFullName_\(userIdentifier)")
-        
-        logger.debug("Creating/updating session with userIdentifier: \(userIdentifier), userName: \(displayName), deviceUUID: \(deviceUUID)")
-        
-        // Create session for the user
-        // Make sure device UUID is valid
-        if deviceUUID.isEmpty {
-            deviceUUID = UUID().uuidString
-            logger.debug("Generated new deviceUUID during profile save: \(deviceUUID)")
-        }
-        
-        do {
-            // Check if a session with this userIdentifier already exists
-            if let existingSession = SessionStore.shared.sessions.first(where: { $0.id == userIdentifier }) {
-                // Update the existing session
-                var updatedSession = existingSession
-                updatedSession.uuid = deviceUUID       // Update with current device UUID
-                updatedSession.userName = displayName
-                updatedSession.isEditing = false
-                updatedSession.lastUpdate = Date()
-                updatedSession.isActive = true
-                
-                env.reservationService.upsertSession(updatedSession)
-                logger.info("Updated existing session for user: \(displayName)")
-            } else {
-                // Create a new session if none exists
-                let session = Session(
-                    id: userIdentifier,
-                    uuid: deviceUUID,
-                    userName: displayName,
-                    isEditing: false,
-                    lastUpdate: Date(),
-                    isActive: true
-                )
-                
-                env.reservationService.upsertSession(session)
-                logger.info("Created new session for user: \(displayName)")
-            }
-            
-            // Setup database presence
-            env.reservationService.setupRealtimeDatabasePresence(for: deviceUUID)
-            
-            // Mark profile as complete
-            isProfileComplete = true
-            
-            // Dismiss this view to continue to the main app
-            dismiss()
-        } catch {
-            logger.error("Failed to create/update user session: \(error.localizedDescription)")
-        }
-    }
-    
+    /// Form field view
+    ///
+    /// This method creates a form field view.
+    ///
+    /// - Returns: A view of the form field
     private func formField(title: String, icon: String, text: Binding<String>, isFocused: FocusState<Bool>.Binding) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(title, systemImage: icon)
@@ -331,6 +523,9 @@ struct UserOnboardingView: View {
         }
     }
     
+    /// Animates the form
+    ///
+    /// This method animates the form.
     private func animateForm() {
         withAnimation(.easeOut(duration: 0.5).delay(0.2)) {
             formScale = 1.0

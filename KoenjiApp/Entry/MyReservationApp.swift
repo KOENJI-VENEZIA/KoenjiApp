@@ -2,6 +2,7 @@ import UIKit
 import SwiftUI
 import Firebase
 
+
 @main
 struct MyReservationApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -9,9 +10,17 @@ struct MyReservationApp: App {
     @StateObject private var appState: AppState
     @StateObject private var viewModel = AppleSignInViewModel()
     
+    // Check if we're running in preview mode
+    private var isPreview: Bool {
+        ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+    }
+    
     init() {
         let appState = AppState()
         _appState = StateObject(wrappedValue: appState)
+        
+        // Configure Firebase if needed (will be skipped in preview mode)
+        AppDependencies.configureFirebaseIfNeeded()
         
         checkForAppUpgrade()
     }
@@ -36,8 +45,12 @@ struct MyReservationApp: App {
                 .onAppear {
                     // Initialize the shared AppDependencies instance when the app appears
                     AppDependencies.initializeSharedInstance(env)
-                    Task {
-                        await env.reservationService.updateAllReservationsInFirestore()
+                    
+                    // Skip Firestore updates in preview mode
+                    if !isPreview {
+                        Task {
+                            await env.reservationService.updateAllReservationsInFirestore()
+                        }
                     }
                 }
         }
