@@ -66,7 +66,7 @@ export const api = functionsV2.https.onRequest(
 
       res.send("Email sent!");
     } catch (error) {
-      console.error("Error sending email:", error);
+      logToFirestore(`Error sending email: ${error instanceof Error ? error.message : String(error)}`, { level: 'error', functionName: 'api', data: { error: error instanceof Error ? error.message : String(error) } });
       res.status(500).send("Error sending email");
     }
   }
@@ -241,13 +241,13 @@ async function sendReservationConfirmationEmail(
   }
 
   if (!email) {
-    console.error(`No email found for reservation ${reservationId}`);
+    logToFirestore(`No email found for reservation ${reservationId}`, { level: 'error', functionName: 'sendReservationConfirmationEmail', data: { reservationId } });
     return { error: "No email found" };
   }
 
   // Get preferred language from reservation, default to English if not specified
   const language = reservation.preferredLanguage || 'en';
-  console.log(`Using language: ${language} for reservation ${reservationId}`);
+  logToFirestore(`Using language: ${language} for reservation ${reservationId}`, { level: 'info', functionName: 'sendReservationConfirmationEmail', data: { reservationId, language } });
 
   try {
     // Load template based on language - now async
@@ -268,7 +268,7 @@ async function sendReservationConfirmationEmail(
 
     // Get the correct subject for this language and type
     const emailSubject = getEmailSubject('confirmation', language);
-    console.log(`Email subject: "${emailSubject}" for language: ${language}`);
+    logToFirestore(`Email subject: "${emailSubject}" for language: ${language}`, { level: 'info', functionName: 'sendReservationConfirmationEmail', data: { reservationId, language } });
 
     // Create a transport each time we want to send an email
     const mailTransport = createMailTransport();
@@ -280,10 +280,10 @@ async function sendReservationConfirmationEmail(
       html: emailHtml,
     });
 
-    console.log(`Confirmation email sent to ${email} for reservation ${reservationId} in ${language}`);
+    logToFirestore(`Confirmation email sent to ${email} for reservation ${reservationId} in ${language}`, { level: 'info', functionName: 'sendReservationConfirmationEmail', data: { reservationId, language } });
     return { success: true };
   } catch (error) {
-    console.error("Error sending email:", error);
+    logToFirestore(`Error sending email: ${error instanceof Error ? error.message : String(error)}`, { level: 'error', functionName: 'sendReservationConfirmationEmail', data: { error: error instanceof Error ? error.message : String(error) } });
     return { error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
@@ -349,7 +349,7 @@ async function sendNewReservationNotification(reservation: any, reservationId: s
   try {
     const deviceTokensSnapshot = await admin.firestore().collection("device_tokens").get();
     if (deviceTokensSnapshot.empty) {
-      console.log("No device tokens found for notifications");
+      logToFirestore("No device tokens found for notifications", { level: 'info', functionName: 'sendNewReservationNotification', data: { reservationId } });
       return { skipped: "No device tokens" };
     }
 
@@ -360,7 +360,7 @@ async function sendNewReservationNotification(reservation: any, reservationId: s
     });
 
     if (tokens.length === 0) {
-      console.log("No valid device tokens found");
+      logToFirestore("No valid device tokens found", { level: 'info', functionName: 'sendNewReservationNotification', data: { reservationId } });
       return { skipped: "No valid tokens" };
     }
 
@@ -377,10 +377,10 @@ async function sendNewReservationNotification(reservation: any, reservationId: s
     };
 
     const response = await admin.messaging().sendMulticast(message);
-    console.log(`${response.successCount} notifications sent successfully`);
+    logToFirestore(`${response.successCount} notifications sent successfully`, { level: 'info', functionName: 'sendNewReservationNotification', data: { reservationId } });
     return { success: true, sent: response.successCount };
   } catch (error) {
-    console.error("Error sending notification:", error);
+    logToFirestore(`Error sending notification: ${error instanceof Error ? error.message : String(error)}`, { level: 'error', functionName: 'sendNewReservationNotification', data: { error: error instanceof Error ? error.message : String(error) } });
     return { error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
@@ -429,7 +429,7 @@ export const checkAvailability = onCall({}, async (request) => {
     const reqDate = new Date(date);
     const dateStr = formatDate(reqDate);
     
-    console.log(`Checking availability for ${dateStr}, ${category}, ${startTime}-${endTime}, ${numberOfPersons} people (Environment: ${isDebug ? 'Debug' : 'Release'})`);
+    logToFirestore(`Checking availability for ${dateStr}, ${category}, ${startTime}-${endTime}, ${numberOfPersons} people (Environment: ${isDebug ? 'Debug' : 'Release'})`, { level: 'info', functionName: 'checkAvailability', data: { dateStr, category, startTime, endTime, numberOfPersons, isDebug } });
     
     // Get collection name based on environment
     const collection = isDebug ? "reservations" : "reservations_release";
@@ -440,13 +440,13 @@ export const checkAvailability = onCall({}, async (request) => {
       .where("dateString", "==", dateStr)
       .get();
     
-    console.log(`Found ${reservationsSnapshot.size} reservations for date ${dateStr} in ${collection}`);
+    logToFirestore(`Found ${reservationsSnapshot.size} reservations for date ${dateStr} in ${collection}`, { level: 'info', functionName: 'checkAvailability', data: { dateStr, collection, reservationsSnapshotSize: reservationsSnapshot.size } });
     
     if (reservationsSnapshot.empty) {
       // No reservations on this date - all tables should be available
       const tables = getTablesConfig();
       
-      console.log(`No reservations found - all tables available: ${tables.map(t => t.name).join(', ')}`);
+      logToFirestore(`No reservations found - all tables available: ${tables.map(t => t.name).join(', ')}`, { level: 'info', functionName: 'checkAvailability', data: { dateStr, tables } });
       
       return {
         available: true,
@@ -460,7 +460,7 @@ export const checkAvailability = onCall({}, async (request) => {
     const existingReservations: any[] = [];
     
     // Debug info about all reservations for this date
-    console.log(`All reservations for ${dateStr}:`);
+    logToFirestore(`All reservations for ${dateStr}:`, { level: 'info', functionName: 'checkAvailability', data: { dateStr } });
     
     // Helper to extract table IDs from tables array
     function extractTableIds(tablesArray: any[] | undefined): number[] {
@@ -493,20 +493,20 @@ export const checkAvailability = onCall({}, async (request) => {
     
     reservationsSnapshot.forEach(doc => {
       const data = doc.data();
-      console.log(`- Reservation ${data.name}: category=${data.category}, time=${data.startTime}-${data.endTime}, status=${data.status}, type=${data.reservationType}`);
-      console.log(`  Tables data:`, data.tables);
+      logToFirestore(`- Reservation ${data.name}: category=${data.category}, time=${data.startTime}-${data.endTime}, status=${data.status}, type=${data.reservationType}`, { level: 'info', functionName: 'checkAvailability', data: { data } });
+      logToFirestore(`  Tables data:`, { level: 'info', functionName: 'checkAvailability', data: { data } });
       
       // Skip canceled, deleted, or waiting list reservations
       if (data.status === "canceled" || 
           data.status === "deleted" || 
           data.reservationType === "waitingList") {
-        console.log(`  Skipping reservation (status=${data.status}, type=${data.reservationType})`);
+        logToFirestore(`  Skipping reservation (status=${data.status}, type=${data.reservationType})`, { level: 'info', functionName: 'checkAvailability', data: { data } });
         return;
       }
       
       // Extract table IDs (assuming tables is an array of indices or objects)
       const tableIds = extractTableIds(data.tables);
-      console.log(`  Extracted table IDs: ${tableIds.join(', ')}`);
+      logToFirestore(`  Extracted table IDs: ${tableIds.join(', ')}`, { level: 'info', functionName: 'checkAvailability', data: { data } });
       
       existingReservations.push({
         id: data.id,
@@ -521,7 +521,7 @@ export const checkAvailability = onCall({}, async (request) => {
       });
     });
     
-    console.log(`Found ${existingReservations.length} active reservations for ${dateStr}`);
+    logToFirestore(`Found ${existingReservations.length} active reservations for ${dateStr}`, { level: 'info', functionName: 'checkAvailability', data: { dateStr, existingReservationsLength: existingReservations.length } });
     
     // Find reservations that overlap with the requested time AND are in the same category
     const overlappingReservations = existingReservations.filter(res => {
@@ -537,12 +537,12 @@ export const checkAvailability = onCall({}, async (request) => {
       );
       
       // Debug each reservation
-      console.log(`Checking reservation ${res.name}: category=${res.category} (match=${sameCategory}), time=${res.startTime}-${res.endTime} (overlap=${timeOverlap})`);
+      logToFirestore(`Checking reservation ${res.name}: category=${res.category} (match=${sameCategory}), time=${res.startTime}-${res.endTime} (overlap=${timeOverlap})`, { level: 'info', functionName: 'checkAvailability', data: { res } });
       
       return sameCategory && timeOverlap;
     });
     
-    console.log(`Found ${overlappingReservations.length} overlapping reservations for ${category} at ${startTime}-${endTime}`);
+    logToFirestore(`Found ${overlappingReservations.length} overlapping reservations for ${category} at ${startTime}-${endTime}`, { level: 'info', functionName: 'checkAvailability', data: { category, startTime, endTime } });
     
     // Get tables configuration
     const tables = getTablesConfig();
@@ -556,10 +556,10 @@ export const checkAvailability = onCall({}, async (request) => {
         if (res.tableIds && res.tableIds.length > 0) {
           res.tableIds.forEach((tableId: number) => {
             occupiedTableIds.add(tableId);
-            console.log(`Table T${tableId} is occupied by ${res.name}`);
+            logToFirestore(`Table T${tableId} is occupied by ${res.name}`, { level: 'info', functionName: 'checkAvailability', data: { res } });
           });
         } else {
-          console.log(`Reservation ${res.name} has no assigned tables, estimating based on party size`);
+          logToFirestore(`Reservation ${res.name} has no assigned tables, estimating based on party size`, { level: 'info', functionName: 'checkAvailability', data: { res } });
           
           // When no tables are explicitly assigned, we need to estimate
           // Each table seats 2 people
@@ -572,7 +572,7 @@ export const checkAvailability = onCall({}, async (request) => {
             if (!occupiedTableIds.has(i)) {
               occupiedTableIds.add(i);
               assignedCount++;
-              console.log(`Estimated table T${i} for reservation ${res.name}`);
+              logToFirestore(`Estimated table T${i} for reservation ${res.name}`, { level: 'info', functionName: 'checkAvailability', data: { res } });
             }
           }
         }
@@ -590,10 +590,10 @@ export const checkAvailability = onCall({}, async (request) => {
     const tablesNeeded = Math.ceil(numberOfPersons / 2);
     const isAvailable = availableTables.length >= tablesNeeded;
     
-    console.log(`Occupied tables: ${Array.from(occupiedTableIds).map(id => "T" + id).join(', ')}`);
-    console.log(`Available tables: ${availableTables.map(t => t.name).join(', ')}`);
-    console.log(`Tables needed for ${numberOfPersons} people: ${tablesNeeded}`);
-    console.log(`Final availability result: ${isAvailable ? 'Available' : 'Not available'}`);
+    logToFirestore(`Occupied tables: ${Array.from(occupiedTableIds).map(id => "T" + id).join(', ')}`, { level: 'info', functionName: 'checkAvailability', data: { occupiedTableIds } });
+    logToFirestore(`Available tables: ${availableTables.map(t => t.name).join(', ')}`, { level: 'info', functionName: 'checkAvailability', data: { availableTables } });
+    logToFirestore(`Tables needed for ${numberOfPersons} people: ${tablesNeeded}`, { level: 'info', functionName: 'checkAvailability', data: { numberOfPersons, tablesNeeded } });
+    logToFirestore(`Final availability result: ${isAvailable ? 'Available' : 'Not available'}`, { level: 'info', functionName: 'checkAvailability', data: { isAvailable } });
     
     // Return detailed availability result
     return {
@@ -612,7 +612,7 @@ export const checkAvailability = onCall({}, async (request) => {
         : `Sorry, we don't have enough tables available for this time slot. We need ${tablesNeeded} tables for ${numberOfPersons} people, but only have ${availableTables.length} tables available.`
     };
   } catch (error) {
-    console.error("Error checking availability:", error);
+    logToFirestore(`Error checking availability: ${error instanceof Error ? error.message : String(error)}`, { level: 'error', functionName: 'checkAvailability', data: { error: error instanceof Error ? error.message : String(error) } });
     return {
       available: false,
       error: "An error occurred while checking availability"
@@ -685,7 +685,7 @@ export const sendEmail = onCall({
   // Keep original parameter format
   const { to, subject, action, reservation, language = 'en' } = request.data;
   
-  console.log(`Sending email action: ${action}, language: ${language}`);
+  logToFirestore(`Sending email action: ${action}, language: ${language}`, { level: 'info', functionName: 'sendEmail', data: { action, language } });
   
   if (!to || !action || !reservation || !reservation.id) {
     throw new Error("Missing required parameters: to, action, and reservation with id are required");
@@ -715,7 +715,7 @@ export const sendEmail = onCall({
       await admin.firestore().collection("reservations").doc(reservationId).update({
         preferredLanguage: language
       });
-      console.log(`Updated reservation ${reservationId} with preferredLanguage: ${language}`);
+      logToFirestore(`Updated reservation ${reservationId} with preferredLanguage: ${language}`, { level: 'info', functionName: 'sendEmail', data: { reservationId, language } });
     }
     
     // Determine email type based on action
@@ -730,7 +730,7 @@ export const sendEmail = onCall({
       result = await sendDeclineEmail(fullReservation, reservationId, reason, to);
     } else {
       // For other actions, use the provided subject but with the same email structure
-      console.log(`Using custom action: ${action} with provided subject: ${subject}`);
+      logToFirestore(`Using custom action: ${action} with provided subject: ${subject}`, { level: 'info', functionName: 'sendEmail', data: { action, subject } });
       
       // Load a generic template
       const template = await loadEmailTemplate('generic', language);
@@ -758,13 +758,13 @@ export const sendEmail = onCall({
         html: emailHtml,
       });
       
-      console.log(`Custom email sent to ${to} for reservation ${reservationId}`);
+      logToFirestore(`Custom email sent to ${to} for reservation ${reservationId}`, { level: 'info', functionName: 'sendEmail', data: { reservationId } });
       result = { success: true };
     }
     
     return result;
   } catch (error) {
-    console.error("Error in sendEmail function:", error);
+    logToFirestore(`Error in sendEmail function: ${error instanceof Error ? error.message : String(error)}`, { level: 'error', functionName: 'sendEmail', data: { error: error instanceof Error ? error.message : String(error) } });
     throw new Error(error instanceof Error ? error.message : "Unknown error");
   }
 });
@@ -830,19 +830,71 @@ const templateCache: Record<string, { template: string, timestamp: number }> = {
 const CACHE_TTL = 3600000; // 1 hour in milliseconds
 
 // Add this function at the appropriate location in your code
-async function logToFirestore(message: string, level: 'info' | 'warn' | 'error' = 'info', data?: any) {
+async function logToFirestore(
+  message: string, 
+  options: {
+    level?: 'info' | 'warn' | 'error';
+    functionName?: string;
+    data?: any;
+    userId?: string;
+  } = {}
+) {
+  const { 
+    level = 'info', 
+    functionName = 'unknown', 
+    data = null,
+    userId = null
+  } = options;
+
   try {
-    await admin.firestore().collection('function_logs').add({
+    // Get the current timestamp
+    const timestamp = admin.firestore.FieldValue.serverTimestamp();
+    
+    // Create the log entry
+    const logEntry = {
       message,
       level,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      data: data || null
-    });
+      functionName,
+      timestamp,
+      data: data || null,
+      userId: userId || null
+    };
+
+    // Create a batch to perform multiple operations
+    const batch = admin.firestore().batch();
+    
+    // Add to the main logs collection
+    const mainLogRef = admin.firestore().collection('function_logs').doc();
+    batch.set(mainLogRef, logEntry);
+    
+    // Also add to a function-specific subcollection
+    const functionLogRef = admin.firestore()
+      .collection('function_logs_by_function')
+      .doc(functionName)
+      .collection('logs')
+      .doc(mainLogRef.id);
+    
+    batch.set(functionLogRef, logEntry);
+    
+    // If we have a userId, add to user-specific logs
+    if (userId) {
+      const userLogRef = admin.firestore()
+        .collection('user_logs')
+        .doc(userId)
+        .collection('logs')
+        .doc(mainLogRef.id);
+      
+      batch.set(userLogRef, logEntry);
+    }
+    
+    // Commit the batch
+    await batch.commit();
   } catch (e) {
     // Silently fail if logging itself fails
-    console.error('Failed to write to function_logs:', e);
+    logToFirestore(`Failed to write to function_logs: ${e instanceof Error ? e.message : String(e)}`, { level: 'error', functionName: 'logToFirestore', data: { e: e instanceof Error ? e.message : String(e) } });
   }
 }
+
 
 // Update the loadEmailTemplate function
 async function loadEmailTemplate(templateName: string, language: string): Promise<string> {
@@ -850,7 +902,7 @@ async function loadEmailTemplate(templateName: string, language: string): Promis
   const lang = supportedLanguages.includes(language) ? language : 'en';
   
   // Log basic info to Firestore
-  await logToFirestore(`Template request - Name: ${templateName}, Language: ${language}, Using: ${lang}`, 'info');
+  await logToFirestore(`Template request - Name: ${templateName}, Language: ${language}, Using: ${lang}`, { level: 'info', functionName: 'loadEmailTemplate', data: { templateName, language, lang } });
   
   // Create a cache key
   const cacheKey = `${templateName}_${lang}`;
@@ -858,7 +910,7 @@ async function loadEmailTemplate(templateName: string, language: string): Promis
   // Check if we have a cached version that's not expired
   const now = Date.now();
   if (templateCache[cacheKey] && (now - templateCache[cacheKey].timestamp) < CACHE_TTL) {
-    await logToFirestore(`Using cached template for ${cacheKey}`, 'info');
+    await logToFirestore(`Using cached template for ${cacheKey}`, { level: 'info', functionName: 'loadEmailTemplate', data: { templateName, language, lang } } );
     return templateCache[cacheKey].template;
   }
   
@@ -866,61 +918,46 @@ async function loadEmailTemplate(templateName: string, language: string): Promis
   const baseUrl = 'https://raw.githubusercontent.com/KOENJI-VENEZIA/reservations_online/main';
   const templateUrl = `${baseUrl}/templates/emails/${lang}/${templateName}.html`;
   
-  await logToFirestore(`Attempting to fetch template from: ${templateUrl}`, 'info');
+  await logToFirestore(`Attempting to fetch template from: ${templateUrl}`, { level: 'info', functionName: 'loadEmailTemplate', data: { templateName, language, lang } });
   
   try {
     const response = await fetch(templateUrl);
     
-    await logToFirestore(`Fetch response status: ${response.status} ${response.statusText}`, 'info', {
-      url: templateUrl,
-      status: response.status,
-      statusText: response.statusText
-    });
+    await logToFirestore(`Fetch response status: ${response.status} ${response.statusText}`, { level: 'info', functionName: 'loadEmailTemplate', data: { url: templateUrl, status: response.status, statusText: response.statusText } });
+
     
     if (!response.ok) {
       // If language-specific template fails, try English
       if (lang !== 'en') {
-        await logToFirestore(`Template not found for ${lang}, trying English fallback`, 'warn', {
-          url: templateUrl, 
-          status: response.status
-        });
+       await logToFirestore(`Template not found for ${lang}, trying English fallback`, { level: 'warn', functionName: 'loadEmailTemplate', data: { url: templateUrl, status: response.status } });
         
         const fallbackUrl = `${baseUrl}/templates/emails/en/${templateName}.html`;
-        await logToFirestore(`Fallback URL: ${fallbackUrl}`, 'info');
+        await logToFirestore(`Fallback URL: ${fallbackUrl}`, { level: 'info', functionName: 'loadEmailTemplate', data: { url: fallbackUrl } });
         
         const fallbackResponse = await fetch(fallbackUrl);
-        await logToFirestore(`Fallback response status: ${fallbackResponse.status} ${fallbackResponse.statusText}`, 'info');
+        await logToFirestore(`Fallback response status: ${fallbackResponse.status} ${fallbackResponse.statusText}`, { level: 'info', functionName: 'loadEmailTemplate', data: { url: fallbackUrl, status: fallbackResponse.status, statusText: fallbackResponse.statusText } });
         
         if (fallbackResponse.ok) {
           const template = await fallbackResponse.text();
-          await logToFirestore(`Successfully fetched English fallback template (${template.length} chars)`, 'info');
+          await logToFirestore(`Successfully fetched English fallback template (${template.length} chars)`, { level: 'info', functionName: 'loadEmailTemplate', data: { url: fallbackUrl, templateLength: template.length } });
           // Cache the fallback template
           templateCache[cacheKey] = { template, timestamp: now };
           return template;
         }
       }
       
-      await logToFirestore(`Failed to fetch template (HTTP ${response.status})`, 'error', {
-        url: templateUrl,
-        status: response.status,
-        statusText: response.statusText
-      });
+      await logToFirestore(`Failed to fetch template (HTTP ${response.status})`, { level: 'error', functionName: 'loadEmailTemplate', data: { url: templateUrl, status: response.status, statusText: response.statusText } });
       
       throw new Error(`Failed to fetch template (HTTP ${response.status}) from ${templateUrl}`);
     }
     
     const template = await response.text();
-    await logToFirestore(`Successfully fetched ${lang} template (${template.length} chars)`, 'info');
+    await logToFirestore(`Successfully fetched ${lang} template (${template.length} chars)`, { level: 'info', functionName: 'loadEmailTemplate', data: { url: templateUrl, templateLength: template.length } });
     // Cache the template
     templateCache[cacheKey] = { template, timestamp: now };
     return template;
   } catch (error: any) {
-    await logToFirestore(`Error fetching template: ${error.message}`, 'error', {
-      templateName,
-      language,
-      url: templateUrl,
-      errorMessage: error.message
-    });
+    await logToFirestore(`Error fetching template: ${error.message}`, { level: 'error', functionName: 'loadEmailTemplate', data: { templateName, language, url: templateUrl, errorMessage: error.message } });
     
     // Return a simple fallback template
     return `
@@ -1131,8 +1168,8 @@ async function convertToBilingualCSV(data: SalesData[], date: string): Promise<s
   return tempFilePath;
 }
 
-// Function to create or update a Google Sheet with sales data
-async function updateSalesGoogleSheet(data: SalesData[], date: string): Promise<string> {
+// Function to create or update a Google Sheet with sales data for an entire year
+async function updateYearlySalesGoogleSheet(data: SalesData[], year: string): Promise<string> {
   // Get credentials from defined parameters
   const credentials = {
     client_email: driveClientEmail.value(),
@@ -1162,10 +1199,7 @@ async function updateSalesGoogleSheet(data: SalesData[], date: string): Promise<
     // Define target folder ID in Google Drive
     const folderId = driveFolderId.value();
     
-    // Extract year and month from date
-    const [year, month] = date.split('-');
-    
-    // Format month name in Italian
+    // Italian month names mapping
     const monthNames = {
       '01': 'Gennaio',
       '02': 'Febbraio',
@@ -1181,9 +1215,7 @@ async function updateSalesGoogleSheet(data: SalesData[], date: string): Promise<
       '12': 'Dicembre'
     };
     
-    const monthName = monthNames[month as keyof typeof monthNames] || month;
-    const fileName = `Koenji Sales ${monthName} ${year}`;
-    const sheetTitle = `${monthName} ${year}`;
+    const fileName = `Koenji Sales ${year}`;
     
     // Check if file already exists
     let spreadsheetId = '';
@@ -1199,10 +1231,10 @@ async function updateSalesGoogleSheet(data: SalesData[], date: string): Promise<
       if (response.data.files && response.data.files.length > 0) {
         spreadsheetId = response.data.files[0].id || '';
         fileExists = true;
-        console.log(`Found existing spreadsheet: ${fileName} with ID: ${spreadsheetId}`);
+        logToFirestore(`Found existing spreadsheet: ${fileName} with ID: ${spreadsheetId}`, { level: 'info', functionName: 'updateYearlySalesGoogleSheet', data: { fileName, spreadsheetId } });
       }
     } catch (error) {
-      console.error('Error checking for existing file:', error);
+      logToFirestore(`Error checking for existing file: ${error}`, { level: 'error', functionName: 'updateYearlySalesGoogleSheet', data: { error: error instanceof Error ? error.message : String(error) } });
     }
     
     // If file doesn't exist, create a new one
@@ -1219,297 +1251,348 @@ async function updateSalesGoogleSheet(data: SalesData[], date: string): Promise<
       });
       
       spreadsheetId = file.data.id || '';
-      console.log(`Created new spreadsheet: ${fileName} with ID: ${spreadsheetId}`);
-      
-      // Copy the MONTH_TEMPLATE to create the new sheet with formatting
-      await copyTemplateSheet(spreadsheetId, 'MONTH_TEMPLATE', sheetTitle);
-    } else {
-      // Check if the sheet for this month exists, if not create it from template
-      try {
-        await copyTemplateSheet(spreadsheetId, 'MONTH_TEMPLATE', sheetTitle);
-      } catch (error) {
-        console.log(`Sheet ${sheetTitle} already exists or template not found`);
-      }
+      logToFirestore(`Created new spreadsheet: ${fileName} with ID: ${spreadsheetId}`, { level: 'info', functionName: 'updateYearlySalesGoogleSheet', data: { fileName, spreadsheetId } });
     }
-    
-    // ... rest of the function remains the same ...
     
     if (!spreadsheetId) {
       throw new Error('Failed to create or find spreadsheet');
     }
     
-    // Get existing sheets to check if the month sheet already exists
+    // Group data by month
+    const dataByMonth: Record<string, SalesData[]> = {};
+    
+    // Filter data for the requested year and group by month
+    data.forEach(record => {
+      // Check if this record belongs to the requested year
+      if (record.date.startsWith(year)) {
+        const month = record.date.split('-')[1]; // Get month part (MM)
+        const monthKey = `${year}-${month}`;
+        
+        if (!dataByMonth[monthKey]) {
+          dataByMonth[monthKey] = [];
+        }
+        
+        dataByMonth[monthKey].push(record);
+      }
+    });
+    
+    // Get existing sheets
     const spreadsheet = await sheets.spreadsheets.get({
       spreadsheetId
     });
     
     const existingSheets = spreadsheet.data.sheets || [];
-    let monthSheetExists = false;
-    let monthSheetId = 0;
+    const existingSheetTitles = existingSheets.map(sheet => sheet.properties?.title || '');
     
-    for (const sheet of existingSheets) {
-      if (sheet.properties?.title === sheetTitle) {
-        monthSheetExists = true;
-        monthSheetId = sheet.properties.sheetId || 0;
-        break;
+    // Create or update a sheet for each month that has data
+    for (const monthKey of Object.keys(dataByMonth)) {
+      const [year, month] = monthKey.split('-');
+      const monthName = monthNames[month as keyof typeof monthNames] || month;
+      const sheetTitle = `${monthName} ${year}`;
+      
+      // Check if the sheet for this month already exists
+      let monthSheetExists = existingSheetTitles.includes(sheetTitle);
+      let monthSheetId = 0;
+      
+      // Find the sheet ID if it exists
+      if (monthSheetExists) {
+        for (const sheet of existingSheets) {
+          if (sheet.properties?.title === sheetTitle) {
+            monthSheetId = sheet.properties.sheetId || 0;
+            break;
+          }
+        }
       }
-    }
-    
-    // If the month sheet doesn't exist, create it
-    if (!monthSheetExists) {
-      const addSheetResponse = await sheets.spreadsheets.batchUpdate({
-        spreadsheetId,
-        requestBody: {
-          requests: [
-            {
-              addSheet: {
-                properties: {
-                  title: sheetTitle
+      
+      // If the month sheet doesn't exist, create it from template if possible
+      if (!monthSheetExists) {
+        try {
+          // Try to copy from template first
+          await copyTemplateSheet(spreadsheetId, 'MONTH_TEMPLATE', sheetTitle);
+          logToFirestore(`Created sheet from template: ${sheetTitle}`, { level: 'info', functionName: 'updateYearlySalesGoogleSheet', data: { sheetTitle } });
+        } catch (error) {
+          // If template copy fails, create a new blank sheet
+          const addSheetResponse = await sheets.spreadsheets.batchUpdate({
+            spreadsheetId,
+            requestBody: {
+              requests: [
+                {
+                  addSheet: {
+                    properties: {
+                      title: sheetTitle
+                    }
+                  }
                 }
-              }
+              ]
             }
-          ]
+          });
+          
+          monthSheetId = addSheetResponse.data.replies?.[0].addSheet?.properties?.sheetId || 0;
+          logToFirestore(`Created new blank sheet: ${sheetTitle} with ID ${monthSheetId}`, { level: 'info', functionName: 'updateYearlySalesGoogleSheet', data: { sheetTitle, monthSheetId } });
+        }
+      }
+      
+      // Get the month data
+      const monthData = dataByMonth[monthKey];
+      
+      // Format the data for the sheet
+      // First, prepare the headers
+      const headers = [
+        ['ID', 'Data / 日付', 'Pranzo - Bento / ランチ（弁当）', 'Pranzo - Fatture / ランチ（請求書）', 
+         'Pranzo - Lettura Cassa / ランチ（レジ読み取り）', 'Pranzo - Persone / ランチ（人数）',
+         'Pranzo - Yami / ランチ（ヤミ）', 'Pranzo - Yami Pulito / ランチ（ヤミ）（清算後）',
+         'Cena - Cocai / ディナー（コカイ）', 'Cena - Fatture / ディナー（請求書）',
+         'Cena - Lettura Cassa / ディナー（レジ読み取り）', 'Cena - Yami / ディナー（ヤミ）',
+         'Cena - Yami Pulito / ディナー（ヤミ）（清算後）', 'Totale Shiro / シロ総売上', 'Totale Yami / ヤミ総売上',
+         'Totale / 総売上']
+      ];
+      
+      // Format date for display
+      const formatDateBilingual = (dateStr: string): string => {
+        try {
+          const [year, month, day] = dateStr.split('-');
+          return `${day}/${month}/${year} / ${year}年${month}月${day}日`;
+        } catch (e) {
+          return dateStr;
+        }
+      };
+      
+      // Get all days in the month
+      const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+      const allDaysInMonth: string[] = [];
+      for (let i = 1; i <= daysInMonth; i++) {
+        const formattedDay = i.toString().padStart(2, '0');
+        allDaysInMonth.push(`${year}-${month}-${formattedDay}`);
+      }
+      
+      // Create a map of data by date
+      const dataByDate: Record<string, any[]> = {};
+      
+      // Add the current data to the map
+      monthData.forEach(record => {
+        if (!dataByDate[record.date]) {
+          dataByDate[record.date] = [];
+        }
+        dataByDate[record.date].push(record);
+      });
+      
+      let totale_shiro = 0;
+      let totale_yami = 0;
+      let totale = 0;
+      // Get existing data for this month if the sheet already exists
+      if (monthSheetExists) {
+        try {
+          const dataResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: sheetTitle
+          });
+          
+          
+
+          if (dataResponse.data.values && dataResponse.data.values.length > 1) {
+            // Process existing sheet data to merge with new data
+            dataResponse.data.values.slice(1).forEach(row => {
+              // Check if this is a data row (not a summary row) and not the RIEPILOGO row
+              if (row.length < 2 || row[1] === 'RIEPILOGO / 概要') return;
+              
+              // Extract the date from the bilingual format
+              const dateCell = row[1] || '';
+              const datePart = dateCell.split(' / ')[0]; // Get the Italian format date
+              if (!datePart) return; // Skip rows without dates
+              
+              const [day, month, year] = datePart.split('/');
+              const rowDate = `${year}-${month}-${day}`;
+              
+              // Keep existing data if we don't have new data for this date
+              if (!dataByDate[rowDate] && rowDate.startsWith(`${year}-${month}`)) {
+                // Create a record from existing data
+                totale_shiro = (parseFloat(row[9]) + parseFloat(row[10])) || 0;
+                totale_yami = (parseFloat(row[11]) - parseFloat(row[12])) || 0;
+                totale = (parseFloat(row[9]) + parseFloat(row[10]) + parseFloat(row[11]) - parseFloat(row[12])) || 0;
+
+                const existingRecord = {
+                  id: row[0] || '',
+                  date: rowDate,
+                  lunch_bento: parseFloat(row[2]) || 0,
+                  lunch_fatture: parseFloat(row[3]) || 0,
+                  lunch_letturaCassa: parseFloat(row[4]) || 0,
+                  lunch_persone: parseFloat(row[5]) || 0,
+                  lunch_yami: parseFloat(row[6]) || 0,
+                  lunch_yamiPulito: parseFloat(row[7]) || 0,
+                  dinner_cocai: parseFloat(row[8]) || 0,
+                  dinner_fatture: parseFloat(row[9]) || 0,
+                  dinner_letturaCassa: parseFloat(row[10]) || 0,
+                  dinner_yami: parseFloat(row[11]) || 0,
+                  dinner_yamiPulito: parseFloat(row[12]) || 0,
+                  totale_shiro: (parseFloat(row[9]) + parseFloat(row[10])) || 0,
+                  totale_yami: (parseFloat(row[11]) - parseFloat(row[12])) || 0,
+                  totale: (parseFloat(row[9]) + parseFloat(row[10]) + parseFloat(row[11]) - parseFloat(row[12])) || 0
+                };
+                
+                dataByDate[rowDate] = [existingRecord];
+              }
+            });
+          }
+        } catch (error) {
+          logToFirestore(`No existing data found for ${sheetTitle}, starting fresh`, { level: 'info', functionName: 'updateYearlySalesGoogleSheet', data: { sheetTitle } });
+        }
+      }
+      
+      // Prepare rows for all days in the month
+      const allRows: any[][] = [];
+      
+      // For each day in the month
+      allDaysInMonth.forEach(dateStr => {
+        if (dataByDate[dateStr] && dataByDate[dateStr].length > 0) {
+          // We have data for this date, use it
+          dataByDate[dateStr].forEach(record => {
+            allRows.push([
+              record.id,
+              formatDateBilingual(record.date),
+              record.lunch_bento,
+              record.lunch_fatture,
+              record.lunch_letturaCassa,
+              record.lunch_persone,
+              record.lunch_yami,
+              record.lunch_yamiPulito,
+              record.dinner_cocai,
+              record.dinner_fatture,
+              record.dinner_letturaCassa,
+              record.dinner_yami,
+              record.dinner_yamiPulito,
+              totale_shiro,
+              totale_yami,
+              totale
+            ]);
+          });
+        } else {
+          // No data for this date, create a row with zeros
+          allRows.push([
+            '', // No ID for placeholder rows
+            formatDateBilingual(dateStr),
+            0, // lunch_bento
+            0, // lunch_fatture
+            0, // lunch_letturaCassa
+            0, // lunch_persone
+            0, // lunch_yami
+            0, // lunch_yamiPulito
+            0, // dinner_cocai
+            0, // dinner_fatture
+            0, // dinner_letturaCassa
+            0, // dinner_yami
+            0, // dinner_yamiPulito
+            0, // totale_shiro
+            0, // totale_yami
+            0 // totale
+          ]);
         }
       });
       
-      monthSheetId = addSheetResponse.data.replies?.[0].addSheet?.properties?.sheetId || 0;
-      console.log(`Created new sheet: ${sheetTitle} with ID ${monthSheetId}`);
-    }
-    
-    // Format the data for the sheet
-    // First, prepare the headers
-    const headers = [
-      ['ID', 'Data / 日付', 'Pranzo - Bento / ランチ - 弁当', 'Pranzo - Fatture / ランチ - 請求書', 
-       'Pranzo - Lettura Cassa / ランチ - レジ読み取り', 'Pranzo - Persone / ランチ - 人数',
-       'Pranzo - Yami / ランチ - ヤミ', 'Pranzo - Yami Pulito / ランチ - ヤミ（清算後）',
-       'Cena - Cocai / ディナー - コカイ', 'Cena - Fatture / ディナー - 請求書',
-       'Cena - Lettura Cassa / ディナー - レジ読み取り', 'Cena - Yami / ディナー - ヤミ',
-       'Cena - Yami Pulito / ディナー - ヤミ（清算後）']
-    ];
-    
-    // Format date for display
-    const formatDateBilingual = (dateStr: string): string => {
-      try {
-        const [year, month, day] = dateStr.split('-');
-        return `${day}/${month}/${year} / ${year}年${month}月${day}日`;
-      } catch (e) {
-        return dateStr;
+      // Sort the rows by date
+      allRows.sort((a, b) => {
+        const dateA = a[1] || '';
+        const dateB = b[1] || '';
+        
+        // Extract the date from the bilingual format
+        const datePartA = dateA.split(' / ')[0]; // Get the Italian format date
+        const datePartB = dateB.split(' / ')[0]; // Get the Italian format date
+        
+        if (!datePartA || !datePartB) return 0;
+        
+        const [dayA, monthA, yearA] = datePartA.split('/');
+        const [dayB, monthB, yearB] = datePartB.split('/');
+        
+        const dateObjA = new Date(`${yearA}-${monthA}-${dayA}`);
+        const dateObjB = new Date(`${yearB}-${monthB}-${dayB}`);
+        
+        return dateObjA.getTime() - dateObjB.getTime();
+      });
+      
+      // Calculate summary data for the month
+      let lunchBentoTotal = 0;
+      let lunchFattureTotal = 0;
+      let lunchLetturaCassaTotal = 0;
+      let lunchPersoneTotal = 0;
+      let lunchYamiTotal = 0;
+      let lunchYamiPulitoTotal = 0;
+      let dinnerCocaiTotal = 0;
+      let dinnerFattureTotal = 0;
+      let dinnerLetturaCassaTotal = 0;
+      let dinnerYamiTotal = 0;
+      let dinnerYamiPulitoTotal = 0;
+      let totaleShiroTotal = 0;
+      let totaleYamiTotal = 0;
+      let totaleTotal = 0;
+      
+      // Calculate totals from all rows
+      for (const row of allRows) {
+        if (row.length >= 13) { // Make sure it's a data row
+          lunchBentoTotal += Number(row[2]) || 0;
+          lunchFattureTotal += Number(row[3]) || 0;
+          lunchLetturaCassaTotal += Number(row[4]) || 0;
+          lunchPersoneTotal += Number(row[5]) || 0;
+          lunchYamiTotal += Number(row[6]) || 0;
+          lunchYamiPulitoTotal += Number(row[7]) || 0;
+          dinnerCocaiTotal += Number(row[8]) || 0;
+          dinnerFattureTotal += Number(row[9]) || 0;
+          dinnerLetturaCassaTotal += Number(row[10]) || 0;
+          dinnerYamiTotal += Number(row[11]) || 0;
+          dinnerYamiPulitoTotal += Number(row[12]) || 0;
+          totaleShiroTotal += Number(row[9]) + Number(row[10]) || 0;
+          totaleYamiTotal += Number(row[11]) - Number(row[12]) || 0;
+          totaleTotal += Number(row[9]) + Number(row[10]) + Number(row[11]) - Number(row[12]) || 0;
+        }
       }
-    };
-    
-    // Get all days in the month
-    const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
-    const allDaysInMonth: string[] = [];
-    for (let i = 1; i <= daysInMonth; i++) {
-      const formattedDay = i.toString().padStart(2, '0');
-      allDaysInMonth.push(`${year}-${month}-${formattedDay}`);
-    }
-    
-    // Create a map of existing data by date
-    const dataByDate: Record<string, any[]> = {};
-    
-    // Add the current data to the map
-    data.forEach(record => {
-      if (!dataByDate[record.date]) {
-        dataByDate[record.date] = [];
-      }
-      dataByDate[record.date].push(record);
-    });
-    
-    // Get existing data for this month
-    try {
-      const dataResponse = await sheets.spreadsheets.values.get({
+      
+      // Add a summary row to the data
+      const summaryRow = [
+        '', // No ID for summary row
+        'RIEPILOGO / 概要', // Use this as the "date" for the summary row
+        lunchBentoTotal.toFixed(2),
+        lunchFattureTotal.toFixed(2),
+        lunchLetturaCassaTotal.toFixed(2),
+        lunchPersoneTotal,
+        lunchYamiTotal.toFixed(2),
+        lunchYamiPulitoTotal.toFixed(2),
+        dinnerCocaiTotal.toFixed(2),
+        dinnerFattureTotal.toFixed(2),
+        dinnerLetturaCassaTotal.toFixed(2),
+        dinnerYamiTotal.toFixed(2),
+        dinnerYamiPulitoTotal.toFixed(2),
+        totaleShiroTotal.toFixed(2),
+        totaleYamiTotal.toFixed(2),
+        totaleTotal.toFixed(2)
+      ];
+      
+      // Add the summary row to the end of the data rows
+      allRows.push(summaryRow);
+      
+      // Combine headers and rows
+      const allValues = [...headers, ...allRows];
+      
+      // Clear existing data in the sheet
+      await sheets.spreadsheets.values.clear({
         spreadsheetId,
         range: sheetTitle
       });
       
-      if (dataResponse.data.values && dataResponse.data.values.length > 1) {
-        // Filter out the data for the current date (skip header row)
-        dataResponse.data.values.slice(1).filter(row => {
-          // Check if this is a data row (not a summary row)
-          if (row.length < 2) return false;
-          
-          // Extract the date from the bilingual format
-          const dateCell = row[1] || '';
-          const datePart = dateCell.split(' / ')[0]; // Get the Italian format date
-          if (!datePart) return true; // Keep rows without dates
-          
-          const [day, month, year] = datePart.split('/');
-          const rowDate = `${year}-${month}-${day}`;
-          
-          // Keep the row if it's not for the current date
-          if (rowDate !== date) {
-            // Add this existing data to our map
-            if (!dataByDate[rowDate] && rowDate.startsWith(year) && rowDate.split('-')[1] === month) {
-              // Create a placeholder record for this date
-              const placeholderRecord = {
-                id: row[0] || '',
-                date: rowDate,
-                lunch_bento: parseFloat(row[2]) || 0,
-                lunch_fatture: parseFloat(row[3]) || 0,
-                lunch_letturaCassa: parseFloat(row[4]) || 0,
-                lunch_persone: parseFloat(row[5]) || 0,
-                lunch_yami: parseFloat(row[6]) || 0,
-                lunch_yamiPulito: parseFloat(row[7]) || 0,
-                dinner_cocai: parseFloat(row[8]) || 0,
-                dinner_fatture: parseFloat(row[9]) || 0,
-                dinner_letturaCassa: parseFloat(row[10]) || 0,
-                dinner_yami: parseFloat(row[11]) || 0,
-                dinner_yamiPulito: parseFloat(row[12]) || 0
-              };
-              dataByDate[rowDate] = [placeholderRecord];
-            }
-            return true;
-          }
-          return false;
-        });
-      }
-    } catch (error) {
-      console.log('No existing data found for this month, starting fresh');
+      // Update the sheet with all the data
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetTitle}!A1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: allValues
+        }
+      });
     }
     
-    // Prepare rows for all days in the month
-    const allRows: any[][] = [];
-    
-    // For each day in the month
-    allDaysInMonth.forEach(dateStr => {
-      if (dataByDate[dateStr] && dataByDate[dateStr].length > 0) {
-        // We have data for this date, use it
-        dataByDate[dateStr].forEach(record => {
-          allRows.push([
-            record.id,
-            formatDateBilingual(record.date),
-            record.lunch_bento,
-            record.lunch_fatture,
-            record.lunch_letturaCassa,
-            record.lunch_persone,
-            record.lunch_yami,
-            record.lunch_yamiPulito,
-            record.dinner_cocai,
-            record.dinner_fatture,
-            record.dinner_letturaCassa,
-            record.dinner_yami,
-            record.dinner_yamiPulito
-          ]);
-        });
-      } else {
-        // No data for this date, create a row with zeros
-        allRows.push([
-          '', // No ID for placeholder rows
-          formatDateBilingual(dateStr),
-          0, // lunch_bento
-          0, // lunch_fatture
-          0, // lunch_letturaCassa
-          0, // lunch_persone
-          0, // lunch_yami
-          0, // lunch_yamiPulito
-          0, // dinner_cocai
-          0, // dinner_fatture
-          0, // dinner_letturaCassa
-          0, // dinner_yami
-          0  // dinner_yamiPulito
-        ]);
-      }
-    });
-    
-    // Sort the rows by date
-    allRows.sort((a, b) => {
-      const dateA = a[1] || '';
-      const dateB = b[1] || '';
-      
-      // Extract the date from the bilingual format
-      const datePartA = dateA.split(' / ')[0]; // Get the Italian format date
-      const datePartB = dateB.split(' / ')[0]; // Get the Italian format date
-      
-      if (!datePartA || !datePartB) return 0;
-      
-      const [dayA, monthA, yearA] = datePartA.split('/');
-      const [dayB, monthB, yearB] = datePartB.split('/');
-      
-      const dateObjA = new Date(`${yearA}-${monthA}-${dayA}`);
-      const dateObjB = new Date(`${yearB}-${monthB}-${dayB}`);
-      
-      return dateObjA.getTime() - dateObjB.getTime();
-    });
-    
-    // Calculate summary data for the month
-    let lunchBentoTotal = 0;
-    let lunchFattureTotal = 0;
-    let lunchLetturaCassaTotal = 0;
-    let lunchPersoneTotal = 0;
-    let lunchYamiTotal = 0;
-    let lunchYamiPulitoTotal = 0;
-    let dinnerCocaiTotal = 0;
-    let dinnerFattureTotal = 0;
-    let dinnerLetturaCassaTotal = 0;
-    let dinnerYamiTotal = 0;
-    let dinnerYamiPulitoTotal = 0;
-    
-    // Calculate totals from all rows
-    for (const row of allRows) {
-      if (row.length >= 13) { // Make sure it's a data row
-        lunchBentoTotal += Number(row[2]) || 0;
-        lunchFattureTotal += Number(row[3]) || 0;
-        lunchLetturaCassaTotal += Number(row[4]) || 0;
-        lunchPersoneTotal += Number(row[5]) || 0;
-        lunchYamiTotal += Number(row[6]) || 0;
-        lunchYamiPulitoTotal += Number(row[7]) || 0;
-        dinnerCocaiTotal += Number(row[8]) || 0;
-        dinnerFattureTotal += Number(row[9]) || 0;
-        dinnerLetturaCassaTotal += Number(row[10]) || 0;
-        dinnerYamiTotal += Number(row[11]) || 0;
-        dinnerYamiPulitoTotal += Number(row[12]) || 0;
-      }
-    }
-    
-    // Add a summary row to the data
-    const summaryRow = [
-      '', // No ID for summary row
-      'RIEPILOGO / 概要', // Use this as the "date" for the summary row
-      lunchBentoTotal.toFixed(2),
-      lunchFattureTotal.toFixed(2),
-      lunchLetturaCassaTotal.toFixed(2),
-      lunchPersoneTotal,
-      lunchYamiTotal.toFixed(2),
-      lunchYamiPulitoTotal.toFixed(2),
-      dinnerCocaiTotal.toFixed(2),
-      dinnerFattureTotal.toFixed(2),
-      dinnerLetturaCassaTotal.toFixed(2),
-      dinnerYamiTotal.toFixed(2),
-      dinnerYamiPulitoTotal.toFixed(2)
-    ];
-    
-    // Add the summary row to the end of the data rows
-    allRows.push(summaryRow);
-    
-    // Combine headers and rows
-    const allValues = [...headers, ...allRows];
-    
-    // Clear existing data in the sheet
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId,
-      range: sheetTitle
-    });
-    
-    // Update the sheet with all the data
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${sheetTitle}!A1`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: allValues
-      }
-    });
-    
-    // Update the annual summary sheet
+    // Create or update the annual summary sheet
     await updateAnnualSummarySheet(spreadsheetId, year);
     
     return spreadsheetId;
   } catch (error: any) {
-    console.error('Google Sheets API Error:', {
-      error: error.message,
-      stack: error.stack
-    });
+    logToFirestore(`Google Sheets API Error: ${error.message}`, { level: 'error', functionName: 'updateYearlySalesGoogleSheet', data: { error: error.message, stack: error.stack } });
     
     throw new Error(`Google Sheets error: ${error.message}`);
   }
@@ -1526,13 +1609,13 @@ async function updateAnnualSummarySheet(spreadsheetId: string, year: string): Pr
     };
     
     // Authenticate with Google
-    const auth = new JWT({
-      email: credentials.client_email,
-      key: credentials.private_key,
-      scopes: SCOPES
-    });
+    const auth = new JWT(
+      credentials.client_email,
+      undefined, // keyFile
+      credentials.private_key,
+      SCOPES
+    );
     
-    // Initialize Google Sheets API
     const sheets = google.sheets({
       version: 'v4',
       auth
@@ -1541,36 +1624,21 @@ async function updateAnnualSummarySheet(spreadsheetId: string, year: string): Pr
     // Annual summary sheet title
     const annualSheetTitle = `Riepilogo ${year}`;
     
-    // Check if the annual summary sheet exists, if not create it from template
-    try {
-      await copyTemplateSheet(spreadsheetId, 'YEAR_TEMPLATE', annualSheetTitle);
-      console.log(`Created or found annual summary sheet: ${annualSheetTitle}`);
-    } catch (error) {
-      console.log(`Error with annual summary sheet template: ${error}`);
-      // Continue with the function even if template copying fails
-    }
-    
     // Get all sheets in the spreadsheet
     const spreadsheet = await sheets.spreadsheets.get({
       spreadsheetId
     });
     
-    const allSheets = spreadsheet.data.sheets || [];
-    
-    // Filter out the annual summary sheet and any template sheets
-    const dataSheets = allSheets.filter(sheet => {
+    // Filter sheets for this year only (excluding the annual summary sheet itself)
+    const dataSheets = (spreadsheet.data.sheets || []).filter(sheet => {
       const title = sheet.properties?.title || '';
-      return title !== annualSheetTitle && 
-             title !== 'MONTH_TEMPLATE' && 
-             title !== 'YEAR_TEMPLATE' &&
-             !title.includes('Riepilogo') && 
-             title.includes(year);
+      return title.includes(year) && title !== annualSheetTitle;
     });
     
-    if (dataSheets.length === 0) {
-      console.log('No month sheets found for annual summary');
-      return;
-    }
+    await logToFirestore(`Found ${dataSheets.length} month sheets for year ${year}`, {
+      level: 'info',
+      functionName: 'updateAnnualSummarySheet'
+    });
     
     // Prepare headers for the annual summary
     const headers = [
@@ -1595,8 +1663,8 @@ async function updateAnnualSummarySheet(spreadsheetId: string, year: string): Pr
     
     for (const sheet of dataSheets) {
       const sheetTitle = sheet.properties?.title || '';
-      // Extract month name (before the slash)
-      const monthName = sheetTitle.split(' / ')[0]; 
+      // Extract month name (before the space)
+      const monthName = sheetTitle.split(' ')[0]; 
       
       // Find the corresponding bilingual month name
       let bilingualMonthName = '';
@@ -1607,7 +1675,13 @@ async function updateAnnualSummarySheet(spreadsheetId: string, year: string): Pr
         }
       }
       
-      if (!bilingualMonthName) continue;
+      if (!bilingualMonthName) {
+        await logToFirestore(`Could not find bilingual month name for ${monthName}`, {
+          level: 'warn',
+          functionName: 'updateAnnualSummarySheet'
+        });
+        continue;
+      }
       
       // Get the summary data from each month sheet
       try {
@@ -1618,101 +1692,141 @@ async function updateAnnualSummarySheet(spreadsheetId: string, year: string): Pr
         });
         
         const values = allValues.data.values || [];
-        let summaryStartRow = 0;
         
-        // Find where the summary section starts
-        for (let i = 0; i < values.length; i++) {
-          if (values[i][0] === 'RIEPILOGO / 概要') {
-            summaryStartRow = i;
+        // Find the summary row (it has "RIEPILOGO / 概要" in the second column)
+        let summaryRow: any[] = [];
+        for (const row of values) {
+          if (row.length > 1 && row[1] === 'RIEPILOGO / 概要') {
+            summaryRow = row;
             break;
           }
         }
         
-        if (summaryStartRow === 0) {
-          console.log(`No summary found in sheet ${sheetTitle}`);
+        if (summaryRow.length < 13) {
+          await logToFirestore(`No summary row found for ${sheetTitle} or incomplete data`, {
+            level: 'warn',
+            functionName: 'updateAnnualSummarySheet'
+          });
           continue;
         }
         
-        // Get the summary section
-        const summaryValues = values.slice(summaryStartRow);
+        // Extract the relevant data from the summary row
+        // Make sure to convert string values to numbers
+        const lunchFatture = parseFloat(summaryRow[3]) || 0;
+        const lunchLetturaCassa = parseFloat(summaryRow[4]) || 0;
+        const lunchPersons = parseInt(summaryRow[5]) || 0;
+        const lunchYami = parseFloat(summaryRow[6]) || 0;
+        const lunchYamiPulito = parseFloat(summaryRow[7]) || 0;
+        const dinnerFatture = parseFloat(summaryRow[9]) || 0;
+        const dinnerLetturaCassa = parseFloat(summaryRow[10]) || 0;
+        const dinnerYami = parseFloat(summaryRow[11]) || 0;
+        const dinnerYamiPulito = parseFloat(summaryRow[12]) || 0;
         
-        // Extract the totals
-        let lunchTotal = 0;
-        let lunchPersons = 0;
-        let dinnerTotal = 0;
+        // Calculate lunch and dinner totals
+        // Lunch total = fatture + letturaCassa + (yami - yamiPulito)
+        const lunchTotal = lunchFatture + lunchLetturaCassa + (lunchYami - lunchYamiPulito);
         
-        for (const row of summaryValues) {
-          if (row[0]?.includes('Totale Incasso Pranzo')) {
-            lunchTotal = parseFloat(row[1] || '0');
-          } else if (row[0]?.includes('Totale Persone Pranzo')) {
-            lunchPersons = parseInt(row[1] || '0');
-          } else if (row[0]?.includes('Totale Incasso Cena')) {
-            dinnerTotal = parseFloat(row[1] || '0');
-          }
-        }
+        // Dinner total = fatture + letturaCassa + cocai + (yami - yamiPulito)
+        const dinnerTotal = dinnerFatture + dinnerLetturaCassa + (dinnerYami - dinnerYamiPulito);
         
-        // Store the data by month
-        monthlyData[bilingualMonthName] = [lunchTotal, lunchPersons, dinnerTotal];
+        // Total for the month
+        const monthTotal = lunchTotal + dinnerTotal;
+        
+        // Store the data for this month
+        monthlyData[bilingualMonthName] = [
+          lunchTotal,
+          lunchPersons,
+          dinnerTotal,
+          monthTotal
+        ];
         
         // Add to yearly totals
         yearlyLunchTotal += lunchTotal;
         yearlyLunchPersons += lunchPersons;
         yearlyDinnerTotal += dinnerTotal;
+        
+        await logToFirestore(`Processed data for ${bilingualMonthName}: lunch=${lunchTotal}, persons=${lunchPersons}, dinner=${dinnerTotal}, total=${monthTotal}`, {
+          level: 'info',
+          functionName: 'updateAnnualSummarySheet'
+        });
       } catch (error) {
-        console.log(`Error getting data from sheet ${sheetTitle}:`, error);
+        await logToFirestore(`Error processing data for ${sheetTitle}`, {
+          level: 'error',
+          functionName: 'updateAnnualSummarySheet',
+          data: error
+        });
       }
     }
     
-    // Prepare rows for each month in order
-    const rows = monthNames.map(monthName => {
-      const data = monthlyData[monthName] || [0, 0, 0];
-      const [lunchTotal, lunchPersons, dinnerTotal] = data;
-      const total = lunchTotal + dinnerTotal;
-      
-      return [
-        monthName,
-        lunchTotal.toFixed(2),
-        lunchPersons.toString(),
-        dinnerTotal.toFixed(2),
-        total.toFixed(2)
-      ];
-    });
+    // Prepare rows for the annual summary
+    const rows: any[][] = [];
+    
+    // Add a row for each month in order
+    for (const monthName of monthNames) {
+      if (monthlyData[monthName]) {
+        const [lunchTotal, lunchPersons, dinnerTotal, monthTotal] = monthlyData[monthName];
+        rows.push([
+          monthName,
+          lunchTotal.toFixed(2),
+          lunchPersons.toString(),
+          dinnerTotal.toFixed(2),
+          monthTotal.toFixed(2)
+        ]);
+      } else {
+        // Add a row with zeros for months with no data
+        rows.push([
+          monthName,
+          '0.00',
+          '0',
+          '0.00',
+          '0.00'
+        ]);
+      }
+    }
+    
+    // Calculate the yearly total
+    const yearlyTotal = yearlyLunchTotal + yearlyDinnerTotal;
     
     // Add yearly summary
-    const yearlyTotal = yearlyLunchTotal + yearlyDinnerTotal;
-    const yearlyAverage = yearlyLunchPersons > 0 ? yearlyLunchTotal / yearlyLunchPersons : 0;
-    
-    const summaryRows = [
+    const yearlyRows = [
       [''],
       ['TOTALI ANNUALI / 年間合計'],
       ['Totale Pranzo / ランチ合計', yearlyLunchTotal.toFixed(2)],
       ['Totale Persone Pranzo / ランチ人数合計', yearlyLunchPersons.toString()],
-      ['Media per Persona / 一人当たり平均', yearlyAverage.toFixed(2)],
+      ['Media per Persona / 一人当たり平均', (yearlyLunchPersons > 0 ? (yearlyLunchTotal / yearlyLunchPersons).toFixed(2) : '0.00')],
       ['Totale Cena / ディナー合計', yearlyDinnerTotal.toFixed(2)],
       ['TOTALE ANNUALE / 年間総合計', yearlyTotal.toFixed(2)]
     ];
     
     // Combine all data
-    const values = [...headers, ...rows, ...summaryRows];
+    const values = [...headers, ...rows, ...yearlyRows];
     
     // Clear existing data in the annual summary sheet
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
-      range: 'Riepilogo Annuale / 年次レポート'
+      range: annualSheetTitle
     });
     
     // Update the annual summary sheet
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: 'Riepilogo Annuale / 年次レポート!A1',
+      range: `${annualSheetTitle}!A1`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values
       }
     });
     
-    console.log('Annual summary sheet updated successfully');
+    await logToFirestore('Annual summary sheet updated successfully', {
+      level: 'info',
+      functionName: 'updateAnnualSummarySheet'
+    });
   } catch (error: any) {
+    await logToFirestore('Error updating annual summary', {
+      level: 'error',
+      functionName: 'updateAnnualSummarySheet',
+      data: error.message
+    });
     console.error('Error updating annual summary:', error.message);
   }
 }
@@ -1724,27 +1838,21 @@ export const scheduledExportSalesToDrive = onSchedule({
   retryCount: 3 // Add retry attempts
 }, async (context) => {
   try {
-    const dateToExport = getYesterdayDate();
-    const salesData = await fetchSalesData(dateToExport);
+    const yearToExport = getYesterdayDate().split('-')[0];
+    const salesData = await fetchAllSalesData();
     
     if (salesData.length === 0) {
-      console.log(`No sales data found for ${dateToExport}, skipping export`);
+      logToFirestore(`No sales data found for ${yearToExport}, skipping export`, { level: 'info', functionName: 'scheduledExportSalesToDrive', data: { yearToExport } });
       return;
     }
     
-    // First, create the CSV file for backward compatibility
-    const csvFilePath = await convertToBilingualCSV(salesData, dateToExport);
-    
-    // Upload CSV to Google Drive (maintaining existing functionality)
-    await uploadToDrive(csvFilePath, dateToExport, 'bilingual');
-    
     // Also update the Google Sheet
-    const spreadsheetId = await updateSalesGoogleSheet(salesData, dateToExport);
+    const spreadsheetId = await updateYearlySalesGoogleSheet(salesData, yearToExport);
     
-    console.log(`Successfully updated sales data for ${dateToExport} in spreadsheet: ${spreadsheetId}`);
+    logToFirestore(`Successfully updated sales data for ${yearToExport} in spreadsheet: ${spreadsheetId}`, { level: 'info', functionName: 'scheduledExportSalesToDrive', data: { yearToExport, spreadsheetId } });
     return;
   } catch (error) {
-    console.error('Scheduled export failed:', error instanceof Error ? error.message : String(error));
+    logToFirestore(`Scheduled export failed: ${error instanceof Error ? error.message : String(error)}`, { level: 'error', functionName: 'scheduledExportSalesToDrive', data: { error: error instanceof Error ? error.message : String(error) } });
     return;
   }
 });
@@ -1755,7 +1863,8 @@ export const exportSalesToDrive = onRequest(async (req, res) => {
     // Type-safe handling of date parameter
     const dateParam = req.query.date;
     // Get the date for which to export data (default to yesterday if not specified)
-    const dateToExport = typeof dateParam === 'string' ? dateParam : getYesterdayDate();
+    const dateToExport = typeof dateParam === 'string' ? dateParam : getYesterdayDate().split('-')[0];
+    ;
     
     // Get language parameter
     const langParam = req.query.lang;
@@ -1765,7 +1874,7 @@ export const exportSalesToDrive = onRequest(async (req, res) => {
     const useSheets = formatParam === 'sheets';
     
     // Fetch sales release data from Firestore
-    const salesData = await fetchSalesData(dateToExport);
+    const salesData = await fetchAllSalesData();
     
     if (salesData.length === 0) {
       res.status(404).send({
@@ -1778,7 +1887,7 @@ export const exportSalesToDrive = onRequest(async (req, res) => {
     // If sheets format is requested or no specific format is requested and no language is specified
     if (useSheets || (!langParam && !formatParam)) {
       // Use Google Sheets
-      const spreadsheetId = await updateSalesGoogleSheet(salesData, dateToExport);
+      const spreadsheetId = await updateYearlySalesGoogleSheet(salesData, dateToExport);
       
       res.status(200).send({
         success: true,
@@ -1814,8 +1923,7 @@ export const exportSalesToDrive = onRequest(async (req, res) => {
       });
     }
   } catch (error: unknown) {
-    console.error('Error exporting sales data:', 
-      error instanceof Error ? error.message : String(error));
+    logToFirestore(`Error exporting sales data: ${error instanceof Error ? error.message : String(error)}`, { level: 'error', functionName: 'exportSalesToDrive', data: { error: error instanceof Error ? error.message : String(error) } });
     res.status(500).send({
       success: false,
       message: 'Failed to export sales data',
@@ -1831,6 +1939,39 @@ function getYesterdayDate(): string {
   return date.toISOString().split('T')[0];
 }
 
+async function fetchAllSalesData(): Promise<SalesData[]> {
+const db = getFirestore();
+  const salesCollection = db.collection('sales_release');
+  const snapshot = await salesCollection.get();
+  
+  if (snapshot.empty) {
+    logToFirestore('No sales data found', { level: 'info', functionName: 'fetchAllSalesData' });
+    return [];
+  }
+  
+  return snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      date: data.dateString,
+      lastEditedOn: data.lastEditedOn ? new Date(data.lastEditedOn).toISOString() : '',
+      // Lunch data
+      lunch_bento: data.lunch?.bento || 0,
+      lunch_fatture: data.lunch?.fatture || 0,
+      lunch_letturaCassa: data.lunch?.letturaCassa || 0,
+      lunch_persone: data.lunch?.persone || 0,
+      lunch_yami: data.lunch?.yami || 0,
+      lunch_yamiPulito: data.lunch?.yamiPulito || 0,
+      // Dinner data
+      dinner_cocai: data.dinner?.cocai || 0,
+      dinner_fatture: data.dinner?.fatture || 0,
+      dinner_letturaCassa: data.dinner?.letturaCassa || 0,
+      dinner_yami: data.dinner?.yami || 0,
+      dinner_yamiPulito: data.dinner?.yamiPulito || 0
+    };
+  });
+}
+    
 // Fetch sales data from Firestore
 async function fetchSalesData(date: string): Promise<SalesData[]> {
   const db = getFirestore();
@@ -1838,7 +1979,7 @@ async function fetchSalesData(date: string): Promise<SalesData[]> {
   const snapshot = await salesCollection.where('dateString', '==', date).get();
   
   if (snapshot.empty) {
-    console.log(`No sales data found for date: ${date}`);
+    logToFirestore(`No sales data found for date: ${date}`, { level: 'info', functionName: 'fetchSalesData', data: { date } });
     return [];
   }
   
@@ -2207,12 +2348,7 @@ async function uploadToDrive(filePath: string, date: string, language: string = 
   return fileId;
 } catch (error: any) {
   // Add detailed logging
-  console.error('Google Drive API Error:', {
-    error: error.message,
-    code: error.code,
-    folderID: driveFolderId.value(),
-    serviceAccount: credentials.client_email.substring(0, 10) + '...' // Log partial email for privacy
-  });
+  logToFirestore(`Google Drive API Error: ${error.message}`, { level: 'error', functionName: 'uploadToDrive', data: { error: error.message, code: error.code, folderID: driveFolderId.value(), serviceAccount: credentials.client_email.substring(0, 10) + '...' } });
   
   throw new Error(`Google Drive error: ${error.message}`);
 }}
@@ -2242,7 +2378,7 @@ async function createMonthlySummary(year: number, month: number): Promise<string
       const dailyData = await fetchSalesData(date);
       allData = [...allData, ...dailyData];
     } catch (error) {
-      console.log(`No data for ${date}`);
+      logToFirestore(`No data for ${date}`, { level: 'info', functionName: 'createMonthlySummary', data: { date } });
     }
   }
   
@@ -2343,10 +2479,10 @@ export const scheduledMonthlyExport = onSchedule({
     // Upload to Google Drive
     const fileId = await uploadToDrive(csvFilePath, `${year}-${month.toString().padStart(2, '0')}-01`, 'monthly');
     
-    console.log(`Successfully exported monthly summary for ${month}/${year} with file ID: ${fileId}`);
+    logToFirestore(`Successfully exported monthly summary for ${month}/${year} with file ID: ${fileId}`, { level: 'info', functionName: 'scheduledMonthlyExport', data: { month, year, fileId } });
     return;
   } catch (error) {
-    console.error('Monthly export failed:', error instanceof Error ? error.message : String(error));
+    logToFirestore(`Monthly export failed: ${error instanceof Error ? error.message : String(error)}`, { level: 'error', functionName: 'scheduledMonthlyExport', data: { error: error instanceof Error ? error.message : String(error) } });
     return;
   }
 });
@@ -2369,7 +2505,7 @@ async function createYearlySummary(year: number): Promise<string> {
         }
       }
     } catch (error) {
-      console.log(`Error processing month ${month}: ${error}`);
+      logToFirestore(`Error processing month ${month}: ${error}`, { level: 'error', functionName: 'createYearlySummary', data: { month, error: error instanceof Error ? error.message : String(error) } });
     }
   }
   
@@ -2513,16 +2649,16 @@ export const scheduledYearlyExport = onSchedule({
     // If we found any data, update the Google Sheet
     if (sampleData.length > 0) {
       // Update the Google Sheet with the sample data to ensure all sheets are created
-      const spreadsheetId = await updateSalesGoogleSheet(sampleData, dummyDate);
-      console.log(`Successfully updated Google Sheet for year ${year} with ID: ${spreadsheetId}`);
+      const spreadsheetId = await updateYearlySalesGoogleSheet(sampleData, dummyDate);
+      logToFirestore(`Successfully updated Google Sheet for year ${year} with ID: ${spreadsheetId}`, { level: 'info', functionName: 'scheduledYearlyExport', data: { year, spreadsheetId } });
     } else {
-      console.log(`No data found for year ${year}, only CSV was created`);
+      logToFirestore(`No data found for year ${year}, only CSV was created`, { level: 'info', functionName: 'scheduledYearlyExport', data: { year } });
     }
     
-    console.log(`Successfully exported yearly summary for ${year} with file ID: ${fileId}`);
+    logToFirestore(`Successfully exported yearly summary for ${year} with file ID: ${fileId}`, { level: 'info', functionName: 'scheduledYearlyExport', data: { year, fileId } });
     return;
   } catch (error) {
-    console.error('Yearly export failed:', error instanceof Error ? error.message : String(error));
+    logToFirestore(`Yearly export failed: ${error instanceof Error ? error.message : String(error)}`, { level: 'error', functionName: 'scheduledYearlyExport', data: { error: error instanceof Error ? error.message : String(error) } });
     return;
   }
 });
@@ -2535,10 +2671,16 @@ export const scheduledYearlyExport = onSchedule({
  * @returns Promise resolving to true if a new sheet was created, false if it already existed
  */
 async function copyTemplateSheet(spreadsheetId: string, templateName: string, newSheetName: string): Promise<boolean> {
+  const credentials = {
+    client_email: driveClientEmail.value(),
+    private_key: drivePrivateKey.value().replace(/\\n/g, '\n'),
+    project_id: driveProjectId.value(),
+  };
+
   const auth = new JWT({
-    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    email: credentials.client_email,
+    key: credentials.private_key,
+    scopes: SCOPES
   });
   
   const sheets = google.sheets({ version: 'v4', auth });
@@ -2555,7 +2697,7 @@ async function copyTemplateSheet(spreadsheetId: string, templateName: string, ne
     );
     
     if (sheetExists) {
-      console.log(`Sheet ${newSheetName} already exists, skipping template copy`);
+      logToFirestore(`Sheet ${newSheetName} already exists, skipping template copy`, { level: 'info', functionName: 'copyTemplateSheet', data: { newSheetName } });
       return false;
     }
     
@@ -2584,10 +2726,10 @@ async function copyTemplateSheet(spreadsheetId: string, templateName: string, ne
       }
     });
     
-    console.log(`Created new sheet ${newSheetName} from template ${templateName}`);
+    logToFirestore(`Created new sheet ${newSheetName} from template ${templateName}`, { level: 'info', functionName: 'copyTemplateSheet', data: { newSheetName, templateName } });
     return true;
   } catch (error) {
-    console.error(`Error copying template sheet: ${error}`);
+    logToFirestore(`Error copying template sheet: ${error}`, { level: 'error', functionName: 'copyTemplateSheet', data: { error: error instanceof Error ? error.message : String(error) } });
     throw error;
   }
 }
@@ -2610,13 +2752,13 @@ async function sendDeclineEmail(
   }
 
   if (!email) {
-    console.error(`No email found for reservation ${reservationId}`);
+    logToFirestore(`No email found for reservation ${reservationId}`, { level: 'error', functionName: 'sendDeclineEmail', data: { reservationId } });
     return { error: "No email found" };
   }
 
   // Get preferred language from reservation, default to English if not specified
   const language = reservation.preferredLanguage || 'en';
-  console.log(`Using language: ${language} for decline email, reservation ${reservationId}`);
+  logToFirestore(`Using language: ${language} for decline email, reservation ${reservationId}`, { level: 'info', functionName: 'sendDeclineEmail', data: { reservationId, language } });
 
   try {
     // Load template based on language
@@ -2641,7 +2783,7 @@ async function sendDeclineEmail(
 
     // Get the correct subject for this language and type
     const emailSubject = getEmailSubject('decline', language);
-    console.log(`Decline email subject: "${emailSubject}" for language: ${language}`);
+    logToFirestore(`Decline email subject: "${emailSubject}" for language: ${language}`, { level: 'info', functionName: 'sendDeclineEmail', data: { reservationId, language } });
 
     // Create a transport each time we want to send an email
     const mailTransport = createMailTransport();
@@ -2653,10 +2795,10 @@ async function sendDeclineEmail(
       html: emailHtml,
     });
 
-    console.log(`Decline email sent to ${email} for reservation ${reservationId} in ${language}`);
+    logToFirestore(`Decline email sent to ${email} for reservation ${reservationId} in ${language}`, { level: 'info', functionName: 'sendDeclineEmail', data: { reservationId, language } });
     return { success: true };
   } catch (error) {
-    console.error("Error sending decline email:", error);
+    logToFirestore(`Error sending decline email: ${error instanceof Error ? error.message : String(error)}`, { level: 'error', functionName: 'sendDeclineEmail', data: { error: error instanceof Error ? error.message : String(error) } });
     return { error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
