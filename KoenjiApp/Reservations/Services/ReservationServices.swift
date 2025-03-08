@@ -26,10 +26,21 @@ import OSLog
 /// - Managing session data for collaborative editing
 /// - Providing caching mechanisms for efficient data access
 class ReservationService: ObservableObject {
-    // MARK: - Dependencies
+    // MARK: - Properties
     
-    /// The store that manages reservation data persistence and retrieval
+    /// A shared instance of the reservation service
+    @MainActor static var shared: ReservationService?
+    
+    /// The reservation store
     let store: ReservationStore
+    
+    /// The backup service
+    let backupService: FirebaseBackupService
+    
+    /// Logger for tracking reservation operations
+    let logger = Logger(subsystem: "com.koenjiapp", category: "ReservationService")
+    
+    // MARK: - Dependencies
     
     /// Cache for efficiently accessing current reservations
     let resCache: CurrentReservationsCache
@@ -49,9 +60,6 @@ class ReservationService: ObservableObject {
     /// Service for assigning tables to reservations
     let tableAssignmentService: TableAssignmentService
     
-    /// Service for backing up data to Firebase
-    let backupService: FirebaseBackupService
-    
     /// Service for managing push notifications
     let pushAlerts: PushAlerts
     
@@ -67,9 +75,6 @@ class ReservationService: ObservableObject {
     /// Published property that notifies observers when a reservation changes
     @Published var changedReservation: Reservation? = nil
     
-    /// Logger for tracking service operations
-    let logger = Logger(subsystem: "com.koenjiapp", category: "ReservationService")
-    
     /// Firebase listener for reservation changes
     var reservationListener: ListenerRegistration?
     
@@ -78,6 +83,9 @@ class ReservationService: ObservableObject {
     
     /// Firebase listener for web reservation changes
     var webReservationListener: ListenerRegistration?
+    
+    /// Firebase listener manager for handling all Firebase listeners
+    let firebaseListener: FirebaseListener
     
     // MARK: - Initializer
     
@@ -98,8 +106,10 @@ class ReservationService: ObservableObject {
     ///   - pushAlerts: Service for push notifications
     ///   - emailService: Service for sending emails
     ///   - notifsManager: Manager for local notifications
+    ///   - firebaseListener: Manager for Firebase listeners
+    ///   - isPreview: Whether this service is running in preview mode
     @MainActor
-    init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, backupService: FirebaseBackupService, pushAlerts: PushAlerts, emailService: EmailService, notifsManager: NotificationManager = NotificationManager.shared) {
+    init(store: ReservationStore, resCache: CurrentReservationsCache, clusterStore: ClusterStore, clusterServices: ClusterServices, tableStore: TableStore, layoutServices: LayoutServices, tableAssignmentService: TableAssignmentService, backupService: FirebaseBackupService, pushAlerts: PushAlerts, emailService: EmailService, notifsManager: NotificationManager = NotificationManager.shared, firebaseListener: FirebaseListener, isPreview: Bool = false) {
         self.store = store
         self.resCache = resCache
         self.clusterStore = clusterStore
@@ -111,18 +121,23 @@ class ReservationService: ObservableObject {
         self.pushAlerts = pushAlerts
         self.emailService = emailService
         self.notifsManager = notifsManager
+        self.firebaseListener = firebaseListener
         
         self.layoutServices.loadFromDisk()
         self.clusterServices.loadClustersFromDisk()
         
-        // Start Firebase listeners
-        self.startReservationsListener()
-        self.startSessionListener()
-        self.startWebReservationListener()
+        // In preview mode, we skip Firebase operations and just populate with mock data
+        if isPreview {
+            logger.debug("Preview mode: Using mock data for ReservationService")
+            self.store.reservations = MockData.mockReservations
+        } else {
+            // Start Firebase listeners
+            self.setupFirebaseListeners()
 
-        // Load data directly from Firebase
-        self.loadReservationsFromFirebase()
-        self.loadSessionsFromFirebase()
+            // Load data directly from Firebase
+            self.loadReservationsFromFirebase()
+            self.loadSessionsFromFirebase()
+        }
         
         let today = Calendar.current.startOfDay(for: Date())
         self.resCache.preloadDates(around: today, range: 5, reservations: self.store.reservations)
@@ -130,9 +145,7 @@ class ReservationService: ObservableObject {
     
     /// Removes Firebase listeners when the service is deallocated
     deinit {
-        reservationListener?.remove()
-        sessionListener?.remove()
-        webReservationListener?.remove()
+        self.firebaseListener.stopAllListeners()
         }
     
     /// Migrates the SQLite database schema to the latest version if needed
@@ -175,31 +188,230 @@ class ReservationService: ObservableObject {
     /// - Parameter session: The session to insert or update
     @MainActor
     func upsertSession(_ session: Session) {
+        // Save to SQLite
         SQLiteManager.shared.insertSession(session)
         
+        // Update the session store
         DispatchQueue.main.async {
-            SessionStore.shared.sessions.append(session)
-            SessionStore.shared.sessions = Array(SessionStore.shared.sessions)
+            // Check if the session already exists in the store
+            if let index = SessionStore.shared.sessions.firstIndex(where: { $0.id == session.id && $0.uuid == session.uuid }) {
+                // Update the existing session
+                SessionStore.shared.sessions[index] = session
+            } else {
+                // Add the new session
+                SessionStore.shared.sessions.append(session)
+                SessionStore.shared.sessions = Array(Set(SessionStore.shared.sessions))
+            }
         }
         
         // Push changes to Firestore
         #if DEBUG
-        let dbRef = backupService.db.collection("sessions")
+        let dbRef = backupService.db?.collection("sessions")
         #else
-        let dbRef = backupService.db.collection("sessions_release")
+        let dbRef = backupService.db?.collection("sessions_release")
         #endif
-        let data = convertSessionToDictionary(session: session)
-            // Using the reservation's UUID string as the document ID:
-        dbRef.document(session.uuid).setData(data) { [self] error in
-                if let error = error {
-                    self.logger.error("Error pushing session to Firebase: \(error)")
-                } else {
-                    self.logger.debug("Session pushed to Firebase successfully.")
-                }
-            }
         
+        let data = convertSessionToDictionary(session: session)
+        
+        // Using the device UUID as the document ID
+        dbRef?.document(session.uuid).setData(data) { [self] error in
+            if let error = error {
+                logger.error("Error upserting session: \(error.localizedDescription)")
+            } else {
+                logger.debug("Session upserted successfully")
+            }
+        }
     }
+
+    // MARK: - Profile Management
     
+    /// Inserts or updates a profile in both local storage and Firebase
+    ///
+    /// This method saves the profile to SQLite, updates the in-memory profile store,
+    /// and synchronizes the data with Firebase.
+    ///
+    /// - Parameter profile: The profile to insert or update
+    @MainActor
+    func upsertProfile(_ profile: Profile) {
+        // Save to SQLite
+        SQLiteManager.shared.insertProfile(profile)
+        
+        // Update the in-memory store
+        DispatchQueue.main.async {
+            ProfileStore.shared.updateProfile(profile)
+        }
+        
+        // Push changes to Firestore
+        #if DEBUG
+        let dbRef = backupService.db?.collection("profiles")
+        #else
+        let dbRef = backupService.db?.collection("profiles_release")
+        #endif
+        
+        let data = convertProfileToDictionary(profile: profile)
+        
+        // Using the profile's ID as the document ID
+        dbRef?.document(profile.id).setData(data) { [self] error in
+            if let error = error {
+                self.logger.error("Error pushing profile to Firebase: \(error)")
+            } else {
+                self.logger.debug("Profile pushed to Firebase successfully.")
+            }
+        }
+    }
+
+    /// Loads profiles from SQLite and updates the in-memory profile store
+    @MainActor
+    func loadProfiles() {
+        let profiles = SQLiteManager.shared.getAllProfiles()
+        
+        DispatchQueue.main.async {
+            ProfileStore.shared.setProfiles(profiles)
+        }
+        
+        logger.info("Loaded \(profiles.count) profiles from SQLite")
+    }
+
+    /// Retrieves a profile from SQLite by ID
+    ///
+    /// - Parameter id: The ID of the profile to retrieve
+    /// - Returns: The profile if found, otherwise nil
+    @MainActor
+    func getProfile(withID id: String) -> Profile? {
+        return SQLiteManager.shared.getProfile(withID: id)
+    }
+
+    /// Creates a new profile from a session and email
+    ///
+    /// This method extracts the first name and last name from the session userName,
+    /// creates a device for the session, and constructs a new profile.
+    ///
+    /// - Parameters: 
+    ///   - session: The session to create the profile from
+    ///   - email: The email of the profile
+    /// - Returns: The newly created profile
+    @MainActor
+    func createProfileFromSession(_ session: Session) -> Profile {
+        // Extract first name and last name from userName
+        let components = session.userName.components(separatedBy: " ")
+        let firstName = components.first ?? ""
+        let lastName = components.count > 1 ? components.dropFirst().joined(separator: " ") : ""
+        
+        // Create a device for this session
+        let device = Device(
+            id: session.uuid,
+            name: session.deviceName ?? DeviceInfo.shared.getDeviceName(),
+            lastActive: session.lastUpdate,
+            isActive: session.isActive
+        )
+        
+        // Create the profile
+        return Profile(
+            id: session.id,
+            firstName: firstName,
+            lastName: lastName,
+            email: "user@example.com", // Default email
+            imageURL: nil,
+            devices: [device],
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+    }
+
+    /// Updates the status of a device for a profile
+    ///
+    /// This method updates the status of a device in the profile's devices array,
+    /// updates the device's lastActive timestamp, and saves the updated profile to SQLite.
+    ///
+    /// - Parameters: 
+    ///   - profileID: The ID of the profile to update
+    ///   - deviceID: The ID of the device to update
+    ///   - isActive: The new status of the device
+    @MainActor
+    func updateDeviceStatus(profileID: String, deviceID: String, isActive: Bool) {
+        // Update SQLite database
+        SQLiteManager.shared.updateDeviceStatus(deviceId: deviceID, isActive: isActive)
+        
+        // Update the profile in memory
+        if let profile = ProfileStore.shared.getProfile(withID: profileID) {
+            var updatedProfile = profile
+            
+            // Find the device in the profile
+            if let deviceIndex = profile.devices.firstIndex(where: { $0.id == deviceID }) {
+                // Update the device status
+                updatedProfile.devices[deviceIndex].isActive = isActive
+                updatedProfile.devices[deviceIndex].lastActive = Date()
+                
+                // Update the profile's timestamp
+                updatedProfile.updatedAt = Date()
+                
+                // Save the updated profile
+                upsertProfile(updatedProfile)
+                
+                // Update the current profile if needed
+                if ProfileStore.shared.currentProfile?.id == profileID {
+                    ProfileStore.shared.setCurrentProfile(updatedProfile)
+                }
+                
+                logger.debug("Updated device status for profile: \(profileID), device: \(deviceID), active: \(isActive)")
+            } else {
+                logger.error("Cannot update device status: Device not found in profile \(profileID)")
+            }
+        } else {
+            logger.error("Cannot update device status: Profile not found for ID \(profileID)")
+        }
+    }
+
+    @MainActor
+    func logoutAllDevices(forProfileID profileID: String) {
+        if let profile = ProfileStore.shared.getProfile(withID: profileID) {
+            var updatedProfile = profile
+            
+            // Update all devices to inactive
+            for i in 0..<updatedProfile.devices.count {
+                updatedProfile.devices[i].isActive = false
+                updatedProfile.devices[i].lastActive = Date()
+            }
+            
+            // Update the profile
+            upsertProfile(updatedProfile)
+            
+            // Update all sessions for this profile
+            for session in SessionStore.shared.sessions where session.id == profileID {
+                var updatedSession = session
+                updatedSession.isActive = false
+                updatedSession.isEditing = false
+                upsertSession(updatedSession)
+            }
+        }
+    }
+
+    @MainActor
+    private func convertProfileToDictionary(profile: Profile) -> [String: Any] {
+        var deviceData: [[String: Any]] = []
+        
+        for device in profile.devices {
+            let deviceDict: [String: Any] = [
+                "id": device.id,
+                "name": device.name,
+                "lastActive": device.lastActive.timeIntervalSince1970,
+                "isActive": device.isActive
+            ]
+            deviceData.append(deviceDict)
+        }
+        
+        return [
+            "id": profile.id,
+            "firstName": profile.firstName,
+            "lastName": profile.lastName,
+            "email": profile.email,
+            "imageURL": profile.imageURL as Any,
+            "devices": deviceData,
+            "createdAt": profile.createdAt.timeIntervalSince1970,
+            "updatedAt": profile.updatedAt.timeIntervalSince1970
+        ]
+    }
+
     // MARK: - Reservation Management
     
     /// Adds a new reservation to the system
@@ -229,15 +441,15 @@ class ReservationService: ObservableObject {
         
         // Push changes to Firestore with the improved dictionary conversion
         #if DEBUG
-        let dbRef = backupService.db.collection("reservations")
+        let dbRef = backupService.db?.collection("reservations")
         #else
-        let dbRef = backupService.db.collection("reservations_release")
+        let dbRef = backupService.db?.collection("reservations_release")
         #endif
         
         let data = convertReservationToDictionary(reservation: reservation)
         
         // Using the reservation's UUID string as the document ID:
-        dbRef.document(reservation.id.uuidString).setData(data) { error in
+        dbRef?.document(reservation.id.uuidString).setData(data) { error in
             if let error = error {
                 self.logger.error("Error pushing reservation to Firebase: \(error)")
             } else {
@@ -264,7 +476,7 @@ class ReservationService: ObservableObject {
     /// - Returns: A dictionary representation of the session
     @MainActor
     private func convertSessionToDictionary(session: Session) -> [String: Any] {
-        return [
+        var data: [String: Any] = [
             "id": session.id,
             "uuid": session.uuid,
             "userName": session.userName,
@@ -272,6 +484,18 @@ class ReservationService: ObservableObject {
             "lastUpdate": session.lastUpdate.timeIntervalSince1970,
             "isActive": session.isActive
         ]
+        
+        // Add device name if available
+        if let deviceName = session.deviceName {
+            data["deviceName"] = deviceName
+        }
+        
+        // Add profile image URL if available
+        if let profileImageURL = session.profileImageURL {
+            data["profileImageURL"] = profileImageURL
+        }
+        
+        return data
     }
     
     /// Converts a Reservation object to a dictionary for Firebase storage
@@ -334,7 +558,7 @@ class ReservationService: ObservableObject {
             "lastEditedOn": updatedReservation.lastEditedOn.timeIntervalSince1970,
             "isMock": updatedReservation.isMock,
             "colorHue": updatedReservation.colorHue,
-            "preferredLanguage": updatedReservation.preferredLanguage
+            "preferredLanguage": updatedReservation.preferredLanguage ?? "it"
         ]
         
         // Handle optional values separately and safely
@@ -434,15 +658,15 @@ class ReservationService: ObservableObject {
                 // Update database
                 // Pushes to Firestore with the improved dictionary conversion
                 #if DEBUG
-                let dbRef = self.backupService.db.collection("reservations")
+                let dbRef = self.backupService.db?.collection("reservations")
                 #else
-                let dbRef = self.backupService.db.collection("reservations_release")
+                let dbRef = self.backupService.db?.collection("reservations_release")
                 #endif
                 
                 let data = self.convertReservationToDictionary(reservation: updatedReservation)
                 
                 // Using the reservation's UUID string as the document ID:
-                dbRef.document(updatedReservation.id.uuidString).setData(data) { error in
+                dbRef?.document(updatedReservation.id.uuidString).setData(data) { error in
                     if let error = error {
                         self.logger.error("Error pushing reservation to Firebase: \(error)")
                     } else {
@@ -470,9 +694,9 @@ class ReservationService: ObservableObject {
         let allReservations = self.store.reservations
         
         #if DEBUG
-        let dbRef = backupService.db.collection("reservations")
+        let dbRef = backupService.db?.collection("reservations")
         #else
-        let dbRef = backupService.db.collection("reservations_release")
+        let dbRef = backupService.db?.collection("reservations_release")
         #endif
         
         var successCount = 0
@@ -485,7 +709,7 @@ class ReservationService: ObservableObject {
                 
                 // Create a properly isolated copy of the dictionary for Firestore
                 try await Task {
-                    try await dbRef.document(reservation.id.uuidString).setData(data)
+                    try await dbRef?.document(reservation.id.uuidString).setData(data)
                 }.value
                 
                 successCount += 1
@@ -549,7 +773,14 @@ class ReservationService: ObservableObject {
     /// - Parameter completion: Closure called when the operation completes, with an optional error
     @MainActor
     func clearAllDataFromFirestore(completion: @escaping (Error?) -> Void) {
-        let db = Firestore.firestore()
+        // Use the safe Firebase initialization method
+        guard let db = AppDependencies.getFirestore() else {
+            // In preview mode, just call the completion handler
+            logger.debug("Preview mode: Skipping clearAllDataFromFirestore")
+            completion(nil)
+            return
+        }
+        
         #if DEBUG
         let reservationsRef = db.collection("reservations")
         #else
@@ -677,14 +908,14 @@ class ReservationService: ObservableObject {
         }
         
         #if DEBUG
-        let reservationsRef = backupService.db.collection("reservations")
+        let reservationsRef = backupService.db?.collection("reservations")
         #else
-        let reservationsRef = backupService.db.collection("reservations_release")
+        let reservationsRef = backupService.db?.collection("reservations_release")
         #endif
         
         Task {
             do {
-                let snapshot = try await reservationsRef.getDocuments()
+                guard let snapshot = try await reservationsRef?.getDocuments() else { return }
                 logger.info("Retrieved \(snapshot.documents.count) reservation documents from Firebase")
                 
                 var loadedReservations: [Reservation] = []
@@ -762,14 +993,14 @@ class ReservationService: ObservableObject {
         }
         
         #if DEBUG
-        let sessionsRef = backupService.db.collection("sessions")
+        let sessionsRef = backupService.db?.collection("sessions")
         #else
-        let sessionsRef = backupService.db.collection("sessions_release")
+        let sessionsRef = backupService.db?.collection("sessions_release")
         #endif
         
         Task {
             do {
-                let snapshot = try await sessionsRef.getDocuments()
+                guard let snapshot = try await sessionsRef?.getDocuments() else { return }
                 var loadedSessions: [Session] = []
                 
                 for document in snapshot.documents {
@@ -858,7 +1089,6 @@ class ReservationService: ObservableObject {
         let assignedEmoji = data["assignedEmoji"] as? String
         let imageData = data["imageData"] as? Data
         let preferredLanguage = data["preferredLanguage"] as? String
-        let colorHue = data["colorHue"] as? Double ?? 0.0
         
         // Create and return the reservation
         return Reservation(
@@ -936,6 +1166,8 @@ class ReservationService: ObservableObject {
         }
         
         let uuid = data["uuid"] as? String ?? document.documentID
+        let deviceName = data["deviceName"] as? String
+        let profileImageURL = data["profileImageURL"] as? String
         
         // Create and return the session
         return Session(
@@ -944,7 +1176,9 @@ class ReservationService: ObservableObject {
             userName: userName,
             isEditing: isEditing,
             lastUpdate: Date(timeIntervalSince1970: lastUpdateTimeInterval),
-            isActive: isActive
+            isActive: isActive,
+            deviceName: deviceName,
+            profileImageURL: profileImageURL
         )
     }
     
@@ -954,6 +1188,80 @@ class ReservationService: ObservableObject {
     private func getReservationsFileURL() -> URL {
         let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         return documentDirectory.appendingPathComponent(store.reservationsFileName)
+    }
+
+    func setupFirebaseListeners() {
+        // Start the reservation listener
+        firebaseListener.startReservationListener()
+        
+        // Start the session listener
+        firebaseListener.startSessionListener()
+        
+        // Start the profile listener
+        
+        firebaseListener.startProfileListener()
+        
+        logger.info("Firebase listeners set up")
+    }
+
+    @MainActor
+    func setupRealtimeDatabasePresence(for deviceUUID: String) {
+        // This is now handled by the SessionManager
+        logger.debug("Presence detection is now handled by SessionManager")
+    }
+    
+    /// Deactivates a device remotely
+    ///
+    /// This method deactivates a device remotely by setting its isActive status to false.
+    /// This will cause the device to be logged out the next time it checks its activation status.
+    ///
+    /// - Parameters:
+    ///   - profileID: The ID of the profile
+    ///   - deviceID: The ID of the device to deactivate
+    @MainActor
+    func deactivateDeviceRemotely(profileID: String, deviceID: String) {
+        logger.info("Deactivating device \(deviceID) remotely for profile \(profileID)")
+        
+        // Get the profile from the store
+        if let profile = ProfileStore.shared.getProfile(withID: profileID) {
+            var updatedProfile = profile
+            
+            // Find the device in the profile
+            if let deviceIndex = profile.devices.firstIndex(where: { $0.id == deviceID }) {
+                // Update the device status
+                updatedProfile.devices[deviceIndex].isActive = false
+                updatedProfile.devices[deviceIndex].lastActive = Date()
+                
+                // Update the profile's timestamp
+                updatedProfile.updatedAt = Date()
+                
+                // Save the updated profile
+                upsertProfile(updatedProfile)
+                
+                // Update the current profile if needed
+                if ProfileStore.shared.currentProfile?.id == profileID {
+                    ProfileStore.shared.setCurrentProfile(updatedProfile)
+                }
+                
+                logger.info("Device \(deviceID) deactivated remotely for profile \(profileID)")
+                
+                // Also update the session if it exists
+                if let session = SessionStore.shared.sessions.first(where: { $0.id == profileID && $0.uuid == deviceID }) {
+                    var updatedSession = session
+                    updatedSession.isActive = false
+                    updatedSession.lastUpdate = Date()
+                    
+                    // Update the session
+                    upsertSession(updatedSession)
+                    
+                    logger.info("Session updated for deactivated device \(deviceID)")
+                }
+            } else {
+                logger.error("Cannot deactivate device: Device not found in profile \(profileID)")
+            }
+        } else {
+            logger.error("Cannot deactivate device: Profile not found for ID \(profileID)")
+        }
     }
 }
 
@@ -1545,6 +1853,187 @@ extension ReservationService {
         }
         
         logger.info("Duplicate removal complete. Removed \(duplicatesFound) duplicate reservations. Kept \(reservationsToKeep.count) unique reservations.")
+    }
+    
+    /// Cleans up duplicate devices in a profile
+    ///
+    /// This method removes duplicate devices with the same name but different IDs from a profile.
+    /// It's useful for preventing the accumulation of duplicate devices when logging in from different devices.
+    ///
+    /// - Parameters:
+    ///   - profileID: The ID of the profile to clean up
+    ///   - currentDeviceID: The ID of the current device (which should be kept)
+    @MainActor
+    func cleanupDuplicateDevices(profileID: String, currentDeviceID: String) {
+        if let profile = ProfileStore.shared.getProfile(withID: profileID) {
+            var updatedProfile = profile
+            var deviceNameChanged = false
+            var newDeviceName = ""
+            
+            // Get device name safely before using it
+            let safeDeviceName = DeviceInfo.shared.getDeviceName()
+            
+            // First, ensure the current device is properly updated
+            if let currentDeviceIndex = updatedProfile.devices.firstIndex(where: { $0.id == currentDeviceID }) {
+                // Update the existing device
+                updatedProfile.devices[currentDeviceIndex].lastActive = Date()
+                updatedProfile.devices[currentDeviceIndex].isActive = true
+                
+                // Check if we need to update the device name
+                if updatedProfile.devices[currentDeviceIndex].name == "Unknown Device" {
+                    updatedProfile.devices[currentDeviceIndex].name = safeDeviceName
+                    deviceNameChanged = true
+                    newDeviceName = safeDeviceName
+                }
+            } else {
+                // If current device isn't in the profile, add it
+                let newDevice = Device(
+                    id: currentDeviceID,
+                    name: safeDeviceName,
+                    lastActive: Date(),
+                    isActive: true
+                )
+                updatedProfile.devices.append(newDevice)
+                deviceNameChanged = true
+                newDeviceName = safeDeviceName
+                logger.info("Added current device \(currentDeviceID) to profile \(profileID)")
+            }
+            
+            // Group devices by name
+            let devicesByName = Dictionary(grouping: updatedProfile.devices) { $0.name }
+            
+            // For each group of devices with the same name
+            for (name, devices) in devicesByName {
+                // If there are multiple devices with the same name
+                if devices.count > 1 {
+                    logger.info("Found \(devices.count) devices with name '\(name)' in profile \(profileID)")
+                    
+                    // For other devices with the same name, keep only the most recently active one
+                    let otherDevices = devices.filter { $0.id != currentDeviceID }
+                    
+                    if !otherDevices.isEmpty {
+                        // Sort by last active date and keep the most recent one
+                        let sortedOtherDevices = otherDevices.sorted(by: { $0.lastActive > $1.lastActive })
+                        let deviceToKeep = sortedOtherDevices.first!
+                        
+                        // Remove all other devices with this name except the current device and the most recent one
+                        updatedProfile.devices.removeAll { device in
+                            device.name == name && 
+                            device.id != currentDeviceID && 
+                            device.id != deviceToKeep.id
+                        }
+                        
+                        logger.info("Kept current device \(currentDeviceID) and most recent device \(deviceToKeep.id) with name '\(name)'")
+                    }
+                }
+            }
+            
+            // If we made changes to the profile
+            if updatedProfile.devices.count != profile.devices.count || deviceNameChanged {
+                updatedProfile.updatedAt = Date()
+                
+                // Update the profile
+                upsertProfile(updatedProfile)
+                
+                // Update the current profile if needed
+                if ProfileStore.shared.currentProfile?.id == profileID {
+                    ProfileStore.shared.setCurrentProfile(updatedProfile)
+                }
+                
+                // Update the session if the device name changed
+                if deviceNameChanged {
+                    if let session = SessionStore.shared.sessions.first(where: { $0.id == profileID && $0.uuid == currentDeviceID }) {
+                        var updatedSession = session
+                        updatedSession.deviceName = newDeviceName
+                        
+                        // Update session in SQLite
+                        SQLiteManager.shared.insertSession(updatedSession)
+                        
+                        // Update session in memory
+                        if let index = SessionStore.shared.sessions.firstIndex(where: { $0.id == profileID && $0.uuid == currentDeviceID }) {
+                            SessionStore.shared.sessions[index] = updatedSession
+                        }
+                        
+                        // Update session in Firebase
+                        #if DEBUG
+                        let dbRef = backupService.db?.collection("sessions")
+                        #else
+                        let dbRef = backupService.db?.collection("sessions_release")
+                        #endif
+                        
+                        let data = convertSessionToDictionary(session: updatedSession)
+                        
+                        // Use Task to handle the async operation
+                        Task {
+                            do {
+                                if let dbRef = dbRef {
+                                    try await dbRef.document(updatedSession.uuid).setData(data)
+                                    self.logger.debug("Session updated in Firebase with new device name")
+                                }
+                            } catch {
+                                self.logger.error("Error updating session in Firebase: \(error)")
+                            }
+                        }
+                    }
+                }
+                
+                logger.info("Cleaned up duplicate devices in profile \(profileID). Removed \(profile.devices.count - updatedProfile.devices.count) devices.")
+            }
+        }
+    }
+    
+    /// Completely resets a profile's devices, keeping only the current device
+    ///
+    /// This method removes all devices from a profile except for the current device.
+    /// It's useful for fixing profiles that have accumulated many duplicate devices.
+    ///
+    /// - Parameters:
+    ///   - profileID: The ID of the profile to reset
+    ///   - currentDeviceID: The ID of the current device (which should be kept)
+    ///   - deviceName: The name to use for the current device
+    @MainActor
+    func resetProfileDevices(profileID: String, currentDeviceID: String, deviceName: String) {
+        if let profile = ProfileStore.shared.getProfile(withID: profileID) {
+            var updatedProfile = profile
+            
+            // Check if the current device is already in the profile
+            let currentDevice: Device
+            if profile.devices.first(where: { $0.id == currentDeviceID }) != nil {
+                // Update the existing device
+                currentDevice = Device(
+                    id: currentDeviceID,
+                    name: deviceName,
+                    lastActive: Date(),
+                    isActive: true
+                )
+            } else {
+                // Create a new device
+                currentDevice = Device(
+                    id: currentDeviceID,
+                    name: deviceName,
+                    lastActive: Date(),
+                    isActive: true
+                )
+            }
+            
+            // Reset the devices array to contain only the current device
+            updatedProfile.devices = [currentDevice]
+            updatedProfile.updatedAt = Date()
+            
+            // Log what we're doing
+            logger.warning("Completely reset devices for profile \(profileID). Removed \(profile.devices.count - 1) devices.")
+            
+            // Update the profile
+            upsertProfile(updatedProfile)
+            
+            // Update the current profile if needed
+            if ProfileStore.shared.currentProfile?.id == profileID {
+                ProfileStore.shared.setCurrentProfile(updatedProfile)
+            }
+            
+            // Also explicitly update the device status in SQLite
+            SQLiteManager.shared.updateDeviceStatus(deviceId: currentDeviceID, isActive: true)
+        }
     }
 }
 

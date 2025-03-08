@@ -59,17 +59,33 @@ class ListViewModel {
     var filterStartDate: Date = Date()
     var filterEndDate: Date = Date()
 
-    private var reservationService: ReservationService
-    @ObservationIgnored private var store: ReservationStore
-    @ObservationIgnored private var layoutServices: LayoutServices
+    /// Whether this view model is running in preview mode
+    private let isPreview: Bool
+    
+    // Service dependencies
+    private let reservationService: ReservationService
+    private let store: ReservationStore
+    private let layoutServices: LayoutServices
 
-    init(reservationService: ReservationService, store: ReservationStore, layoutServices: LayoutServices) {
+    init(reservationService: ReservationService, store: ReservationStore, layoutServices: LayoutServices, isPreview: Bool = false) {
         self.reservationService = reservationService
         self.store = store
         self.layoutServices = layoutServices
+        self.isPreview = isPreview
+        
+        if isPreview {
+            // In preview mode, populate with mock data
+            self.reservations = MockData.mockReservations
+            self.currentReservations = MockData.mockReservations
+        } else {
+            // In regular mode, load reservations from the store
+            self.loadReservations()
+        }
     }
     
-    
+    private func loadReservations() {
+        self.reservations = store.reservations
+    }
     
     func handleEditTap(_ reservation: Reservation) {
             withAnimation {
