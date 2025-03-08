@@ -1457,6 +1457,9 @@
         }
       }
     },
+    "Attivo" : {
+
+    },
     "Autenticazione Richiesta" : {
       "localizations" : {
         "en" : {
@@ -2691,6 +2694,18 @@
         }
       }
     },
+    "Disconnetti" : {
+
+    },
+    "Disconnetti %@" : {
+
+    },
+    "Disconnetti tutti i dispositivi" : {
+
+    },
+    "Dispositivi" : {
+
+    },
     "Done" : {
       "localizations" : {
         "en" : {
@@ -2890,6 +2905,9 @@
         }
       }
     },
+    "Email" : {
+
+    },
     "Enable Filter" : {
       "localizations" : {
         "en" : {
@@ -2999,6 +3017,9 @@
           }
         }
       }
+    },
+    "Esci" : {
+
     },
     "Esporta" : {
       "localizations" : {
@@ -3472,6 +3493,9 @@
         }
       }
     },
+    "Il mio account" : {
+
+    },
     "Il nome non può essere lasciato vuoto." : {
       "localizations" : {
         "en" : {
@@ -3736,6 +3760,9 @@
         }
       }
     },
+    "Informazioni personali" : {
+
+    },
     "Iniziamo!" : {
       "localizations" : {
         "en" : {
@@ -3833,6 +3860,9 @@
           }
         }
       }
+    },
+    "KOENJI. VENEZIA" : {
+
     },
     "Layout Tavoli" : {
       "localizations" : {
@@ -4390,6 +4420,9 @@
         }
       }
     },
+    "NAVIGATION" : {
+
+    },
     "Nessun dato" : {
       "localizations" : {
         "en" : {
@@ -4603,6 +4636,9 @@
           }
         }
       }
+    },
+    "Non attivo" : {
+
     },
     "Non autorizzato" : {
       "localizations" : {
@@ -5115,7 +5151,7 @@
         }
       }
     },
-    "Pending" : {
+    "Pending approval" : {
 
     },
     "Pending Approval" : {
@@ -5144,6 +5180,7 @@
       }
     },
     "Per favore, inserisci nome e cognome per continuare." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5653,6 +5690,7 @@
       }
     },
     "Prenotazioni" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5717,6 +5755,9 @@
           }
         }
       }
+    },
+    "Profilo non disponibile" : {
+
     },
     "Prosegui" : {
       "localizations" : {
@@ -5806,6 +5847,12 @@
         }
       }
     },
+    "Queste informazioni sono utilizzate per identificarti nell'app." : {
+
+    },
+    "Questo dispositivo verrà disconnesso dal tuo account." : {
+
+    },
     "Qui per assisterti con la\ngestione delle prenotazioni (e altro in arrivo...)" : {
       "localizations" : {
         "en" : {
@@ -5827,6 +5874,9 @@
           }
         }
       }
+    },
+    "Qui puoi vedere tutti i dispositivi collegati al tuo account e disconnetterli se necessario." : {
+
     },
     "Raggruppa per..." : {
       "localizations" : {
@@ -6377,6 +6427,9 @@
         }
       }
     },
+    "Sei sicuro di voler disconnettere?" : {
+
+    },
     "Sei sicuro di voler eliminare tutte le prenotazioni e i dati salvati? Questa operazione non può essere annullata." : {
       "localizations" : {
         "en" : {
@@ -6536,6 +6589,7 @@
       }
     },
     "Seleziona un'opzione dal menu laterale." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6600,6 +6654,9 @@
           }
         }
       }
+    },
+    "Settings" : {
+
     },
     "sincro" : {
       "localizations" : {
@@ -7357,6 +7414,9 @@
           }
         }
       }
+    },
+    "Tutti i dispositivi verranno disconnessi dal tuo account." : {
+
     },
     "Tutto pronto!" : {
       "localizations" : {
