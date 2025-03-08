@@ -54,6 +54,26 @@ class SQLiteManager {
     let sessionIsEditing = Expression<Bool>("isEditing")
     let sessionLastUpdate = Expression<Date>("lastUpdate")
     let sessionIsActive = Expression<Bool>("isActive")
+    let sessionDeviceName = Expression<String?>("deviceName")
+    let sessionProfileImageURL = Expression<String?>("profileImageURL")
+    
+    // Add profiles table
+    let profilesTable = Table("profiles")
+    let profileId = Expression<String>("id")
+    let profileFirstName = Expression<String>("firstName")
+    let profileLastName = Expression<String>("lastName")
+    let profileEmail = Expression<String>("email")
+    let profileImageURL = Expression<String?>("imageURL")
+    let profileCreatedAt = Expression<Date>("createdAt")
+    let profileUpdatedAt = Expression<Date>("updatedAt")
+    
+    // Add devices table
+    let devicesTable = Table("devices")
+    let deviceId = Expression<String>("id")
+    let deviceProfileId = Expression<String>("profileId")
+    let deviceName = Expression<String>("name")
+    let deviceLastActive = Expression<Date>("lastActive")
+    let deviceIsActive = Expression<Bool>("isActive")
     
     private init() {
         do {
@@ -65,9 +85,12 @@ class SQLiteManager {
             db = try Connection(dbURL.path)
             createReservationsTable()
             createSessionsTable()
+            createProfilesTable()
+            createDevicesTable()
             logger.info("SQLite database initialized at: \(dbURL.path)")
         } catch {
             logger.error("SQLite initialization failed: \(error.localizedDescription)")
+            fatalError("SQLite initialization failed: \(error.localizedDescription)")
         }
     }
     
@@ -128,12 +151,49 @@ class SQLiteManager {
                 table.column(sessionIsEditing)
                 table.column(sessionLastUpdate)
                 table.column(sessionIsActive)
+                table.column(sessionDeviceName)
+                table.column(sessionProfileImageURL)
             })
             logger.debug("Sessions table created or verified")
         } catch {
             logger.error("Failed to create sessions table: \(error.localizedDescription)")
         }
     }
+    
+    private func createProfilesTable() {
+        do {
+            try db.run(profilesTable.create(ifNotExists: true) { table in
+                table.column(profileId, primaryKey: true)
+                table.column(profileFirstName)
+                table.column(profileLastName)
+                table.column(profileEmail)
+                table.column(profileImageURL)
+                table.column(profileCreatedAt)
+                table.column(profileUpdatedAt)
+            })
+            logger.debug("Profiles table created or verified")
+        } catch {
+            logger.error("Failed to create profiles table: \(error.localizedDescription)")
+        }
+    }
+    
+    private func createDevicesTable() {
+        do {
+            try db.run(devicesTable.create(ifNotExists: true) { table in
+                table.column(deviceId, primaryKey: true)
+                table.column(deviceProfileId)
+                table.column(deviceName)
+                table.column(deviceLastActive)
+                table.column(deviceIsActive)
+                
+                table.foreignKey(deviceProfileId, references: profilesTable, profileId, update: .cascade, delete: .cascade)
+            })
+            logger.debug("Devices table created or verified")
+        } catch {
+            logger.error("Failed to create devices table: \(error.localizedDescription)")
+        }
+    }
+    
     // MARK: - CRUD Methods
     
     /// Inserts a Reservation into the database.
@@ -181,7 +241,9 @@ class SQLiteManager {
                 sessionUserName <- session.userName,
                 sessionIsEditing <- session.isEditing,
                 sessionLastUpdate <- session.lastUpdate,
-                sessionIsActive <- session.isActive
+                sessionIsActive <- session.isActive,
+                sessionDeviceName <- session.deviceName,
+                sessionProfileImageURL <- session.profileImageURL
             )
             try db.run(insert)
             logger.info("Inserted/Updated session: \(session.id)")
@@ -299,5 +361,129 @@ class SQLiteManager {
             logger.error("Failed to fetch sessions: \(error.localizedDescription)")
         }
         return sessions
+    }
+    
+    // Add profile methods
+    func insertProfile(_ profile: Profile) {
+        do {
+            let insert = profilesTable.insert(or: .replace,
+                profileId <- profile.id,
+                profileFirstName <- profile.firstName,
+                profileLastName <- profile.lastName,
+                profileEmail <- profile.email,
+                profileImageURL <- profile.imageURL,
+                profileCreatedAt <- profile.createdAt,
+                profileUpdatedAt <- profile.updatedAt
+            )
+            try db.run(insert)
+            
+            // Insert or update devices
+            for device in profile.devices {
+                insertDevice(device, profileId: profile.id)
+            }
+            
+            logger.info("Inserted/Updated profile: \(profile.id)")
+        } catch {
+            logger.error("Failed to insert profile: \(error.localizedDescription)")
+        }
+    }
+    
+    func insertDevice(_ device: Device, profileId: String) {
+        do {
+            let insert = devicesTable.insert(or: .replace,
+                deviceId <- device.id,
+                deviceProfileId <- profileId,
+                deviceName <- device.name,
+                deviceLastActive <- device.lastActive,
+                deviceIsActive <- device.isActive
+            )
+            try db.run(insert)
+            logger.info("Inserted/Updated device: \(device.id) for profile: \(profileId)")
+        } catch {
+            logger.error("Failed to insert device: \(error.localizedDescription)")
+        }
+    }
+    
+    func getProfile(withID id: String) -> Profile? {
+        do {
+            let query = profilesTable.filter(profileId == id)
+            
+            guard let row = try db.pluck(query) else {
+                logger.debug("No profile found with ID: \(id)")
+                return nil
+            }
+            
+            // Get devices for this profile
+            let devices = try getDevices(forProfileID: id)
+            
+            return Profile(
+                id: row[profileId],
+                firstName: row[profileFirstName],
+                lastName: row[profileLastName],
+                email: row[profileEmail],
+                imageURL: row[profileImageURL],
+                devices: devices,
+                createdAt: row[profileCreatedAt],
+                updatedAt: row[profileUpdatedAt]
+            )
+        } catch {
+            logger.error("Failed to get profile: \(error.localizedDescription)")
+            return nil
+        }
+    }
+    
+    func getDevices(forProfileID profileId: String) throws -> [Device] {
+        let query = devicesTable.filter(deviceProfileId == profileId)
+        var devices: [Device] = []
+        
+        for row in try db.prepare(query) {
+            let device = Device(
+                id: row[deviceId],
+                name: row[deviceName],
+                lastActive: row[deviceLastActive],
+                isActive: row[deviceIsActive]
+            )
+            devices.append(device)
+        }
+        
+        return devices
+    }
+    
+    func getAllProfiles() -> [Profile] {
+        do {
+            var profiles: [Profile] = []
+            
+            for row in try db.prepare(profilesTable) {
+                let id = row[profileId]
+                let devices = try getDevices(forProfileID: id)
+                
+                let profile = Profile(
+                    id: id,
+                    firstName: row[profileFirstName],
+                    lastName: row[profileLastName],
+                    email: row[profileEmail],
+                    imageURL: row[profileImageURL],
+                    devices: devices,
+                    createdAt: row[profileCreatedAt],
+                    updatedAt: row[profileUpdatedAt]
+                )
+                profiles.append(profile)
+            }
+            
+            return profiles
+        } catch {
+            logger.error("Failed to get all profiles: \(error.localizedDescription)")
+            return []
+        }
+    }
+    
+    func updateDeviceStatus(deviceId: String, isActive: Bool) {
+        do {
+            let device = devicesTable.filter(self.deviceId == deviceId)
+            try db.run(device.update(deviceIsActive <- isActive, deviceLastActive <- Date()))
+            logger.info("Updated device status: \(deviceId), isActive: \(isActive)")
+        } catch {
+            logger.error("Failed to update device status: \(error.localizedDescription)")
+        }
     }
 }

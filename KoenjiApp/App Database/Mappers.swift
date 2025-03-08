@@ -9,6 +9,7 @@
 import SQLite
 import Foundation
 import OSLog
+import UIKit
 
 @MainActor
 struct ReservationMapper {
@@ -84,6 +85,239 @@ struct ReservationMapper {
         
         logger.debug("Successfully mapped reservation: \(reservation.name) with \(tablesArray.count) tables")
         return reservation
+    }
+    
+    
+    /// Handles a session update from Firebase
+    ///
+    /// This method processes a session update from Firebase and updates the local database.
+    ///
+    /// - Parameters:
+    ///   - id: The ID of the session
+    ///   - data: The session data from Firebase
+    static func handleSessionUpdate(id: String, data: [String: Any]) async {
+        // Extract session data
+        guard let uuid = data["uuid"] as? String,
+              let userName = data["userName"] as? String,
+              let isEditing = data["isEditing"] as? Bool,
+              let lastUpdateTimestamp = data["lastUpdate"] as? TimeInterval,
+              let isActive = data["isActive"] as? Bool else {
+            logger.error("Invalid session data for ID: \(id)")
+            return
+        }
+        
+        let lastUpdate = Date(timeIntervalSince1970: lastUpdateTimestamp)
+        let deviceName = data["deviceName"] as? String ?? "Unknown Device"
+        let profileImageURL = data["profileImageURL"] as? String
+        
+        // Create the session
+        let session = Session(
+            id: id,
+            uuid: uuid,
+            userName: userName,
+            isEditing: isEditing,
+            lastUpdate: lastUpdate,
+            isActive: isActive,
+            deviceName: deviceName,
+            profileImageURL: profileImageURL
+        )
+        
+        // Update the local database
+        SQLiteManager.shared.insertSession(session)
+        
+        // Update the session store - already on main actor
+        // Check if the session already exists in the store
+        if let index = SessionStore.shared.sessions.firstIndex(where: { $0.id == id && $0.uuid == uuid }) {
+            // Update the existing session
+            SessionStore.shared.sessions[index] = session
+        } else {
+            // Add the new session
+            SessionStore.shared.sessions.append(session)
+            SessionStore.shared.sessions = Array(Set(SessionStore.shared.sessions))
+        }
+        
+        // Check if we need to manage devices for this profile
+        if let profile = SQLiteManager.shared.getProfile(withID: id) {
+            // Log warning if there are too many devices
+            if profile.devices.count > 5 {
+                logger.warning("Profile \(id) has \(profile.devices.count) devices, which is more than recommended.")
+            }
+        }
+        
+        // Check if we need to create a profile for this session
+        // No profile exists, create one from the session
+        if SQLiteManager.shared.getProfile(withID: id) == nil {
+            let emailToUse = "user@example.com" // Default email
+            
+            // Extract first name and last name from userName
+            let components = userName.components(separatedBy: " ")
+            let firstName = components.first ?? ""
+            let lastName = components.count > 1 ? components.dropFirst().joined(separator: " ") : ""
+            
+            // Create a device for this session
+            let device = Device(
+                id: uuid,
+                name: deviceName,
+                lastActive: lastUpdate,
+                isActive: isActive
+            )
+            
+            // Create the profile
+            let profile = Profile(
+                id: id,
+                firstName: firstName,
+                lastName: lastName,
+                email: emailToUse,
+                imageURL: nil,
+                devices: [device],
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            
+            // Save the profile
+            SQLiteManager.shared.insertProfile(profile)
+            
+            // Update the profile store - already on main actor
+            ProfileStore.shared.updateProfile(profile)
+            
+            // If this is the current user's profile, update the current profile
+            let userIdentifier = UserDefaults.standard.string(forKey: "userIdentifier") ?? ""
+            if profile.id == userIdentifier {
+                ProfileStore.shared.setCurrentProfile(profile)
+            }
+            
+            logger.info("Created profile from session: \(id)")
+        } else {
+            // Profile exists, update the device
+            if let profile = SQLiteManager.shared.getProfile(withID: id) {
+                var updatedProfile = profile
+                
+                // Check if this device is already in the profile
+                if let index = profile.devices.firstIndex(where: { $0.id == uuid }) {
+                    // Update the existing device
+                    updatedProfile.devices[index].lastActive = lastUpdate
+                    updatedProfile.devices[index].isActive = isActive
+                    
+                    // Update the device name if it's unknown or different
+                    if updatedProfile.devices[index].name == "Unknown Device" ||
+                       (deviceName != "Unknown Device" && updatedProfile.devices[index].name != deviceName) {
+                        updatedProfile.devices[index].name = deviceName
+                    }
+                } else {
+                    // Add this device to the profile
+                    let device = Device(
+                        id: uuid,
+                        name: deviceName,
+                        lastActive: lastUpdate,
+                        isActive: isActive
+                    )
+                    updatedProfile.devices.append(device)
+                }
+                
+                updatedProfile.updatedAt = Date()
+                
+                // Save the updated profile
+                SQLiteManager.shared.insertProfile(updatedProfile)
+                
+                // Update the profile store - already on main actor
+                ProfileStore.shared.updateProfile(updatedProfile)
+                
+                // If this is the current user's profile, update the current profile
+                let userIdentifier = UserDefaults.standard.string(forKey: "userIdentifier") ?? ""
+                if updatedProfile.id == userIdentifier {
+                    ProfileStore.shared.setCurrentProfile(updatedProfile)
+                }
+                
+                logger.info("Updated profile device from session: \(id)")
+            }
+        }
+        
+        logger.info("Session updated: \(id)")
+    }
+    
+    /// Handles a profile update from Firebase
+    ///
+    /// This method processes a profile update from Firebase and updates the local database.
+    ///
+    /// - Parameters:
+    ///   - id: The ID of the profile
+    ///   - data: The profile data from Firebase
+    static func handleProfileUpdate(id: String, data: [String: Any]) async {
+        // Extract profile data
+        guard let firstName = data["firstName"] as? String,
+              let lastName = data["lastName"] as? String,
+              let email = data["email"] as? String,
+              let createdAtTimestamp = data["createdAt"] as? TimeInterval,
+              let updatedAtTimestamp = data["updatedAt"] as? TimeInterval else {
+            logger.error("Invalid profile data for ID: \(id)")
+            return
+        }
+        
+        let createdAt = Date(timeIntervalSince1970: createdAtTimestamp)
+        let updatedAt = Date(timeIntervalSince1970: updatedAtTimestamp)
+        let imageURL = data["imageURL"] as? String
+        
+        // Extract devices
+        var devices: [Device] = []
+        if let devicesData = data["devices"] as? [[String: Any]] {
+            for deviceData in devicesData {
+                if let deviceId = deviceData["id"] as? String,
+                   let deviceName = deviceData["name"] as? String,
+                   let lastActiveTimestamp = deviceData["lastActive"] as? TimeInterval,
+                   let isActive = deviceData["isActive"] as? Bool {
+                    
+                    let device = Device(
+                        id: deviceId,
+                        name: deviceName,
+                        lastActive: Date(timeIntervalSince1970: lastActiveTimestamp),
+                        isActive: isActive
+                    )
+                    devices.append(device)
+                }
+            }
+        }
+        
+        // Create the profile
+        let profile = Profile(
+            id: id,
+            firstName: firstName,
+            lastName: lastName,
+            email: email,
+            imageURL: imageURL,
+            devices: devices,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+        
+        // Update the local database
+        SQLiteManager.shared.insertProfile(profile)
+        
+        // Update the profile store - already on main actor
+        ProfileStore.shared.updateProfile(profile)
+        
+        // If this is the current user's profile, update the current profile
+        let userIdentifier = UserDefaults.standard.string(forKey: "userIdentifier") ?? ""
+        if profile.id == userIdentifier {
+            ProfileStore.shared.setCurrentProfile(profile)
+            
+            // Check if the current device has been deactivated remotely
+            // Get the current scene phase
+            let scenePhase = UIApplication.shared.applicationState
+            
+            // Only check device activation status if the app is active
+            // This prevents false logout when returning from background
+            if scenePhase == .active {
+                // Add a small delay to allow session updates to complete
+                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+                
+                if SessionManager.shared.checkDeviceActivationStatus() {
+                    // Post a notification to trigger logout in the app
+                    NotificationCenter.default.post(name: NSNotification.Name("RemoteLogoutRequested"), object: nil)
+                }
+            }
+        }
+        
+        logger.info("Profile updated: \(id)")
     }
 }
 
