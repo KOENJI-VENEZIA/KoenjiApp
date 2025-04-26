@@ -8,13 +8,12 @@
 
 import Foundation
 import SQLite
-import OSLog
+import Logging
 
 typealias Expression = SQLite.Expression
 
 @MainActor
 class SQLiteManager {
-    let logger = Logger(subsystem: "com.koenjiapp", category: "SQLiteManager")
     // MARK: - Static Properties
     static let shared = SQLiteManager()
     
@@ -87,9 +86,9 @@ class SQLiteManager {
             createSessionsTable()
             createProfilesTable()
             createDevicesTable()
-            logger.info("SQLite database initialized at: \(dbURL.path)")
+            AppLog.info("SQLite database initialized at: \(dbURL.path)")
         } catch {
-            logger.error("SQLite initialization failed: \(error.localizedDescription)")
+            AppLog.error("SQLite initialization failed: \(error.localizedDescription)")
             fatalError("SQLite initialization failed: \(error.localizedDescription)")
         }
     }
@@ -125,7 +124,7 @@ class SQLiteManager {
                     table.column(colorHue)
                     table.column(preferredLanguage)
                 })
-                logger.debug("Reservations table created")
+                AppLog.debug("Reservations table created")
             } else {
                 // Check if the preferredLanguage column exists
                 let hasPreferredLanguage = try db.scalar("SELECT COUNT(*) FROM pragma_table_info('reservations') WHERE name='preferredLanguage'") as? Int64 == 1
@@ -133,11 +132,11 @@ class SQLiteManager {
                 if !hasPreferredLanguage {
                     // Add the new column if it doesn't exist
                     try db.run(reservationsTable.addColumn(preferredLanguage))
-                    logger.notice("Added preferredLanguage column to existing reservations table")
+                    AppLog.info("Added preferredLanguage column to existing reservations table")
                 }
             }
         } catch {
-            logger.error("Database operation failed: \(error.localizedDescription)")
+            AppLog.error("Database operation failed: \(error.localizedDescription)")
         }
     }
     
@@ -154,9 +153,9 @@ class SQLiteManager {
                 table.column(sessionDeviceName)
                 table.column(sessionProfileImageURL)
             })
-            logger.debug("Sessions table created or verified")
+            AppLog.debug("Sessions table created or verified")
         } catch {
-            logger.error("Failed to create sessions table: \(error.localizedDescription)")
+            AppLog.error("Failed to create sessions table: \(error.localizedDescription)")
         }
     }
     
@@ -171,9 +170,9 @@ class SQLiteManager {
                 table.column(profileCreatedAt)
                 table.column(profileUpdatedAt)
             })
-            logger.debug("Profiles table created or verified")
+            AppLog.debug("Profiles table created or verified")
         } catch {
-            logger.error("Failed to create profiles table: \(error.localizedDescription)")
+            AppLog.error("Failed to create profiles table: \(error.localizedDescription)")
         }
     }
     
@@ -188,9 +187,9 @@ class SQLiteManager {
                 
                 table.foreignKey(deviceProfileId, references: profilesTable, profileId, update: .cascade, delete: .cascade)
             })
-            logger.debug("Devices table created or verified")
+            AppLog.debug("Devices table created or verified")
         } catch {
-            logger.error("Failed to create devices table: \(error.localizedDescription)")
+            AppLog.error("Failed to create devices table: \(error.localizedDescription)")
         }
     }
     
@@ -227,9 +226,9 @@ class SQLiteManager {
                preferredLanguage <- reservation.preferredLanguage
            )
            try db.run(insert)
-           logger.info("Inserted/Updated reservation: \(reservation.id)")
+           AppLog.info("Inserted/Updated reservation: \(reservation.id)")
        } catch {
-           logger.error("Failed to insert reservation: \(error.localizedDescription)")
+           AppLog.error("Failed to insert reservation: \(error.localizedDescription)")
        }
     }
     
@@ -246,9 +245,9 @@ class SQLiteManager {
                 sessionProfileImageURL <- session.profileImageURL
             )
             try db.run(insert)
-            logger.info("Inserted/Updated session: \(session.id)")
+            AppLog.info("Inserted/Updated session: \(session.id)")
         } catch {
-            logger.error("Failed to insert session: \(error.localizedDescription)")
+            AppLog.error("Failed to insert session: \(error.localizedDescription)")
         }
     }
     
@@ -284,7 +283,7 @@ class SQLiteManager {
             )
             try db.run(update)
         } catch {
-            logger.error("SQLite Update error: \(error)")
+            AppLog.error("SQLite Update error: \(error)")
         }
     }
     
@@ -293,9 +292,9 @@ class SQLiteManager {
         do {
             let row = reservationsTable.filter(id == reservationID.uuidString)
             try db.run(row.delete())
-            logger.info("Deleted reservation: \(reservationID)")
+            AppLog.info("Deleted reservation: \(reservationID)")
         } catch {
-            logger.error("Failed to delete reservation: \(error.localizedDescription)")
+            AppLog.error("Failed to delete reservation: \(error.localizedDescription)")
         }
     }
     
@@ -304,7 +303,7 @@ class SQLiteManager {
             let row = sessionsTable.filter(id == sessionID)
             try db.run(row.delete())
         } catch {
-            logger.error("SQLite Delete error: \(error)")
+            AppLog.error("SQLite Delete error: \(error)")
         }
     }
     
@@ -312,18 +311,18 @@ class SQLiteManager {
         do {
             // This deletes all rows in the table.
             try db.run(reservationsTable.delete())
-            logger.notice("All reservations deleted from database")
+            AppLog.info("All reservations deleted from database")
         } catch {
-            logger.error("Failed to delete all reservations: \(error.localizedDescription)")
+            AppLog.error("Failed to delete all reservations: \(error.localizedDescription)")
         }
     }
     
     func deleteAllSessions() {
         do {
             try db.run(sessionsTable.delete())
-            logger.notice("All sessions deleted from database")
+            AppLog.info("All sessions deleted from database")
         } catch {
-            logger.error("Failed to delete all sessions: \(error.localizedDescription)")
+            AppLog.error("Failed to delete all sessions: \(error.localizedDescription)")
         }
     }
     
@@ -333,17 +332,17 @@ class SQLiteManager {
         var reservations: [Reservation] = []
         do {
             for row in try db.prepare(reservationsTable) {
-                logger.debug("Processing row for reservation")
+                AppLog.debug("Processing row for reservation")
                 if let reservation = ReservationMapper.reservation(from: row) {
-                    logger.debug("Successfully mapped reservation: \(reservation.name)")
+                    AppLog.debug("Successfully mapped reservation: \(reservation.name)")
                     reservations.append(reservation)
                 }
             }
         } catch {
-            logger.error("Failed to fetch reservations: \(error.localizedDescription)")
+            AppLog.error("Failed to fetch reservations: \(error.localizedDescription)")
         }
         let uniqueReservations = Dictionary(grouping: reservations, by: { $0.id }).compactMap { $0.value.first }
-        logger.info("Fetched \(uniqueReservations.count) unique reservations")
+        AppLog.info("Fetched \(uniqueReservations.count) unique reservations")
         return uniqueReservations
     }
     
@@ -351,14 +350,14 @@ class SQLiteManager {
         var sessions: [Session] = []
         do {
             for row in try db.prepare(sessionsTable) {
-                logger.debug("Processing row for session")
+                AppLog.debug("Processing row for session")
                 if let session = SessionMapper.session(from: row) {
                     sessions.append(session)
                 }
             }
-            logger.info("Fetched \(sessions.count) sessions")
+            AppLog.info("Fetched \(sessions.count) sessions")
         } catch {
-            logger.error("Failed to fetch sessions: \(error.localizedDescription)")
+            AppLog.error("Failed to fetch sessions: \(error.localizedDescription)")
         }
         return sessions
     }
@@ -382,9 +381,9 @@ class SQLiteManager {
                 insertDevice(device, profileId: profile.id)
             }
             
-            logger.info("Inserted/Updated profile: \(profile.id)")
+            AppLog.info("Inserted/Updated profile: \(profile.id)")
         } catch {
-            logger.error("Failed to insert profile: \(error.localizedDescription)")
+            AppLog.error("Failed to insert profile: \(error.localizedDescription)")
         }
     }
     
@@ -398,9 +397,9 @@ class SQLiteManager {
                 deviceIsActive <- device.isActive
             )
             try db.run(insert)
-            logger.info("Inserted/Updated device: \(device.id) for profile: \(profileId)")
+            AppLog.info("Inserted/Updated device: \(device.id) for profile: \(profileId)")
         } catch {
-            logger.error("Failed to insert device: \(error.localizedDescription)")
+            AppLog.error("Failed to insert device: \(error.localizedDescription)")
         }
     }
     
@@ -409,7 +408,7 @@ class SQLiteManager {
             let query = profilesTable.filter(profileId == id)
             
             guard let row = try db.pluck(query) else {
-                logger.debug("No profile found with ID: \(id)")
+                AppLog.debug("No profile found with ID: \(id)")
                 return nil
             }
             
@@ -427,7 +426,7 @@ class SQLiteManager {
                 updatedAt: row[profileUpdatedAt]
             )
         } catch {
-            logger.error("Failed to get profile: \(error.localizedDescription)")
+            AppLog.error("Failed to get profile: \(error.localizedDescription)")
             return nil
         }
     }
@@ -472,7 +471,7 @@ class SQLiteManager {
             
             return profiles
         } catch {
-            logger.error("Failed to get all profiles: \(error.localizedDescription)")
+            AppLog.error("Failed to get all profiles: \(error.localizedDescription)")
             return []
         }
     }
@@ -481,9 +480,9 @@ class SQLiteManager {
         do {
             let device = devicesTable.filter(self.deviceId == deviceId)
             try db.run(device.update(deviceIsActive <- isActive, deviceLastActive <- Date()))
-            logger.info("Updated device status: \(deviceId), isActive: \(isActive)")
+            AppLog.info("Updated device status: \(deviceId), isActive: \(isActive)")
         } catch {
-            logger.error("Failed to update device status: \(error.localizedDescription)")
+            AppLog.error("Failed to update device status: \(error.localizedDescription)")
         }
     }
 }

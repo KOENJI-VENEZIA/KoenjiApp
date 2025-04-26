@@ -1,7 +1,8 @@
 import UIKit
+import Firebase
 import FirebaseFunctions
 import UserNotifications
-import OSLog
+import Logging
 
 typealias LegacyNotificationHandler =
   @convention(block) (UNUserNotificationCenter, UNNotificationResponse, @escaping () -> Void) -> Void
@@ -12,7 +13,6 @@ struct LegacyNotificationHandlerBox: @unchecked Sendable {
 }
 
 final class AppDelegate: UIResponder, UIApplicationDelegate {
-    let logger = Logger(subsystem: "com.koenjiapp", category: "AppDelegate")
     var originalNotificationHandler: LegacyNotificationHandlerBox? = nil
     
     // Check if we're running in preview mode
@@ -24,13 +24,26 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        logger.info("Application finished launching")
+
+        
+        // Initialize the new logging system (once for the entire app)
+        AppLog.initialize()
+        
+        // Enable Firebase logging in production builds only
+        #if DEBUG
+        AppLog.setFirebaseLogging(enabled: false)
+        #else
+        AppLog.setFirebaseLogging(enabled: true)
+        #endif
+        
+        // Log using the new system
+        AppLog.info("Application finished launching", category: "AppDelegate")
 
         // Only setup web reservation notifications if not in preview mode
         if !isPreview {
             setupWebReservationNotifications()
         } else {
-            logger.debug("Preview mode: Skipping web reservation notifications setup")
+            AppLog.debug("Preview mode: Skipping web reservation notifications setup")
         }
         
         // Set NotificationManager as the delegate
@@ -39,20 +52,20 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         Task {
             do {
                 let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
-                logger.info("Notification permission status: \(granted ? "granted" : "denied")")
+                AppLog.info("Notification permission status: \(granted ? "granted" : "denied")")
             } catch {
-                logger.error("Failed to request notification permission: \(error.localizedDescription)")
+                AppLog.error("Failed to request notification permission: \(error.localizedDescription)")
             }
         }
         return true
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
-        logger.info("Application will terminate")
+        AppLog.info("Application will terminate")
         
         // Skip session updates in preview mode
         if isPreview {
-            logger.debug("Preview mode: Skipping session update on termination")
+            AppLog.debug("Preview mode: Skipping session update on termination")
             return
         }
         
@@ -62,7 +75,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             session.isActive = false
             // Since we're terminating, we want this to be synchronous
             SessionStore.shared.updateSession(session)
-            logger.debug("Session marked as inactive for device: \(deviceUUID)")
+            AppLog.debug("Session marked as inactive for device: \(deviceUUID)")
         }
     }
 }

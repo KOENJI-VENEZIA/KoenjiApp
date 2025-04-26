@@ -1,6 +1,5 @@
 import Firebase
 import SwiftUI
-import OSLog
 import FirebaseFunctions
 import FirebaseStorage
 
@@ -9,7 +8,8 @@ import FirebaseStorage
 /// This class initializes and manages the various services and stores used in the app.
 /// It provides a central location for initializing and accessing all the app's dependencies.
 final class AppDependencies: ObservableObject {
-    let logger = Logger(subsystem: "com.koenjiapp", category: "AppDependencies")
+    
+    
     // MARK: - Dependencies
     var store: ReservationStore
     var tableAssignment: TableAssignmentService
@@ -48,8 +48,8 @@ final class AppDependencies: ObservableObject {
             // Only configure Firebase if it hasn't been configured yet
             if FirebaseApp.app() == nil {
                 FirebaseApp.configure()
-                let logger = Logger(subsystem: "com.koenjiapp", category: "AppDependencies")
-                logger.info("Firebase configured")
+                // Use print instead of logger here to avoid actor isolation issues
+                print("[AppDependencies] Firebase configured")
             }
         }
     }
@@ -105,7 +105,7 @@ final class AppDependencies: ObservableObject {
     
     @MainActor
     init() {
-        logger.debug("Initializing app dependencies")
+        AppLog.debug("Initializing app dependencies")
         
         // Check if we're running in preview mode
         let isPreview = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
@@ -114,7 +114,7 @@ final class AppDependencies: ObservableObject {
         if !isPreview {
             // Regular initialization with Firebase - must be done before any Firebase services are used
 //            FirebaseApp.configure()
-            logger.info("Firebase configured")
+            AppLog.info("Firebase configured")
         }
         
         // Create a preview-safe database reference that doesn't try to connect to Firebase
@@ -208,17 +208,17 @@ final class AppDependencies: ObservableObject {
                 self.reservationService.setupFirebaseListeners()
             }
             
-            logger.info("Firebase services initialized")
+            AppLog.info("Firebase services initialized")
         } else {
             // Add mock data for preview
-            logger.info("Running in preview mode - using mock data")
+            AppLog.info("Running in preview mode - using mock data")
             store.reservations = MockData.mockReservations
             ProfileStore.shared.updateProfile(MockData.mockProfile)
             ProfileStore.shared.setCurrentProfile(MockData.mockProfile)
             SessionStore.shared.sessions = MockData.mockSessions
         }
         
-        logger.info("Dependencies initialization completed")
+        AppLog.info("Dependencies initialization completed")
     }
 
     // MARK: - Preview Extension

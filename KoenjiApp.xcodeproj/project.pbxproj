@@ -18,6 +18,7 @@
 		A06F69BB2D6F07B900CA2822 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = A06F69BA2D6F07B900CA2822 /* FirebaseStorage */; };
 		A06F69BE2D70F29400CA2822 /* ScreenshotSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = A06F69BD2D70F29400CA2822 /* ScreenshotSwiftUI */; };
 		A06F69C12D70F2B600CA2822 /* EmojiPalette in Frameworks */ = {isa = PBXBuildFile; productRef = A06F69C02D70F2B600CA2822 /* EmojiPalette */; };
+		A09A820C2DBD8B87003173A4 /* Logging in Frameworks */ = {isa = PBXBuildFile; productRef = A09A820B2DBD8B87003173A4 /* Logging */; };
 		A0C599D82D42B0FD004A3423 /* Launchscreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */; };
 /* End PBXBuildFile section */
 
@@ -69,11 +70,6 @@
 			path = KoenjiApp;
 			sourceTree = "<group>";
 		};
-		A0D2CE502D7929AB004E8969 /* KoenjiAppTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = KoenjiAppTests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -87,6 +83,7 @@
 				A06F69C12D70F2B600CA2822 /* EmojiPalette in Frameworks */,
 				A06F69B52D6F07B900CA2822 /* FirebaseCore in Frameworks */,
 				A06F69AE2D6E7B8700CA2822 /* SwipeActions in Frameworks */,
+				A09A820C2DBD8B87003173A4 /* Logging in Frameworks */,
 				A06F69B12D6F07B900CA2822 /* FirebaseAnalytics in Frameworks */,
 				A06F69BB2D6F07B900CA2822 /* FirebaseStorage in Frameworks */,
 				A06F69B32D6F07B900CA2822 /* FirebaseAuth in Frameworks */,
@@ -117,7 +114,6 @@
 			children = (
 				A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */,
 				A03E7C192D316538000A38AC /* KoenjiApp */,
-				A0D2CE502D7929AB004E8969 /* KoenjiAppTests */,
 				A03B7B6F2D43B18200FF8FF7 /* Frameworks */,
 				A0775E252D1CAA1F00068B00 /* Products */,
 			);
@@ -164,6 +160,7 @@
 				A06F69BD2D70F29400CA2822 /* ScreenshotSwiftUI */,
 				A06F69C02D70F2B600CA2822 /* EmojiPalette */,
 				A06C2D8D2D75DB480017F621 /* FirebaseFunctions */,
+				A09A820B2DBD8B87003173A4 /* Logging */,
 			);
 			productName = KoenjiApp;
 			productReference = A0775E242D1CAA1F00068B00 /* KoenjiApp.app */;
@@ -181,9 +178,6 @@
 			);
 			dependencies = (
 				A0D2CE542D7929AB004E8969 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				A0D2CE502D7929AB004E8969 /* KoenjiAppTests */,
 			);
 			name = KoenjiAppTests;
 			packageProductDependencies = (
@@ -231,6 +225,7 @@
 				A06F69AF2D6F07B900CA2822 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				A06F69BC2D70F29400CA2822 /* XCRemoteSwiftPackageReference "ScreenshotSwiftUI" */,
 				A06F69BF2D70F2B600CA2822 /* XCRemoteSwiftPackageReference "EmojiPalette" */,
+				A09A80C32DBD8AE0003173A4 /* XCRemoteSwiftPackageReference "swift-log" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A0775E252D1CAA1F00068B00 /* Products */;
@@ -606,6 +601,14 @@
 				minimumVersion = 1.0.0;
 			};
 		};
+		A09A80C32DBD8AE0003173A4 /* XCRemoteSwiftPackageReference "swift-log" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-log.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.6.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -663,6 +666,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A06F69BF2D70F2B600CA2822 /* XCRemoteSwiftPackageReference "EmojiPalette" */;
 			productName = EmojiPalette;
+		};
+		A09A820B2DBD8B87003173A4 /* Logging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A09A80C32DBD8AE0003173A4 /* XCRemoteSwiftPackageReference "swift-log" */;
+			productName = Logging;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

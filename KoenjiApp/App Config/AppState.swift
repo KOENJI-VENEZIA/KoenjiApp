@@ -6,10 +6,10 @@
 //
 
 import SwiftUI
-import OSLog
 
+@MainActor
 class AppState: ObservableObject {
-    let logger = Logger(subsystem: "com.koenjiapp", category: "AppState")
+
 
     // MARK: - Published Properties
     @Published var inspectorColor: Color = Color.inspector_generic
@@ -37,7 +37,7 @@ class AppState: ObservableObject {
     init(selectedCategory: Reservation.ReservationCategory = .lunch) {
         self.selectedCategory = selectedCategory
         self.selectedCategory = updateCategoryForDate()
-        logger.info("AppState initialized with category: \(selectedCategory.localized)")
+        AppLog.info("AppState initialized with category: \(selectedCategory.localized)")
     }
 
     private func updateCategoryForDate() -> Reservation.ReservationCategory {
@@ -54,7 +54,7 @@ class AppState: ObservableObject {
             category = .noBookingZone
         }
         
-        logger.debug("Updated category to \(category.localized) for time \(hour):\(minute)")
+        AppLog.debug("Updated category to \(category.localized) for time \(hour):\(minute)")
         return category
     }
 }

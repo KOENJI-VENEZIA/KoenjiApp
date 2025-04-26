@@ -692,6 +692,7 @@
       }
     },
     "%@,%@,%@,%@,%@,%@,%@,%@,%@,%@,%@,%lld,%@\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -708,6 +709,7 @@
       }
     },
     "%@,Cena,%@,%@,%@,%@,%@,,%@,,\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -730,6 +732,7 @@
       }
     },
     "%@,Pranzo,%@,%@,%@,%@,%@,%@,,%lld,%@\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1571,6 +1574,7 @@
       }
     },
     "Bento,%@\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1848,6 +1852,7 @@
       }
     },
     "Categoria,Totale\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1914,6 +1919,7 @@
       }
     },
     "Cena,%@\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2018,6 +2024,7 @@
       }
     },
     "Cocai,%@\n\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2440,6 +2447,7 @@
       }
     },
     "Data,Categoria,Lettura Cassa,Fatture,Yami,Yami Pulito,Totale Shiro,Bento,Cocai,Persone,Spesa Media\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3022,6 +3030,7 @@
 
     },
     "Esporta" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3044,6 +3053,7 @@
       }
     },
     "Esporta vendite %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3066,6 +3076,7 @@
       }
     },
     "Excel/CSV" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3126,6 +3137,7 @@
       }
     },
     "Fatture,%@\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3953,6 +3965,7 @@
       }
     },
     "Lettura Cassa,%@\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4267,6 +4280,7 @@
       }
     },
     "Mese,Pranzo,Cena,Totale Vendite,Lettura Cassa,Fatture,Yami Lordo,Yami Pulito,Yami Netto,Bento,Cocai,Persone,Spesa Media\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5423,6 +5437,7 @@
       }
     },
     "Persone totali,%lld\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5514,6 +5529,7 @@
       }
     },
     "Pranzo,%@\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6073,6 +6089,7 @@
       }
     },
     "Riepilogo Annuale %lld\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6117,6 +6134,7 @@
       }
     },
     "Riepilogo mensile - %@ %lld\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6381,6 +6399,7 @@
       }
     },
     "Scegli il formato del file" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6728,6 +6747,7 @@
       }
     },
     "Spesa media a pranzo,%@\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7350,6 +7370,7 @@
       }
     },
     "Totale Vendite,%@\n\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7617,6 +7638,7 @@
       }
     },
     "Vendite_%@_%lld.csv" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7633,6 +7655,7 @@
       }
     },
     "Vendite_Anno_%lld.csv" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7824,6 +7847,7 @@
       }
     },
     "Yami Lordo,%@\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7868,6 +7892,7 @@
       }
     },
     "Yami Netto,%@\n\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7912,6 +7937,7 @@
       }
     },
     "Yami Pulito,%@\n" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

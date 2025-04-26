@@ -18,7 +18,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 
     
         func setupWebReservationNotifications() {
-                logger.info("Setting up web reservation notifications")
+                AppLog.info("Setting up web reservation notifications")
     
                 // Register for remote notifications
                 UIApplication.shared.registerForRemoteNotifications()
@@ -80,7 +80,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                     return
                 }
     
-                logger.info("Processing web reservation notification action: \(response.actionIdentifier)")
+                    await AppLog.info("Processing web reservation notification action: \(response.actionIdentifier)")
     
                 let action = response.actionIdentifier
     
@@ -99,7 +99,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     
                 default:
                     // User just tapped the notification
-                    logger.info("Opening web reservation from notification: \(uuid)")
+                    await AppLog.info("Opening web reservation from notification: \(uuid)")
                     // Changing `selectedReservationID` is presumably main-actor isolated
                     await MainActor.run {
                         NotificationManager.shared.selectedReservationID = uuid
@@ -128,11 +128,11 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             @MainActor private func handleApproveReservation(uuid: UUID) {
                 let dependencies = AppDependencies.shared
                 guard let reservation = findReservation(with: uuid, in: dependencies) else {
-                    logger.warning("Could not find reservation with ID: \(uuid)")
+                    AppLog.warning("Could not find reservation with ID: \(uuid)")
                     return
                 }
     
-                logger.info("Approving web reservation from notification: \(uuid)")
+                AppLog.info("Approving web reservation from notification: \(uuid)")
                 // This call is presumably either sync or async on the main actor. If it's truly async, we can do:
                 Task {
                     await dependencies.reservationService.approveWebReservation(reservation)
@@ -143,11 +143,11 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             @MainActor private func handleDeclineReservation(uuid: UUID) {
                 let dependencies = AppDependencies.shared
                 guard let reservation = findReservation(with: uuid, in: dependencies) else {
-                    logger.warning("Could not find reservation with ID: \(uuid)")
+                    AppLog.warning("Could not find reservation with ID: \(uuid)")
                     return
                 }
     
-                logger.info("Declining web reservation from notification: \(uuid)")
+                AppLog.info("Declining web reservation from notification: \(uuid)")
     
                 // If separateReservation is synchronous, call directly
                 let updatedReservation = dependencies.reservationService.separateReservation(
@@ -177,7 +177,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         func registerDeviceWithFirebaseSafely(token: String, deviceId: String) {
             // Check if we're running in preview mode
             if AppDependencies.isPreviewMode {
-                logger.debug("Preview mode: Skipping device registration with Firebase")
+                AppLog.debug("Preview mode: Skipping device registration with Firebase")
                 return
             }
             
@@ -200,17 +200,15 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                     }
     
                     // Log from within the detached task
-                    let logger = Logger(subsystem: "com.koenjiapp", category: "FirebaseTask")
-                    logger.info("Registering device token with Firebase")
+                    await AppLog.info("Registering device token with Firebase")
     
                     // Since this entire Task is detached, the non-Sendable result stays within
                     // the context of this task and never needs to cross boundaries
                     _ = try await functions.httpsCallable("registerDeviceToken").call(data)
     
-                    logger.info("Device successfully registered for push notifications")
+                    await AppLog.info("Device successfully registered for push notifications")
                 } catch {
-                    let logger = Logger(subsystem: "com.koenjiapp", category: "FirebaseTask")
-                    logger.error("Error registering device: \(error.localizedDescription)")
+                    await AppLog.error("Error registering device: \(error.localizedDescription)")
                 }
             }
         }
@@ -220,7 +218,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                 _ application: UIApplication,
                 didFailToRegisterForRemoteNotificationsWithError error: Error
             ) {
-                logger.error("Failed to register for remote notifications: \(error.localizedDescription)")
+                AppLog.error("Failed to register for remote notifications: \(error.localizedDescription)")
             }
     
             // Register device for push notifications
@@ -232,7 +230,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                 let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
                 let token = tokenParts.joined()
     
-                logger.info("Device registered for push notifications with token: \(token)")
+                AppLog.info("Device registered for push notifications with token: \(token)")
     
                 // Generate a unique device ID if not already stored
                 let deviceUUID = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
@@ -262,8 +260,9 @@ extension AppDependencies {
         
         // If we don't have a shared instance yet, that's a serious error
         // Log it and return a no-op implementation that won't crash
-        let logger = Logger(subsystem: "com.koenjiapp", category: "AppDependencies")
-        logger.error("Fatal: Failed to access shared AppDependencies. App must call initializeSharedInstance during launch")
+        Task { @MainActor in
+            AppLog.error("Fatal: Failed to access shared AppDependencies. App must call initializeSharedInstance during launch")
+        }
         
         // Instead of potentially crashing, we'll force a main thread operation
         // This is a last resort and should never happen in normal operation

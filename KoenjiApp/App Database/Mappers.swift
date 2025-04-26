@@ -8,13 +8,11 @@
 
 import SQLite
 import Foundation
-import OSLog
 import UIKit
 
 @MainActor
 struct ReservationMapper {
     // Static logger for use in static methods
-    static let logger = Logger(subsystem: "com.koenjiapp", category: "ReservationMapper")
     
     static func reservation(from row: Row) -> Reservation? {
         guard
@@ -24,7 +22,7 @@ struct ReservationMapper {
             let status = Reservation.ReservationStatus(rawValue: row[SQLiteManager.shared.status]),
             let reservationType = Reservation.ReservationType(rawValue: row[SQLiteManager.shared.reservationType])
         else {
-            logger.error("Failed to convert UUID or enums for reservation row")
+            AppLog.error("Failed to convert UUID or enums for reservation row")
             return nil
         }
         
@@ -35,29 +33,29 @@ struct ReservationMapper {
             do {
                 // First try to decode as an array of TableModel objects
                 tablesArray = try decoder.decode([TableModel].self, from: data)
-                logger.debug("Successfully decoded \(tablesArray.count) tables as TableModel objects")
+                AppLog.debug("Successfully decoded \(tablesArray.count) tables as TableModel objects")
             } catch {
-                logger.error("Failed to decode tables as TableModel array: \(error.localizedDescription)")
+                AppLog.error("Failed to decode tables as TableModel array: \(error.localizedDescription)")
                 
                 // If that fails, try to decode as an array of table IDs
                 do {
                     let tableIds = try decoder.decode([Int].self, from: data)
-                    logger.debug("Successfully decoded \(tableIds.count) table IDs")
+                    AppLog.debug("Successfully decoded \(tableIds.count) table IDs")
                     
                     // Convert table IDs to TableModel objects
                     tablesArray = tableIds.map { id in
                         TableModel(id: id, name: "Table \(id)", maxCapacity: 4, row: 0, column: 0) // Default values
                     }
-                    logger.debug("Converted \(tablesArray.count) table IDs to TableModel objects")
+                    AppLog.debug("Converted \(tablesArray.count) table IDs to TableModel objects")
                 } catch {
-                    logger.error("Failed to decode tables as ID array: \(error.localizedDescription)")
+                    AppLog.error("Failed to decode tables as ID array: \(error.localizedDescription)")
                     
                     // Log the actual JSON string for debugging
-                    logger.debug("Raw tables JSON: \(tablesString)")
+                    AppLog.debug("Raw tables JSON: \(tablesString)")
                 }
             }
         } else {
-            logger.warning("No tables data found for reservation")
+            AppLog.warning("No tables data found for reservation")
         }
         
         let reservation = Reservation(
@@ -83,7 +81,7 @@ struct ReservationMapper {
             preferredLanguage: row[SQLiteManager.shared.preferredLanguage]
         )
         
-        logger.debug("Successfully mapped reservation: \(reservation.name) with \(tablesArray.count) tables")
+        AppLog.debug("Successfully mapped reservation: \(reservation.name) with \(tablesArray.count) tables")
         return reservation
     }
     
@@ -102,7 +100,7 @@ struct ReservationMapper {
               let isEditing = data["isEditing"] as? Bool,
               let lastUpdateTimestamp = data["lastUpdate"] as? TimeInterval,
               let isActive = data["isActive"] as? Bool else {
-            logger.error("Invalid session data for ID: \(id)")
+            AppLog.error("Invalid session data for ID: \(id)")
             return
         }
         
@@ -140,7 +138,7 @@ struct ReservationMapper {
         if let profile = SQLiteManager.shared.getProfile(withID: id) {
             // Log warning if there are too many devices
             if profile.devices.count > 5 {
-                logger.warning("Profile \(id) has \(profile.devices.count) devices, which is more than recommended.")
+                AppLog.warning("Profile \(id) has \(profile.devices.count) devices, which is more than recommended.")
             }
         }
         
@@ -186,7 +184,7 @@ struct ReservationMapper {
                 ProfileStore.shared.setCurrentProfile(profile)
             }
             
-            logger.info("Created profile from session: \(id)")
+            AppLog.info("Created profile from session: \(id)")
         } else {
             // Profile exists, update the device
             if let profile = SQLiteManager.shared.getProfile(withID: id) {
@@ -228,11 +226,11 @@ struct ReservationMapper {
                     ProfileStore.shared.setCurrentProfile(updatedProfile)
                 }
                 
-                logger.info("Updated profile device from session: \(id)")
+                AppLog.info("Updated profile device from session: \(id)")
             }
         }
         
-        logger.info("Session updated: \(id)")
+        AppLog.info("Session updated: \(id)")
     }
     
     /// Handles a profile update from Firebase
@@ -249,7 +247,7 @@ struct ReservationMapper {
               let email = data["email"] as? String,
               let createdAtTimestamp = data["createdAt"] as? TimeInterval,
               let updatedAtTimestamp = data["updatedAt"] as? TimeInterval else {
-            logger.error("Invalid profile data for ID: \(id)")
+            AppLog.error("Invalid profile data for ID: \(id)")
             return
         }
         
@@ -317,14 +315,13 @@ struct ReservationMapper {
             }
         }
         
-        logger.info("Profile updated: \(id)")
+        AppLog.info("Profile updated: \(id)")
     }
 }
 
 @MainActor
 struct SessionMapper {
     // Static logger for use in static methods
-    static let logger = Logger(subsystem: "com.koenjiapp", category: "ReservationMapper")
     
     static func session(from row: Row) -> Session? {
         let session = Session(
@@ -335,7 +332,7 @@ struct SessionMapper {
             lastUpdate: row[SQLiteManager.shared.sessionLastUpdate],
             isActive: row[SQLiteManager.shared.sessionIsActive]
         )
-        logger.debug("Successfully mapped session: \(session.id)")
+        AppLog.debug("Successfully mapped session: \(session.id)")
         return session
     }
 }

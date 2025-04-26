@@ -1,6 +1,6 @@
 import AuthenticationServices
 import SwiftUI
-import OSLog
+import Logging
 import UIKit
 
 /// A view model for handling Apple Sign In
@@ -19,9 +19,6 @@ class AppleSignInViewModel: NSObject, ObservableObject {
     @AppStorage("userName") var userName: String = ""
     @AppStorage("userEmail") var userEmail: String = ""
     @AppStorage("isProfileComplete") private var isProfileComplete: Bool = false
-    
-    let logger = Logger(subsystem: "com.koenjiapp", category: "AppleSignInViewModel")
-    
     // MARK: - Initialization
     override init() {
         super.init()
@@ -40,7 +37,7 @@ class AppleSignInViewModel: NSObject, ObservableObject {
     /// It then sets up the authorization controller and performs the request.
     @MainActor
     func signInWithApple() {
-        logger.debug("Initiating Apple Sign In process")
+        AppLog.debug("Initiating Apple Sign In process")
         isSigningIn = true
         
         let request = ASAuthorizationAppleIDProvider().createRequest()
@@ -74,11 +71,15 @@ class AppleSignInViewModel: NSObject, ObservableObject {
             switch credentialState {
             case .authorized:
                 // The Apple ID credential is valid
-                self?.logger.debug("Existing Apple ID credential is valid.")
+                Task { @MainActor in
+                    AppLog.debug("Existing Apple ID credential is valid.")
+                }
                 
             case .revoked, .notFound:
                 // The Apple ID credential is either revoked or not found
-                self?.logger.warning("Apple ID credential is revoked or not found. Signing out.")
+                Task { @MainActor in
+                    AppLog.warning("Apple ID credential is revoked or not found. Signing out.")
+                }
             default:
                 break
             }
@@ -100,7 +101,7 @@ class AppleSignInViewModel: NSObject, ObservableObject {
         userName = ""
         userEmail = ""
         
-        logger.info("User signed out")
+        AppLog.info("User signed out")
     }
 }
 
@@ -118,19 +119,19 @@ extension AppleSignInViewModel: ASAuthorizationControllerDelegate {
             userIdentifier = appleIDCredential.user
             
             // Log debug information about what we're receiving
-            logger.debug("Received Apple ID credential for user: \(appleIDCredential.user)")
-            logger.debug("Email provided: \(appleIDCredential.email != nil ? "Yes" : "No")")
-            logger.debug("Full name provided: \(appleIDCredential.fullName != nil ? "Yes" : "No")")
+            AppLog.debug("Received Apple ID credential for user: \(appleIDCredential.user)")
+            AppLog.debug("Email provided: \(appleIDCredential.email != nil ? "Yes" : "No")")
+            AppLog.debug("Full name provided: \(appleIDCredential.fullName != nil ? "Yes" : "No")")
             
             if let fullName = appleIDCredential.fullName {
-                logger.debug("First name: \(fullName.givenName ?? "nil")")
-                logger.debug("Last name: \(fullName.familyName ?? "nil")")
+                AppLog.debug("First name: \(fullName.givenName ?? "nil")")
+                AppLog.debug("Last name: \(fullName.familyName ?? "nil")")
             }
             
             // Handle user information
             if let email = appleIDCredential.email {
                 userEmail = email
-                logger.debug("Email provided during sign-in: \(email)")
+                AppLog.debug("Email provided during sign-in: \(email)")
             }
             
             // Handle name information - Apple may provide it for new users
@@ -147,19 +148,19 @@ extension AppleSignInViewModel: ASAuthorizationControllerDelegate {
                 // Store for future use
                 UserDefaults.standard.set(newUserName, forKey: "savedFullName_\(appleIDCredential.user)")
                 isProfileComplete = true
-                logger.debug("Got complete name from Apple: \(newUserName)")
+                AppLog.debug("Got complete name from Apple: \(newUserName)")
             } else {
                 // Check if we have a previously saved name
                 if let storedName = UserDefaults.standard.string(forKey: "savedFullName_\(appleIDCredential.user)"),
                    !storedName.isEmpty {
                     userName = storedName
                     isProfileComplete = true
-                    logger.debug("Using previously saved name: \(storedName)")
+                    AppLog.debug("Using previously saved name: \(storedName)")
                 } else {
                     // We'll need to collect user information
                     userName = ""  // Clear any default name
                     isProfileComplete = false
-                    logger.debug("No name available - will need to collect user information")
+                    AppLog.debug("No name available - will need to collect user information")
                 }
             }
             
@@ -168,7 +169,7 @@ extension AppleSignInViewModel: ASAuthorizationControllerDelegate {
             storedIsLoggedIn = true
             isLoggedIn = true
             
-            logger.info("Apple Sign-In successful for user ID: \(self.userIdentifier)")
+            AppLog.info("Apple Sign-In successful for user ID: \(self.userIdentifier)")
         }
     }
 
@@ -178,7 +179,7 @@ extension AppleSignInViewModel: ASAuthorizationControllerDelegate {
     /// It logs an error message with the error details.
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
         isSigningIn = false
-        logger.error("Apple Sign-In failed: \(error.localizedDescription)")
+        AppLog.error("Apple Sign-In failed: \(error.localizedDescription)")
     }
 }
 

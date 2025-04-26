@@ -27,7 +27,7 @@ struct UserOnboardingView: View {
     @FocusState private var isLastNameFocused: Bool
     @FocusState private var isEmailFocused: Bool
     
-    let logger = Logger(subsystem: "com.koenjiapp", category: "UserOnboardingView")
+    let logger: Logger = Logger(subsystem: "com.koenjiapp", category: "UserOnboardingView")
     let showHeader: Bool
     
     init(showHeader: Bool = true) {

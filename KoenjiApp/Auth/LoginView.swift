@@ -1,6 +1,6 @@
 import SwiftUI
 import AuthenticationServices
-import OSLog
+import Logging
 
 struct LoginView: View {
     @EnvironmentObject var viewModel: AppleSignInViewModel
@@ -9,8 +9,6 @@ struct LoginView: View {
     @State private var slideOffset: CGFloat = 0
     @State private var showLoginElements: Bool = false
     
-    let logger = Logger(subsystem: "com.koenjiapp", category: "LoginView")
-
     var body: some View {
         GeometryReader { geometry in
             ZStack {
@@ -38,13 +36,13 @@ struct LoginView: View {
                         } onCompletion: { result in
                             switch result {
                             case .success(let authResults):
-                                logger.info("Apple Sign-In UI completion successful")
-                                logger.debug("Auth Results: \(String(describing: authResults))")
+                                AppLog.info("Apple Sign-In UI completion successful")
+                                AppLog.debug("Auth Results: \(String(describing: authResults))")
                                 
                                 // Check if we need to show onboarding
                                 // The actual state change will happen in onLogin observer
                             case .failure(let error):
-                                logger.error("Apple Sign-In UI failed: \(error.localizedDescription)")
+                                AppLog.error("Apple Sign-In UI failed: \(error.localizedDescription)")
                             }
                         }
                         .frame(width: UIScreen.main.bounds.width * 0.2, height: 50)
@@ -76,7 +74,7 @@ struct LoginView: View {
             .onChange(of: viewModel.isLoggedIn) { _, newValue in
                 if newValue {
                     // User has logged in
-                    logger.debug("User logged in, checking if profile is complete")
+                    AppLog.debug("User logged in, checking if profile is complete")
                     if !isProfileComplete {
                         // Slide to onboarding instead of using fullScreenCover
                         showOnboarding = true
