@@ -91,7 +91,7 @@ struct LayoutPageView: View {
                         env.resCache.startMonitoring(for: appState.selectedDate)
                     }
                 } catch {
-                    Self.logger.error("Error in async action: \(error.localizedDescription)")
+                    AppLog.error("Error in async action: \(error.localizedDescription)")
                 }
             }
         }
@@ -116,7 +116,7 @@ struct LayoutPageView: View {
                             }
                         }
                     } catch {
-                        Self.logger.error("Error fetching reservations during reset: \(error.localizedDescription)")
+                        AppLog.error("Error fetching reservations during reset: \(error.localizedDescription)")
                         
                         await MainActor.run {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -314,7 +314,7 @@ extension LayoutPageView {
                     }
                 }
             } catch {
-                Self.logger.error("Error loading layout: \(error.localizedDescription)")
+                AppLog.error("Error loading layout: \(error.localizedDescription)")
                 
                 // Handle error and update UI on the main thread
                 await MainActor.run {
@@ -348,7 +348,7 @@ extension LayoutPageView {
         do {
             reservationsForDate = try await env.resCache.fetchReservations(for: appState.selectedDate)
         } catch {
-            Self.logger.error("Failed to fetch reservations: \(error.localizedDescription)")
+            AppLog.error("Failed to fetch reservations: \(error.localizedDescription)")
             throw error
         }
         
@@ -373,7 +373,7 @@ extension LayoutPageView {
             currentDrawing.layer2 = newDrawingModel.layer2
             currentDrawing.layer3 = newDrawingModel.layer3
             
-            Self.logger.info("Successfully loaded layout with \(reservationsForDate.count) reservations from Firebase")
+            AppLog.info("Successfully loaded layout with \(reservationsForDate.count) reservations from Firebase")
         }
     }
 
@@ -438,7 +438,7 @@ extension LayoutPageView {
         if currentDrawing.layer3 != currentDrawingModel.layer3 {
             currentDrawing.layer3 = currentDrawingModel.layer3
         }
-        Self.logger.debug("Drawing layers updated for category: \(selectedCategory.rawValue)")
+        AppLog.debug("Drawing layers updated for category: \(selectedCategory.rawValue)")
     }
 
     private func reloadLayout(_ selectedCategory: Reservation.ReservationCategory, _ activeReservations: [Reservation], force: Bool = false)  {
@@ -461,7 +461,7 @@ extension LayoutPageView {
     }
 
     private func resetCurrentLayout() {
-        Self.logger.notice("Resetting current layout...")
+        AppLog.info("Resetting current layout...")
         resetInProgress = true
         let key = env.layoutServices.keyFor(date: appState.selectedDate, category: appState.selectedCategory)
         withAnimation {
@@ -499,7 +499,7 @@ extension LayoutPageView {
                 do {
                     try await action()
                 } catch {
-                    Self.logger.error("Error in debounced async action: \(error.localizedDescription)")
+                    AppLog.error("Error in debounced async action: \(error.localizedDescription)")
                 }
             }
         }

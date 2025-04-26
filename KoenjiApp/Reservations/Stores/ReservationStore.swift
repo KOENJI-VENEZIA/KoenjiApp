@@ -34,12 +34,19 @@ class ReservationStore: ObservableObject {
 // MARK: - Getters and Setters
 extension ReservationStore {
     func getReservations() -> [Reservation] {
-        logger.debug("Fetching all reservations. Count: \(self.reservations.count)")
+        // Capture the count before using it in the Task to avoid data races
+        let count = self.reservations.count
+        Task { @MainActor in
+            AppLog.debug("Fetching all reservations. Count: \(count)")
+        }
         return self.reservations
     }
     
     func setReservations(_ reservations: [Reservation]) {
-        logger.info("Updating reservations store with \(reservations.count) reservations")
+        let count = reservations.count
+        Task { @MainActor in
+            AppLog.info("Updating reservations store with \(count) reservations")
+        }
         self.reservations = reservations
     }
 }
@@ -47,12 +54,17 @@ extension ReservationStore {
 extension ReservationStore {
     // MARK: - Locking Assignment
     func finalizeReservation(_ reservation: Reservation) {
-        if let index = reservations.firstIndex(where: { $0.id == reservation.id }) {
+        let id = reservation.id
+        if let index = reservations.firstIndex(where: { $0.id == id }) {
             reservations[index] = reservation
-            logger.info("Updated existing reservation: \(reservation.id)")
+            Task { @MainActor in
+                AppLog.info("Updated existing reservation: \(id)")
+            }
         } else {
             reservations.append(reservation)
-            logger.info("Added new reservation: \(reservation.id)")
+            Task { @MainActor in
+                AppLog.info("Added new reservation: \(id)")
+            }
         }
     }
 }

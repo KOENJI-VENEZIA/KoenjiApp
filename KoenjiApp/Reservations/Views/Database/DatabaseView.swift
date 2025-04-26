@@ -141,7 +141,7 @@ struct DatabaseView: View {
             }
         }
         .onReceive(env.store.$reservations) { new in
-            logger.info("Received \(new.count, privacy: .public) reservations from store")
+            AppLog.info("Received \(new.count) reservations from store")
             env.listView.currentReservations = new
             refreshID = UUID()
         }
@@ -169,7 +169,7 @@ struct DatabaseView: View {
     
     @MainActor
     private func refreshReservations() {
-        logger.info("\("Manually refreshing reservations from Firebase")")
+        AppLog.info("\("Manually refreshing reservations from Firebase")")
 
         env.reservationService.loadReservationsFromFirebase()
     }
@@ -482,7 +482,7 @@ extension DatabaseView {
         searchText: String,
         currentReservations: [Reservation]
     ) -> [Reservation] {
-        logger.info("\("Executing filtering logic... (should reflect in the UI)")")
+        AppLog.info("\("Executing filtering logic... (should reflect in the UI)")")
         var filtered = currentReservations
         if !filters.isEmpty && !filters.contains(.none) {
             filtered = filtered.filter { reservation in

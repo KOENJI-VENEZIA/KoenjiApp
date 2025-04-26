@@ -51,7 +51,10 @@ class FirebaseListener {
         // Use the safe Firebase initialization method
         self.db = AppDependencies.getFirestore()
         self.store = store
-        logger.debug("FirebaseListener initialized (preview mode: \(self.isPreview))")
+        let isPreview = self.isPreview
+        Task { @MainActor in
+            AppLog.debug("FirebaseListener initialized (preview mode: \(isPreview))")
+        }
     }
     
     // MARK: - Reservations Listener
@@ -61,11 +64,15 @@ class FirebaseListener {
     /// In preview mode, this is a no-op
     func startReservationListener() {
         guard !isPreview, let db = db else {
-            logger.debug("Preview mode: Skipping reservation listener")
+            Task { @MainActor in
+                AppLog.debug("Preview mode: Skipping reservation listener")
+            }
             return
         }
         
-        logger.info("Starting reservation listener")
+        Task { @MainActor in
+            AppLog.info("Starting reservation listener")
+        }
         
         // Get the appropriate collection based on build configuration
         #if DEBUG
@@ -88,12 +95,16 @@ class FirebaseListener {
             guard let self = self else { return }
             
             if let error = error {
-                self.logger.error("Error listening for reservation changes: \(error.localizedDescription)")
+                Task { @MainActor in
+                    AppLog.error("Error listening for reservation changes: \(error.localizedDescription)")
+                }
                 return
             }
             
             guard let snapshot = snapshot else {
-                self.logger.error("Invalid snapshot received")
+                Task { @MainActor in
+                    AppLog.error("Invalid snapshot received")
+                }
                 return
             }
             
@@ -104,7 +115,9 @@ class FirebaseListener {
                 // Extract reservation data
                 guard let idString = data["id"] as? String,
                       let id = UUID(uuidString: idString) else {
-                    self.logger.error("Reservation document missing ID")
+                    Task { @MainActor in
+                        AppLog.error("Reservation document missing ID")
+                    }
                     continue
                 }
                 
@@ -117,7 +130,9 @@ class FirebaseListener {
                     // Dispatch to avoid blocking the listener
                         self.handleReservationUpdate(id: capturedId, data: capturedData)
                 case .removed:
-                    self.logger.info("Reservation removed: \(id)")
+                    Task { @MainActor in
+                        AppLog.info("Reservation removed: \(id)")
+                    }
                     // We don't typically remove reservations, but we could handle it if needed
                 }
             }
@@ -134,7 +149,9 @@ class FirebaseListener {
     private func handleReservationUpdate(id: UUID, data: [String: Any]) {
         // This method would convert the data to a Reservation object and update the local database
         // For now, we'll just log the update
-        logger.info("Reservation update received for ID: \(id)")
+        Task { @MainActor in
+            AppLog.info("Reservation update received for ID: \(id)")
+        }
     }
     
     /// Stops the reservation listener
@@ -146,7 +163,9 @@ class FirebaseListener {
         if let reservationListener = reservationListener {
             reservationListener.remove()
             self.reservationListener = nil
-            logger.info("Stopped reservation listener")
+            Task { @MainActor in
+                AppLog.info("Stopped reservation listener")
+            }
         }
     }
     
@@ -157,11 +176,15 @@ class FirebaseListener {
     /// In preview mode, this is a no-op
     func startSessionListener() {
         guard !isPreview, let db = db else {
-            logger.debug("Preview mode: Skipping session listener")
+            Task { @MainActor in
+                AppLog.debug("Preview mode: Skipping session listener")
+            }
             return
         }
         
-        logger.info("Starting session listener")
+        Task { @MainActor in
+            AppLog.info("Starting session listener")
+        }
         
         // Get the appropriate collection based on build configuration
         #if DEBUG
@@ -184,12 +207,16 @@ class FirebaseListener {
             guard let self = self else { return }
             
             if let error = error {
-                self.logger.error("Error listening for session changes: \(error.localizedDescription)")
+                Task { @MainActor in
+                    AppLog.error("Error listening for session changes: \(error.localizedDescription)")
+                }
                 return
             }
             
             guard let snapshot = snapshot else {
-                self.logger.error("Invalid snapshot received")
+                Task { @MainActor in
+                    AppLog.error("Invalid snapshot received")
+                }
                 return
             }
             
@@ -199,7 +226,9 @@ class FirebaseListener {
                 
                 // Extract session data
                 guard let id = data["id"] as? String else {
-                    self.logger.error("Session document missing ID")
+                    Task { @MainActor in
+                        AppLog.error("Session document missing ID")
+                    }
                     continue
                 }
                 
@@ -214,7 +243,9 @@ class FirebaseListener {
                         await ReservationMapper.handleSessionUpdate(id: capturedId, data: capturedData)
                     }
                 case .removed:
-                    self.logger.info("Session removed: \(id)")
+                    Task { @MainActor in
+                        AppLog.info("Session removed: \(id)")
+                    }
                     // We don't typically remove sessions, but we could handle it if needed
                 }
             }
@@ -234,7 +265,9 @@ class FirebaseListener {
         if let sessionListener = sessionListener {
             sessionListener.remove()
             self.sessionListener = nil
-            logger.info("Stopped session listener")
+            Task { @MainActor in
+                AppLog.info("Stopped session listener")
+            }
         }
     }
     
@@ -245,7 +278,9 @@ class FirebaseListener {
     /// This method creates a listener for the profiles collection in Firebase.
     /// It listens for changes to the profiles and updates the local database accordingly.
     func startProfileListener() {
-        logger.info("Starting profile listener")
+        Task { @MainActor in
+            AppLog.info("Starting profile listener")
+        }
         
         // Get the appropriate collection based on build configuration
         #if DEBUG
@@ -268,12 +303,16 @@ class FirebaseListener {
             guard let self = self else { return }
             
             if let error = error {
-                self.logger.error("Error listening for profile changes: \(error.localizedDescription)")
+                Task { @MainActor in
+                    AppLog.error("Error listening for profile changes: \(error.localizedDescription)")
+                }
                 return
             }
             
             guard let snapshot = snapshot else {
-                self.logger.error("Invalid snapshot received")
+                Task { @MainActor in
+                    AppLog.error("Invalid snapshot received")
+                }
                 return
             }
             
@@ -283,7 +322,9 @@ class FirebaseListener {
                 
                 // Extract profile data
                 guard let id = data["id"] as? String else {
-                    self.logger.error("Profile document missing ID")
+                    Task { @MainActor in
+                        AppLog.error("Profile document missing ID")
+                    }
                     continue
                 }
                 
@@ -298,7 +339,9 @@ class FirebaseListener {
                         await ReservationMapper.handleProfileUpdate(id: capturedId, data: capturedData)
                     }
                 case .removed:
-                    self.logger.info("Profile removed: \(id)")
+                    Task { @MainActor in
+                        AppLog.info("Profile removed: \(id)")
+                    }
                     // We don't typically remove profiles, but we could handle it if needed
                 }
             }

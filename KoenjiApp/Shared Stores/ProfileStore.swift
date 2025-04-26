@@ -26,12 +26,17 @@ class ProfileStore {
     
     // MARK: - Public Methods
     func getProfiles() -> [Profile] {
-        logger.debug("Fetching all profiles. Count: \(self.profiles.count)")
+        let count = self.profiles.count
+        Task { @MainActor in
+            AppLog.debug("Fetching all profiles. Count: \(count)")
+        }
         return self.profiles
     }
     
     func setProfiles(_ profiles: [Profile]) {
-        logger.info("Updating profile store with \(profiles.count) profiles")
+        Task { @MainActor in
+            AppLog.info("Updating profile store with \(profiles.count) profiles")
+        }
         self.profiles = profiles
     }
     
@@ -45,13 +50,17 @@ class ProfileStore {
                 if self.currentProfile?.id == profile.id {
                     self.currentProfile = profile
                 }
-                self.logger.info("Updating profile store with profile \(profile.id)")
+                Task { @MainActor in
+                    AppLog.info("Updating profile store with profile \(profile.id)")
+                }
             }
         } else {
             // If profile doesn't exist, add it
             DispatchQueue.main.async {
                 self.profiles.append(profile)
-                self.logger.info("Adding new profile to store: \(profile.id)")
+                Task { @MainActor in
+                    AppLog.info("Adding new profile to store: \(profile.id)")
+                }
             }
         }
     }
@@ -62,6 +71,8 @@ class ProfileStore {
     
     func setCurrentProfile(_ profile: Profile) {
         currentProfile = profile
-        logger.info("Set current profile to: \(profile.id)")
+        Task { @MainActor in
+            AppLog.info("Set current profile to: \(profile.id)")
+        }
     }
 } 

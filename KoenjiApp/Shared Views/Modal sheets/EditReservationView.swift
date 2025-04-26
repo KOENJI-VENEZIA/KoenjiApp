@@ -329,7 +329,7 @@ struct EditReservationView: View {
                                 }
                             }
                         } catch {
-                            Self.logger.error("Error loading image: \(error.localizedDescription)")
+                            AppLog.error("Error loading image: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -617,7 +617,7 @@ struct EditReservationView: View {
 
     private func loadInitialDate() {
         selectedDate = reservation.normalizedDate ?? Date()
-        Self.logger.debug("Initial date set to: \(selectedDate)")
+        AppLog.debug("Initial date set to: \(selectedDate)")
     }
 
     private func getTimeSlots(for category: Reservation.ReservationCategory) -> [String] {

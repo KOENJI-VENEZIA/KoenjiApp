@@ -110,7 +110,7 @@ struct TableView: View {
                         updateResData(newDate, refreshedKey: "appState.selectedDate", forceUpdate: false)
                     }
                 } catch {
-                    logger.error("Error fetching reservations: \(error.localizedDescription)")
+                    AppLog.error("Error fetching reservations: \(error.localizedDescription)")
                     
                     await MainActor.run {
                         updateResData(newDate, refreshedKey: "appState.selectedDate", forceUpdate: false)
@@ -702,7 +702,7 @@ extension TableView {
         let tableID = table.id
         let category = appState.selectedCategory
         
-        logger.debug("Updating upcoming reservation for table \(tableID) at \(DateHelper.formatDate(date)) in \(category.rawValue) category")
+        AppLog.debug("Updating upcoming reservation for table \(tableID) at \(DateHelper.formatDate(date)) in \(category.rawValue) category")
         
         if let reservation = env.resCache.firstUpcomingReservation(
             forTable: tableID,
@@ -710,10 +710,10 @@ extension TableView {
             time: date,
             category: category)
         {
-            logger.info("Found upcoming reservation: \(reservation.name) at \(reservation.startTime) for table \(tableID)")
+            AppLog.info("Found upcoming reservation: \(reservation.name) at \(reservation.startTime) for table \(tableID)")
             tableView.firstUpcomingReservation = reservation
         } else {
-            logger.debug("No upcoming reservation found for table \(tableID)")
+            AppLog.debug("No upcoming reservation found for table \(tableID)")
             tableView.firstUpcomingReservation = nil
         }
     }
@@ -905,7 +905,7 @@ extension TableView {
 
     /// Refreshes the upcoming reservation when the cache is updated
     private func refreshUpcomingReservations() {
-        logger.debug("Cache updated, refreshing upcoming reservations for table \(table.id)")
+        AppLog.debug("Cache updated, refreshing upcoming reservations for table \(table.id)")
         updateFirstUpcoming(appState.selectedDate)
     }
 }

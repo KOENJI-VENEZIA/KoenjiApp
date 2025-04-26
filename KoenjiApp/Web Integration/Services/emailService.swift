@@ -48,7 +48,6 @@ class LegacyEmailSender {
     private var isProcessing = false
     // Create a single Functions instance
     private let functions: Functions?
-    private let logger = Logger(subsystem: "com.koenjiapp", category: "LegacyEmailSender")
     private let isPreview: Bool
 
     init() {
@@ -60,7 +59,9 @@ class LegacyEmailSender {
             self.functions = Functions.functions()
         } else {
             self.functions = nil
-            logger.debug("Preview mode: Firebase Functions not initialized")
+            Task { @MainActor in
+                AppLog.debug("Preview mode: Firebase Functions not initialized")
+            }
         }
     }
 
@@ -74,7 +75,9 @@ class LegacyEmailSender {
 
             // If in preview mode, just return success without calling Firebase
             if self.isPreview {
-                self.logger.debug("Preview mode: Skipping email send")
+                Task { @MainActor in
+                    AppLog.debug("Preview mode: Skipping email send")
+                }
                 DispatchQueue.main.async {
                     completionHandler(true)
                 }
@@ -131,11 +134,17 @@ class LegacyEmailSender {
 
                 var success = false
                 if let error = error {
-                    self.logger.error("Firebase error: \(error.localizedDescription)")
+                    Task { @MainActor in
+                        AppLog.error("Firebase error: \(error.localizedDescription)")
+                    }
                 } else if let resultDict = result?.data as? [String: Any],
                           let successValue = resultDict["success"] as? Bool {
-                    self.logger.info("SuccessValue: \(successValue)")
-                    self.logger.info("Result: \(resultDict)")
+                    // Create a copy of the dictionary as a String to avoid data races
+                    let resultString = String(describing: resultDict)
+                    Task { @MainActor in
+                        AppLog.info("SuccessValue: \(successValue)")
+                        AppLog.info("Result: \(resultString)")
+                    }
                     success = successValue
                 } else {
                     // If we can't extract a success value but got a result, assume success
@@ -156,14 +165,15 @@ nonisolated(unsafe) private let emailSender = LegacyEmailSender()
 
 @MainActor
 class EmailService {
-    private let logger = Logger(subsystem: "com.koenjiapp", category: "EmailService")
 
     init() {}
 
     func sendConfirmationEmail(for reservation: Reservation) async -> Bool {
         // Extract email from notes field if present
         guard let notes = reservation.notes else {
-            logger.error("No notes field containing email for web reservation \(reservation.id)")
+            Task { @MainActor in
+                AppLog.error("No notes field containing email for web reservation \(reservation.id)")
+            }
             return false
         }
 
@@ -171,12 +181,16 @@ class EmailService {
         let emailRegex = try? NSRegularExpression(pattern: "Email: (\\S+@\\S+\\.\\S+)")
         let range = NSRange(notes.startIndex..., in: notes)
         guard let match = emailRegex?.firstMatch(in: notes, range: range) else {
-            logger.error("Could not find email in notes for web reservation \(reservation.id)")
+            Task { @MainActor in
+                AppLog.error("Could not find email in notes for web reservation \(reservation.id)")
+            }
             return false
         }
 
         guard let emailRange = Range(match.range(at: 1), in: notes) else {
-            logger.error("Could not extract email from range for web reservation \(reservation.id)")
+            Task { @MainActor in
+                AppLog.error("Could not extract email from range for web reservation \(reservation.id)")
+            }
             return false
         }
 
@@ -199,7 +213,9 @@ class EmailService {
         // Bridge to async/await at the last moment
         return await withCheckedContinuation { continuation in
             emailSender.sendEmail(emailType: .confirmation(emailData)) { success in
-                self.logger.info("Confirmation email sent successfully: \(success)")
+                Task { @MainActor in
+                    AppLog.info("Confirmation email sent successfully: \(success)")
+                }
                 continuation.resume(returning: success)
             }
         }
@@ -223,7 +239,9 @@ class EmailService {
         // Bridge to async/await at the last moment
         return await withCheckedContinuation { continuation in
             emailSender.sendEmail(emailType: .decline(emailData)) { success in
-                self.logger.info("Decline email sent successfully: \(success)")
+                Task { @MainActor in
+                    AppLog.info("Decline email sent successfully: \(success)")
+                }
                 continuation.resume(returning: success)
             }
         }

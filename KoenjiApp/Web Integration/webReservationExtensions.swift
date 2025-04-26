@@ -13,7 +13,9 @@ extension Reservation {
     
     var isWebReservation: Bool {
         guard let notes = notes else { return false }
-        Self.logger.debug("\(notes)")
+        Task { @MainActor in
+            AppLog.debug("\(notes)")
+        }
         return notes.contains("web reservation")
     }
     
@@ -234,7 +236,7 @@ extension DatabaseView {
                 env.listView.selectedFilters.insert(.webPending)
                 
                 // Print debug information
-                logger.debug("Web pending filter enabled: \(env.listView.selectedFilters, privacy: .public)")
+                AppLog.debug("Web pending filter enabled: \(env.listView.selectedFilters)")
             }
             
             // Force refresh of the list view

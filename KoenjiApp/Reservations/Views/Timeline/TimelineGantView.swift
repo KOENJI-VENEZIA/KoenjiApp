@@ -381,7 +381,7 @@ extension TimelineGantView {
                 reservation.tables.contains { $0.id == (table + 1) }
             }
             for res in tableReservations {
-                Self.logger.debug("Table \(table + 1): Reservation '\(res.name)' starting at \(res.startTime) (\(DateHelper.formatTime(res.startTimeDate ?? Date())))")
+                AppLog.debug("Table \(table + 1): Reservation '\(res.name)' starting at \(res.startTime) (\(DateHelper.formatTime(res.startTimeDate ?? Date())))")
             }
         }
     }

@@ -85,13 +85,17 @@ class LayoutServices: ObservableObject {
     /// Loads tables for a specific date and category.
     func loadTables(for date: Date, category: Reservation.ReservationCategory) -> [TableModel] {
         let fullKey = keyFor(date: date, category: category)
-        Self.logger.debug("Loading tables for key: \(fullKey)")
+        Task { @MainActor in
+            AppLog.debug("Loading tables for key: \(fullKey)")
+        }
 
         // Check if the exact layout exists
         if let tables = cachedLayouts[fullKey] {
             // Assign to self.tables *on the main thread*
                 self.tables = tables
-                Self.logger.debug("Loaded exact layout for key: \(fullKey)")
+                Task { @MainActor in
+                    AppLog.debug("Loaded exact layout for key: \(fullKey)")
+                }
             return tables
         }
 
@@ -102,14 +106,18 @@ class LayoutServices: ObservableObject {
             cachedLayouts[fullKey] = fallbackTables
             
                 self.tables = fallbackTables
-                Self.logger.debug("Copied fallback layout from key: \(fallbackKey ?? "none") to key: \(fullKey)")
+                Task { @MainActor in
+                    AppLog.debug("Copied fallback layout from key: \(fallbackKey ?? "none") to key: \(fullKey)")
+                }
             return fallbackTables
         }
 
         // Final fallback: Initialize with base tables
         self.cachedLayouts[fullKey] = self.tableStore.baseTables
         self.tables = self.tableStore.baseTables
-        Self.logger.debug("Initialized new layout for key: \(fullKey) with base tables")
+        Task { @MainActor in
+            AppLog.debug("Initialized new layout for key: \(fullKey) with base tables")
+        }
         return self.tableStore.baseTables
     }
     
@@ -130,7 +138,9 @@ class LayoutServices: ObservableObject {
     func saveTables(_ tables: [TableModel], for date: Date, category: Reservation.ReservationCategory) {
         let fullKey = keyFor(date: date, category: category)
         cachedLayouts[fullKey] = tables
-        Self.logger.debug("Saved tables for key: \(fullKey)")
+        Task { @MainActor in
+            AppLog.debug("Saved tables for key: \(fullKey)")
+        }
 
         // Propagate changes to future timeslots
         propagateLayoutChange(from: fullKey, tables: tables)
@@ -144,9 +154,13 @@ class LayoutServices: ObservableObject {
         let encoder = JSONEncoder()
         if let data = try? encoder.encode(cachedLayouts) {
             UserDefaults.standard.set(data, forKey: "cachedLayouts")
-            Self.logger.info("Layouts saved successfully")
+            Task { @MainActor in
+                AppLog.info("Layouts saved successfully")
+            }
         } else {
-            Self.logger.error("Failed to encode cached layouts")
+            Task { @MainActor in
+                AppLog.error("Failed to encode cached layouts")
+            }
         }
     }
     
@@ -161,7 +175,9 @@ class LayoutServices: ObservableObject {
         let futureKeys = allKeys.sorted().filter { $0 > key }
         for futureKey in futureKeys where cachedLayouts[futureKey] == nil {
             cachedLayouts[futureKey] = tables
-            Self.logger.debug("Propagated layout to future key: \(futureKey)")
+            Task { @MainActor in
+                AppLog.debug("Propagated layout to future key: \(futureKey)")
+            }
         }
     }
     
@@ -175,7 +191,9 @@ class LayoutServices: ObservableObject {
         // Reset the layout for this specific key
         cachedLayouts[fullKey] = tableStore.baseTables
         tables = tableStore.baseTables
-        Self.logger.notice("Reset tables for key: \(fullKey) to base tables")
+        Task { @MainActor in
+            AppLog.info("Reset tables for key: \(fullKey) to base tables")
+        }
 
         // Propagate reset to future timeslots
         propagateLayoutReset(from: fullKey)
@@ -191,7 +209,9 @@ class LayoutServices: ObservableObject {
         let futureKeys = allKeys.sorted().filter { $0 > key }
         for futureKey in futureKeys where cachedLayouts[futureKey] == nil {
             cachedLayouts[futureKey] = tableStore.baseTables
-            Self.logger.debug("Reset future key: \(futureKey) to base tables")
+            Task { @MainActor in
+                AppLog.debug("Reset future key: \(futureKey) to base tables")
+            }
         }
     }
     
@@ -201,9 +221,13 @@ class LayoutServices: ObservableObject {
            let decoded = try? JSONDecoder().decode([String: [TableModel]].self, from: data) {
                setCachedLayouts(decoded)
                let layoutCount = decoded.keys.count  // Store count in local variable
-               Self.logger.info("Cached layouts loaded successfully: \(layoutCount) layouts")
+               Task { @MainActor in
+                    AppLog.info("Cached layouts loaded successfully: \(layoutCount) layouts")
+               }
         } else {
-            Self.logger.warning("No cached layouts found")
+            Task { @MainActor in
+                AppLog.warning("No cached layouts found")
+            }
         }
     }
     
@@ -314,14 +338,20 @@ class LayoutServices: ObservableObject {
     ///   - category: The reservation category.
     /// - Returns: The generated table layout, or nil if generation failed.
     func generateAndCacheLayout(for layoutKey: String, date: Date, category: Reservation.ReservationCategory) -> [TableModel]? {
-        Self.logger.debug("Generating layout for key: \(layoutKey)")
+        Task { @MainActor in
+            AppLog.debug("Generating layout for key: \(layoutKey)")
+        }
         let layout = loadTables(for: date, category: category) // Your layout generation logic
         
         if !layout.isEmpty {
             cachedLayouts[layoutKey] = layout
-            Self.logger.debug("Layout cached for key: \(layoutKey)")
+            Task { @MainActor in
+                AppLog.debug("Layout cached for key: \(layoutKey)")
+            }
         } else {
-            Self.logger.warning("Failed to generate layout for key: \(layoutKey)")
+            Task { @MainActor in
+                AppLog.warning("Failed to generate layout for key: \(layoutKey)")
+            }
         }
         return layout
     }
@@ -401,26 +431,36 @@ class LayoutServices: ObservableObject {
 extension LayoutServices {
     /// Checks if a table can be placed at a new position for a given date and category.
     func canPlaceTable(_ table: TableModel, for date: Date, category: Reservation.ReservationCategory, activeTables: [TableModel]) -> Bool {
-        Self.logger.debug("Checking placement for table: \(table.name) at row: \(table.row), column: \(table.column), width: \(table.width), height: \(table.height)")
+        Task { @MainActor in
+            AppLog.debug("Checking placement for table: \(table.name) at row: \(table.row), column: \(table.column), width: \(table.width), height: \(table.height)")
+        }
         
         // Ensure the table is within grid bounds
         guard table.row >= 0, table.column >= 0,
               table.row + table.height <= tableStore.totalRows,
               table.column + table.width <= tableStore.totalColumns else {
-            Self.logger.notice("Table \(table.name) is out of bounds")
+            Task { @MainActor in
+                AppLog.info("Table \(table.name) is out of bounds")
+            }
             return false
         }
                 
         // Check for overlap with existing tables
         for existingTable in activeTables where existingTable.id != table.id {
-            Self.logger.debug("Comparing with existing table: \(existingTable.name) at row: \(existingTable.row), column: \(existingTable.column), width: \(existingTable.width), height: \(existingTable.height)")
+            Task { @MainActor in
+                AppLog.debug("Comparing with existing table: \(existingTable.name) at row: \(existingTable.row), column: \(existingTable.column), width: \(existingTable.width), height: \(existingTable.height)")
+            }
             if tablesIntersect(existingTable, table) {
-                Self.logger.notice("Table \(table.name) intersects with \(existingTable.name). Cannot place")
+                Task { @MainActor in
+                    AppLog.info("Table \(table.name) intersects with \(existingTable.name). Cannot place")
+                }
                 return false
             }
         }
         
-        Self.logger.debug("Table \(table.name) can be placed")
+        Task { @MainActor in
+            AppLog.debug("Table \(table.name) can be placed")
+        }
         return true
     }
     
@@ -476,11 +516,15 @@ extension LayoutServices {
 
         // Unmark the table's current position
         unmarkTable(table)
-        Self.logger.debug("Attempting to move \(table.name) to (\(clampedRow), \(clampedCol))")
+        Task { @MainActor in
+            AppLog.debug("Attempting to move \(table.name) to (\(clampedRow), \(clampedCol))")
+        }
 
         // Check if the new position is valid
         if canPlaceTable(newTable) {
-            Self.logger.debug("Can place table \(table.name) at (\(clampedRow), \(clampedCol))")
+            Task { @MainActor in
+                AppLog.debug("Can place table \(table.name) at (\(clampedRow), \(clampedCol))")
+            }
 
             // Perform the move
             withAnimation(.easeInOut(duration: 0.5)) {
@@ -489,14 +533,18 @@ extension LayoutServices {
                 }
                 self.markTable(newTable, occupied: true)
             }
-            Self.logger.info("Moved \(table.name) to (\(clampedRow), \(clampedCol)) successfully")
+            Task { @MainActor in
+                AppLog.info("Moved \(table.name) to (\(clampedRow), \(clampedCol)) successfully")
+            }
             return .move
         } else {
             // Invalid move; re-mark the original table's position
             withAnimation(.spring) {
                 self.markTable(table, occupied: true)
             }
-            Self.logger.notice("Cannot place \(table.name) at (\(clampedRow), \(clampedCol)). Move failed")
+            Task { @MainActor in
+                AppLog.info("Cannot place \(table.name) at (\(clampedRow), \(clampedCol)). Move failed")
+            }
             return .invalid
         }
     }
@@ -519,12 +567,16 @@ extension LayoutServices {
         let table2MinY = table2.row
         let table2MaxY = table2.row + table2.height
 
-        Self.logger.debug("Checking intersection - Table 1: (\(table1MinX), \(table1MaxX)) x (\(table1MinY), \(table1MaxY))")
-        Self.logger.debug("Checking intersection - Table 2: (\(table2MinX), \(table2MaxX)) x (\(table2MinY), \(table2MaxY))")
+        Task { @MainActor in
+            AppLog.debug("Checking intersection - Table 1: (\(table1MinX), \(table1MaxX)) x (\(table1MinY), \(table1MaxY))")
+            AppLog.debug("Checking intersection - Table 2: (\(table2MinX), \(table2MaxX)) x (\(table2MinY), \(table2MaxY))")
+        }
 
         // Check for no overlap scenarios
         let intersects = !(table1MaxX <= table2MinX || table1MinX >= table2MaxX || table1MaxY <= table2MinY || table1MinY >= table2MaxY)
-        Self.logger.debug("Intersection result: \(intersects)")
+        Task { @MainActor in
+            AppLog.debug("Intersection result: \(intersects)")
+        }
         return intersects
     }
 
@@ -547,16 +599,23 @@ extension LayoutServices {
     ///   - table: The table to mark.
     ///   - occupied: Whether the table should be marked as occupied (true) or unoccupied (false).
     func markTable(_ table: TableModel, occupied: Bool) {
-        Self.logger.debug("Marking table \(table.id) at \(table.row), \(table.column) with occupied=\(occupied)")
+        Task { @MainActor in
+            AppLog.debug("Marking table \(table.id) at \(table.row), \(table.column) with occupied=\(occupied)")
+        }
         
         let tableCount = tables.count
-        Self.logger.debug("Tables and grid state after operation: \(tableCount) tables")
+        Task { @MainActor in
+            AppLog.debug("Tables and grid state after operation: \(tableCount) tables")
+        }
         
         for r in table.row..<(table.row + table.height) {
             for c in table.column..<(table.column + table.width) {
                 guard r >= 0, r < tableStore.grid.count, c >= 0, c < tableStore.grid[0].count else {
-                    Self.logger.warning("Skipping out-of-bounds position (\(r), \(c))")
-                    continue }
+                    Task { @MainActor in
+                        AppLog.warning("Skipping out-of-bounds position (\(r), \(c))")
+                    }
+                    continue 
+                }
                 tableStore.grid[r][c] = occupied ? table.id : nil
             }
         }
@@ -583,16 +642,22 @@ extension LayoutServices {
     
     /// Initializes the grid and marks all tables as occupied.
     func markTablesInGrid() {
-        Self.logger.debug("Marking tables in grid...")
+        Task { @MainActor in
+            AppLog.debug("Marking tables in grid...")
+        }
         tableStore.grid = Array(
             repeating: Array(repeating: nil, count: tableStore.totalColumns),
             count: tableStore.totalRows
         )
 
         for table in tables {
-            Self.logger.debug("Table \(table.id): \(table.row), \(table.column), \(table.width)x\(table.height)")
+            Task { @MainActor in
+                AppLog.debug("Table \(table.id): \(table.row), \(table.column), \(table.width)x\(table.height)")
+            }
             markTable(table, occupied: true)
-            Self.logger.debug("Marked table \(table.id) at row \(table.row), column \(table.column)")
+            Task { @MainActor in
+                AppLog.debug("Marked table \(table.id) at row \(table.row), column \(table.column)")
+            }
         }
     }
     
@@ -609,14 +674,18 @@ extension LayoutServices {
         var adjacentCount = 0
         var adjacentDetails: [TableModel.TableSide: TableModel] = [:]
 
-        Self.logger.debug("Active tables: \(activeTables.map { "Table \($0.id) at (\($0.row), \($0.column))" })")
-        Self.logger.debug("Checking neighbors for table \(table.id) at row \(table.row), column \(table.column)")
+        Task { @MainActor in
+            AppLog.debug("Active tables: \(activeTables.map { "Table \($0.id) at (\($0.row), \($0.column))" })")
+            AppLog.debug("Checking neighbors for table \(table.id) at row \(table.row), column \(table.column)")
+        }
 
         for side in TableModel.TableSide.allCases {
             let offset = side.offset()
             let neighborPosition = (row: table.row + offset.rowOffset, col: table.column + offset.colOffset)
 
-            Self.logger.debug("Checking neighbor position: \(neighborPosition.row), \(neighborPosition.col) for side \(String(describing: side))")
+            Task { @MainActor in
+                AppLog.debug("Checking neighbor position: \(neighborPosition.row), \(neighborPosition.col) for side \(String(describing: side))")
+            }
 
             if let neighborTable = activeTables.first(where: { neighbor in
                 // Ensure the neighbor is not the current table
@@ -632,13 +701,19 @@ extension LayoutServices {
                 // Correctly track the table that overlaps
                 adjacentCount += 1
                 adjacentDetails[side] = neighborTable
-                Self.logger.debug("Found adjacent table \(neighborTable.id) at side \(String(describing: side))")
+                Task { @MainActor in
+                    AppLog.debug("Found adjacent table \(neighborTable.id) at side \(String(describing: side))")
+                }
             } else {
-                Self.logger.debug("No active table found at neighbor position")
+                Task { @MainActor in
+                    AppLog.debug("No active table found at neighbor position")
+                }
             }
         }
 
-        Self.logger.debug("Adjacent tables for table \(table.id): count=\(adjacentCount), details: \(adjacentDetails.map { ($0.key, $0.value.id) })")
+        Task { @MainActor in
+            AppLog.debug("Adjacent tables for table \(table.id): count=\(adjacentCount), details: \(adjacentDetails.map { ($0.key, $0.value.id) })")
+        }
         return (adjacentCount, adjacentDetails)
     }
     
@@ -669,11 +744,15 @@ extension LayoutServices {
 
             if !sharedReservations.isEmpty {
                 sharedReservationTables.append(adjacentTable)
-                Self.logger.debug("Found shared reservation with table \(adjacentTable.id)")
+                Task { @MainActor in
+                    AppLog.debug("Found shared reservation with table \(adjacentTable.id)")
+                }
             }
         }
 
-        Self.logger.debug("Shared reservation tables for table \(table.id): \(sharedReservationTables.map { $0.id })")
+        Task { @MainActor in
+            AppLog.debug("Shared reservation tables for table \(table.id): \(sharedReservationTables.map { $0.id })")
+        }
         return sharedReservationTables
     }
     
@@ -688,26 +767,36 @@ extension LayoutServices {
     /// - Returns: The table at the specified position, or nil if no table is found.
     func fetchTable(row: Int, column: Int, combinedDateTime: Date, activeTables: [TableModel]) -> TableModel? {
         guard row >= 0, column >= 0 else {
-            Self.logger.warning("Invalid grid position (\(row), \(column))")
+            Task { @MainActor in
+                AppLog.warning("Invalid grid position (\(row), \(column))")
+            }
             return nil
         }
 
-        Self.logger.debug("Checking for table at (\(row), \(column))")
+        Task { @MainActor in
+            AppLog.debug("Checking for table at (\(row), \(column))")
+        }
 
         // Check active tables first
         if let activeTable = activeTables.first(where: { $0.row == row && $0.column == column }) {
-            Self.logger.debug("Found active table \(activeTable.id) at (\(row), \(column))")
+            Task { @MainActor in
+                AppLog.debug("Found active table \(activeTable.id) at (\(row), \(column))")
+            }
             return activeTable
         }
 
         // Fallback to tables managed by the store
         let storeTables = store.reservations.flatMap { $0.tables }
         if let table = storeTables.first(where: { $0.row == row && $0.column == column }) {
-            Self.logger.debug("Found table \(table.id) in store at (\(row), \(column))")
+            Task { @MainActor in
+                AppLog.debug("Found table \(table.id) in store at (\(row), \(column))")
+            }
             return table
         }
 
-        Self.logger.debug("No table found at (\(row), \(column))")
+        Task { @MainActor in
+            AppLog.debug("No table found at (\(row), \(column))")
+        }
         return nil
     }
 
@@ -723,7 +812,9 @@ extension LayoutServices {
         if let tables = cachedLayouts[key] {
             return tables
         } else {
-            Self.logger.notice("No cached tables found for \(key). Returning base tables")
+            Task { @MainActor in
+                AppLog.info("No cached tables found for \(key). Returning base tables")
+            }
             return tableStore.baseTables
         }
     }

@@ -39,18 +39,24 @@ class ClusterStore: ObservableObject {
         clusterCache = clusters.mapValues { clusters in
             ClusterCacheEntry(clusters: clusters, lastAccessed: Date())
         }
-        logger.info("Cluster cache updated with \(clusters.count) entries")
+        Task { @MainActor in
+            AppLog.info("Cluster cache updated with \(clusters.count) entries")
+        }
     }
     
     func invalidateClusterCache(for date: Date, category: Reservation.ReservationCategory) {
         let key = layoutServices.keyFor(date: date, category: category)
         clusterCache.removeValue(forKey: key)
-        logger.debug("Cluster cache invalidated for key: \(key)")
+        Task { @MainActor in
+            AppLog.debug("Cluster cache invalidated for key: \(key)")
+        }
     }
     
     func invalidateAllClusterCaches() {
         clusterCache.removeAll()
-        logger.notice("All cluster caches invalidated")
+        Task { @MainActor in
+            AppLog.info("All cluster caches invalidated")
+        }
     }
     
 }

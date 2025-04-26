@@ -77,7 +77,9 @@ struct DateHelper {
         // Convert strings to Date objects
         guard let startDate = dateFormatter.date(from: startTime),
               let endDate = dateFormatter.date(from: endTime) else {
-            logger.warning("Invalid time format")
+            Task { @MainActor in
+                AppLog.warning("Invalid time format")
+            }
             return nil
         }
 
@@ -91,27 +93,37 @@ struct DateHelper {
         let cacheKey = "\(date.timeIntervalSince1970)-\(timeString)" as NSString
 
         if let cachedDate = combineDateAndTimeCache.object(forKey: cacheKey) {
-            logger.debug("Using cached combined date/time for: \(timeString)")
+            Task { @MainActor in
+                AppLog.debug("Using cached combined date/time for: \(timeString)")
+            }
             return cachedDate as Date
         }
 
         guard let time = parseTime(timeString) else {
-            logger.error("Failed to parse time string: \(timeString)")
+            Task { @MainActor in
+                AppLog.error("Failed to parse time string: \(timeString)")
+            }
             return nil
         }
 
         guard let timeComponents = extractTime(time: time) else {
-            logger.error("Failed to extract time components from: \(time)")
+            Task { @MainActor in
+                AppLog.error("Failed to extract time components from: \(time)")
+            }
             return nil
         }
 
         guard let combinedDate = combinedInputTime(time: timeComponents, date: date) else {
-            logger.error("Failed to combine time components with date")
+            Task { @MainActor in
+                AppLog.error("Failed to combine time components with date")
+            }
             return nil
         }
 
         combineDateAndTimeCache.setObject(combinedDate as NSDate, forKey: cacheKey)
-        logger.debug("Successfully combined date and time: \(combinedDate)")
+        Task { @MainActor in
+            AppLog.debug("Successfully combined date and time: \(combinedDate)")
+        }
         return combinedDate
     }
     
@@ -182,11 +194,15 @@ struct DateHelper {
     
     static func combineDateAndTimeStrings(dateString: String, timeString: String) -> Date {
         guard let date = parseDate(dateString) else {
-            logger.error("Failed to parse date string: \(dateString)")
+            Task { @MainActor in
+                AppLog.error("Failed to parse date string: \(dateString)")
+            }
             return Date()
         }
         guard let combinedDate = combineDateAndTime(date: date, timeString: timeString) else {
-            logger.warning("Failed to combine date (\(dateString)) and time (\(timeString)). Using current date as fallback.")
+            Task { @MainActor in
+                AppLog.warning("Failed to combine date (\(dateString)) and time (\(timeString)). Using current date as fallback.")
+            }
             return Date()
         }
         return combinedDate
@@ -228,7 +244,9 @@ struct DateHelper {
           components.minute = randomMinute
 
           let result = calendar.date(from: components) ?? date
-          logger.debug("Generated random time: \(formatTime(result)) for date: \(formatDate(date))")
+          Task { @MainActor in
+            AppLog.debug("Generated random time: \(formatTime(result)) for date: \(formatDate(date))")
+          }
           return result
       }
     
@@ -251,13 +269,17 @@ struct DateHelper {
         
         // Parse the reservation date.
         guard let reservationDate = dateFormatter.date(from: reservationDateString) else {
-            logger.warning("Failed to parse reservation date string: \(reservationDateString)")
+            Task { @MainActor in
+                AppLog.warning("Failed to parse reservation date string: \(reservationDateString)")
+            }
             return nil
         }
         
         // Parse the reservation start time.
         guard let reservationTime = timeFormatter.date(from: reservationStartTimeString) else {
-            logger.warning("Failed to parse reservation time string: \(reservationStartTimeString)")
+            Task { @MainActor in
+                AppLog.warning("Failed to parse reservation time string: \(reservationStartTimeString)")
+            }
             return nil
         }
         
@@ -271,7 +293,9 @@ struct DateHelper {
         
         // Combine into a full Date for the reservation start.
         guard let reservationStartDate = calendar.date(from: reservationDateComponents) else {
-            logger.warning("Failed to combine date and time into a reservation start date.")
+            Task { @MainActor in
+                AppLog.warning("Failed to combine date and time into a reservation start date.")
+            }
             return nil
         }
         

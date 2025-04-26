@@ -128,7 +128,7 @@ class ReservationService: ObservableObject {
         
         // In preview mode, we skip Firebase operations and just populate with mock data
         if isPreview {
-            logger.debug("Preview mode: Using mock data for ReservationService")
+            AppLog.debug("Preview mode: Using mock data for ReservationService")
             self.store.reservations = MockData.mockReservations
         } else {
             // Start Firebase listeners
@@ -167,14 +167,14 @@ class ReservationService: ObservableObject {
                 if currentVersion < 2 {
                     // Execute raw SQL to add a new column.
                     try SQLiteManager.shared.db.run("ALTER TABLE sessions ADD COLUMN uuid TEXT")
-                    logger.info("Migration: Added uuid column to sessions table.")
+                    AppLog.info("Migration: Added uuid column to sessions table.")
                 }
                 
                 // Update the database version.
                 try SQLiteManager.shared.db.run("PRAGMA user_version = \(targetVersion)")
             }
         } catch {
-            logger.error("Database migration error: \(error)")
+            AppLog.error("Database migration error: \(error)")
         }
     }
     
@@ -216,9 +216,9 @@ class ReservationService: ObservableObject {
         // Using the device UUID as the document ID
         dbRef?.document(session.uuid).setData(data) { [self] error in
             if let error = error {
-                logger.error("Error upserting session: \(error.localizedDescription)")
+                AppLog.error("Error upserting session: \(error.localizedDescription)")
             } else {
-                logger.debug("Session upserted successfully")
+                AppLog.debug("Session upserted successfully")
             }
         }
     }
@@ -253,9 +253,9 @@ class ReservationService: ObservableObject {
         // Using the profile's ID as the document ID
         dbRef?.document(profile.id).setData(data) { [self] error in
             if let error = error {
-                self.logger.error("Error pushing profile to Firebase: \(error)")
+                AppLog.error("Error pushing profile to Firebase: \(error)")
             } else {
-                self.logger.debug("Profile pushed to Firebase successfully.")
+                AppLog.debug("Profile pushed to Firebase successfully.")
             }
         }
     }
@@ -269,7 +269,7 @@ class ReservationService: ObservableObject {
             ProfileStore.shared.setProfiles(profiles)
         }
         
-        logger.info("Loaded \(profiles.count) profiles from SQLite")
+        AppLog.info("Loaded \(profiles.count) profiles from SQLite")
     }
 
     /// Retrieves a profile from SQLite by ID
@@ -353,12 +353,12 @@ class ReservationService: ObservableObject {
                     ProfileStore.shared.setCurrentProfile(updatedProfile)
                 }
                 
-                logger.debug("Updated device status for profile: \(profileID), device: \(deviceID), active: \(isActive)")
+                AppLog.debug("Updated device status for profile: \(profileID), device: \(deviceID), active: \(isActive)")
             } else {
-                logger.error("Cannot update device status: Device not found in profile \(profileID)")
+                AppLog.error("Cannot update device status: Device not found in profile \(profileID)")
             }
         } else {
-            logger.error("Cannot update device status: Profile not found for ID \(profileID)")
+            AppLog.error("Cannot update device status: Profile not found for ID \(profileID)")
         }
     }
 
@@ -436,7 +436,7 @@ class ReservationService: ObservableObject {
             self.changedReservation = reservation
             reservation.tables.forEach { self.layoutServices.markTable($0, occupied: true) }
             self.invalidateClusterCache(for: reservation)
-            self.logger.debug("Added reservation \(reservation.id) with tables \(reservation.tables)")
+            AppLog.debug("Added reservation \(reservation.id) with tables \(reservation.tables)")
         }
         
         // Push changes to Firestore with the improved dictionary conversion
@@ -451,9 +451,9 @@ class ReservationService: ObservableObject {
         // Using the reservation's UUID string as the document ID:
         dbRef?.document(reservation.id.uuidString).setData(data) { error in
             if let error = error {
-                self.logger.error("Error pushing reservation to Firebase: \(error)")
+                AppLog.error("Error pushing reservation to Firebase: \(error)")
             } else {
-                self.logger.debug("Reservation pushed to Firebase successfully.")
+                AppLog.debug("Reservation pushed to Firebase successfully.")
             }
         }
     }
@@ -512,20 +512,20 @@ class ReservationService: ObservableObject {
         // Check if this is a confirmed reservation with no tables
         if updatedReservation.acceptance == .confirmed && updatedReservation.tables.isEmpty {
             // Log this issue
-            logger.warning("⚠️ Found confirmed reservation with no tables: \(updatedReservation.name)")
+            AppLog.warning("⚠️ Found confirmed reservation with no tables: \(updatedReservation.name)")
             
             // Try to assign tables automatically
                 let layoutServices = self.layoutServices
                 let assignmentResult = layoutServices.assignTables(for: updatedReservation, selectedTableID: nil)
                 switch assignmentResult {
                 case .success(let assignedTables):
-                    logger.info("✅ Auto-assigned \(assignedTables.count) tables to reservation: \(updatedReservation.name)")
+                    AppLog.info("✅ Auto-assigned \(assignedTables.count) tables to reservation: \(updatedReservation.name)")
                     updatedReservation.tables = assignedTables
                 case .failure(let error):
-                    logger.error("❌ Failed to auto-assign tables: \(error.localizedDescription)")
+                    AppLog.error("❌ Failed to auto-assign tables: \(error.localizedDescription)")
                 }
             } else {
-                logger.error("❌ Cannot auto-assign tables: layoutServices not available")
+                AppLog.error("❌ Cannot auto-assign tables: layoutServices not available")
             }
         
         
@@ -609,7 +609,7 @@ class ReservationService: ObservableObject {
             let reservationIndex = index ?? self.store.reservations.firstIndex(where: { $0.id == oldReservation.id })
 
             guard let reservationIndex else {
-                self.logger.error("Error: Reservation with ID \(oldReservation.id) not found.")
+                AppLog.error("Error: Reservation with ID \(oldReservation.id) not found.")
                 return
             }
             
@@ -618,7 +618,7 @@ class ReservationService: ObservableObject {
             self.store.reservations[reservationIndex] = updatedReservation
             self.store.reservations = Array(self.store.reservations)
             self.changedReservation = updatedReservation
-            self.logger.info("Changed changedReservation, should update UI...")
+            AppLog.info("Changed changedReservation, should update UI...")
 
             let oldReservation = self.store.reservations[reservationIndex]
             
@@ -627,7 +627,7 @@ class ReservationService: ObservableObject {
             let newTableIDs = Set(updatedReservation.tables.map { $0.id })
             
             if oldTableIDs != newTableIDs {
-                self.logger.debug("Table change detected for reservation \(updatedReservation.id). Updating tables...")
+                AppLog.debug("Table change detected for reservation \(updatedReservation.id). Updating tables...")
 
                 // Unmark only if tables have changed
                 for tableID in oldTableIDs.subtracting(newTableIDs) {
@@ -648,7 +648,7 @@ class ReservationService: ObservableObject {
             } else if newTableIDs.isEmpty {
                 oldReservation.tables.forEach { self.layoutServices.unmarkTable($0) }
             } else {
-                self.logger.info("No table change detected for reservation \(updatedReservation.id). Skipping table update.")
+                AppLog.info("No table change detected for reservation \(updatedReservation.id). Skipping table update.")
             }
 
             // Update the reservation in the store
@@ -668,13 +668,13 @@ class ReservationService: ObservableObject {
                 // Using the reservation's UUID string as the document ID:
                 dbRef?.document(updatedReservation.id.uuidString).setData(data) { error in
                     if let error = error {
-                        self.logger.error("Error pushing reservation to Firebase: \(error)")
+                        AppLog.error("Error pushing reservation to Firebase: \(error)")
                     } else {
-                        self.logger.debug("Reservation pushed to Firebase successfully.")
+                        AppLog.debug("Reservation pushed to Firebase successfully.")
                     }
                 }
             }
-            self.logger.debug("Updated reservation \(updatedReservation.id).")
+            AppLog.debug("Updated reservation \(updatedReservation.id).")
         }
 
         // Finalize and save
@@ -689,7 +689,7 @@ class ReservationService: ObservableObject {
     /// - Note: This operation can be resource-intensive for large datasets.
     @MainActor
     func updateAllReservationsInFirestore() async {
-        logger.info("Beginning update of all reservations in Firestore...")
+        AppLog.info("Beginning update of all reservations in Firestore...")
         
         let allReservations = self.store.reservations
         
@@ -713,14 +713,14 @@ class ReservationService: ObservableObject {
                 }.value
                 
                 successCount += 1
-                logger.debug("Updated reservation \(reservation.id) in Firestore")
+                AppLog.debug("Updated reservation \(reservation.id) in Firestore")
             } catch {
                 errorCount += 1
-                logger.error("Failed to update reservation \(reservation.id) in Firestore: \(error)")
+                AppLog.error("Failed to update reservation \(reservation.id) in Firestore: \(error)")
             }
         }
         
-        logger.info("Completed updating all reservations in Firestore. Success: \(successCount), Errors: \(errorCount)")
+        AppLog.info("Completed updating all reservations in Firestore. Success: \(successCount), Errors: \(errorCount)")
     }
 
     
@@ -743,7 +743,7 @@ class ReservationService: ObservableObject {
                     updatedReservation.reservationType = .inAdvance
                     updatedReservation.status = .pending
                     self.updateReservation(updatedReservation) {
-                        self.logger.info("Updated reservations.")
+                        AppLog.info("Updated reservations.")
                     }
 
                 }
@@ -776,7 +776,7 @@ class ReservationService: ObservableObject {
         // Use the safe Firebase initialization method
         guard let db = AppDependencies.getFirestore() else {
             // In preview mode, just call the completion handler
-            logger.debug("Preview mode: Skipping clearAllDataFromFirestore")
+            AppLog.debug("Preview mode: Skipping clearAllDataFromFirestore")
             completion(nil)
             return
         }
@@ -788,7 +788,7 @@ class ReservationService: ObservableObject {
         #endif
         reservationsRef.getDocuments { snapshot, error in
             if let error = error {
-                self.logger.error("Error fetching documents for deletion: \(error)")
+                AppLog.error("Error fetching documents for deletion: \(error)")
                 completion(error)
                 return
             }
@@ -805,9 +805,9 @@ class ReservationService: ObservableObject {
             
             batch.commit { error in
                 if let error = error {
-                    self.logger.error("Error committing batch deletion: \(error)")
+                    AppLog.error("Error committing batch deletion: \(error)")
                 } else {
-                    self.logger.debug("Successfully deleted all reservations from Firestore.")
+                    AppLog.debug("Successfully deleted all reservations from Firestore.")
                 }
                 completion(error)
             }
@@ -832,13 +832,13 @@ class ReservationService: ObservableObject {
         
         clearAllDataFromFirestore { error in
                if let error = error {
-                   self.logger.error("Error clearing Firestore data: \(error)")
+                   AppLog.error("Error clearing Firestore data: \(error)")
                } else {
-                   self.logger.debug("All Firestore data cleared successfully.")
+                   AppLog.debug("All Firestore data cleared successfully.")
                }
            }
         
-        logger.info("ReservationService: All data has been cleared.")
+        AppLog.info("ReservationService: All data has been cleared.")
     }
     
     /// Fetches reservations for a specific date.
@@ -869,7 +869,9 @@ class ReservationService: ObservableObject {
     /// - Parameter reservation: The reservation to invalidate cache for
     private func invalidateClusterCache(for reservation: Reservation) {
         guard let reservationDate = reservation.normalizedDate else {
-            self.logger.error("Failed to parse dateString \(reservation.normalizedDate ?? Date()). Cache invalidation skipped.")
+            Task { @MainActor in
+                AppLog.error("Failed to parse dateString \(reservation.normalizedDate ?? Date()). Cache invalidation skipped.")
+            }
             return
         }
         self.clusterStore.invalidateClusterCache(for: reservationDate, category: reservation.category)
@@ -901,7 +903,7 @@ class ReservationService: ObservableObject {
     /// It also ensures that confirmed reservations have tables assigned.
     @MainActor
     func loadReservationsFromFirebase() {
-        logger.info("Loading reservations directly from Firebase...")
+        AppLog.info("Loading reservations directly from Firebase...")
         
         withAnimation {
             backupService.isWritingToFirebase = true
@@ -916,7 +918,7 @@ class ReservationService: ObservableObject {
         Task {
             do {
                 guard let snapshot = try await reservationsRef?.getDocuments() else { return }
-                logger.info("Retrieved \(snapshot.documents.count) reservation documents from Firebase")
+                AppLog.info("Retrieved \(snapshot.documents.count) reservation documents from Firebase")
                 
                 var loadedReservations: [Reservation] = []
                 var failedCount = 0
@@ -927,30 +929,30 @@ class ReservationService: ObservableObject {
                         
                         // Ensure confirmed reservations have tables
                         if reservation.acceptance == .confirmed && reservation.tables.isEmpty {
-                            logger.warning("⚠️ Found confirmed reservation with no tables: \(reservation.name)")
+                            AppLog.warning("⚠️ Found confirmed reservation with no tables: \(reservation.name)")
                             
                             let assignmentResult = layoutServices.assignTables(for: reservation, selectedTableID: nil)
                             if case .success(let assignedTables) = assignmentResult {
                                 var updatedReservation = reservation
                                 updatedReservation.tables = assignedTables
                                 loadedReservations.append(updatedReservation)
-                                logger.info("✅ Auto-assigned \(assignedTables.count) tables to reservation: \(updatedReservation.name)")
+                                AppLog.info("✅ Auto-assigned \(assignedTables.count) tables to reservation: \(updatedReservation.name)")
                             } else {
                                 loadedReservations.append(reservation)
-                                logger.error("❌ Failed to auto-assign tables to reservation: \(reservation.name)")
+                                AppLog.error("❌ Failed to auto-assign tables to reservation: \(reservation.name)")
                             }
                         } else {
                             loadedReservations.append(reservation)
                         }
                     } catch {
                         failedCount += 1
-                        logger.error("Failed to decode reservation from document \(document.documentID): \(error)")
+                        AppLog.error("Failed to decode reservation from document \(document.documentID): \(error)")
                     }
                 }
                 
                 // Update the store with loaded reservations
                 await MainActor.run {
-                    logger.info("Successfully decoded \(loadedReservations.count) reservations (failed: \(failedCount))")
+                    AppLog.info("Successfully decoded \(loadedReservations.count) reservations (failed: \(failedCount))")
                     
                     // Update the store
                     self.store.setReservations(loadedReservations)
@@ -965,14 +967,14 @@ class ReservationService: ObservableObject {
                     let today = Calendar.current.startOfDay(for: Date())
                     self.resCache.preloadDates(around: today, range: 5, reservations: loadedReservations)
                     
-                    logger.info("Successfully loaded \(loadedReservations.count) reservations from Firebase")
+                    AppLog.info("Successfully loaded \(loadedReservations.count) reservations from Firebase")
                     
                     withAnimation {
                         self.backupService.isWritingToFirebase = false
                     }
                 }
             } catch {
-                logger.error("Error loading reservations from Firebase: \(error.localizedDescription)")
+                AppLog.error("Error loading reservations from Firebase: \(error.localizedDescription)")
                 withAnimation {
                     self.backupService.isWritingToFirebase = false
                 }
@@ -986,7 +988,7 @@ class ReservationService: ObservableObject {
     /// and updates the session store with the retrieved data.
     @MainActor
     func loadSessionsFromFirebase() {
-        logger.info("Loading sessions directly from Firebase...")
+        AppLog.info("Loading sessions directly from Firebase...")
         
         withAnimation {
             backupService.isWritingToFirebase = true
@@ -1007,21 +1009,21 @@ class ReservationService: ObservableObject {
                     if let session = try? self.sessionFromFirebaseDocument(document) {
                         loadedSessions.append(session)
                     } else {
-                        logger.error("Failed to decode session from document: \(document.documentID)")
+                        AppLog.error("Failed to decode session from document: \(document.documentID)")
                     }
                 }
                 
                 // Update the store with loaded sessions
                 await MainActor.run {
                     SessionStore.shared.sessions = loadedSessions
-                    logger.info("Successfully loaded \(loadedSessions.count) sessions from Firebase")
+                    AppLog.info("Successfully loaded \(loadedSessions.count) sessions from Firebase")
                     
                     withAnimation {
                         self.backupService.isWritingToFirebase = false
                     }
                 }
             } catch {
-                logger.error("Error loading sessions from Firebase: \(error.localizedDescription)")
+                AppLog.error("Error loading sessions from Firebase: \(error.localizedDescription)")
                 withAnimation {
                     self.backupService.isWritingToFirebase = false
                 }
@@ -1126,7 +1128,7 @@ class ReservationService: ObservableObject {
               let isEditing = data["isEditing"] as? Bool,
               let lastUpdateTimestamp = data["lastUpdate"] as? TimeInterval,
               let isActive = data["isActive"] as? Bool else {
-            logger.error("Missing required fields in session data")
+            AppLog.error("Missing required fields in session data")
             return nil
         }
         
@@ -1201,13 +1203,15 @@ class ReservationService: ObservableObject {
         
         firebaseListener.startProfileListener()
         
-        logger.info("Firebase listeners set up")
+        Task { @MainActor in
+            AppLog.info("Firebase listeners set up")
+        }
     }
 
     @MainActor
     func setupRealtimeDatabasePresence(for deviceUUID: String) {
         // This is now handled by the SessionManager
-        logger.debug("Presence detection is now handled by SessionManager")
+        AppLog.debug("Presence detection is now handled by SessionManager")
     }
     
     /// Deactivates a device remotely
@@ -1220,7 +1224,7 @@ class ReservationService: ObservableObject {
     ///   - deviceID: The ID of the device to deactivate
     @MainActor
     func deactivateDeviceRemotely(profileID: String, deviceID: String) {
-        logger.info("Deactivating device \(deviceID) remotely for profile \(profileID)")
+        AppLog.info("Deactivating device \(deviceID) remotely for profile \(profileID)")
         
         // Get the profile from the store
         if let profile = ProfileStore.shared.getProfile(withID: profileID) {
@@ -1243,7 +1247,7 @@ class ReservationService: ObservableObject {
                     ProfileStore.shared.setCurrentProfile(updatedProfile)
                 }
                 
-                logger.info("Device \(deviceID) deactivated remotely for profile \(profileID)")
+                AppLog.info("Device \(deviceID) deactivated remotely for profile \(profileID)")
                 
                 // Also update the session if it exists
                 if let session = SessionStore.shared.sessions.first(where: { $0.id == profileID && $0.uuid == deviceID }) {
@@ -1254,13 +1258,13 @@ class ReservationService: ObservableObject {
                     // Update the session
                     upsertSession(updatedSession)
                     
-                    logger.info("Session updated for deactivated device \(deviceID)")
+                    AppLog.info("Session updated for deactivated device \(deviceID)")
                 }
             } else {
-                logger.error("Cannot deactivate device: Device not found in profile \(profileID)")
+                AppLog.error("Cannot deactivate device: Device not found in profile \(profileID)")
             }
         } else {
-            logger.error("Cannot deactivate device: Profile not found for ID \(profileID)")
+            AppLog.error("Cannot deactivate device: Profile not found for ID \(profileID)")
         }
     }
 }
@@ -1274,7 +1278,7 @@ extension ReservationService {
     @MainActor
     private func mockData() {
         layoutServices.setTables(tableStore.baseTables)
-        self.logger.debug("Tables populated in mockData: \(self.layoutServices.tables.map { $0.name })")
+        AppLog.debug("Tables populated in mockData: \(self.layoutServices.tables.map { $0.name })")
         
         let mockReservation1 = Reservation(
             name: "Alice",
@@ -1355,11 +1359,11 @@ extension ReservationService {
         let notes = loadStringsFromFile(fileName: "notes").shuffled()
 
         guard !names.isEmpty, !phoneNumbers.isEmpty else {
-            self.logger.warning("Required resources are missing. Reservation generation aborted.")
+            AppLog.warning("Required resources are missing. Reservation generation aborted.")
             return
         }
 
-        logger.info("Generating reservations for \(daysToSimulate) days with realistic variance (closed on Mondays).")
+        AppLog.info("Generating reservations for \(daysToSimulate) days with realistic variance (closed on Mondays).")
 
         // 3. Perform parallel reservation generation
         for dayOffset in 0..<daysToSimulate {
@@ -1375,7 +1379,7 @@ extension ReservationService {
         // 4. Save data to disk after all tasks complete
         self.resCache.preloadDates(around: startDate, range: daysToSimulate, reservations: store.reservations)
             self.layoutServices.saveToDisk()
-        self.logger.info("Finished generating reservations.")
+        AppLog.info("Finished generating reservations.")
     }
 
     /// Generates reservations for a specific day
@@ -1402,7 +1406,7 @@ extension ReservationService {
 
         // Skip Mondays
         if dayOfWeek == 2 {
-            self.logger.info("Skipping Monday: \(reservationDate)")
+            AppLog.info("Skipping Monday: \(reservationDate)")
             return
         }
 
@@ -1481,7 +1485,7 @@ extension ReservationService {
                             self.resCache.addOrUpdateReservation(updatedReservation)
                             self.store.reservations.append(updatedReservation)
                             self.updateReservation(updatedReservation) {
-                                self.logger.info("Generated reservation: \(updatedReservation.name)")
+                                AppLog.info("Generated reservation: \(updatedReservation.name)")
                             }
                         }
                     case .failure(let error):
@@ -1566,17 +1570,23 @@ extension ReservationService {
     func loadStringsFromFile(fileName: String, folder: String? = nil) -> [String] {
         let resourceName = folder != nil ? "\(String(describing: folder))/\(fileName)" : fileName
         guard let fileURL = Bundle.main.url(forResource: resourceName, withExtension: "txt") else {
-            self.logger.warning("Failed to load \(fileName) from folder \(String(describing: folder)).")
+            Task { @MainActor in
+                AppLog.warning("Failed to load \(fileName) from folder \(String(describing: folder)).")
+            }
             return []
         }
         
         do {
             let content = try String(contentsOf: fileURL)
             let lines = content.components(separatedBy: .newlines).filter { !$0.isEmpty }
-            self.logger.debug("Loaded \(lines.count) lines from \(fileName) (folder: \(String(describing: folder))).")
+            Task { @MainActor in
+                AppLog.debug("Loaded \(lines.count) lines from \(fileName) (folder: \(String(describing: folder))).")
+            }
             return lines
         } catch {
-            self.logger.error("Error reading \(fileName): \(error)")
+            Task { @MainActor in
+                AppLog.error("Error reading \(fileName): \(error)")
+            }
             return []
         }
     }
@@ -1601,11 +1611,11 @@ extension ReservationService {
                     let layoutServices = self.layoutServices // Capture layoutServices explicitly
                     Task {
                         let result = layoutServices.moveTable(randomTable, toRow: newRow, toCol: newColumn)
-                        self.logger.debug("Simulated moving \(randomTable.name) to (\(newRow), \(newColumn)): \(String(describing: result))")
+                        AppLog.debug("Simulated moving \(randomTable.name) to (\(newRow), \(newColumn)): \(String(describing: result))")
                     }
                 }
             } catch {
-                self.logger.error("Task.sleep encountered an error: \(error)")
+                AppLog.error("Task.sleep encountered an error: \(error)")
             }
         }
     }
@@ -1619,7 +1629,9 @@ extension ReservationService {
     func updateActiveReservationAdjacencyCounts(for reservation: Reservation) {
         guard let reservationDate = reservation.normalizedDate,
               let combinedDateTime = reservation.startTimeDate else {
-            self.logger.warning("Invalid reservation date or time for updating adjacency counts.")
+            Task { @MainActor in
+                AppLog.warning("Invalid reservation date or time for updating adjacency counts.")
+            }
             return
         }
 
@@ -1649,7 +1661,9 @@ extension ReservationService {
 
         // Save changes to disk
         layoutServices.saveToDisk()
-        self.logger.info("Updated activeReservationAdjacentCount for tables in reservation \(reservation.id).")
+        Task { @MainActor in
+            AppLog.info("Updated activeReservationAdjacentCount for tables in reservation \(reservation.id).")
+        }
     }
     
 }
@@ -1673,7 +1687,7 @@ extension ReservationService {
             // Clear active reservation cache
             self.store.activeReservationCache.removeAll()
 
-            self.logger.info("All caches flushed successfully.")
+            AppLog.info("All caches flushed successfully.")
         }
     }
 }
@@ -1719,7 +1733,7 @@ extension ReservationService {
         updatedReservation.notes = "[eliminata];"
         
         updateReservation(updatedReservation) {
-            self.logger.info("Updated reservation")
+            AppLog.info("Updated reservation")
         }
     }
     
@@ -1729,7 +1743,7 @@ extension ReservationService {
     /// tables and attempts to assign tables to them.
     @MainActor
     func ensureConfirmedReservationsHaveTables() {
-        logger.info("Scanning database for confirmed reservations without tables...")
+        AppLog.info("Scanning database for confirmed reservations without tables...")
         
         var updatedCount = 0
         var failedCount = 0
@@ -1739,7 +1753,7 @@ extension ReservationService {
         
         for reservation in reservationsToCheck {
             if reservation.acceptance == .confirmed && reservation.tables.isEmpty {
-                logger.warning("⚠️ Found confirmed reservation in database with no tables: \(reservation.name) (ID: \(reservation.id))")
+                AppLog.warning("⚠️ Found confirmed reservation in database with no tables: \(reservation.name) (ID: \(reservation.id))")
                 
                 // Try to assign tables automatically
                 let assignmentResult = layoutServices.assignTables(for: reservation, selectedTableID: nil)
@@ -1759,17 +1773,17 @@ extension ReservationService {
                     // Update in cache
                     resCache.addOrUpdateReservation(updatedReservation)
                     
-                    logger.info("✅ Auto-assigned \(assignedTables.count) tables to stored reservation: \(updatedReservation.name)")
+                    AppLog.info("✅ Auto-assigned \(assignedTables.count) tables to stored reservation: \(updatedReservation.name)")
                     updatedCount += 1
                     
                 case .failure(let error):
-                    logger.error("❌ Failed to auto-assign tables to stored reservation: \(error.localizedDescription)")
+                    AppLog.error("❌ Failed to auto-assign tables to stored reservation: \(error.localizedDescription)")
                     failedCount += 1
                 }
             }
         }
         
-        logger.info("Database scan complete. Updated \(updatedCount) reservations, failed to update \(failedCount) reservations.")
+        AppLog.info("Database scan complete. Updated \(updatedCount) reservations, failed to update \(failedCount) reservations.")
     }
 }
 
@@ -1797,7 +1811,7 @@ extension ReservationService {
     /// (prioritizing those with tables or the most recently edited), and removes the others.
     @MainActor
     func removeDuplicateReservations() {
-        logger.info("Checking for duplicate reservations...")
+        AppLog.info("Checking for duplicate reservations...")
         
         // Group reservations by ID
         let groupedReservations = Dictionary(grouping: store.reservations) { $0.id }
@@ -1808,7 +1822,7 @@ extension ReservationService {
         // Process each group of reservations with the same ID
         for (id, duplicates) in groupedReservations where duplicates.count > 1 {
             duplicatesFound += duplicates.count - 1
-            logger.warning("Found \(duplicates.count) duplicates for reservation ID: \(id)")
+            AppLog.warning("Found \(duplicates.count) duplicates for reservation ID: \(id)")
             
             // First, try to find a reservation with tables
             let reservationsWithTables = duplicates.filter { !$0.tables.isEmpty }
@@ -1816,7 +1830,7 @@ extension ReservationService {
             if let bestReservation = reservationsWithTables.first {
                 // Keep the reservation with tables
                 reservationsToKeep[id] = bestReservation
-                logger.debug("Keeping reservation with \(bestReservation.tables.count) tables for ID: \(id)")
+                AppLog.debug("Keeping reservation with \(bestReservation.tables.count) tables for ID: \(id)")
                 
                 // Mark others for removal
                 let othersToRemove = duplicates.filter { $0.id == id && $0 != bestReservation }
@@ -1825,7 +1839,7 @@ extension ReservationService {
                 // If none have tables, keep the most recently edited one
                 let mostRecent = duplicates.max(by: { $0.lastEditedOn < $1.lastEditedOn })!
                 reservationsToKeep[id] = mostRecent
-                logger.debug("No reservations with tables found for ID: \(id). Keeping most recent.")
+                AppLog.debug("No reservations with tables found for ID: \(id). Keeping most recent.")
                 
                 // Mark others for removal
                 let othersToRemove = duplicates.filter { $0.id == id && $0 != mostRecent }
@@ -1841,7 +1855,7 @@ extension ReservationService {
         // Remove duplicates from SQLite
         for reservation in reservationsToRemove {
             SQLiteManager.shared.deleteReservation(withID: reservation.id)
-            logger.debug("Removed duplicate reservation from SQLite: \(reservation.id)")
+            AppLog.debug("Removed duplicate reservation from SQLite: \(reservation.id)")
         }
         
         // Update the store with deduplicated reservations
@@ -1852,7 +1866,7 @@ extension ReservationService {
             resCache.addOrUpdateReservation(reservation)
         }
         
-        logger.info("Duplicate removal complete. Removed \(duplicatesFound) duplicate reservations. Kept \(reservationsToKeep.count) unique reservations.")
+        AppLog.info("Duplicate removal complete. Removed \(duplicatesFound) duplicate reservations. Kept \(reservationsToKeep.count) unique reservations.")
     }
     
     /// Cleans up duplicate devices in a profile
@@ -1896,7 +1910,7 @@ extension ReservationService {
                 updatedProfile.devices.append(newDevice)
                 deviceNameChanged = true
                 newDeviceName = safeDeviceName
-                logger.info("Added current device \(currentDeviceID) to profile \(profileID)")
+                AppLog.info("Added current device \(currentDeviceID) to profile \(profileID)")
             }
             
             // Group devices by name
@@ -1906,7 +1920,7 @@ extension ReservationService {
             for (name, devices) in devicesByName {
                 // If there are multiple devices with the same name
                 if devices.count > 1 {
-                    logger.info("Found \(devices.count) devices with name '\(name)' in profile \(profileID)")
+                    AppLog.info("Found \(devices.count) devices with name '\(name)' in profile \(profileID)")
                     
                     // For other devices with the same name, keep only the most recently active one
                     let otherDevices = devices.filter { $0.id != currentDeviceID }
@@ -1923,7 +1937,7 @@ extension ReservationService {
                             device.id != deviceToKeep.id
                         }
                         
-                        logger.info("Kept current device \(currentDeviceID) and most recent device \(deviceToKeep.id) with name '\(name)'")
+                        AppLog.info("Kept current device \(currentDeviceID) and most recent device \(deviceToKeep.id) with name '\(name)'")
                     }
                 }
             }
@@ -1968,16 +1982,16 @@ extension ReservationService {
                             do {
                                 if let dbRef = dbRef {
                                     try await dbRef.document(updatedSession.uuid).setData(data)
-                                    self.logger.debug("Session updated in Firebase with new device name")
+                                    AppLog.debug("Session updated in Firebase with new device name")
                                 }
                             } catch {
-                                self.logger.error("Error updating session in Firebase: \(error)")
+                                AppLog.error("Error updating session in Firebase: \(error)")
                             }
                         }
                     }
                 }
                 
-                logger.info("Cleaned up duplicate devices in profile \(profileID). Removed \(profile.devices.count - updatedProfile.devices.count) devices.")
+                AppLog.info("Cleaned up duplicate devices in profile \(profileID). Removed \(profile.devices.count - updatedProfile.devices.count) devices.")
             }
         }
     }
@@ -2021,7 +2035,7 @@ extension ReservationService {
             updatedProfile.updatedAt = Date()
             
             // Log what we're doing
-            logger.warning("Completely reset devices for profile \(profileID). Removed \(profile.devices.count - 1) devices.")
+            AppLog.warning("Completely reset devices for profile \(profileID). Removed \(profile.devices.count - 1) devices.")
             
             // Update the profile
             upsertProfile(updatedProfile)

@@ -29,7 +29,9 @@ class ScribbleService: ObservableObject {
     // MARK: - Save Scribble
     func saveDrawing(_ drawing: PKDrawing, for key: String, layer: String) {
         if !validateDrawingData(drawing) {
-            logger.error("Invalid drawing detected for key: \(key), layer: \(layer)")
+            Task { @MainActor in
+                AppLog.error("Invalid drawing detected for key: \(key), layer: \(layer)")
+            }
             return
         }
         scribbleQueue.sync {
@@ -38,7 +40,9 @@ class ScribbleService: ObservableObject {
             }
             cachedScribbles[key]?[layer] = drawing
             saveToDisk()
-            logger.debug("Drawing saved successfully for key: \(key), layer: \(layer)")
+            Task { @MainActor in
+                AppLog.debug("Drawing saved successfully for key: \(key), layer: \(layer)")
+            }
         }
     }
 
@@ -54,7 +58,9 @@ class ScribbleService: ObservableObject {
     func validateDrawingData(_ drawing: PKDrawing) -> Bool {
         let data = drawing.dataRepresentation()
         guard let decodedDrawing = try? PKDrawing(data: data) else {
-            logger.error("Failed to decode drawing from data")
+            Task { @MainActor in
+                AppLog.error("Failed to decode drawing from data")
+            }
             return false
         }
         return decodedDrawing == drawing
@@ -69,9 +75,13 @@ class ScribbleService: ObservableObject {
             }
             let data = try encoder.encode(serializedData)
             UserDefaults.standard.set(data, forKey: "cachedScribbles")
-            logger.info("Scribbles saved successfully to disk")
+            Task { @MainActor in
+                AppLog.info("Scribbles saved successfully to disk")
+            }
         } catch {
-            logger.error("Failed to save scribbles: \(error.localizedDescription)")
+            Task { @MainActor in
+                AppLog.error("Failed to save scribbles: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -83,18 +93,27 @@ class ScribbleService: ObservableObject {
                     try layers.mapValues { value in
                         guard let data = Data(base64Encoded: value) else { throw NSError() }
                         guard let drawing = try? PKDrawing(data: data) else {
-                            logger.warning("Invalid drawing data for layer: \(value)")
+                            Task { @MainActor in
+                                AppLog.warning("Invalid drawing data for layer: \(value)")
+                            }
                             return PKDrawing() // Fallback to an empty drawing
                         }
                         return drawing
                     }
                 }
-                logger.info("Scribbles loaded successfully. Found keys: \(self.cachedScribbles.keys)")
+                let keys = Array(cachedScribbles.keys)
+                Task { @MainActor in
+                    AppLog.info("Scribbles loaded successfully. Found keys: \(keys)")
+                }
             } catch {
-                logger.error("Failed to load scribbles: \(error)")
+                Task { @MainActor in
+                    AppLog.error("Failed to load scribbles: \(error)")
+                }
             }
         } else {
-            logger.notice("No cached scribbles found")
+            Task { @MainActor in
+                AppLog.info("No cached scribbles found")
+            }
         }
     }
     
@@ -117,16 +136,22 @@ class ScribbleService: ObservableObject {
     func deleteAllScribbles() {
         cachedScribbles.removeAll()
         UserDefaults.standard.removeObject(forKey: "cachedScribbles")
-        logger.notice("All scribbles have been deleted")
+        Task { @MainActor in
+            AppLog.info("All scribbles have been deleted")
+        }
     }
     
     func saveScribbleForCurrentLayout(_ currentDrawing: DrawingModel, _ currentLayoutKey: String) {
-        logger.debug("Saving scribbles for layout key: \(currentLayoutKey)")
+        Task { @MainActor in
+            AppLog.debug("Saving scribbles for layout key: \(currentLayoutKey)")
+        }
 
         saveDrawing(currentDrawing.layer1, for: currentLayoutKey, layer: "layer1")
         saveDrawing(currentDrawing.layer2, for: currentLayoutKey, layer: "layer2")
         saveDrawing(currentDrawing.layer3, for: currentLayoutKey, layer: "layer3")
 
-        logger.info("All layers saved successfully for layout key: \(currentLayoutKey)")
+        Task { @MainActor in
+            AppLog.info("All layers saved successfully for layout key: \(currentLayoutKey)")
+        }
     }
 }

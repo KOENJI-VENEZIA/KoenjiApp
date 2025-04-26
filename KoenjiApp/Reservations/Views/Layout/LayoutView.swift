@@ -230,10 +230,10 @@ extension LayoutView {
     func debugCache() {
         if let cached = env.resCache.cache[appState.selectedDate] {
             for res in cached {
-                Self.logger.debug("Reservation in cache: \(res.name), start time: \(res.startTime), end time: \(res.endTime)")
+                AppLog.debug("Reservation in cache: \(res.name), start time: \(res.startTime), end time: \(res.endTime)")
             }
         } else {
-            Self.logger.debug("No reservations in cache at \(DateHelper.formatDate(appState.selectedDate))")
+            AppLog.debug("No reservations in cache at \(DateHelper.formatDate(appState.selectedDate))")
         }
     }
     
@@ -247,7 +247,7 @@ extension LayoutView {
     private func initializeView() {
         columnVisibility = .detailOnly
         unitView.dates = generateInitialDates()
-        Self.logger.info("Initialized with date: \(DateHelper.formatDate(appState.selectedDate)), category: \(appState.selectedCategory.localized)")
+        AppLog.info("Initialized with date: \(DateHelper.formatDate(appState.selectedDate)), category: \(appState.selectedCategory.localized)")
         clusterManager.loadClusters()
         env.resCache.startMonitoring(for: appState.selectedDate)
     }
@@ -258,7 +258,7 @@ extension LayoutView {
             withAnimation { appState.selectedDate = combinedTime }
         }
         handleCurrentTimeChange(appState.selectedDate)
-        Self.logger.debug("Selected index changed to \(unitView.selectedIndex), date: \(DateHelper.formatFullDate(appState.selectedDate))")
+        AppLog.debug("Selected index changed to \(unitView.selectedIndex), date: \(DateHelper.formatFullDate(appState.selectedDate))")
         if unitView.selectedIndex >= unitView.dates.count - 5 { appendMoreDates() }
         if unitView.selectedIndex <= 5 { prependMoreDates() }
         trimDatesAround(unitView.selectedIndex)
@@ -267,11 +267,11 @@ extension LayoutView {
     private func handleSelectedCategoryChange(_ oldCategory: Reservation.ReservationCategory,
                                                 _ newCategory: Reservation.ReservationCategory) {
         guard unitView.isManuallyOverridden, oldCategory != newCategory else { return }
-        Self.logger.info("Category changed from \(oldCategory.rawValue) to \(newCategory.rawValue)")
+        AppLog.info("Category changed from \(oldCategory.rawValue) to \(newCategory.rawValue)")
     }
     
     func handleCurrentTimeChange(_ newTime: Date) {
-        Self.logger.debug("Time updated to \(DateHelper.formatFullDate(newTime))")
+        AppLog.debug("Time updated to \(DateHelper.formatFullDate(newTime))")
         withAnimation { appState.selectedDate = newTime }
         let calendar = Calendar.current
         let lunchStart = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: appState.selectedDate)!
@@ -291,7 +291,7 @@ extension LayoutView {
     
     func resetLayout() {
         let currentDate = Calendar.current.startOfDay(for: unitView.dates[safe: unitView.selectedIndex] ?? Date())
-        Self.logger.notice("Resetting layout for date: \(DateHelper.formatFullDate(currentDate)) and category: \(appState.selectedCategory.localized)")
+        AppLog.info("Resetting layout for date: \(DateHelper.formatFullDate(currentDate)) and category: \(appState.selectedCategory.localized)")
         let combinedDate = DateHelper.combine(date: currentDate, time: appState.selectedDate)
         env.layoutServices.resetTables(for: currentDate, category: appState.selectedCategory)
         withAnimation {
@@ -304,7 +304,7 @@ extension LayoutView {
                 self.unitView.isLayoutLocked = true
                 self.unitView.isLayoutReset = true
             }
-            Self.logger.info("Layout successfully reset and reservations checked")
+            AppLog.info("Layout successfully reset and reservations checked")
         }
     }
     
@@ -387,7 +387,7 @@ extension LayoutView {
         guard let lastDate = unitView.dates.last else { return }
         let newDates = generateSequentialDates(from: lastDate, count: 5)
         unitView.dates.append(contentsOf: newDates)
-        Self.logger.debug("Appended \(newDates.count) more dates. Total dates: \(unitView.dates.count)")
+        AppLog.debug("Appended \(newDates.count) more dates. Total dates: \(unitView.dates.count)")
     }
     
     private func prependMoreDates() {
@@ -395,7 +395,7 @@ extension LayoutView {
         let newDates = generateSequentialDates(before: firstDate, count: 5)
         unitView.dates.insert(contentsOf: newDates, at: 0)
         unitView.selectedIndex += newDates.count
-        Self.logger.debug("Prepended \(newDates.count) more dates. Total dates: \(unitView.dates.count)")
+        AppLog.debug("Prepended \(newDates.count) more dates. Total dates: \(unitView.dates.count)")
     }
     
     private func generateSequentialDates(from startDate: Date, count: Int) -> [Date] {
@@ -462,7 +462,7 @@ extension LayoutView {
             let endIndex = min(unitView.dates.count, index + bufferSize / 2)
             unitView.dates = Array(unitView.dates[startIndex..<endIndex])
             unitView.selectedIndex = index - startIndex
-            Self.logger.debug("Trimmed dates around index \(index). New selectedIndex: \(unitView.selectedIndex)")
+            AppLog.debug("Trimmed dates around index \(index). New selectedIndex: \(unitView.selectedIndex)")
         }
     }
 }

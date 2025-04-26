@@ -55,7 +55,7 @@ extension ReservationService {
     
     // Process new web reservation and send notification
     @MainActor private func handleNewWebReservation(_ reservation: Reservation) {
-        logger.info("New web reservation received: \(reservation.id)")
+        AppLog.info("New web reservation received: \(reservation.id)")
         
         // Add to local database
         SQLiteManager.shared.insertReservation(reservation)
@@ -151,7 +151,7 @@ extension ReservationService {
     // Approve a web reservation and send confirmation email
     @MainActor
     func approveWebReservation(_ reservation: Reservation) async -> Bool {
-        logger.debug("Called approveWebReservation")
+        AppLog.debug("Called approveWebReservation")
         
         // 1. Create a new reservation with the same details but a new UUID
         var newReservation = reservation
@@ -162,10 +162,10 @@ extension ReservationService {
         switch assignmentResult {
         case .success(let assignedTables):
             newReservation.tables = assignedTables
-            logger.debug("Successfully assigned tables for web reservation \(reservation.name)")
+            AppLog.debug("Successfully assigned tables for web reservation \(reservation.name)")
         case .failure:
             // Even if table assignment fails, we still want to approve the reservation
-            logger.warning("Failed to assign tables for web reservation \(reservation.name)")
+            AppLog.warning("Failed to assign tables for web reservation \(reservation.name)")
         }
         
         // 3. Add the new reservation to your local store
@@ -180,17 +180,17 @@ extension ReservationService {
             #endif
             
             try await dbRef?.document(reservation.id.uuidString.lowercased()).delete()
-            logger.debug("Original web reservation deleted successfully")
+            AppLog.debug("Original web reservation deleted successfully")
         } catch {
-            logger.error("Error deleting original web reservation: \(error)")
+            AppLog.error("Error deleting original web reservation: \(error)")
         }
         
         // 5. Send confirmation email
         let emailSent = await self.emailService.sendConfirmationEmail(for: newReservation)
         if emailSent {
-            logger.info("Confirmation email sent for reservation \(newReservation.name)")
+            AppLog.info("Confirmation email sent for reservation \(newReservation.name)")
         } else {
-            logger.error("Failed to send confirmation email for reservation \(newReservation.name)")
+            AppLog.error("Failed to send confirmation email for reservation \(newReservation.name)")
         }
         
         return true
@@ -199,7 +199,7 @@ extension ReservationService {
     /// Decline a web reservation and update its status
     @MainActor
     func declineWebReservation(_ reservation: Reservation, reason: WebReservationDeclineReason, customNotes: String? = nil) async -> Bool {
-        logger.debug("Called declineWebReservation with reason: \(reason.rawValue)")
+        AppLog.debug("Called declineWebReservation with reason: \(reason.rawValue)")
         
         // 1. Create a new reservation with the updated details
         var declinedReservation = reservation
@@ -207,7 +207,7 @@ extension ReservationService {
         declinedReservation.status = .canceled
         declinedReservation.preferredLanguage = reservation.preferredLanguage
         
-        logger.debug("Preferred language is: \(declinedReservation.preferredLanguage ?? "Not set")")
+        AppLog.debug("Preferred language is: \(declinedReservation.preferredLanguage ?? "Not set")")
         // 2. Add appropriate notes based on the decline reason
         let declineNotes = reason.notesText
         let additionalNotes = customNotes != nil && !customNotes!.isEmpty ? "\nAdditional notes: \(customNotes!)" : ""
@@ -240,9 +240,9 @@ extension ReservationService {
             #endif
             
             try await dbRef?.document(reservation.id.uuidString.lowercased()).delete()
-            logger.debug("Original web reservation deleted successfully")
+            AppLog.debug("Original web reservation deleted successfully")
         } catch {
-            logger.error("Error deleting original web reservation: \(error)")
+            AppLog.error("Error deleting original web reservation: \(error)")
         }
         
         // 5. Add the declined reservation to the local store
@@ -252,9 +252,9 @@ extension ReservationService {
         if let email = declinedReservation.emailAddress {
             let emailSent = await self.emailService.sendDeclineEmail(for: declinedReservation, email: email, reason: reason)
             if emailSent {
-                logger.info("Decline email sent for reservation \(declinedReservation.name)")
+                AppLog.info("Decline email sent for reservation \(declinedReservation.name)")
             } else {
-                logger.error("Failed to send decline email for reservation \(declinedReservation.name)")
+                AppLog.error("Failed to send decline email for reservation \(declinedReservation.name)")
             }
         }
         

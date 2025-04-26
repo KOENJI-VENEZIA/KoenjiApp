@@ -11,9 +11,8 @@ import OSLog
 import Firebase
 import FirebaseFirestore
 
-class SalesFirebaseService: ObservableObject {
-    private let logger = Logger(subsystem: "com.koenjiapp", category: "SalesFirebaseService")
-    
+@MainActor
+class SalesFirebaseService: ObservableObject {    
     private let db: Firestore?
     private let store: SalesStore
     private var salesListener: ListenerRegistration?
@@ -34,10 +33,14 @@ class SalesFirebaseService: ObservableObject {
             self.db = db ?? Firestore.firestore()
         } else {
             self.db = nil
-            logger.debug("Preview mode: Firestore not initialized")
+            Task { @MainActor in
+                AppLog.debug("Preview mode: Firestore not initialized")
+            }
         }
         
-        logger.debug("SalesFirebaseService initialized (preview mode: \(self.isPreview))")
+        Task { @MainActor in
+            AppLog.debug("SalesFirebaseService initialized (preview mode: \(self.isPreview))")
+        }
     }
     
     // MARK: - Firestore Listeners
@@ -45,7 +48,9 @@ class SalesFirebaseService: ObservableObject {
     @MainActor
     func startSalesListener() async {
         guard !isPreview, let db = db else {
-            logger.debug("Preview mode: Skipping sales listener")
+            Task { @MainActor in
+                AppLog.debug("Preview mode: Skipping sales listener")
+            }
             
             // In preview mode, populate with mock data if needed
             if store.allSales.isEmpty {
@@ -100,7 +105,9 @@ class SalesFirebaseService: ObservableObject {
         
         salesListener = dbRef.addSnapshotListener { [weak self] snapshot, error in
             if let error = error {
-                self?.logger.error("Error listening for sales: \(error)")
+                Task { @MainActor in
+                    AppLog.error("Error listening for sales: \(error)")
+                }
                 return
             }
             
@@ -117,7 +124,9 @@ class SalesFirebaseService: ObservableObject {
             // Replace the entire in-memory store with unique values
             DispatchQueue.main.async {
                 self?.store.setAllSales(Array(salesByDate.values))
-                self?.logger.debug("Listener updated sales data. Count: \(salesByDate.values.count)")
+                Task { @MainActor in
+                    AppLog.debug("Listener updated sales data. Count: \(salesByDate.values.count)")
+                }
             }
         }
     }
@@ -136,7 +145,9 @@ class SalesFirebaseService: ObservableObject {
     
     func saveDailySales(_ dailySales: DailySales, completion: @escaping (Error?) -> Void) {
         guard !isPreview, let db = db else {
-            logger.debug("Preview mode: Skipping save sales data")
+            Task { @MainActor in
+                AppLog.debug("Preview mode: Skipping save sales data")
+            }
             // In preview mode, just update the local store
             store.updateSales(dailySales)
             completion(nil)
@@ -158,15 +169,23 @@ class SalesFirebaseService: ObservableObject {
             
             dbRef.setData(data) { error in
                 if let error = error {
-                    self.logger.error("Error saving sales data: \(error)")
+                    Task { @MainActor in
+                        AppLog.error("Error saving sales data: \(error)")
+                    }
                     completion(error)
                 } else {
-                    self.logger.debug("Successfully saved sales data for \(updatedSales.dateString)")
+                    // Capture just the necessary value to avoid data races
+                    let dateString = updatedSales.dateString
+                    Task { @MainActor in
+                        AppLog.debug("Successfully saved sales data for \(dateString)")
+                    }
                     completion(nil)
                 }
             }
         } catch {
-            self.logger.error("Error converting sales data: \(error)")
+            Task { @MainActor in
+                AppLog.error("Error converting sales data: \(error)")
+            }
             completion(error)
         }
     }
@@ -208,10 +227,15 @@ class SalesFirebaseService: ObservableObject {
             if deletedCount > 0 {
                 batch?.commit { error in
                     if let error = error {
-                        self?.logger.error("Error deleting month \(month) in year \(year): \(error)")
+                        Task { @MainActor in
+                            AppLog.error("Error deleting month \(month) in year \(year): \(error)")
+                        }
                         completion(error)
                     } else {
-                        self?.logger.debug("Deleted \(deletedCount) sales documents for month \(month) in year \(year)")
+                        let deletedCount = deletedCount
+                        Task { @MainActor in
+                            AppLog.debug("Deleted \(deletedCount) sales documents for month \(month) in year \(year)")
+                        }
                         completion(nil)
                     }
                 }
@@ -258,10 +282,15 @@ class SalesFirebaseService: ObservableObject {
             if deletedCount > 0 {
                 batch?.commit { error in
                     if let error = error {
-                        self?.logger.error("Error deleting year \(year): \(error)")
+                        Task { @MainActor in
+                            AppLog.error("Error deleting year \(year): \(error)")
+                        }
                         completion(error)
                     } else {
-                        self?.logger.debug("Deleted \(deletedCount) sales documents for year \(year)")
+                        let deletedCount = deletedCount
+                        Task { @MainActor in
+                            AppLog.debug("Deleted \(deletedCount) sales documents for year \(year)")
+                        }
                         completion(nil)
                     }
                 }

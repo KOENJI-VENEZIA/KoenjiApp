@@ -189,7 +189,9 @@ struct Reservation: Identifiable, Hashable, Codable {
         let nameCopy = name
         let dateStringCopy = dateString
         let startTimeCopy = startTime
-        Self.logger.debug("Created reservation: \(nameCopy) for \(dateStringCopy) at \(startTimeCopy)")
+        Task { @MainActor in
+            AppLog.debug("Created reservation: \(nameCopy) for \(dateStringCopy) at \(startTimeCopy)")
+        }
     }
     
     var startTimeDate: Date? {
@@ -314,7 +316,9 @@ extension Reservation {
            guard let date = DateHelper.parseDate(dateString) else {
                // Store the value before logging to avoid capturing mutating self
                let dateStringCopy = dateString
-               Self.logger.error("Failed to parse date string: \(dateStringCopy)")
+               Task { @MainActor in
+                    AppLog.error("Failed to parse date string: \(dateStringCopy)")
+               }
                return
            }
            
@@ -323,7 +327,9 @@ extension Reservation {
                // Store the values before logging to avoid capturing mutating self
                let startTimeCopy = startTime
                let endTimeCopy = endTime
-               Self.logger.error("Failed to parse time strings - Start: \(startTimeCopy), End: \(endTimeCopy)")
+               Task { @MainActor in
+                    AppLog.error("Failed to parse time strings - Start: \(startTimeCopy), End: \(endTimeCopy)")
+               }
                return
            }
            
@@ -333,14 +339,18 @@ extension Reservation {
            
            // Store the value before logging to avoid capturing mutating self
            let nameCopy = name
-           Self.logger.debug("Updated cached dates for reservation: \(nameCopy)")
+           Task { @MainActor in
+                AppLog.debug("Updated cached dates for reservation: \(nameCopy)")
+           }
        }
        
        /// Determines the reservation type based on creation date and reservation date.
        mutating private func determineReservationType() {
            guard let reservationDate = DateHelper.parseDate(dateString),
                  let combinedStartDate = startTimeDate else {
-               Self.logger.warning("Unable to determine reservation type, defaulting to inAdvance")
+               Task { @MainActor in
+                    AppLog.warning("Unable to determine reservation type, defaulting to inAdvance")
+               }
                self.reservationType = .inAdvance
                return
            }
@@ -349,13 +359,19 @@ extension Reservation {
            if calendar.isDate(creationDate, inSameDayAs: reservationDate) &&
                 creationDate >= combinedStartDate, self.reservationType != .waitingList {
                self.reservationType = .walkIn
-               Self.logger.debug("Determined reservation type: walkIn")
+               Task { @MainActor in
+                    AppLog.debug("Determined reservation type: walkIn")
+               }
            } else if self.reservationType != .waitingList {
                self.reservationType = .inAdvance
-               Self.logger.debug("Determined reservation type: inAdvance")
+               Task { @MainActor in
+                    AppLog.debug("Determined reservation type: inAdvance")
+               }
            } else {
                self.reservationType = .waitingList
-               Self.logger.debug("Determined reservation type: waitingList")
+               Task { @MainActor in
+                    AppLog.debug("Determined reservation type: waitingList")
+                }
            }
        }
        

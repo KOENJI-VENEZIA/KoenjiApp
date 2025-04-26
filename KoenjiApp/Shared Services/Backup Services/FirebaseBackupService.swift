@@ -60,7 +60,9 @@ class FirebaseBackupService: ObservableObject {
     /// This method is a no-op in preview mode
     func saveReservationsToBackup() async {
         if isPreview {
-            logger.debug("Preview mode: Skipping Firebase backup")
+            Task { @MainActor in
+                AppLog.debug("Preview mode: Skipping Firebase backup")
+            }
             return
         }
         
@@ -72,7 +74,9 @@ class FirebaseBackupService: ObservableObject {
     /// In preview mode, this loads mock reservations
     func loadReservationsFromBackup() async {
         if isPreview {
-            logger.debug("Preview mode: Loading mock reservations")
+            Task { @MainActor in
+                AppLog.debug("Preview mode: Loading mock reservations")
+            }
             self.store.reservations = MockData.mockReservations
             return
         }

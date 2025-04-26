@@ -42,12 +42,18 @@ class CurrentReservationsCache: ObservableObject {
         preloadedDates = newDates
         populateCache(for: Array(newDates), reservations: reservations)
 
-        logger.info("Preloaded \(self.preloadedDates.count) dates around \(DateHelper.formatDate(selectedDate)) with \(reservations.count) reservations")
+        let preloadedDatesCount = self.preloadedDates.count
+        let reservationsCount = reservations.count
+        Task { @MainActor in
+            AppLog.info("Preloaded \(preloadedDatesCount) dates around \(DateHelper.formatDate(selectedDate)) with \(reservationsCount) reservations")
+        }
     }
     
     /// Clears the entire cache and resets preloaded dates
     func clearCache() {
-        logger.info("Clearing reservation cache")
+        Task { @MainActor in
+            AppLog.info("Clearing reservation cache")
+        }
         cache.removeAll()
         preloadedDates.removeAll()
         activeReservationsByMinute.removeAll()
@@ -59,7 +65,9 @@ class CurrentReservationsCache: ObservableObject {
             let reservationsForDate = reservations.filter { $0.dateString == dateString }
             cache[date] = reservationsForDate
         }
-        logger.info("Populated cache for \(dates.count) dates with \(reservations.count) reservations")
+        Task { @MainActor in
+            AppLog.info("Populated cache for \(dates.count) dates with \(reservations.count) reservations")
+        }
     }
 
     /// Calculates a range of dates around a selected date
@@ -76,7 +84,9 @@ class CurrentReservationsCache: ObservableObject {
     // MARK: - Active Reservations Management
     func precomputeActiveReservations(for date: Date) {
         guard let reservationsForDate = cache[date] else {
-            logger.warning("No reservations found for date: \(DateHelper.formatDate(date))")
+            Task { @MainActor in
+                AppLog.warning("No reservations found for date: \(DateHelper.formatDate(date))")
+            }
             return
         }
 
@@ -84,7 +94,9 @@ class CurrentReservationsCache: ObservableObject {
         for reservation in reservationsForDate {
             guard let startTime = reservation.startTimeDate,
                   let endTime = reservation.endTimeDate else {
-                logger.error("Invalid time data for reservation: \(reservation.id)")
+                Task { @MainActor in
+                    AppLog.error("Invalid time data for reservation: \(reservation.id)")
+                }
                 continue
             }
             
@@ -100,7 +112,9 @@ class CurrentReservationsCache: ObservableObject {
         }
 
         activeReservationsByMinute[date] = activeReservations
-        logger.debug("Precomputed active reservations for \(DateHelper.formatDate(date))")
+        Task { @MainActor in
+            AppLog.debug("Precomputed active reservations for \(DateHelper.formatDate(date))")
+        }
     }
 
     /// Retrieves active reservations for a specific time
@@ -111,12 +125,16 @@ class CurrentReservationsCache: ObservableObject {
 
     // MARK: - Monitoring
     func startMonitoring(for date: Date) {
-        logger.debug("Stopped previous monitoring")
+        Task { @MainActor in
+            AppLog.debug("Stopped previous monitoring")
+        }
         
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             self?.checkForSignificantChanges(date: date)
         }
-        logger.info("Started monitoring for date: \(DateHelper.formatDate(date))")
+        Task { @MainActor in
+            AppLog.info("Started monitoring for date: \(DateHelper.formatDate(date))")
+        }
     }
 
     private func checkForSignificantChanges(date: Date) {
@@ -133,7 +151,9 @@ class CurrentReservationsCache: ObservableObject {
         }
 
         if !reservationsEndingSoon.isEmpty || !reservationsLate.isEmpty {
-            logger.notice("Significant changes detected - Late: \(reservationsLate.count), Ending Soon: \(reservationsEndingSoon.count)")
+            Task { @MainActor in
+                AppLog.info("Significant changes detected - Late: \(reservationsLate.count), Ending Soon: \(reservationsEndingSoon.count)")
+            }
             objectWillChange.send()
         }
     }
@@ -171,7 +191,7 @@ class CurrentReservationsCache: ObservableObject {
     @MainActor
     func fetchReservations(for date: Date) async throws -> [Reservation] {
         let targetDateString = DateHelper.formatDate(date)
-        logger.info("Fetching reservations from Firebase for date: \(targetDateString)")
+        AppLog.info("Fetching reservations from Firebase for date: \(targetDateString)")
         
         #if DEBUG
         let reservationsRef = db?.collection("reservations")
@@ -190,7 +210,7 @@ class CurrentReservationsCache: ObservableObject {
                 if let reservation = try? reservationFromFirebaseDocument(document) {
                     results.append(reservation)
                 } else {
-                    logger.error("Failed to decode reservation from document: \(document.documentID)")
+                    AppLog.error("Failed to decode reservation from document: \(document.documentID)")
                 }
             }
             
@@ -201,10 +221,10 @@ class CurrentReservationsCache: ObservableObject {
             // Validate the cache to remove any invalid reservations
             validateCache()
             
-            logger.debug("Fetched \(results.count) reservations for \(targetDateString) from Firebase")
+            AppLog.debug("Fetched \(results.count) reservations for \(targetDateString) from Firebase")
             return results
         } catch {
-            logger.error("Failed to fetch reservations for \(targetDateString) from Firebase: \(error.localizedDescription)")
+            AppLog.error("Failed to fetch reservations for \(targetDateString) from Firebase: \(error.localizedDescription)")
             throw error
         }
     }
@@ -214,7 +234,7 @@ class CurrentReservationsCache: ObservableObject {
         guard let data = document.data() else {
             throw NSError(domain: "com.koenjiapp", code: 1, userInfo: [NSLocalizedDescriptionKey: "Document data is nil"])
         }
-        
+
         // Extract basic fields
         guard let idString = data["id"] as? String,
               let id = UUID(uuidString: idString),
@@ -299,7 +319,7 @@ class CurrentReservationsCache: ObservableObject {
             second: 0,
             of: datetime
         ) else {
-            logger.error("Failed to normalize datetime: \(datetime)")
+            AppLog.error("Failed to normalize datetime: \(datetime)")
             return nil
         }
 
@@ -312,9 +332,13 @@ class CurrentReservationsCache: ObservableObject {
         }
 
         if let reservation = currentReservation {
-            logger.debug("Found reservation '\(reservation.name)' at table \(tableID) for \(datetime)")
+            Task { @MainActor in
+                AppLog.debug("Found reservation '\(reservation.name)' at table \(tableID) for \(datetime)")
+            }
         } else {
-            logger.debug("No reservation found at table \(tableID) for \(datetime)")
+            Task { @MainActor in
+                AppLog.debug("No reservation found at table \(tableID) for \(datetime)")
+            }
         }
         return currentReservation
     }
@@ -329,7 +353,9 @@ class CurrentReservationsCache: ObservableObject {
            reservation.status == .deleted || 
            reservation.status == .toHandle ||
            reservation.reservationType == .waitingList {
-            logger.debug("Skipping invalid reservation: \(reservation.name) (status: \(reservation.status.rawValue), type: \(reservation.reservationType.rawValue))")
+            Task { @MainActor in
+                AppLog.debug("Skipping invalid reservation: \(reservation.name) (status: \(reservation.status.rawValue), type: \(reservation.reservationType.rawValue))")
+            }
             return
         }
         
@@ -337,15 +363,21 @@ class CurrentReservationsCache: ObservableObject {
         if var reservationsForDate = cache[normalizedDate] {
             if let index = reservationsForDate.firstIndex(where: { $0.id == reservation.id }) {
                 reservationsForDate[index] = reservation
-                logger.info("Updated existing reservation: \(reservation.id)")
+                Task { @MainActor in
+                    AppLog.info("Updated existing reservation: \(reservation.id)")
+                }
             } else {
                 reservationsForDate.append(reservation)
-                logger.info("Added new reservation: \(reservation.id)")
+                Task { @MainActor in
+                    AppLog.info("Added new reservation: \(reservation.id)")
+                }
             }
             cache[normalizedDate] = reservationsForDate
         } else {
             cache[normalizedDate] = [reservation]
-            logger.info("Created new cache entry for date with reservation: \(reservation.id)")
+            Task { @MainActor in
+                AppLog.info("Created new cache entry for date with reservation: \(reservation.id)")
+            }
         }
 
         precomputeActiveReservations(for: normalizedDate)
@@ -355,14 +387,18 @@ class CurrentReservationsCache: ObservableObject {
     func removeReservation(_ reservation: Reservation) {
         let normalizedDate = calendar.startOfDay(for: reservation.startTimeDate ?? Date())
         cache[normalizedDate]?.removeAll(where: { $0.id == reservation.id })
-        logger.info("Removed reservation: \(reservation.id) from cache")
+        Task { @MainActor in
+            AppLog.info("Removed reservation: \(reservation.id) from cache")
+        }
         precomputeActiveReservations(for: normalizedDate)
     }
 
     /// Removes a reservation by its ID
     func removeReservation(byId id: UUID, for date: Date) {
         cache[date]?.removeAll(where: { $0.id == id })
-        logger.info("Removed reservation ID: \(id) from cache")
+        Task { @MainActor in
+            AppLog.info("Removed reservation ID: \(id) from cache")
+        }
         precomputeActiveReservations(for: date)
     }
 
@@ -370,13 +406,17 @@ class CurrentReservationsCache: ObservableObject {
     func clearCache(for date: Date) {
         cache.removeValue(forKey: date)
         activeReservationsByMinute.removeValue(forKey: date)
-        logger.notice("Cleared cache for date: \(DateHelper.formatDate(date))")
+        Task { @MainActor in
+            AppLog.info("Cleared cache for date: \(DateHelper.formatDate(date))")
+        }
     }
 
     func clearAllCache() {
         cache.removeAll()
         activeReservationsByMinute.removeAll()
-        logger.notice("Cleared all cache data")
+        Task { @MainActor in
+            AppLog.info("Cleared all cache data")
+        }
     }
 
     // MARK: - Minute-Level Precision Checks
@@ -387,7 +427,9 @@ class CurrentReservationsCache: ObservableObject {
             reservation.startTimeDate?.addingTimeInterval(15 * 60) ?? Date() < currentTime
             && reservation.status != .showedUp
         }
-        logger.info("Found \(lateReservations.count) late reservations")
+        Task { @MainActor in
+            AppLog.info("Found \(lateReservations.count) late reservations")
+        }
         return lateReservations
     }
 
@@ -397,7 +439,9 @@ class CurrentReservationsCache: ObservableObject {
             reservation.endTimeDate?.timeIntervalSince(currentTime) ?? 0 <= 30 * 60
                 && reservation.endTimeDate ?? Date() > currentTime
         }
-        logger.info("Found \(nearingEndReservations.count) reservations nearing end")
+        Task { @MainActor in
+            AppLog.info("Found \(nearingEndReservations.count) reservations nearing end")
+        }
         return nearingEndReservations
     }
 
@@ -430,13 +474,17 @@ class CurrentReservationsCache: ObservableObject {
             case .dinner:
                 return (dinnerStartTime, dinnerEndTime)
             default:
-                logger.warning("Invalid category specified: \(categoryCopy.localized)")
+                Task { @MainActor in
+                    AppLog.warning("Invalid category specified: \(categoryCopy.localized)")
+                }
                 return (normalizedTime, normalizedTime)
             }
         }()
 
         let reservationsForDate = cache[normalizedDate] ?? []
-        logger.debug("Searching upcoming reservations for table \(tableID) on \(DateHelper.formatDate(date)). Found \(reservationsForDate.count) total reservations")
+        Task { @MainActor in
+            AppLog.debug("Searching upcoming reservations for table \(tableID) on \(DateHelper.formatDate(date)). Found \(reservationsForDate.count) total reservations")
+        }
 
         let firstUpcoming = reservationsForDate
             .filter { reservation in
@@ -462,9 +510,13 @@ class CurrentReservationsCache: ObservableObject {
             .first
 
         if let reservation = firstUpcoming {
-            logger.debug("Found upcoming reservation: \(reservation.name) at \(reservation.startTime)")
+            Task { @MainActor in
+                AppLog.debug("Found upcoming reservation: \(reservation.name) at \(reservation.startTime)")
+            }
         } else {
-            logger.debug("No upcoming reservations found for table \(tableID, privacy: .public) in \(category.localized) period")
+            Task { @MainActor in
+                AppLog.debug("No upcoming reservations found for table \(tableID) in \(category.localized) period")
+            }
         }
         
         return firstUpcoming
@@ -472,7 +524,9 @@ class CurrentReservationsCache: ObservableObject {
 
     /// Validates the cache and removes any invalid reservations
     func validateCache() {
-        logger.info("Validating reservation cache")
+        Task { @MainActor in
+            AppLog.info("Validating reservation cache")
+        }
         var totalRemoved = 0
         
         // Note: Cancelled and waiting list reservations are intentionally filtered out of the cache.
@@ -486,7 +540,9 @@ class CurrentReservationsCache: ObservableObject {
                               reservation.reservationType != .waitingList
                 
                 if !isValid {
-                    logger.debug("Removing invalid reservation from cache: \(reservation.name) (status: \(reservation.status.rawValue), type: \(reservation.reservationType.rawValue))")
+                    Task { @MainActor in
+                        AppLog.debug("Removing invalid reservation from cache: \(reservation.name) (status: \(reservation.status.rawValue), type: \(reservation.reservationType.rawValue))")
+                    }
                     totalRemoved += 1
                 }
                 
@@ -501,7 +557,9 @@ class CurrentReservationsCache: ObservableObject {
         }
         
         if totalRemoved > 0 {
-            logger.info("Removed \(totalRemoved) invalid reservations from cache")
+            Task { @MainActor in
+                AppLog.info("Removed \(totalRemoved) invalid reservations from cache")
+            }
         }
     }
 

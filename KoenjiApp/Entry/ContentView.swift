@@ -287,7 +287,7 @@ struct ContentView: View {
             if newValue && isProfileComplete && (!showOnboardingWelcome || hasCompletedOnboarding) {
                 // Trigger initializing animation for already logged-in, onboarded users
                 showUnlockingAnimation = true
-                logger.info("User logged in: \(userName), initiating unlocking animation")
+                AppLog.info("User logged in: \(userName), initiating unlocking animation")
                 
                 // Initialize session after a delay to allow animation to play
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
@@ -300,7 +300,7 @@ struct ContentView: View {
             if newValue && isLoggedIn && !hasInitializedSession {
                 // User just completed profile - run unlocking animation
                 showUnlockingAnimation = true
-                logger.info("User profile completed: \(userName), initiating unlocking animation")
+                AppLog.info("User profile completed: \(userName), initiating unlocking animation")
                 
                 // Initialize session after a delay to allow animation to play
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
@@ -322,13 +322,13 @@ struct ContentView: View {
                 if newPhase == .background {
                     Task {
                          SessionManager.shared.updateSessionStatus(isActive: false)
-                        logger.debug("App entered background, session marked inactive")
+                        AppLog.debug("App entered background, session marked inactive")
                     }
                 } else if newPhase == .active {
                     Task {
                         // Mark the session as active
                          SessionManager.shared.updateSessionStatus(isActive: true)
-                        logger.debug("App became active, session marked active")
+                        AppLog.debug("App became active, session marked active")
                         
                         // Add a delay to allow Firebase to sync
                         try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
@@ -345,7 +345,7 @@ struct ContentView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RemoteLogoutRequested"))) { _ in
-            logger.warning("Remote logout requested")
+            AppLog.warning("Remote logout requested")
             showRemoteLogoutAlert = true
         }
     }
@@ -360,7 +360,7 @@ struct ContentView: View {
         
         if deviceUUID.isEmpty {
             deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
-            logger.debug("Generated stable deviceUUID: \(deviceUUID)")
+            AppLog.debug("Generated stable deviceUUID: \(deviceUUID)")
         }
         
         authenticateUser()
@@ -369,7 +369,7 @@ struct ContentView: View {
             if isLoggedIn && isProfileComplete && !unlockingCompleted {
                 // Trigger the unlocking animation for returning users who are already logged in
                 showUnlockingAnimation = true
-                logger.info("User already logged in, initiating unlocking animation")
+                AppLog.info("User already logged in, initiating unlocking animation")
                 
                 // Initialize session after a delay to allow animation to play
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
@@ -386,7 +386,7 @@ struct ContentView: View {
     }
     
     private func initializeUserSession() {
-        logger.debug("Initializing user session with userName: \(userName), userIdentifier: \(userIdentifier)")
+        AppLog.debug("Initializing user session with userName: \(userName), userIdentifier: \(userIdentifier)")
         
         // Use the SessionManager to initialize the session
         Task {
@@ -401,9 +401,9 @@ struct ContentView: View {
     func authenticateUser() {
         Auth.auth().signInAnonymously { authResult, error in
             if let error = error {
-                logger.error("Firebase authentication failed: \(error.localizedDescription)")
+                AppLog.error("Firebase authentication failed: \(error.localizedDescription)")
             } else {
-                logger.debug("Firebase user authenticated: \(authResult?.user.uid ?? "No UID")")
+                AppLog.debug("Firebase user authenticated: \(authResult?.user.uid ?? "No UID")")
             }
         }
     }
@@ -416,7 +416,7 @@ struct ContentView: View {
                 if hasInitializedSession {
                     Task {
                         SessionManager.shared.updateSessionStatus(isActive: false)
-                        logger.warning("Session marked inactive due to abnormal termination. Inactive duration: \(Int(inactiveInterval))s")
+                        AppLog.warning("Session marked inactive due to abnormal termination. Inactive duration: \(Int(inactiveInterval))s")
                     }
                 }
             }
@@ -444,7 +444,7 @@ struct ContentView: View {
             userIdentifier = ""
             userName = ""
             
-            logger.info("User logged out due to remote deactivation")
+            AppLog.info("User logged out due to remote deactivation")
         }
     }
     

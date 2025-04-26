@@ -119,7 +119,7 @@ struct UserOnboardingView: View {
             // Generate device UUID if needed
             if deviceUUID.isEmpty {
                 deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
-                logger.debug("Generated stable deviceUUID: \(deviceUUID)")
+                AppLog.debug("Generated stable deviceUUID: \(deviceUUID)")
             }
             
             // Pre-fill email if available
@@ -146,7 +146,7 @@ struct UserOnboardingView: View {
     private func checkForExistingAccount() {
         // Do not check if userIdentifier is empty
         guard !userIdentifier.isEmpty else {
-            logger.debug("userIdentifier is empty, cannot check for existing account")
+            AppLog.debug("userIdentifier is empty, cannot check for existing account")
             return
         }
         
@@ -154,7 +154,7 @@ struct UserOnboardingView: View {
         if let existingProfile = env.reservationService.getProfile(withID: userIdentifier) {
             existingAccountFound = true
             existingDisplayName = existingProfile.displayName
-            logger.info("Found existing profile: \(existingDisplayName)")
+            AppLog.info("Found existing profile: \(existingDisplayName)")
             
             // Automatically reuse the profile without showing an alert
             reuseExistingProfile()
@@ -163,7 +163,7 @@ struct UserOnboardingView: View {
             if let existingSession = SessionStore.shared.sessions.first(where: { $0.id == userIdentifier }) {
                 existingAccountFound = true
                 existingDisplayName = existingSession.userName
-                logger.info("Found existing session: \(existingDisplayName)")
+                AppLog.info("Found existing session: \(existingDisplayName)")
                 
                 // Automatically reuse the profile without showing an alert
                 reuseExistingProfile()
@@ -172,7 +172,7 @@ struct UserOnboardingView: View {
                 if let savedName = UserDefaults.standard.string(forKey: "savedDisplayName_\(userIdentifier)") {
                     existingAccountFound = true
                     existingDisplayName = savedName
-                    logger.info("Found existing name in UserDefaults: \(existingDisplayName)")
+                    AppLog.info("Found existing name in UserDefaults: \(existingDisplayName)")
                     
                     // Automatically reuse the profile without showing an alert
                     reuseExistingProfile()
@@ -186,12 +186,12 @@ struct UserOnboardingView: View {
         userName = existingDisplayName
         appleSignInVM.userName = existingDisplayName
         
-        logger.debug("Reusing existing profile: \(existingDisplayName)")
+        AppLog.debug("Reusing existing profile: \(existingDisplayName)")
         
         // Create or update session with existing data
         if deviceUUID.isEmpty {
             deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
-            logger.debug("Generated stable deviceUUID during profile reuse: \(deviceUUID)")
+            AppLog.debug("Generated stable deviceUUID during profile reuse: \(deviceUUID)")
         }
         
         do {
@@ -244,7 +244,7 @@ struct UserOnboardingView: View {
                 )
                 
                 env.reservationService.upsertSession(session)
-                logger.info("Updated existing profile and created session")
+                AppLog.info("Updated existing profile and created session")
             } else {
                 // Create a new profile and session with existing name
                 let components = existingDisplayName.components(separatedBy: " ")
@@ -289,7 +289,7 @@ struct UserOnboardingView: View {
                 )
                 
                 env.reservationService.upsertSession(session)
-                logger.info("Created new profile and session with existing name")
+                AppLog.info("Created new profile and session with existing name")
             }
             
             // Setup database presence
@@ -356,7 +356,7 @@ struct UserOnboardingView: View {
         
         // Critical check: Make sure we have a valid userIdentifier
         guard !userIdentifier.isEmpty else {
-            logger.error("Cannot save user profile: userIdentifier is empty!")
+            AppLog.error("Cannot save user profile: userIdentifier is empty!")
             alertMessage = "Si è verificato un errore. Riprova più tardi."
             showAlert = true
             return
@@ -372,12 +372,12 @@ struct UserOnboardingView: View {
         UserDefaults.standard.set(displayName, forKey: "savedDisplayName_\(userIdentifier)")
         UserDefaults.standard.set(fullName, forKey: "savedFullName_\(userIdentifier)")
         
-        logger.debug("Creating profile with userIdentifier: \(userIdentifier), userName: \(displayName), email: \(trimmedEmail)")
+        AppLog.debug("Creating profile with userIdentifier: \(userIdentifier), userName: \(displayName), email: \(trimmedEmail)")
         
         // Make sure device UUID is valid
         if deviceUUID.isEmpty {
             deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
-            logger.debug("Generated stable deviceUUID during profile save: \(deviceUUID)")
+            AppLog.debug("Generated stable deviceUUID during profile save: \(deviceUUID)")
         }
         
         do {
@@ -430,7 +430,7 @@ struct UserOnboardingView: View {
                 )
                 
                 env.reservationService.upsertSession(session)
-                logger.info("Updated existing profile and created session")
+                AppLog.info("Updated existing profile and created session")
             } else {
                 // Create a device for this session
                 let device = Device(
@@ -470,7 +470,7 @@ struct UserOnboardingView: View {
                 )
                 
                 env.reservationService.upsertSession(session)
-                logger.info("Created new profile and session")
+                AppLog.info("Created new profile and session")
             }
             
             // Setup database presence

@@ -86,7 +86,7 @@ class DeviceInfo {
             cachedDeviceName = rawDeviceName
         }
         
-        logger.debug("Device name initialized: \(self.cachedDeviceName ?? "Unknown")")
+        AppLog.debug("Device name initialized: \(self.cachedDeviceName ?? "Unknown")")
         
         // Get device identifier
         let deviceIdentifierKey = "com.koenjiapp.stableDeviceIdentifier"
@@ -95,15 +95,15 @@ class DeviceInfo {
         if let storedIdentifier = UserDefaults.standard.string(forKey: deviceIdentifierKey),
            !storedIdentifier.isEmpty {
             cachedDeviceIdentifier = storedIdentifier
-            logger.debug("Using stored device identifier")
+            AppLog.debug("Using stored device identifier")
         } else {
             // Get a new identifier
             if let vendorIdentifier = UIDevice.current.identifierForVendor?.uuidString {
                 cachedDeviceIdentifier = vendorIdentifier
-                logger.debug("Using vendor identifier")
+                AppLog.debug("Using vendor identifier")
             } else {
                 cachedDeviceIdentifier = UUID().uuidString
-                logger.debug("Using generated UUID")
+                AppLog.debug("Using generated UUID")
             }
             
             // Store it for future use

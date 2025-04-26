@@ -45,7 +45,10 @@ class TableStore: ObservableObject {
     init(store: ReservationStore)
     {
         self.store = store
-        self.logger.debug("TableStore initialized with \(self.baseTables.count) base tables")
+        let count = baseTables.count
+        Task { @MainActor in
+            AppLog.debug("TableStore initialized with \(count) base tables")
+        }
     }
     
     

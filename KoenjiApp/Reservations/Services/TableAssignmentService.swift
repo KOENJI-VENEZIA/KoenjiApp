@@ -113,10 +113,14 @@ class TableAssignmentService: ObservableObject {
         tables: [TableModel]
     ) -> [TableModel]? {
         guard let reservationDate = reservation.normalizedDate else {
-            logger.error("Failed to parse reservation date for reservation ID: \(reservation.id)")
+            Task { @MainActor in
+                AppLog.error("Failed to parse reservation date for reservation ID: \(reservation.id)")
+            }
             return nil
         }
-        logger.debug("Processing reservation date: \(reservationDate) for reservation ID: \(reservation.id)")
+        Task { @MainActor in
+            AppLog.debug("Processing reservation date: \(reservationDate) for reservation ID: \(reservation.id)")
+        }
         // Try to find a single contiguous block
         if let contiguousBlock = findContiguousBlock(
             reservation: reservation,
@@ -124,11 +128,15 @@ class TableAssignmentService: ObservableObject {
             orderedTables: sortTables(tables),
             reservationDate: reservationDate
         ) {
-            logger.info("Found contiguous block for reservation ID: \(reservation.id). Tables: \(contiguousBlock.map { $0.name }.joined(separator: ", "))")
+            Task { @MainActor in
+                AppLog.info("Found contiguous block for reservation ID: \(reservation.id). Tables: \(contiguousBlock.map { $0.name }.joined(separator: ", "))")
+            }
             return contiguousBlock
         }
 
-        logger.debug("No contiguous block found for reservation ID: \(reservation.id). Using fallback assignment.")
+        Task { @MainActor in
+            AppLog.debug("No contiguous block found for reservation ID: \(reservation.id). Using fallback assignment.")
+        }
 
         // Fallback to automatic assignment
         return assignTablesInOrder(for: reservation, reservations: reservations, tables: tables, reservationDate: reservationDate)
@@ -196,7 +204,9 @@ class TableAssignmentService: ObservableObject {
     ) -> Bool {
         guard let start = DateHelper.combineDateAndTime(date: date, timeString: startTime),
               let end = DateHelper.combineDateAndTime(date: date, timeString: endTime) else {
-            logger.error("Failed to combine date and time. Start: \(startTime), End: \(endTime)")
+            Task { @MainActor in
+                AppLog.error("Failed to combine date and time. Start: \(startTime), End: \(endTime)")
+            }
             return false
         }
 
@@ -223,7 +233,9 @@ class TableAssignmentService: ObservableObject {
                   let reservationStart = reservation.startTimeDate,
                   let reservationEnd = reservation.endTimeDate,
                   reservation.tables.contains(where: { $0.id == table.id }) else {
-                logger.warning("Failed to parse reservation details for: \(reservation.name)")
+                Task { @MainActor in
+                    AppLog.warning("Failed to parse reservation details for: \(reservation.name)")
+                }
                 return false
             }
             
@@ -276,11 +288,15 @@ class TableAssignmentService: ObservableObject {
             assignedTables.append(table)
             assignedCapacity += table.maxCapacity
             if assignedCapacity >= neededCapacity { 
-                logger.debug("Successfully assigned \(assignedTables.count) tables with capacity \(assignedCapacity)")
+                Task { @MainActor in
+                    AppLog.debug("Successfully assigned \(assignedTables.count) tables with capacity \(assignedCapacity)")
+                }
                 return assignedTables 
             }
         }
-        logger.warning("Failed to assign tables in order. Required capacity: \(neededCapacity), Found: \(assignedCapacity)")
+        Task { @MainActor in
+            AppLog.warning("Failed to assign tables in order. Required capacity: \(neededCapacity), Found: \(assignedCapacity)")
+        }
         return nil
     }
 

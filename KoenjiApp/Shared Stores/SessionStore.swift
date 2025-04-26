@@ -25,12 +25,18 @@ class SessionStore {
     
     // MARK: - Public Methods
     func getSessions() -> [Session] {
-        logger.debug("Fetching all sessions. Count: \(self.sessions.count)")
+        let count = self.sessions.count
+        Task { @MainActor in
+            AppLog.debug("Fetching all sessions. Count: \(count)")
+        }
         return self.sessions
     }
     
     func setSessions(_ sessions: [Session]) {
-        logger.info("Updating session store with \(sessions.count) sessions")
+        let count = sessions.count
+        Task { @MainActor in
+            AppLog.info("Updating session store with \(count) sessions")
+        }
         self.sessions = sessions
     }
     
@@ -39,13 +45,13 @@ class SessionStore {
         let sessionIndex = self.sessions.firstIndex(where: { $0.uuid == session.uuid })
 
         guard let sessionIndex else {
-            logger.error("Error: Reservation with ID \(session.uuid) not found.")
+            AppLog.error("Error: Reservation with ID \(session.uuid) not found.")
             return
         }
         
         DispatchQueue.main.async {
             self.sessions[sessionIndex] = session
-            self.logger.info("Updating session store with session \(session.uuid)")
+            AppLog.info("Updating session store with session \(session.uuid)")
         }
     }
 }

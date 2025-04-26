@@ -35,7 +35,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         if let lastTime = lastNotificationTimes[key] {
             let timeSinceLastNotification = Date().timeIntervalSince(lastTime)
             if timeSinceLastNotification < minimumInterval {
-                logger.debug("Skipping notification: minimum interval not reached for reservation \(reservationId)")
+                AppLog.debug("Skipping notification: minimum interval not reached for reservation \(reservationId)")
                 return false
             }
         }
@@ -50,9 +50,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     func requestNotificationAuthorization() async {
         do {
             let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
-            logger.info("Notification permission granted: \(granted)")
+            AppLog.info("Notification permission granted: \(granted)")
         } catch {
-            logger.error("Notification permission error: \(error.localizedDescription)")
+            AppLog.error("Notification permission error: \(error.localizedDescription)")
         }
     }
     
@@ -78,9 +78,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
         do {
             try await UNUserNotificationCenter.current().add(request)
-            logger.info("Notification scheduled: \(title)")
+            AppLog.info("Notification scheduled: \(title)")
         } catch {
-            logger.error("Error scheduling notification: \(error.localizedDescription)")
+            AppLog.error("Error scheduling notification: \(error.localizedDescription)")
         }
     }
     
@@ -99,7 +99,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             // Dispatch work that touches actor-isolated properties onto the main actor.
             await MainActor.run {
                 self.selectedReservationID = reservationID
-                self.logger.info("Notification tapped: \(notificationIdentifier)")
+                AppLog.info("Notification tapped: \(notificationIdentifier)")
             }
         }
         

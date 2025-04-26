@@ -43,7 +43,9 @@ class ProfileImageService {
     ///   - completion: A closure that is called when the upload is complete
     func uploadProfileImage(_ image: UIImage, for profileID: String, completion: @escaping (Result<URL, Error>) -> Void) {
         guard let imageData = image.jpegData(compressionQuality: 0.7) else {
-            logger.error("Failed to convert image to JPEG data")
+            Task { @MainActor in
+                AppLog.error("Failed to convert image to JPEG data")
+            }
             completion(.failure(NSError(domain: "com.koenjiapp", code: 1001, userInfo: [NSLocalizedDescriptionKey: "Failed to convert image to JPEG data"])))
             return
         }
@@ -60,7 +62,9 @@ class ProfileImageService {
             guard let self = self else { return }
             
             if let error = error {
-                self.logger.error("Failed to upload image: \(error.localizedDescription)")
+                Task { @MainActor in
+                    AppLog.error("Failed to upload image: \(error.localizedDescription)")
+                }
                 completion(.failure(error))
                 return
             }
@@ -68,13 +72,17 @@ class ProfileImageService {
             // Get the download URL
             imageRef.downloadURL { url, error in
                 if let error = error {
-                    self.logger.error("Failed to get download URL: \(error.localizedDescription)")
+                    Task { @MainActor in
+                        AppLog.error("Failed to get download URL: \(error.localizedDescription)")
+                    }
                     completion(.failure(error))
                     return
                 }
                 
                 guard let downloadURL = url else {
-                    self.logger.error("Download URL is nil")
+                    Task { @MainActor in
+                        AppLog.error("Download URL is nil")
+                    }
                     completion(.failure(NSError(domain: "com.koenjiapp", code: 1002, userInfo: [NSLocalizedDescriptionKey: "Download URL is nil"])))
                     return
                 }
@@ -82,7 +90,9 @@ class ProfileImageService {
                 // Cache the image
                 self.imageCache.setObject(image, forKey: downloadURL.absoluteString as NSString)
                 
-                self.logger.info("Image uploaded successfully: \(downloadURL.absoluteString)")
+                Task { @MainActor in
+                    AppLog.info("Image uploaded successfully: \(downloadURL.absoluteString)")
+                }
                 completion(.success(downloadURL))
             }
         }
@@ -103,12 +113,16 @@ class ProfileImageService {
             guard let self = self else { return }
             
             if let error = error {
-                self.logger.error("Failed to delete image: \(error.localizedDescription)")
+                Task { @MainActor in
+                    AppLog.error("Failed to delete image: \(error.localizedDescription)")
+                }
                 completion(.failure(error))
                 return
             }
             
-            self.logger.info("Image deleted successfully for profile: \(profileID)")
+            Task { @MainActor in
+                AppLog.info("Image deleted successfully for profile: \(profileID)")
+            }
             completion(.success(()))
         }
     }
@@ -125,7 +139,9 @@ class ProfileImageService {
         
         // Check if the image is in the cache
         if let cachedImage = imageCache.object(forKey: urlString as NSString) {
-            logger.debug("Image loaded from cache: \(urlString)")
+            Task { @MainActor in
+                AppLog.debug("Image loaded from cache: \(urlString)")
+            }
             completion(cachedImage)
             return
         }
@@ -135,13 +151,17 @@ class ProfileImageService {
             guard let self = self else { return }
             
             if let error = error {
-                self.logger.error("Failed to download image: \(error.localizedDescription)")
+                Task { @MainActor in
+                    AppLog.error("Failed to download image: \(error.localizedDescription)")
+                }
                 completion(nil)
                 return
             }
             
             guard let data = data, let image = UIImage(data: data) else {
-                self.logger.error("Failed to create image from data")
+                Task { @MainActor in
+                    AppLog.error("Failed to create image from data")
+                }
                 completion(nil)
                 return
             }
@@ -149,7 +169,9 @@ class ProfileImageService {
             // Cache the image
             self.imageCache.setObject(image, forKey: urlString as NSString)
             
-            self.logger.debug("Image downloaded successfully: \(urlString)")
+            Task { @MainActor in
+                AppLog.debug("Image downloaded successfully: \(urlString)")
+            }
             completion(image)
         }.resume()
     }

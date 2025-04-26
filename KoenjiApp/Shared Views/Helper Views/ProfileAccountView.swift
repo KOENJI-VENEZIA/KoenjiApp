@@ -336,7 +336,7 @@ struct ProfileAccountView: View {
         // Exit editing mode
         isEditing = false
         
-        logger.info("Profile updated: \(profile.id)")
+        AppLog.info("Profile updated: \(profile.id)")
     }
     
     /// Logs out a specific device
@@ -363,7 +363,7 @@ struct ProfileAccountView: View {
             dismiss()
         }
         
-        logger.info("Device logged out: \(device.id)")
+        AppLog.info("Device logged out: \(device.id)")
     }
     
     /// Logs out all devices for the current profile
@@ -386,7 +386,7 @@ struct ProfileAccountView: View {
         UserDefaults.standard.set(false, forKey: "isProfileComplete")
         dismiss()
         
-        logger.info("All devices logged out for profile: \(profile.id)")
+        AppLog.info("All devices logged out for profile: \(profile.id)")
     }
     
     /// Uploads a profile image to Google Cloud Storage
@@ -421,12 +421,12 @@ struct ProfileAccountView: View {
                         self.env.reservationService.upsertSession(updatedSession)
                     }
                     
-                    self.logger.info("Profile image updated: \(url.absoluteString)")
+                    AppLog.info("Profile image updated: \(url.absoluteString)")
                     
                 case .failure(let error):
                     self.alertMessage = "Impossibile caricare l'immagine: \(error.localizedDescription)"
                     self.showAlert = true
-                    self.logger.error("Failed to upload profile image: \(error.localizedDescription)")
+                    AppLog.error("Failed to upload profile image: \(error.localizedDescription)")
                 }
             }
         }
