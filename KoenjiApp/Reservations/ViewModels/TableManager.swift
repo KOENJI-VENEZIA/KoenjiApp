@@ -85,8 +85,8 @@ class LayoutUIManager {
 
     /// Updates the grid and data for a table's new position.
     private func updateTablePosition(from oldTable: TableModel, to newTable: TableModel) {
-        layoutServices.unmarkTable(oldTable)
-        layoutServices.markTable(newTable, occupied: true)
+        layoutServices.clearTablePosition(oldTable)
+        layoutServices.markTablePosition(newTable)
 
        
         if let index = tables.firstIndex(where: { $0.id == oldTable.id }) {

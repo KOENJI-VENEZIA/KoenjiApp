@@ -246,37 +246,6 @@ struct SidebarView: View {
                             .modifier(iPadGestureModifier(selectedNavItem: $selectedNavItem, itemName: "Layout"))
 #endif
                         }
-                        // Web Requests button
-                        NavigationLink(
-                            destination: WebReservationsTab(columnVisibility: $columnVisibility)
-                                .environmentObject(env)
-                        ) {
-                            HStack {
-                                Image(systemName: "globe")
-                                    .font(.system(size: 18))
-                                    .frame(width: 24, height: 24)
-                                    .foregroundColor(.primary)
-                                
-                                Text("Web Requests")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                                
-                                Spacer()
-                                
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, 16)
-                            .background(Color.clear)
-                            .cornerRadius(10)
-                        }
-                        .buttonStyle(NavigationButtonStyle(isActive: selectedNavItem == "WebRequests"))
-                        #if targetEnvironment(macCatalyst) || os(iOS)
-                        .modifier(iPadGestureModifier(selectedNavItem: $selectedNavItem, itemName: "WebRequests"))
-                        #endif
-                        
                         // Sales Manager button
                         NavigationLink(
                             destination: SalesManagerView(columnVisibility: $appState.columnVisibility)
@@ -384,7 +353,7 @@ struct SidebarView: View {
                        
                        // Load the current profile if available
                        if !userIdentifier.isEmpty {
-                           if let profile = env.reservationService.getProfile(withID: userIdentifier) {
+                           if let profile = env.profileService.getProfile(withID: userIdentifier) {
                                ProfileStore.shared.setCurrentProfile(profile)
                            }
                        }

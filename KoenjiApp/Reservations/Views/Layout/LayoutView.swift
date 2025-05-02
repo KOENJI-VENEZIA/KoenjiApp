@@ -6,10 +6,6 @@ import OSLog
 
 struct LayoutView: View {
     // MARK: - Private Properties
-    static let logger = Logger(
-        subsystem: "com.koenjiapp",
-        category: "LayoutView"
-    )
 
     // MARK: - Environment Objects & Dependencies
     @EnvironmentObject var env: AppDependencies
@@ -214,12 +210,6 @@ extension LayoutView {
                 .animation(.easeInOut(duration: 0.3), value: unitView.isSharing)
                 .edgesIgnoringSafeArea(.all)
                 .transition(.opacity)
-            
-            LoadingOverlay()
-                .opacity(env.backupService.isWritingToFirebase ? 1.0 : 0.0)
-                .animation(.easeInOut(duration: 0.3), value: env.backupService.isWritingToFirebase)
-                .allowsHitTesting(env.backupService.isWritingToFirebase)
-            
             
         }
     }

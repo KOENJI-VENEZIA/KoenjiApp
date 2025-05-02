@@ -124,10 +124,8 @@ extension LayoutView {
                     let combinedTime = DateHelper.combineDateAndTime(
                         date: day, timeString: lunchTime)
                 else {
-                    LayoutView.logger.error("Failed to combine date and time for lunch button")
                     return
                 }
-                LayoutView.logger.debug("Setting lunch time: \(combinedTime)")
                 withAnimation {
                     appState.selectedCategory = .lunch
                     appState.selectedDate = combinedTime
@@ -191,7 +189,6 @@ extension LayoutView {
                     let currentSystemTime = Date()
                     appState.selectedDate = DateHelper.combine(
                         date: appState.selectedDate, time: currentSystemTime)
-                    LayoutView.logger.debug("Reset time to current system time: \(appState.selectedDate)")
                     unitView.isManuallyOverridden = false
                 }
     

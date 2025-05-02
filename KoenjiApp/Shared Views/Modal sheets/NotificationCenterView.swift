@@ -257,8 +257,6 @@ extension NotificationType {
             return .blue
         case .sync:
             return .purple
-        case .webReservation:
-            return .purple
         }
     }
     
@@ -276,8 +274,6 @@ extension NotificationType {
             return "list.bullet.clipboard"
         case .sync:
             return "arrow.triangle.2.circlepath"
-        case .webReservation:
-            return "globe"
         }
     }
 }

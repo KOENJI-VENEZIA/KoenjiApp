@@ -6,30 +6,19 @@
 //
 
 import Foundation
-import OSLog
 import Firebase
 import FirebaseDatabase
 import FirebaseFirestore
 import UIKit
 
 /// A class that manages user sessions and device associations
-///
-/// This class is responsible for creating, updating, and managing user sessions
-/// and their associated devices. It handles the synchronization between local
-/// session data and Firebase.
-@MainActor
-class SessionManager {
+actor SessionManager {
     // MARK: - Properties
-    
-    /// Shared instance for singleton access
-    static let shared = SessionManager()
-    
-    /// Logger for tracking session operations
-    private let logger = Logger(subsystem: "com.koenjiapp", category: "SessionManager")
     
     /// Firestore database reference
     private var db: Firestore?
     
+    private var deviceInfo: DeviceInfo
     /// Realtime Database reference
     private var rtdb: DatabaseReference?
     
@@ -37,7 +26,7 @@ class SessionManager {
     private var currentProfileID: String?
     
     /// The current device UUID
-    private var currentDeviceUUID: String
+    private var currentDeviceUUID: String = ""
     
     /// Whether this service is in preview mode
     private var isPreview: Bool
@@ -45,42 +34,37 @@ class SessionManager {
     // MARK: - Initialization
     
     /// Private initializer to enforce singleton pattern
-    private init() {
+    init() {
         self.isPreview = AppDependencies.isPreviewMode
         
         if isPreview {
             // In preview mode, don't initialize Firebase components
             self.db = nil
             self.rtdb = nil
+            self.deviceInfo = DeviceInfo()
         } else {
             // Use the safe Firebase initialization methods
             self.db = AppDependencies.getFirestore()
             self.rtdb = AppDependencies.getDatabase()
+            self.deviceInfo = DeviceInfo()
         }
-        
-        self.currentDeviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
-        
-        AppLog.debug("SessionManager initialized with device UUID: \(self.currentDeviceUUID), preview mode: \(self.isPreview)")
+
     }
     
     // MARK: - Public Methods
     
     /// Initializes a user session
-    ///
-    /// This method creates or updates a session for the current user and device.
-    /// It also ensures that the user's profile has the correct device association.
-    ///
-    /// - Parameters:
-    ///   - profileID: The ID of the user's profile
-    ///   - userName: The display name of the user
-    func initializeSession(profileID: String, userName: String) {
-        AppLog.debug("Initializing session for profile: \(profileID), user: \(userName)")
+    func initializeSession(profileID: String, userName: String) async {
+        Task { @MainActor in
+            AppLog.debug("Initializing session for profile: \(profileID), user: \(userName)")
+        }
         
         // Store the current profile ID
         self.currentProfileID = profileID
-        
+        self.currentDeviceUUID = await deviceInfo.getStableDeviceIdentifier()
+
         // Get the current device name
-        let deviceName = DeviceInfo.shared.getDeviceName()
+        let deviceName = await deviceInfo.getDeviceName()
         
         // Get the profile image URL if available
         var profileImageURL: String? = nil
@@ -90,7 +74,6 @@ class SessionManager {
         
         // Check if a session already exists for this profile
         if var existingSession = SessionStore.shared.sessions.first(where: { $0.id == profileID }) {
-            // Update the existing session
             existingSession.uuid = currentDeviceUUID
             existingSession.userName = userName
             existingSession.isActive = true
@@ -98,9 +81,10 @@ class SessionManager {
             existingSession.deviceName = deviceName
             existingSession.profileImageURL = profileImageURL
             
-            // Save the updated session
             upsertSession(existingSession)
-            AppLog.info("Updated existing session for user: \(userName)")
+            Task { @MainActor in
+                AppLog.info("Updated existing session for user: \(userName)")
+            }
         } else {
             // Create a new session
             let newSession = Session(
@@ -116,7 +100,9 @@ class SessionManager {
             
             // Save the new session
             upsertSession(newSession)
-            AppLog.info("Created new session for user: \(userName)")
+            Task { @MainActor in
+                AppLog.info("Created new session for user: \(userName)")
+            }
         }
         
         // Ensure the profile has the correct device association
@@ -132,13 +118,17 @@ class SessionManager {
     ///
     /// - Parameters:
     ///   - isActive: Whether the session is active
-    func updateSessionStatus(isActive: Bool) {
+    func updateSessionStatus(isActive: Bool) async {
         guard let profileID = currentProfileID else {
-            AppLog.error("Cannot update session status: No current profile ID")
+            Task { @MainActor in
+                AppLog.error("Cannot update session status: No current profile ID")
+            }
             return
         }
         
-        AppLog.debug("Updating session status for profile: \(profileID), active: \(isActive)")
+        Task { @MainActor in
+            AppLog.debug("Updating session status for profile: \(profileID), active: \(isActive)")
+        }
         
         // Update the session in Firebase
         if let session = SessionStore.shared.sessions.first(where: { $0.id == profileID && $0.uuid == currentDeviceUUID }) {
@@ -156,7 +146,7 @@ class SessionManager {
         // If we're marking the session as active, ensure the device is properly registered
         if isActive {
             // Get the current device name
-            let deviceName = DeviceInfo.shared.getDeviceName()
+            let deviceName = await deviceInfo.getDeviceName()
             
             // Ensure the device is properly registered in the profile
             ensureDeviceAssociation(profileID: profileID, deviceName: deviceName)
@@ -167,16 +157,20 @@ class SessionManager {
     ///
     /// This method signs out the current user by marking their session as inactive
     /// and updating their device status.
-    func signOut() {
+    func signOut() async {
         guard let profileID = currentProfileID else {
-            AppLog.error("Cannot sign out: No current profile ID")
+            Task { @MainActor in
+                AppLog.error("Cannot sign out: No current profile ID")
+            }
             return
         }
         
-        AppLog.debug("Signing out user with profile: \(profileID)")
+        Task { @MainActor in
+            AppLog.debug("Signing out user with profile: \(profileID)")
+        }
         
         // Mark the session as inactive
-        updateSessionStatus(isActive: false)
+        await updateSessionStatus(isActive: false)
         
         // Clear the current profile ID
         currentProfileID = nil
@@ -190,11 +184,16 @@ class SessionManager {
     /// - Returns: True if the device has been deactivated, false otherwise
     func checkDeviceActivationStatus() -> Bool {
         guard let profileID = currentProfileID else {
-            AppLog.error("Cannot check device activation status: No current profile ID")
+            Task { @MainActor in
+                AppLog.error("Cannot check device activation status: No current profile ID")
+            }
             return false
         }
         
-        AppLog.debug("Checking device activation status for profile: \(profileID), device: \(self.currentDeviceUUID)")
+        let copyUUID = currentDeviceUUID
+        Task { @MainActor in
+            AppLog.debug("Checking device activation status for profile: \(profileID), device: \(copyUUID)")
+        }
         
         // Get the profile from the store
         if let profile = ProfileStore.shared.getProfile(withID: profileID) {
@@ -202,17 +201,25 @@ class SessionManager {
             if let device = profile.devices.first(where: { $0.id == currentDeviceUUID }) {
                 // Check if the device is active
                 if !device.isActive {
-                    AppLog.warning("Device \(self.currentDeviceUUID) has been deactivated remotely")
+                    let copyUUID = currentDeviceUUID
+                    Task { @MainActor in
+                        AppLog.warning("Device \(copyUUID) has been deactivated remotely")
+                    }
                     return true
                 }
             } else {
                 // Device not found in profile, consider it deactivated
-                AppLog.warning("Device \(self.currentDeviceUUID) not found in profile \(profileID)")
+                let copyUUID = currentDeviceUUID
+                Task { @MainActor in
+                    AppLog.warning("Device \(copyUUID) not found in profile \(profileID)")
+                }
                 return true
             }
         } else {
             // Profile not found, consider device deactivated
-            AppLog.warning("Profile not found for ID \(profileID)")
+            Task { @MainActor in
+                AppLog.warning("Profile not found for ID \(profileID)")
+            }
             return true
         }
         
@@ -224,7 +231,10 @@ class SessionManager {
     /// This method performs a remote logout by clearing the current profile ID
     /// and updating the session status.
     func performRemoteLogout() {
-        AppLog.warning("Performing remote logout for device: \(self.currentDeviceUUID)")
+        let copyUUID = currentDeviceUUID
+        Task { @MainActor in
+            AppLog.warning("Performing remote logout for device: \(copyUUID)")
+        }
         
         // Update session status to inactive
         if let profileID = currentProfileID {
@@ -253,7 +263,9 @@ class SessionManager {
     ///   - profileID: The ID of the profile
     ///   - deviceName: The name of the device
     private func ensureDeviceAssociation(profileID: String, deviceName: String) {
-        AppLog.debug("Ensuring device association for profile: \(profileID)")
+        Task { @MainActor in
+            AppLog.debug("Ensuring device association for profile: \(profileID)")
+        }
         
         // Get the profile from the store
         if let profile = ProfileStore.shared.getProfile(withID: profileID) {
@@ -278,7 +290,10 @@ class SessionManager {
                     isActive: true
                 )
                 updatedProfile.devices.append(newDevice)
-                AppLog.info("Added device \(self.currentDeviceUUID) to profile \(profileID)")
+                let copyUUID = currentDeviceUUID
+                Task { @MainActor in
+                    AppLog.info("Added device \(copyUUID) to profile \(profileID)")
+                }
             }
             
             // Clean up duplicate devices if necessary
@@ -292,7 +307,9 @@ class SessionManager {
             // Save the updated profile
             upsertProfile(updatedProfile)
         } else {
-            AppLog.error("Cannot ensure device association: Profile not found for ID \(profileID)")
+            Task { @MainActor in
+                AppLog.error("Cannot ensure device association: Profile not found for ID \(profileID)")
+            }
         }
     }
     
@@ -304,7 +321,9 @@ class SessionManager {
     ///   - profileID: The ID of the profile
     ///   - isActive: Whether the device is active
     private func updateDeviceStatus(profileID: String, isActive: Bool) {
-        AppLog.debug("Updating device status for profile: \(profileID), active: \(isActive)")
+        Task { @MainActor in
+            AppLog.debug("Updating device status for profile: \(profileID), active: \(isActive)")
+        }
         
         // Get the profile from the store
         if let profile = ProfileStore.shared.getProfile(withID: profileID) {
@@ -322,10 +341,14 @@ class SessionManager {
                 // Save the updated profile
                 upsertProfile(updatedProfile)
             } else {
-                AppLog.error("Cannot update device status: Device not found in profile \(profileID)")
+                Task { @MainActor in
+                    AppLog.error("Cannot update device status: Device not found in profile \(profileID)")
+                }
             }
         } else {
-            AppLog.error("Cannot update device status: Profile not found for ID \(profileID)")
+            Task { @MainActor in
+                AppLog.error("Cannot update device status: Profile not found for ID \(profileID)")
+            }
         }
     }
     
@@ -337,7 +360,9 @@ class SessionManager {
     /// - Parameter profile: The profile to clean up
     private func cleanupDuplicateDevices(profile: inout Profile) {
         let profileCopy = profile
-        AppLog.debug("Cleaning up duplicate devices for profile: \(profileCopy.id)")
+        Task { @MainActor in
+            AppLog.debug("Cleaning up duplicate devices for profile: \(profileCopy.id)")
+        }
         
         // Group devices by name
         let devicesByName = Dictionary(grouping: profile.devices) { $0.name }
@@ -346,7 +371,9 @@ class SessionManager {
         for (name, devices) in devicesByName {
             // If there are multiple devices with the same name
             if devices.count > 1 {
-                AppLog.info("Found \(devices.count) devices with name '\(name)' in profile \(profileCopy.id)")
+                Task { @MainActor in
+                    AppLog.info("Found \(devices.count) devices with name '\(name)' in profile \(profileCopy.id)")
+                }
                 
                 // For other devices with the same name, keep only the most recently active one
                 let otherDevices = devices.filter { $0.id != currentDeviceUUID }
@@ -363,7 +390,10 @@ class SessionManager {
                         device.id != deviceToKeep.id
                     }
                     
-                    AppLog.info("Kept current device \(self.currentDeviceUUID) and most recent device \(deviceToKeep.id) with name '\(name)'")
+                    let copyUUID = currentDeviceUUID
+                    Task { @MainActor in
+                        AppLog.info("Kept current device \(copyUUID) and most recent device \(deviceToKeep.id) with name '\(name)'")
+                    }
                 }
             }
         }
@@ -375,7 +405,9 @@ class SessionManager {
     ///
     /// - Parameter session: The session to save
     private func upsertSession(_ session: Session) {
-        AppLog.debug("Upserting session for profile: \(session.id)")
+        Task { @MainActor in
+            AppLog.debug("Upserting session for profile: \(session.id)")
+        }
         
         // Save to SQLite
         SQLiteManager.shared.insertSession(session)
@@ -407,7 +439,7 @@ class SessionManager {
             "isEditing": session.isEditing,
             "lastUpdate": session.lastUpdate.timeIntervalSince1970,
             "isActive": session.isActive,
-            "deviceName": session.deviceName ?? DeviceInfo.shared.getDeviceName()
+            "deviceName": session.deviceName ?? "Unknown Device"
         ]
         
         // Add profile image URL if available
@@ -417,17 +449,25 @@ class SessionManager {
             
             db?.collection(collectionPath).document(session.uuid).setData(updatedSessionData) { error in
                 if let error = error {
-                    AppLog.error("Error upserting session: \(error.localizedDescription)")
+                    Task { @MainActor in
+                        AppLog.error("Error upserting session: \(error.localizedDescription)")
+                    }
                 } else {
-                    AppLog.debug("Session upserted successfully")
+                    Task { @MainActor in
+                        AppLog.debug("Session upserted successfully")
+                    }
                 }
             }
         } else {
             db?.collection(collectionPath).document(session.uuid).setData(sessionData) { error in
                 if let error = error {
-                    AppLog.error("Error upserting session: \(error.localizedDescription)")
+                    Task { @MainActor in
+                        AppLog.error("Error upserting session: \(error.localizedDescription)")
+                    }
                 } else {
-                    AppLog.debug("Session upserted successfully")
+                    Task { @MainActor in
+                        AppLog.debug("Session upserted successfully")
+                    }
                 }
             }
         }
@@ -439,17 +479,20 @@ class SessionManager {
     ///
     /// - Parameter profile: The profile to save
     private func upsertProfile(_ profile: Profile) {
-        AppLog.debug("Upserting profile: \(profile.id)")
+        Task { @MainActor in
+            AppLog.debug("Upserting profile: \(profile.id)")
+        }
         
         // Save to SQLite
         SQLiteManager.shared.insertProfile(profile)
         
+        let copyProfile = currentProfileID
         // Update the profile store
         DispatchQueue.main.async {
             ProfileStore.shared.updateProfile(profile)
             
             // If this is the current user's profile, update the current profile
-            if profile.id == self.currentProfileID {
+            if profile.id == copyProfile {
                 ProfileStore.shared.setCurrentProfile(profile)
             }
         }
@@ -484,9 +527,13 @@ class SessionManager {
         
         db?.collection(collectionPath).document(profile.id).setData(profileData) { error in
             if let error = error {
-                AppLog.error("Error upserting profile: \(error.localizedDescription)")
+                Task { @MainActor in
+                    AppLog.error("Error upserting profile: \(error.localizedDescription)")
+                }
             } else {
-                AppLog.debug("Profile upserted successfully")
+                Task { @MainActor in
+                    AppLog.debug("Profile upserted successfully")
+                }
             }
         }
     }
@@ -496,14 +543,19 @@ class SessionManager {
     /// This method sets up presence detection for the current device using
     /// Firebase Realtime Database.
     private func setupPresenceDetection() {
-        AppLog.debug("Setting up presence detection for device: \(self.currentDeviceUUID)")
+        let copyUUID = currentDeviceUUID
+        Task { @MainActor in
+            AppLog.debug("Setting up presence detection for device: \(copyUUID)")
+        }
         
         // Get a reference to the Realtime Database
         let connectedRef = Database.database().reference(withPath: ".info/connected")
-        
+        let profileID = currentProfileID
+        let deviceUUID = currentDeviceUUID
+        let rtdbCopy = self.rtdb
         // Observe the connection state
         connectedRef.observe(.value) { [weak self] snapshot in
-            guard let self = self, let profileID = self.currentProfileID else { return }
+            guard let self = self, let profileID = profileID else { return }
             
             guard let connected = snapshot.value as? Bool, connected else {
                 // Not connected, so no updates are made here.
@@ -512,9 +564,9 @@ class SessionManager {
             
             // Define a reference to the session node for this device
             #if DEBUG
-            let sessionRef = self.rtdb?.child("sessions").child(self.currentDeviceUUID)
+            let sessionRef = rtdbCopy?.child("sessions").child(deviceUUID)
             #else
-            let sessionRef = self.rtdb?.child("sessions_release").child(self.currentDeviceUUID)
+            let sessionRef = rtdbCopy?.child("sessions_release").child(deviceUUID)
             #endif
             
             // Mark the session as active when connected
@@ -524,11 +576,11 @@ class SessionManager {
             sessionRef?.child("isActive").onDisconnectSetValue(false)
             sessionRef?.child("lastActive").setValue(ServerValue.timestamp())
             sessionRef?.child("lastActive").onDisconnectSetValue(ServerValue.timestamp())
-            
-            // Also update the profile's device status
-            self.updateDeviceStatus(profileID: profileID, isActive: true)
-            
-            AppLog.info("Presence detection set up for device: \(self.currentDeviceUUID)")
+                        
+            Task { @MainActor in
+                await self.updateDeviceStatus(profileID: profileID, isActive: true)
+                AppLog.info("Presence detection set up for device: \(copyUUID)")
+            }
         }
     }
 } 

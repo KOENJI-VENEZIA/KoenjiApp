@@ -12,74 +12,202 @@ import SwiftUI
 import os
 
 /// LayoutServices: Manages table layouts for different dates and reservation categories.
-/// This class handles table positioning, movement, locking, and assignment for reservations.
-/// It provides functionality for saving and loading layouts, checking table adjacency,
-/// and managing the grid representation of tables.
-class LayoutServices: ObservableObject {
-    // MARK: - Private Properties
-    /// Logger instance for the LayoutServices class.
-    private static let logger = Logger(
-        subsystem: "com.koenjiapp",
-        category: "LayoutServices"
-    )
-    
-    /// The reservation store containing all reservation data.
-    let store: ReservationStore
-    /// The table store that serves as the single source of truth for table data.
+class LayoutServices: ObservableObject {    
+    let resCache: CurrentReservationsCache
     let tableStore: TableStore          // single source of truth
-    /// Service responsible for table assignment logic.
     private let tableAssignmentService: TableAssignmentService
+    private let layoutCache: LayoutCache
     
-    /// Tracks animation states for tables by their ID.
     @Published var tableAnimationState: [Int: Bool] = [:]
-    /// ID of the table currently being dragged, if any.
     @Published var currentlyDraggedTableID: Int? = nil
-    /// Flag indicating whether the sidebar is visible.
     @Published var isSidebarVisible = true
-    /// Cache of table layouts indexed by date-category keys.
-    @Published var cachedLayouts: [String: [TableModel]] = [:]
-    /// Currently selected reservation category.
     @Published var selectedCategory: Reservation.ReservationCategory? = .lunch
-    /// Current time used for layout calculations.
     @Published var currentTime: Date = Date()
     
-    /// Current set of tables being displayed.
     @Published var tables: [TableModel] = []
     
-    /// Dictionary tracking locked time intervals for each table by ID.
+    // MARK: - Grid Management
+    var grid: [[Int?]] = []
+    
     var lockedIntervals: [Int: [(start: Date, end: Date)]] = [:]
-    /// The key of the last saved layout.
     var lastSavedKey: String? = nil
-    /// Flag indicating whether a layout update is in progress.
     var isUpdatingLayout: Bool = false
     
+    // MARK: - Computed Properties
+    
+    /// Provides access to the cached layouts from the layout cache
+    var cachedLayouts: [String: [TableModel]] {
+        return layoutCache.cachedLayouts
+    }
+    
     // MARK: - Initializer
-    /// Initializes the LayoutServices with required dependencies.
-    /// - Parameters:
-    ///   - store: The reservation store containing all reservation data.
-    ///   - tableStore: The table store that serves as the single source of truth for table data.
-    ///   - tableAssignmentService: Service responsible for table assignment logic.
-    init(store: ReservationStore, tableStore: TableStore, tableAssignmentService: TableAssignmentService) {
-        self.store = store
+    init(resCache: CurrentReservationsCache, 
+         tableStore: TableStore, 
+         tableAssignmentService: TableAssignmentService,
+         layoutCache: LayoutCache = LayoutCache()) {
+        self.resCache = resCache
         self.tableStore = tableStore
         self.tableAssignmentService = tableAssignmentService
-        let key = keyFor(date: currentTime, category: selectedCategory ?? .lunch)
-        if cachedLayouts[key] == nil {
-            cachedLayouts[key] = self.tableStore.baseTables
-            self.tables = self.tableStore.baseTables
+        self.layoutCache = layoutCache
+        
+        // Initialize grid
+        self.grid = Array(repeating: Array(repeating: nil, count: tableStore.totalColumns), count: tableStore.totalRows)
+        
+        // Load layouts from disk
+        loadFromDisk()
+    }
+    
+    // MARK: - Grid Management Methods
+    
+    /// Initialize the grid with the current set of tables
+    func initializeGrid(with tablesToMark: [TableModel]? = nil) {
+        grid = Array(repeating: Array(repeating: nil, count: tableStore.totalColumns), count: tableStore.totalRows)
+        
+        // Mark positions of the provided tables or use the current tables
+        let tablesToUse = tablesToMark ?? tables
+        for table in tablesToUse {
+            markTablePosition(table)
+        }
+        
+        Task { @MainActor in
+            AppLog.debug("Grid initialized with \(tablesToUse.count) tables")
         }
     }
     
+    /// Mark a table's position on the grid
+    func markTablePosition(_ table: TableModel) {
+        let row = min(max(table.row, 0), tableStore.totalRows - 1)
+        let col = min(max(table.column, 0), tableStore.totalColumns - 1)
+        
+        // Mark the main cell with the table ID
+        grid[row][col] = table.id
+        
+        // Mark the cells occupied by the table width and height
+        for r in row..<min(row + table.height, tableStore.totalRows) {
+            for c in col..<min(col + table.width, tableStore.totalColumns) {
+                grid[r][c] = table.id
+            }
+        }
+    }
+    
+    /// Clear a table's position from the grid
+    func clearTablePosition(_ table: TableModel) {
+        let row = min(max(table.row, 0), tableStore.totalRows - 1)
+        let col = min(max(table.column, 0), tableStore.totalColumns - 1)
+        
+        // Clear all cells occupied by the table
+        for r in row..<min(row + table.height, tableStore.totalRows) {
+            for c in col..<min(col + table.width, tableStore.totalColumns) {
+                if grid[r][c] == table.id {
+                    grid[r][c] = nil
+                }
+            }
+        }
+    }
+    
+    /// Check if two tables intersect with each other
+    func tablesIntersect(_ table1: TableModel, _ table2: TableModel) -> Bool {
+        let table1MinX = table1.column
+        let table1MaxX = table1.column + table1.width
+        let table1MinY = table1.row
+        let table1MaxY = table1.row + table1.height
+
+        let table2MinX = table2.column
+        let table2MaxX = table2.column + table2.width
+        let table2MinY = table2.row
+        let table2MaxY = table2.row + table2.height
+
+        // Check for no overlap scenarios
+        return !(table1MaxX <= table2MinX || table1MinX >= table2MaxX || 
+                 table1MaxY <= table2MinY || table1MinY >= table2MaxY)
+    }
+    
+    /// Check if a table can be placed at a specific position
+    func canPlaceTableAt(row: Int, column: Int, width: Int, height: Int, excludingTableId: Int? = nil) -> Bool {
+        // Check if position is within grid bounds
+        if row < 0 || row + height > tableStore.totalRows || column < 0 || column + width > tableStore.totalColumns {
+            return false
+        }
+        
+        // Check if any of the cells are already occupied by another table
+        for r in row..<(row + height) {
+            for c in column..<(column + width) {
+                if let tableId = grid[r][c], tableId != excludingTableId {
+                    return false
+                }
+            }
+        }
+        
+        return true
+    }
+    
+    /// Find a table by row and column position
+    func findTable(at row: Int, column: Int, amongTables tables: [TableModel]? = nil) -> TableModel? {
+        let tablesToSearch = tables ?? self.tables
+        return tablesToSearch.first { table in
+            let tableRows = row >= table.row && row < (table.row + table.height)
+            let tableColumns = column >= table.column && column < (table.column + table.width)
+            return tableRows && tableColumns
+        }
+    }
+    
+    /// Return a bounding box rectangle for a table
+    func boundingBox(for table: TableModel) -> CGRect {
+        return CGRect(
+            x: CGFloat(table.column),
+            y: CGFloat(table.row),
+            width: CGFloat(table.width),
+            height: CGFloat(table.height)
+        )
+    }
+    
+    /// Move a table to a new position if possible
+    func moveTable(_ table: TableModel, toRow: Int, toCol: Int, amongTables tables: [TableModel]? = nil) -> (result: Bool, newTable: TableModel) {
+        let tablesToCheck = tables ?? self.tables
+        let maxRow = tableStore.totalRows - table.height
+        let maxCol = tableStore.totalColumns - table.width
+        let clampedRow = max(0, min(toRow, maxRow))
+        let clampedCol = max(0, min(toCol, maxCol))
+        
+        var newTable = table
+        newTable.row = clampedRow
+        newTable.column = clampedCol
+        
+        if canPlaceTable(newTable, amongTables: tablesToCheck) {
+            return (true, newTable)
+        } else {
+            return (false, table)
+        }
+    }
+    
+    /// Check if a table can be placed without overlapping with other tables
+    func canPlaceTable(_ table: TableModel, amongTables tables: [TableModel]? = nil) -> Bool {
+        let tablesToCheck = tables ?? self.tables
+        
+        // Check if position is within grid bounds
+        if table.row < 0 || table.row + table.height > tableStore.totalRows || 
+           table.column < 0 || table.column + table.width > tableStore.totalColumns {
+            return false
+        }
+        
+        // Check for intersection with other tables
+        for otherTable in tablesToCheck where otherTable.id != table.id {
+            if tablesIntersect(table, otherTable) {
+                return false
+            }
+        }
+        
+        return true
+    }
+    
     /// Returns the current set of tables.
-    /// - Returns: An array of TableModel objects representing the current tables.
     func getTables() -> [TableModel] {
         return self.tables
     }
     
     /// Generates a unique key based on date and category.
     func keyFor(date: Date, category: Reservation.ReservationCategory) -> String {
-        let formattedDateTime = DateHelper.formatDate(date) // Ensure the date includes both date and time
-        return "\(formattedDateTime)-\(category.rawValue)"
+        return layoutCache.keyFor(date: date, category: category)
     }
     
     /// Loads tables for a specific date and category.
@@ -89,32 +217,36 @@ class LayoutServices: ObservableObject {
             AppLog.debug("Loading tables for key: \(fullKey)")
         }
 
-        // Check if the exact layout exists
-        if let tables = cachedLayouts[fullKey] {
-            // Assign to self.tables *on the main thread*
-                self.tables = tables
-                Task { @MainActor in
-                    AppLog.debug("Loaded exact layout for key: \(fullKey)")
-                }
+        if let tables = layoutCache.cachedLayouts[fullKey] {
+            self.tables = tables
+            initializeGrid(with: tables)
+            Task { @MainActor in
+                AppLog.debug("Loaded exact layout for key: \(fullKey)")
+            }
             return tables
         }
 
-        // Fallback: Use the closest prior configuration
         let fallbackKey = findClosestPriorKey(for: date, category: category)
-        if let fallbackTables = fallbackKey.flatMap({ cachedLayouts[$0] }) {
-            // Copy the fallback layout for this specific timeslot
-            cachedLayouts[fullKey] = fallbackTables
+        if let fallbackTables = fallbackKey.flatMap({ layoutCache.cachedLayouts[$0] }) {
+            layoutCache.addOrUpdateLayout(for: date, 
+                                         category: category, 
+                                         tables: fallbackTables, 
+                                         updateFirebase: false)
             
-                self.tables = fallbackTables
-                Task { @MainActor in
-                    AppLog.debug("Copied fallback layout from key: \(fallbackKey ?? "none") to key: \(fullKey)")
-                }
+            self.tables = fallbackTables
+            initializeGrid(with: fallbackTables)
+            Task { @MainActor in
+                AppLog.debug("Copied fallback layout from key: \(fallbackKey ?? "none") to key: \(fullKey)")
+            }
             return fallbackTables
         }
 
-        // Final fallback: Initialize with base tables
-        self.cachedLayouts[fullKey] = self.tableStore.baseTables
+        layoutCache.addOrUpdateLayout(for: date, 
+                                    category: category, 
+                                     tables: self.tableStore.baseTables, 
+                                     updateFirebase: false)
         self.tables = self.tableStore.baseTables
+        initializeGrid(with: self.tableStore.baseTables)
         Task { @MainActor in
             AppLog.debug("Initialized new layout for key: \(fullKey) with base tables")
         }
@@ -122,13 +254,9 @@ class LayoutServices: ObservableObject {
     }
     
     /// Finds the closest prior key in the cached layouts for a given date and category.
-    /// - Parameters:
-    ///   - date: The date to find a layout for.
-    ///   - category: The reservation category.
-    /// - Returns: The closest prior key if found, otherwise nil.
     private func findClosestPriorKey(for date: Date, category: Reservation.ReservationCategory) -> String? {
         let formattedDate = DateHelper.formatDate(date)
-        let allKeys = cachedLayouts.keys.filter { $0.starts(with: "\(formattedDate)-\(category.rawValue)") }
+        let allKeys = layoutCache.cachedLayouts.keys.filter { $0.starts(with: "\(formattedDate)-\(category.rawValue)") }
 
         let sortedKeys = allKeys.sorted(by: { $0 < $1 }) // Sort keys chronologically
         return sortedKeys.last { $0 < "\(formattedDate)-\(category.rawValue)" }
@@ -137,22 +265,19 @@ class LayoutServices: ObservableObject {
     /// Saves tables for a specific date and category.
     func saveTables(_ tables: [TableModel], for date: Date, category: Reservation.ReservationCategory) {
         let fullKey = keyFor(date: date, category: category)
-        cachedLayouts[fullKey] = tables
+        layoutCache.addOrUpdateLayout(for: date, category: category, tables: tables)
         Task { @MainActor in
             AppLog.debug("Saved tables for key: \(fullKey)")
         }
 
-        // Propagate changes to future timeslots
         propagateLayoutChange(from: fullKey, tables: tables)
         saveToDisk()
     }
     
     /// Saves the current cached layouts to disk using UserDefaults.
-    /// Encodes the layouts dictionary to JSON data and stores it with the key "cachedLayouts".
-    /// Logs success or failure of the operation.
     func saveToDisk() {
         let encoder = JSONEncoder()
-        if let data = try? encoder.encode(cachedLayouts) {
+        if let data = try? encoder.encode(layoutCache.cachedLayouts) {
             UserDefaults.standard.set(data, forKey: "cachedLayouts")
             Task { @MainActor in
                 AppLog.info("Layouts saved successfully")
@@ -165,52 +290,61 @@ class LayoutServices: ObservableObject {
     }
     
     /// Propagates layout changes from a specific key to future timeslots.
-    /// - Parameters:
-    ///   - key: The source key from which to propagate changes.
-    ///   - tables: The table layout to propagate.
     private func propagateLayoutChange(from key: String, tables: [TableModel]) {
         let category = key.split(separator: "-").last!
-        let allKeys = cachedLayouts.keys.filter { $0.hasSuffix("-\(category)") }
+        let allKeys = layoutCache.cachedLayouts.keys.filter { $0.hasSuffix("-\(category)") }
 
         let futureKeys = allKeys.sorted().filter { $0 > key }
-        for futureKey in futureKeys where cachedLayouts[futureKey] == nil {
-            cachedLayouts[futureKey] = tables
-            Task { @MainActor in
-                AppLog.debug("Propagated layout to future key: \(futureKey)")
+        for futureKey in futureKeys where layoutCache.cachedLayouts[futureKey] == nil {
+            let components = futureKey.split(separator: "-")
+            if components.count >= 3 {
+                let dateStr = components[0..<components.count-1].joined(separator: "-")
+                if let date = DateHelper.parseDate(dateStr),
+                   let categoryValue = components.last,
+                   let category = Reservation.ReservationCategory(rawValue: String(categoryValue)) {
+                    layoutCache.addOrUpdateLayout(for: date, category: category, tables: tables, updateFirebase: false)
+                    Task { @MainActor in
+                        AppLog.debug("Propagated layout to future key: \(futureKey)")
+                    }
+                }
             }
         }
     }
     
     /// Resets tables for a specific date and category to the base configuration.
-    /// - Parameters:
-    ///   - date: The date for which to reset tables.
-    ///   - category: The reservation category.
     func resetTables(for date: Date, category: Reservation.ReservationCategory) {
         let fullKey = keyFor(date: date, category: category)
 
         // Reset the layout for this specific key
-        cachedLayouts[fullKey] = tableStore.baseTables
+        layoutCache.addOrUpdateLayout(for: date, category: category, tables: tableStore.baseTables)
         tables = tableStore.baseTables
+        initializeGrid(with: tableStore.baseTables)
         Task { @MainActor in
             AppLog.info("Reset tables for key: \(fullKey) to base tables")
         }
 
-        // Propagate reset to future timeslots
         propagateLayoutReset(from: fullKey)
         saveToDisk()
     }
 
     /// Propagates layout reset from a specific key to future timeslots.
-    /// - Parameter key: The source key from which to propagate the reset.
     private func propagateLayoutReset(from key: String) {
         let category = key.split(separator: "-").last!
-        let allKeys = cachedLayouts.keys.filter { $0.hasSuffix("-\(category)") }
+        let allKeys = layoutCache.cachedLayouts.keys.filter { $0.hasSuffix("-\(category)") }
 
         let futureKeys = allKeys.sorted().filter { $0 > key }
-        for futureKey in futureKeys where cachedLayouts[futureKey] == nil {
-            cachedLayouts[futureKey] = tableStore.baseTables
-            Task { @MainActor in
-                AppLog.debug("Reset future key: \(futureKey) to base tables")
+        for futureKey in futureKeys where layoutCache.cachedLayouts[futureKey] == nil {
+            let components = futureKey.split(separator: "-")
+            if components.count >= 3 {
+                let dateStr = components[0..<components.count-1].joined(separator: "-")
+                if let date = DateHelper.parseDate(dateStr),
+                   let categoryValue = components.last,
+                   let category = Reservation.ReservationCategory(rawValue: String(categoryValue)) {
+                    layoutCache.addOrUpdateLayout(for: date, category: category, tables: tableStore.baseTables, updateFirebase: false)
+                    Task { @MainActor in
+                        AppLog.debug("Reset future key: \(futureKey) to base tables")
+                    }
+                }
             }
         }
     }
@@ -219,7 +353,9 @@ class LayoutServices: ObservableObject {
     func loadFromDisk() {
         if let data = UserDefaults.standard.data(forKey: "cachedLayouts"),
            let decoded = try? JSONDecoder().decode([String: [TableModel]].self, from: data) {
-               setCachedLayouts(decoded)
+               for (key, tables) in decoded {
+                   layoutCache.cachedLayouts[key] = tables
+               }
                let layoutCount = decoded.keys.count  // Store count in local variable
                Task { @MainActor in
                     AppLog.info("Cached layouts loaded successfully: \(layoutCount) layouts")
@@ -232,22 +368,18 @@ class LayoutServices: ObservableObject {
     }
     
     /// Sets the current tables array.
-    /// - Parameter newTables: The new array of tables to set.
     func setTables(_ newTables: [TableModel]) {
-            self.tables = newTables
+        self.tables = newTables
+        initializeGrid(with: newTables)
     }
     
-    /// Sets the cached layouts dictionary.
-    /// - Parameter layouts: The new dictionary of layouts to set.
-    func setCachedLayouts(_ layouts: [String: [TableModel]]) {
-            self.cachedLayouts = layouts
+    /// Checks if a layout exists for a specific date and category
+    func layoutExists(for date: Date, category: Reservation.ReservationCategory) -> Bool {
+        let key = keyFor(date: date, category: category)
+        return layoutCache.cachedLayouts[key] != nil
     }
     
     /// Assigns tables for a reservation, either manually or automatically.
-    /// - Parameters:
-    ///   - reservation: The reservation to assign tables for.
-    ///   - selectedTableID: Optional ID of a manually selected table. If nil, automatic assignment is used.
-    /// - Returns: A result containing either the assigned tables or an error.
     func assignTables(
         for reservation: Reservation,
         selectedTableID: Int?
@@ -260,13 +392,12 @@ class LayoutServices: ObservableObject {
             let reservationEnd = reservation.endTimeDate else { return .failure(.unknown)}
         
         let layoutKey = keyFor(date: reservationDate, category: reservation.category)
-        guard let tables = cachedLayouts[layoutKey]
+        guard let tables = layoutCache.cachedLayouts[layoutKey]
                ?? generateAndCacheLayout(for: layoutKey, date: reservationDate, category: reservation.category)
         else {
             return .failure(.noTablesLeft)  // Or .unknown if you prefer
         }
         
-        // Manual assignment if tableID is set
         if let tableID = selectedTableID {
             // 1) Check existence
             guard let selectedTable = tables.first(where: { $0.id == tableID }) else {
@@ -274,31 +405,34 @@ class LayoutServices: ObservableObject {
             }
             
             // 2) Check lock
-            if isTableLocked(tableID: selectedTable.id, start: reservationStart, end: reservationEnd), !reservation.tables.contains(selectedTable) {
-                return .failure(.tableLocked)
+            if isTableLocked(tableID: selectedTable.id, start: reservationStart, end: reservationEnd) {
+                let existingReservationsForTable = resCache.getAllReservations().filter { 
+                    $0.tables.contains(where: { $0.id == selectedTable.id })
+                }
+                
+                if existingReservationsForTable.isEmpty {
+                    return .failure(.tableLocked)
+                }
             }
             
             // 3) Attempt manual assignment
             let assignedTables = tableAssignmentService.assignTablesManually(
                 for: reservation,
                 tables: tables,
-                reservations: store.reservations,
+                reservations: resCache.getAllReservations(),
                 startingFrom: selectedTable
             )
             
             if let assignedTables = assignedTables {
-                // Lock tables, update store, etc.
                 lockTable(tableID: selectedTable.id, start: reservationStart, end: reservationEnd)
-                    if let index = self.store.reservations.firstIndex(where: { $0.id == reservation.id }) {
-                        self.store.reservations[index].tables = assignedTables
-                    } else {
-                        var updatedReservation = reservation
-                        updatedReservation.tables = assignedTables
-                        self.store.reservations.append(updatedReservation)
-                }
+                
+                var updatedReservation = reservation
+                updatedReservation.tables = assignedTables
+                
+                resCache.addOrUpdateReservation(updatedReservation)
+                
                 return .success(assignedTables)
             } else {
-                // Potentially differentiate between not enough capacity vs. table locked
                 return .failure(.insufficientTables)
             }
             
@@ -311,40 +445,32 @@ class LayoutServices: ObservableObject {
             
             if let assignedTables = tableAssignmentService.assignTablesPreferContiguous(
                 for: reservation,
-                reservations: store.reservations,
+                reservations: resCache.getAllReservations(),
                 tables: unlockedTables
             ) {
-                // Lock each table, update store, etc.
                 assignedTables.forEach { lockTable(tableID: $0.id, start: reservationStart, end: reservationEnd) }
-                    if let index = self.store.reservations.firstIndex(where: { $0.id == reservation.id }) {
-                        self.store.reservations[index].tables = assignedTables
-                    } else {
-                        var updatedReservation = reservation
-                        updatedReservation.tables = assignedTables
-                        self.store.reservations.append(updatedReservation)
-                }
+                
+                var updatedReservation = reservation
+                updatedReservation.tables = assignedTables
+                
+                resCache.addOrUpdateReservation(updatedReservation)
+                
                 return .success(assignedTables)
             } else {
-                // Distinguish not enough capacity from unknown error, if you'd like:
                 return .failure(.insufficientTables)
             }
         }
     }
     
     /// Generates and caches a layout for a specific key, date, and category.
-    /// - Parameters:
-    ///   - layoutKey: The key to use for caching the layout.
-    ///   - date: The date for which to generate the layout.
-    ///   - category: The reservation category.
-    /// - Returns: The generated table layout, or nil if generation failed.
     func generateAndCacheLayout(for layoutKey: String, date: Date, category: Reservation.ReservationCategory) -> [TableModel]? {
         Task { @MainActor in
             AppLog.debug("Generating layout for key: \(layoutKey)")
         }
         let layout = loadTables(for: date, category: category) // Your layout generation logic
-        
+        let sendableCopy = layout
         if !layout.isEmpty {
-            cachedLayouts[layoutKey] = layout
+            layoutCache.addOrUpdateLayout(for: date, category: category, tables: sendableCopy, updateFirebase: true)
             Task { @MainActor in
                 AppLog.debug("Layout cached for key: \(layoutKey)")
             }
@@ -357,10 +483,6 @@ class LayoutServices: ObservableObject {
     }
     
     /// Locks a table for a specific time interval.
-    /// - Parameters:
-    ///   - tableID: The ID of the table to lock.
-    ///   - start: The start time of the lock interval.
-    ///   - end: The end time of the lock interval.
     func lockTable(tableID: Int, start: Date, end: Date) {
         var intervals = lockedIntervals[tableID] ?? []
         intervals.append((start, end))  // or TimeIntervalLock(...)
@@ -368,14 +490,9 @@ class LayoutServices: ObservableObject {
     }
 
     /// Unlocks a table for a specific time interval.
-    /// - Parameters:
-    ///   - tableID: The ID of the table to unlock.
-    ///   - start: The start time of the lock interval to remove.
-    ///   - end: The end time of the lock interval to remove.
     func unlockTable(tableID: Int, start: Date, end: Date) {
         guard var intervals = lockedIntervals[tableID] else { return }
-        // Remove the matching interval. Or if you store a reservation ID:
-        // remove the item associated with that reservation ID
+
         intervals.removeAll(where: { $0.start == start && $0.end == end })
         lockedIntervals[tableID] = intervals
     }
@@ -386,17 +503,11 @@ class LayoutServices: ObservableObject {
     }
     
     /// Checks if a table is locked for a specific time interval.
-    /// - Parameters:
-    ///   - tableID: The ID of the table to check.
-    ///   - start: The start time of the interval to check.
-    ///   - end: The end time of the interval to check.
-    /// - Returns: True if the table is locked for any part of the specified interval, false otherwise.
     func isTableLocked(tableID: Int, start: Date, end: Date) -> Bool {
         guard let intervals = lockedIntervals[tableID] else {
             return false
         }
         for interval in intervals {
-            // Overlap condition: (start1 < end2) && (start2 < end1)
             if start < interval.end && interval.start < end {
                 return true
             }
@@ -404,19 +515,7 @@ class LayoutServices: ObservableObject {
         return false
     }
     
-    /// Checks if a layout exists for a specific date and category.
-    /// - Parameters:
-    ///   - date: The date to check.
-    ///   - category: The reservation category.
-    /// - Returns: True if a layout exists, false otherwise.
-    func layoutExists(for date: Date, category: Reservation.ReservationCategory) -> Bool {
-        let key = keyFor(date: date, category: category)
-        return cachedLayouts[key] != nil
-    }
-    
     /// Computes a unique signature for a set of tables based on their properties.
-    /// - Parameter tables: The array of tables to compute a signature for.
-    /// - Returns: A string signature that uniquely identifies the table configuration.
     func computeLayoutSignature(tables: [TableModel]) -> String {
         let sortedTables = tables.sorted { $0.id < $1.id }
         let components = sortedTables.map { table in
@@ -426,8 +525,51 @@ class LayoutServices: ObservableObject {
     }
 }
 
+// MARK: - Movement Operations
+extension LayoutServices {
+    /// Represents the result of a table move operation.
+    enum MoveResult {
+        case move    
+        case invalid
+    }
+
+    /// Attempts to move a table to a new position.
+    func moveTable(_ table: TableModel, toRow: Int, toCol: Int) -> MoveResult {
+        clearTablePosition(table)
+        Task { @MainActor in
+            AppLog.debug("Attempting to move \(table.name) to (\(toRow), \(toCol))")
+        }
+
+        let (canMove, newTable) = moveTable(table, toRow: toRow, toCol: toCol, amongTables: tables)
+
+        if canMove {
+            Task { @MainActor in
+                AppLog.debug("Can place table \(table.name) at (\(newTable.row), \(newTable.column))")
+            }
+
+            withAnimation(.easeInOut(duration: 0.5)) {
+                if let idx = self.tables.firstIndex(where: { $0.id == table.id }) {
+                    self.tables[idx] = newTable
+                }
+                markTablePosition(newTable)
+            }
+            Task { @MainActor in
+                AppLog.info("Moved \(table.name) to (\(newTable.row), \(newTable.column)) successfully")
+            }
+            return .move
+        } else {
+            withAnimation(.spring) {
+                markTablePosition(table)
+            }
+            Task { @MainActor in
+                AppLog.info("Cannot place \(table.name) at (\(toRow), \(toCol)). Move failed")
+            }
+            return .invalid
+        }
+    }
+}
+
 // MARK: - Table Placement Helpers
-/// Extension providing methods for table placement and overlap detection.
 extension LayoutServices {
     /// Checks if a table can be placed at a new position for a given date and category.
     func canPlaceTable(_ table: TableModel, for date: Date, category: Reservation.ReservationCategory, activeTables: [TableModel]) -> Bool {
@@ -435,241 +577,13 @@ extension LayoutServices {
             AppLog.debug("Checking placement for table: \(table.name) at row: \(table.row), column: \(table.column), width: \(table.width), height: \(table.height)")
         }
         
-        // Ensure the table is within grid bounds
-        guard table.row >= 0, table.column >= 0,
-              table.row + table.height <= tableStore.totalRows,
-              table.column + table.width <= tableStore.totalColumns else {
-            Task { @MainActor in
-                AppLog.info("Table \(table.name) is out of bounds")
-            }
-            return false
-        }
-                
-        // Check for overlap with existing tables
-        for existingTable in activeTables where existingTable.id != table.id {
-            Task { @MainActor in
-                AppLog.debug("Comparing with existing table: \(existingTable.name) at row: \(existingTable.row), column: \(existingTable.column), width: \(existingTable.width), height: \(existingTable.height)")
-            }
-            if tablesIntersect(existingTable, table) {
-                Task { @MainActor in
-                    AppLog.info("Table \(table.name) intersects with \(existingTable.name). Cannot place")
-                }
-                return false
-            }
-        }
-        
-        Task { @MainActor in
-            AppLog.debug("Table \(table.name) can be placed")
-        }
-        return true
-    }
-    
-    
-    /// Checks if two tables overlap with each other.
-    /// - Parameters:
-    ///   - table1: The first table to check.
-    ///   - table2: The second table to check.
-    /// - Returns: True if the tables overlap, false otherwise.
-    private func tablesOverlap(table1: TableModel, table2: TableModel) -> Bool {
-        let table1Rect = CGRect(
-            x: table1.column,
-            y: table1.row,
-            width: table1.width,
-            height: table1.height
-        )
-        let table2Rect = CGRect(
-            x: table2.column,
-            y: table2.row,
-            width: table2.width,
-            height: table2.height
-        )
-        return table1Rect.intersects(table2Rect)
+        return canPlaceTable(table, amongTables: activeTables)
     }
 }
 
-/// Extension providing methods for table movement, occupancy checks, and adjacency detection.
+// MARK: - Adjacency
 extension LayoutServices {
-    
-    // MARK: - Movement
-
-    /// Represents the result of a table move operation.
-    enum MoveResult {
-        case move    /// The move was successful.
-        case invalid /// The move was invalid and could not be completed.
-    }
-
-    /// Attempts to move a table to a new position.
-    /// - Parameters:
-    ///   - table: The table to move.
-    ///   - toRow: The target row position.
-    ///   - toCol: The target column position.
-    /// - Returns: A MoveResult indicating whether the move was successful.
-    func moveTable(_ table: TableModel, toRow: Int, toCol: Int) -> MoveResult {
-        let maxRow = tableStore.totalRows - table.height
-        let maxCol = tableStore.totalColumns - table.width
-        let clampedRow = max(0, min(toRow, maxRow))
-        let clampedCol = max(0, min(toCol, maxCol))
-
-        var newTable = table
-        newTable.row = clampedRow
-        newTable.column = clampedCol
-
-        // Unmark the table's current position
-        unmarkTable(table)
-        Task { @MainActor in
-            AppLog.debug("Attempting to move \(table.name) to (\(clampedRow), \(clampedCol))")
-        }
-
-        // Check if the new position is valid
-        if canPlaceTable(newTable) {
-            Task { @MainActor in
-                AppLog.debug("Can place table \(table.name) at (\(clampedRow), \(clampedCol))")
-            }
-
-            // Perform the move
-            withAnimation(.easeInOut(duration: 0.5)) {
-                if let idx = self.tables.firstIndex(where: { $0.id == table.id }) {
-                    self.tables[idx] = newTable
-                }
-                self.markTable(newTable, occupied: true)
-            }
-            Task { @MainActor in
-                AppLog.info("Moved \(table.name) to (\(clampedRow), \(clampedCol)) successfully")
-            }
-            return .move
-        } else {
-            // Invalid move; re-mark the original table's position
-            withAnimation(.spring) {
-                self.markTable(table, occupied: true)
-            }
-            Task { @MainActor in
-                AppLog.info("Cannot place \(table.name) at (\(clampedRow), \(clampedCol)). Move failed")
-            }
-            return .invalid
-        }
-    }
-
-    // MARK: - Occupancy Checks
-
-    /// Checks if two tables intersect with each other.
-    /// - Parameters:
-    ///   - table1: The first table to check.
-    ///   - table2: The second table to check.
-    /// - Returns: True if the tables intersect, false otherwise.
-    func tablesIntersect(_ table1: TableModel, _ table2: TableModel) -> Bool {
-        let table1MinX = table1.column
-        let table1MaxX = table1.column + table1.width
-        let table1MinY = table1.row
-        let table1MaxY = table1.row + table1.height
-
-        let table2MinX = table2.column
-        let table2MaxX = table2.column + table2.width
-        let table2MinY = table2.row
-        let table2MaxY = table2.row + table2.height
-
-        Task { @MainActor in
-            AppLog.debug("Checking intersection - Table 1: (\(table1MinX), \(table1MaxX)) x (\(table1MinY), \(table1MaxY))")
-            AppLog.debug("Checking intersection - Table 2: (\(table2MinX), \(table2MaxX)) x (\(table2MinY), \(table2MaxY))")
-        }
-
-        // Check for no overlap scenarios
-        let intersects = !(table1MaxX <= table2MinX || table1MinX >= table2MaxX || table1MaxY <= table2MinY || table1MinY >= table2MaxY)
-        Task { @MainActor in
-            AppLog.debug("Intersection result: \(intersects)")
-        }
-        return intersects
-    }
-
-    /// Checks if a table can be placed without overlapping with other tables.
-    /// - Parameter table: The table to check placement for.
-    /// - Returns: True if the table can be placed, false otherwise.
-    func canPlaceTable(_ table: TableModel) -> Bool {
-        for otherTable in tables where otherTable.id != table.id {
-            if tablesIntersect(table, otherTable) {
-                return false
-            }
-        }
-        return true
-    }
-
-    // MARK: - Helpers
-
-    /// Marks a table as occupied or unoccupied in the grid.
-    /// - Parameters:
-    ///   - table: The table to mark.
-    ///   - occupied: Whether the table should be marked as occupied (true) or unoccupied (false).
-    func markTable(_ table: TableModel, occupied: Bool) {
-        Task { @MainActor in
-            AppLog.debug("Marking table \(table.id) at \(table.row), \(table.column) with occupied=\(occupied)")
-        }
-        
-        let tableCount = tables.count
-        Task { @MainActor in
-            AppLog.debug("Tables and grid state after operation: \(tableCount) tables")
-        }
-        
-        for r in table.row..<(table.row + table.height) {
-            for c in table.column..<(table.column + table.width) {
-                guard r >= 0, r < tableStore.grid.count, c >= 0, c < tableStore.grid[0].count else {
-                    Task { @MainActor in
-                        AppLog.warning("Skipping out-of-bounds position (\(r), \(c))")
-                    }
-                    continue 
-                }
-                tableStore.grid[r][c] = occupied ? table.id : nil
-            }
-        }
-    }
-
-    /// Unmarks a table in the grid, setting it as unoccupied.
-    /// - Parameter table: The table to unmark.
-    func unmarkTable(_ table: TableModel) {
-        
-        markTable(table, occupied: false)
-    }
-
-    /// Returns a bounding box rectangle for a table.
-    /// - Parameter table: The table to get a bounding box for.
-    /// - Returns: A CGRect representing the table's bounding box.
-    func boundingBox(for table: TableModel) -> CGRect {
-        CGRect(
-            x: CGFloat(table.column),
-            y: CGFloat(table.row),
-            width: CGFloat(table.width),
-            height: CGFloat(table.height)
-        )
-    }
-    
-    /// Initializes the grid and marks all tables as occupied.
-    func markTablesInGrid() {
-        Task { @MainActor in
-            AppLog.debug("Marking tables in grid...")
-        }
-        tableStore.grid = Array(
-            repeating: Array(repeating: nil, count: tableStore.totalColumns),
-            count: tableStore.totalRows
-        )
-
-        for table in tables {
-            Task { @MainActor in
-                AppLog.debug("Table \(table.id): \(table.row), \(table.column), \(table.width)x\(table.height)")
-            }
-            markTable(table, occupied: true)
-            Task { @MainActor in
-                AppLog.debug("Marked table \(table.id) at row \(table.row), column \(table.column)")
-            }
-        }
-    }
-    
-    // MARK: - Adjacency
-    
-    
     /// Checks if a table is adjacent to other tables and returns details about adjacent tables.
-    /// - Parameters:
-    ///   - table: The table to check adjacency for.
-    ///   - combinedDateTime: The date and time to check adjacency at.
-    ///   - activeTables: The active tables to check against.
-    /// - Returns: A tuple containing the count of adjacent tables and details about which sides have adjacent tables.
     func isTableAdjacent(_ table: TableModel, combinedDateTime: Date, activeTables: [TableModel]) -> (adjacentCount: Int, adjacentDetails: [TableModel.TableSide: TableModel]) {
         var adjacentCount = 0
         var adjacentDetails: [TableModel.TableSide: TableModel] = [:]
@@ -683,26 +597,18 @@ extension LayoutServices {
             let offset = side.offset()
             let neighborPosition = (row: table.row + offset.rowOffset, col: table.column + offset.colOffset)
 
-            Task { @MainActor in
-                AppLog.debug("Checking neighbor position: \(neighborPosition.row), \(neighborPosition.col) for side \(String(describing: side))")
-            }
-
             if let neighborTable = activeTables.first(where: { neighbor in
-                // Ensure the neighbor is not the current table
                 guard neighbor.id != table.id else { return false }
                 
-                // Strictly check if the neighbor overlaps at the exact position
                 let exactRowMatch = neighbor.row == neighborPosition.row
                 let exactColMatch = neighbor.column == neighborPosition.col
 
-                // Return true only if there's an exact match or an overlap
                 return (neighbor.height == 3 && neighbor.width == 3 && exactRowMatch && exactColMatch)
             }) {
-                // Correctly track the table that overlaps
                 adjacentCount += 1
                 adjacentDetails[side] = neighborTable
                 Task { @MainActor in
-                    AppLog.debug("Found adjacent table \(neighborTable.id) at side \(String(describing: side))")
+                    AppLog.debug("Found adjacent table \(neighborTable.id) at side)")
                 }
             } else {
                 Task { @MainActor in
@@ -712,33 +618,23 @@ extension LayoutServices {
         }
 
         Task { @MainActor in
-            AppLog.debug("Adjacent tables for table \(table.id): count=\(adjacentCount), details: \(adjacentDetails.map { ($0.key, $0.value.id) })")
+            AppLog.debug("Adjacent tables for table \(table.id): count=\(adjacentCount)")
         }
         return (adjacentCount, adjacentDetails)
     }
     
-
-    
     // MARK: - Reservation-Aware Adjacency
     /// Checks if a table is adjacent to other tables that share the same reservation.
-    /// - Parameters:
-    ///   - table: The table to check.
-    ///   - combinedDateTime: The date and time to check at.
-    ///   - activeTables: The active tables to check against.
-    /// - Returns: An array of tables that are adjacent and share the same reservation.
     func isAdjacentWithSameReservation(for table: TableModel, combinedDateTime: Date, activeTables: [TableModel]) -> [TableModel] {
-        // Get all reservation IDs for the given table
-        let reservationIDs = store.reservations
+        let reservationIDs = resCache.getAllReservations()
             .filter { $0.tables.contains(where: { $0.id == table.id }) }
             .map { $0.id }
 
-        // Get adjacent details using active tables
         let adjacentDetails = isTableAdjacent(table, combinedDateTime: combinedDateTime, activeTables: activeTables).adjacentDetails
         var sharedReservationTables: [TableModel] = []
 
         for (_, adjacentTable) in adjacentDetails {
-            // Check if the adjacent table shares a reservation
-            let sharedReservations = store.reservations.filter { reservation in
+            let sharedReservations = resCache.getAllReservations().filter { reservation in
                 reservation.tables.contains(where: { $0.id == adjacentTable.id }) && reservationIDs.contains(reservation.id)
             }
 
@@ -759,12 +655,6 @@ extension LayoutServices {
     // MARK: - Helpers for Adjacency
     
     /// Looks up a table by its grid position.
-    /// - Parameters:
-    ///   - row: The row position to look up.
-    ///   - column: The column position to look up.
-    ///   - combinedDateTime: The date and time to check at.
-    ///   - activeTables: The active tables to check first.
-    /// - Returns: The table at the specified position, or nil if no table is found.
     func fetchTable(row: Int, column: Int, combinedDateTime: Date, activeTables: [TableModel]) -> TableModel? {
         guard row >= 0, column >= 0 else {
             Task { @MainActor in
@@ -773,21 +663,17 @@ extension LayoutServices {
             return nil
         }
 
-        Task { @MainActor in
-            AppLog.debug("Checking for table at (\(row), \(column))")
-        }
-
-        // Check active tables first
-        if let activeTable = activeTables.first(where: { $0.row == row && $0.column == column }) {
+        // First check in active tables
+        if let activeTable = findTable(at: row, column: column, amongTables: activeTables) {
             Task { @MainActor in
                 AppLog.debug("Found active table \(activeTable.id) at (\(row), \(column))")
             }
             return activeTable
         }
 
-        // Fallback to tables managed by the store
-        let storeTables = store.reservations.flatMap { $0.tables }
-        if let table = storeTables.first(where: { $0.row == row && $0.column == column }) {
+        // Then look in all reservation tables
+        let storeTables = resCache.getAllReservations().flatMap { $0.tables }
+        if let table = findTable(at: row, column: column, amongTables: storeTables) {
             Task { @MainActor in
                 AppLog.debug("Found table \(table.id) in store at (\(row), \(column))")
             }
@@ -799,17 +685,11 @@ extension LayoutServices {
         }
         return nil
     }
-
-   
     
     /// Gets tables for a specific date and category, using cached layouts if available.
-    /// - Parameters:
-    ///   - date: The date to get tables for.
-    ///   - category: The reservation category.
-    /// - Returns: An array of tables for the specified date and category.
     func getTables(for date: Date, category: Reservation.ReservationCategory) -> [TableModel] {
         let key = keyFor(date: date, category: category)
-        if let tables = cachedLayouts[key] {
+        if let tables = layoutCache.cachedLayouts[key] {
             return tables
         } else {
             Task { @MainActor in
@@ -818,7 +698,5 @@ extension LayoutServices {
             return tableStore.baseTables
         }
     }
-    
-
 }
 

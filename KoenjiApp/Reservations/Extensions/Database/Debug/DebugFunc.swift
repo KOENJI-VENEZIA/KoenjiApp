@@ -12,7 +12,7 @@ extension DatabaseView {
     func generateDebugData(force: Bool = false) {
         AppLog.debug("Generating debug reservations data")
         Task {
-            await env.reservationService.generateReservations(daysToSimulate: daysToSimulate)
+            await env.dataGenerationService.generateReservations(daysToSimulate: daysToSimulate)
         }
     }
     
@@ -22,6 +22,7 @@ extension DatabaseView {
     
     func resetData() {
         AppLog.info("Initiating complete data reset")
+        env.resCache.clearAllCache()
         env.store.setReservations([])
         env.reservationService.clearAllData()
         flushCaches()
@@ -30,13 +31,18 @@ extension DatabaseView {
     }
     
     func parseReservations() {
-        let reservations = env.store.reservations
+        let reservations = env.resCache.getAllReservations()
         AppLog.debug("Parsing reservations: \(reservations.count) found")
+        
+        let dates = Array(env.resCache.cache.keys)
+        let dateStrings = dates.map { DateHelper.formatDate($0) }
+        AppLog.debug("Cached dates: \(dateStrings.joined(separator: ", "))")
     }
     
     func flushCaches() {
         AppLog.debug("Initiating cache flush")
-        env.reservationService.flushAllCaches()
+        env.resCache.clearAllCache()
+        updateReservationsFromCache()
         AppLog.info("Cache flush completed")
     }
 }

@@ -274,7 +274,7 @@ struct ProfileAccountView: View {
     
     /// Refreshes the profile data from the database
     private func refreshProfileData() {
-        if let updatedProfile = env.reservationService.getProfile(withID: profile.id) {
+        if let updatedProfile = env.profileService.getProfile(withID: profile.id) {
             if updatedProfile.updatedAt > profile.updatedAt {
                 profile = updatedProfile
             }
@@ -321,7 +321,7 @@ struct ProfileAccountView: View {
         updatedProfile.updatedAt = Date()
         
         // Update the profile
-        env.reservationService.upsertProfile(updatedProfile)
+        env.profileService.upsertProfile(updatedProfile)
         
         // Update local state
         profile = updatedProfile
@@ -330,7 +330,7 @@ struct ProfileAccountView: View {
         for session in SessionStore.shared.sessions where session.id == profile.id {
             var updatedSession = session
             updatedSession.userName = updatedProfile.displayName
-            env.reservationService.upsertSession(updatedSession)
+            env.sessionService.upsertSession(updatedSession)
         }
         
         // Exit editing mode
@@ -345,7 +345,7 @@ struct ProfileAccountView: View {
     ///
     /// - Parameter device: The device to log out
     private func logoutDevice(_ device: Device) {
-        env.reservationService.updateDeviceStatus(profileID: profile.id, deviceID: device.id, isActive: false)
+        env.profileService.updateDeviceStatus(profileID: profile.id, deviceID: device.id, isActive: false)
         
         // Update local state
         if let index = profile.devices.firstIndex(where: { $0.id == device.id }) {
@@ -371,7 +371,7 @@ struct ProfileAccountView: View {
     /// This method updates the device status to inactive for all devices and logs out the current device.
     /// It also updates the local state to reflect the logout.
     private func logoutAllDevices() {
-        env.reservationService.logoutAllDevices(forProfileID: profile.id)
+        env.sessionService.logoutAllDevices(forProfileID: profile.id, profileService: env.profileService)
         
         // Update local state
         var updatedProfile = profile
@@ -409,7 +409,7 @@ struct ProfileAccountView: View {
                     updatedProfile.updatedAt = Date()
                     
                     // Save the updated profile
-                    self.env.reservationService.upsertProfile(updatedProfile)
+                    self.env.profileService.upsertProfile(updatedProfile)
                     
                     // Update local state
                     self.profile = updatedProfile
@@ -418,7 +418,7 @@ struct ProfileAccountView: View {
                     for session in SessionStore.shared.sessions where session.id == self.profile.id {
                         var updatedSession = session
                         updatedSession.profileImageURL = url.absoluteString
-                        self.env.reservationService.upsertSession(updatedSession)
+                        self.env.sessionService.upsertSession(updatedSession)
                     }
                     
                     AppLog.info("Profile image updated: \(url.absoluteString)")

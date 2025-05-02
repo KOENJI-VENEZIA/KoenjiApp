@@ -7,19 +7,16 @@
 
 import Foundation
 import SwiftUI
-import OSLog
 
 class ClusterStore: ObservableObject {
-    nonisolated(unsafe) static let shared = ClusterStore(store: ReservationStore.shared, tableStore: TableStore.shared, layoutServices: LayoutServices(store: ReservationStore.shared, tableStore: TableStore.shared, tableAssignmentService: TableAssignmentService()))
-    private let store: ReservationStore
-    private let tableStore: TableStore
-    private let layoutServices: LayoutServices
-    private let logger = Logger(
-        subsystem: "com.koenjiapp",
-        category: "ClusterStore"
-    )
+    nonisolated(unsafe) static let shared = ClusterStore(layoutCache: LayoutCache())
 
-    
+    private let layoutCache: LayoutCache
+
+    init(layoutCache: LayoutCache) {
+        self.layoutCache = layoutCache
+    }
+
     struct ClusterCacheEntry {
             var clusters: [CachedCluster]
             var lastAccessed: Date
@@ -27,13 +24,7 @@ class ClusterStore: ObservableObject {
 
     @Published var clusterCache: [String: ClusterCacheEntry] = [:]
     let maxCacheEntries = 100
-    
-    init(store: ReservationStore, tableStore: TableStore, layoutServices: LayoutServices)
-    {
-        self.store = store
-        self.tableStore = tableStore
-        self.layoutServices = layoutServices
-    }
+
     // MARK: Caching
     func setClusterCache(_ clusters: [String: [CachedCluster]]) {
         clusterCache = clusters.mapValues { clusters in
@@ -45,7 +36,7 @@ class ClusterStore: ObservableObject {
     }
     
     func invalidateClusterCache(for date: Date, category: Reservation.ReservationCategory) {
-        let key = layoutServices.keyFor(date: date, category: category)
+        let key = layoutCache.keyFor(date: date, category: category)
         clusterCache.removeValue(forKey: key)
         Task { @MainActor in
             AppLog.debug("Cluster cache invalidated for key: \(key)")

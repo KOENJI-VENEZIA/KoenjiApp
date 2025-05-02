@@ -9,7 +9,7 @@ import SwiftUI
 import os
 
 /// Represents a physical table in the restaurant.
-struct TableModel: Identifiable, Hashable, Codable, Equatable {
+public struct TableModel: Identifiable, Hashable, Codable, Equatable, Sendable {
     // MARK: - Private Properties
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "com.koenjiapp",
@@ -17,18 +17,41 @@ struct TableModel: Identifiable, Hashable, Codable, Equatable {
     )
     
     // MARK: - Public Properties
-    let id: Int
-    let name: String
-    let maxCapacity: Int
-    var row: Int
-    var column: Int
-    var adjacentCount: Int = 0
-    var activeReservationAdjacentCount: Int = 0
-    var isVisible: Bool = true
+    public let id: Int
+    public let name: String
+    public let maxCapacity: Int
+    public var row: Int
+    public var column: Int
+    public var adjacentCount: Int = 0
+    public var activeReservationAdjacentCount: Int = 0
+    public var isVisible: Bool = true
 
     // MARK: - Computed Properties
-    var width: Int { 3 }
-    var height: Int { 3 }
+    public var width: Int { 3 }
+    public var height: Int { 3 }
+    
+    // MARK: - Initializers
+    public init(
+        id: Int,
+        name: String,
+        maxCapacity: Int,
+        row: Int,
+        column: Int,
+        adjacentCount: Int = 0,
+        activeReservationAdjacentCount: Int = 0,
+        isVisible: Bool = true
+    ) {
+        self.id = id
+        self.name = name
+        self.maxCapacity = maxCapacity
+        self.row = row
+        self.column = column
+        self.adjacentCount = adjacentCount
+        self.activeReservationAdjacentCount = activeReservationAdjacentCount
+        self.isVisible = isVisible
+        
+        TableModel.logger.debug("Created table: \(name) (ID: \(id)) at position (\(row), \(column))")
+    }
     
     // MARK: - Coding Keys
     enum CodingKeys: String, CodingKey {
@@ -36,7 +59,7 @@ struct TableModel: Identifiable, Hashable, Codable, Equatable {
     }
     
     // MARK: - Table Side Enum
-    enum TableSide: CaseIterable {
+    public enum TableSide: CaseIterable {
         case top, bottom, left, right
 
         func offset() -> (rowOffset: Int, colOffset: Int) {
@@ -52,7 +75,7 @@ struct TableModel: Identifiable, Hashable, Codable, Equatable {
 
 // MARK: - Codable Implementation
 extension TableModel {
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         do {
@@ -74,7 +97,7 @@ extension TableModel {
         }
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         
         do {
@@ -95,15 +118,77 @@ extension TableModel {
     }
 }
 
+// MARK: - EncodableWithID Implementation
+extension TableModel: EncodableWithID {
+    public var documentID: String {
+        return String(id)
+    }
+}
+
+// MARK: - Table Convenience Methods
+extension TableModel {
+    /// Determines if this table is adjacent to another table
+    /// - Parameter other: The other table to check
+    /// - Returns: True if the tables are adjacent, false otherwise
+    public func isAdjacentTo(_ other: TableModel) -> Bool {
+        // Check if tables are horizontally adjacent
+        let horizontallyAdjacent = abs(self.column - other.column) <= self.width && 
+                                  abs(self.row - other.row) == self.height
+        
+        // Check if tables are vertically adjacent
+        let verticallyAdjacent = abs(self.row - other.row) <= self.height && 
+                                abs(self.column - other.column) == self.width
+        
+        return horizontallyAdjacent || verticallyAdjacent
+    }
+    
+    /// Get the side where this table is adjacent to another table
+    /// - Parameter other: The other table to check
+    /// - Returns: The table side if adjacent, nil otherwise
+    public func getAdjacentSide(to other: TableModel) -> TableSide? {
+        // Check top
+        if other.row + other.height == self.row && 
+           abs(other.column - self.column) < self.width {
+            return .top
+        }
+        
+        // Check bottom
+        if self.row + self.height == other.row && 
+           abs(other.column - self.column) < self.width {
+            return .bottom
+        }
+        
+        // Check left
+        if other.column + other.width == self.column && 
+           abs(other.row - self.row) < self.height {
+            return .left
+        }
+        
+        // Check right
+        if self.column + self.width == other.column && 
+           abs(other.row - self.row) < self.height {
+            return .right
+        }
+        
+        return nil
+    }
+    
+    /// Creates a bounding rectangle for the table in grid coordinates
+    /// - Returns: CGRect representing the table bounds
+    public func boundingRect() -> CGRect {
+        return CGRect(x: column, y: row, width: width, height: height)
+    }
+}
+
 // MARK: - Related Models
-struct TableCluster: Equatable, Encodable, Decodable {
+public struct TableCluster: Equatable, Encodable, Decodable, Sendable {
     static let logger = Logger(subsystem: "com.koenjiapp", category: "TableCluster")
     // MARK: - Properties
-    var id: UUID = UUID()
-    let reservation: Reservation
-    let tables: [TableModel]
+    public var id: UUID = UUID()
+    public let reservation: Reservation
+    public let tables: [TableModel]
     
-    init(id: UUID = UUID(), reservation: Reservation, tables: [TableModel]) {
+    public init(id: UUID = UUID(), reservation: Reservation, tables: [TableModel]) {
         self.id = id
         self.reservation = reservation
         self.tables = tables
@@ -111,17 +196,17 @@ struct TableCluster: Equatable, Encodable, Decodable {
     }
 }
 
-struct CachedCluster: Equatable, Codable, Identifiable {
+public struct CachedCluster: Equatable, Codable, Identifiable, Sendable {
     static let logger = Logger(subsystem: "com.koenjiapp", category: "CachedCluster")
     // MARK: - Properties
-    let id: UUID
-    let reservationID: Reservation
-    let tableIDs: [Int]
-    let date: Date
-    let category: Reservation.ReservationCategory
-    var frame: CGRect
+    public let id: UUID
+    public let reservationID: Reservation
+    public let tableIDs: [Int]
+    public let date: Date
+    public let category: Reservation.ReservationCategory
+    public var frame: CGRect
     
-    init(
+    public init(
         id: UUID = UUID(),
         reservationID: Reservation,
         tableIDs: [Int],

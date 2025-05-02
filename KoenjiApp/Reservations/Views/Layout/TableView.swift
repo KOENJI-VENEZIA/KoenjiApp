@@ -27,7 +27,6 @@ struct TableView: View {
     // MARK: Local State & Bindings
     @State var tableView: TableViewModel = TableViewModel()
     private let normalizedTimeCache = NormalizedTimeCache()
-    let logger = Logger(subsystem: "com.koenjiapp", category: "TableView")
     let table: TableModel
     let clusters: [CachedCluster]
     let onTapEmpty: (TableModel) -> Void
@@ -868,11 +867,11 @@ extension TableView {
         }
 
         if let reservation = tableView.currentActiveReservation {
-            env.reservationService.updateActiveReservationAdjacencyCounts(for: reservation)
+            env.tableService.updateActiveReservationAdjacencyCounts(for: reservation)
         }
         let layoutKey = env.layoutServices.keyFor(
             date: combinedDate, category: appState.selectedCategory)
-        env.layoutServices.cachedLayouts[layoutKey] = layoutUI.tables
+        env.layoutCache.cachedLayouts[layoutKey] = layoutUI.tables
         env.layoutServices.saveToDisk()
 
         onTableUpdated(updatedTable)

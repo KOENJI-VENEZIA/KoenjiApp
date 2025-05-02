@@ -36,22 +36,19 @@ struct MyReservationApp: App {
                 .environmentObject(env.layoutServices)
                 .environmentObject(env.clusterServices)
                 .environmentObject(env.gridData)
-                .environmentObject(env.backupService)
                 .environment(env.pushAlerts)
                 .environmentObject(env.reservationService)
                 .environmentObject(env.scribbleService)
                 .environmentObject(env.tableAssignment)
+                .environmentObject(env.tableService)
+                .environmentObject(env.layoutCache)
+                .environmentObject(env.sessionService)
+                .environmentObject(env.profileService)
+                .environmentObject(env.salesService)
+                .environmentObject(env.dataGenerationService)
                 .environmentObject(appState)
-                .onAppear {
-                    // Initialize the shared AppDependencies instance when the app appears
-                    AppDependencies.initializeSharedInstance(env)
-                    
-                    // Skip Firestore updates in preview mode
-                    if !isPreview {
-                        Task {
-                            await env.reservationService.updateAllReservationsInFirestore()
-                        }
-                    }
+                .task { @MainActor [env] in
+                    await env.loadAsyncData()
                 }
         }
     }

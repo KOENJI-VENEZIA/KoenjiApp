@@ -12,10 +12,9 @@ import Logging
 
 typealias Expression = SQLite.Expression
 
-@MainActor
 class SQLiteManager {
     // MARK: - Static Properties
-    static let shared = SQLiteManager()
+    nonisolated(unsafe) static let shared = SQLiteManager()
     
     // MARK: - Database Properties
     var db: Connection!
@@ -86,10 +85,14 @@ class SQLiteManager {
             createSessionsTable()
             createProfilesTable()
             createDevicesTable()
-            AppLog.info("SQLite database initialized at: \(dbURL.path)")
+            Task { @MainActor in 
+                AppLog.info("SQLite database initialized at: \(dbURL.path)")
+            }
         } catch {
-            AppLog.error("SQLite initialization failed: \(error.localizedDescription)")
-            fatalError("SQLite initialization failed: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("SQLite initialization failed: \(error.localizedDescription)")
+                fatalError("SQLite initialization failed: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -124,7 +127,9 @@ class SQLiteManager {
                     table.column(colorHue)
                     table.column(preferredLanguage)
                 })
-                AppLog.debug("Reservations table created")
+                Task { @MainActor in 
+                    AppLog.debug("Reservations table created")
+                }
             } else {
                 // Check if the preferredLanguage column exists
                 let hasPreferredLanguage = try db.scalar("SELECT COUNT(*) FROM pragma_table_info('reservations') WHERE name='preferredLanguage'") as? Int64 == 1
@@ -132,11 +137,15 @@ class SQLiteManager {
                 if !hasPreferredLanguage {
                     // Add the new column if it doesn't exist
                     try db.run(reservationsTable.addColumn(preferredLanguage))
-                    AppLog.info("Added preferredLanguage column to existing reservations table")
+                    Task { @MainActor in 
+                        AppLog.info("Added preferredLanguage column to existing reservations table")
+                    }
                 }
             }
         } catch {
-            AppLog.error("Database operation failed: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Database operation failed: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -153,9 +162,13 @@ class SQLiteManager {
                 table.column(sessionDeviceName)
                 table.column(sessionProfileImageURL)
             })
-            AppLog.debug("Sessions table created or verified")
+            Task { @MainActor in 
+                AppLog.debug("Sessions table created or verified")
+            }
         } catch {
-            AppLog.error("Failed to create sessions table: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to create sessions table: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -170,9 +183,13 @@ class SQLiteManager {
                 table.column(profileCreatedAt)
                 table.column(profileUpdatedAt)
             })
-            AppLog.debug("Profiles table created or verified")
+            Task { @MainActor in 
+                AppLog.debug("Profiles table created or verified")
+            }
         } catch {
-            AppLog.error("Failed to create profiles table: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to create profiles table: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -187,9 +204,13 @@ class SQLiteManager {
                 
                 table.foreignKey(deviceProfileId, references: profilesTable, profileId, update: .cascade, delete: .cascade)
             })
-            AppLog.debug("Devices table created or verified")
+            Task { @MainActor in 
+                AppLog.debug("Devices table created or verified")
+            }
         } catch {
-            AppLog.error("Failed to create devices table: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to create devices table: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -226,9 +247,13 @@ class SQLiteManager {
                preferredLanguage <- reservation.preferredLanguage
            )
            try db.run(insert)
-           AppLog.info("Inserted/Updated reservation: \(reservation.id)")
+           Task { @MainActor in 
+               AppLog.info("Inserted/Updated reservation: \(reservation.id)")
+           }
        } catch {
-           AppLog.error("Failed to insert reservation: \(error.localizedDescription)")
+           Task { @MainActor in 
+               AppLog.error("Failed to insert reservation: \(error.localizedDescription)")
+           }
        }
     }
     
@@ -245,9 +270,13 @@ class SQLiteManager {
                 sessionProfileImageURL <- session.profileImageURL
             )
             try db.run(insert)
-            AppLog.info("Inserted/Updated session: \(session.id)")
+            Task { @MainActor in 
+                AppLog.info("Inserted/Updated session: \(session.id)")
+            }
         } catch {
-            AppLog.error("Failed to insert session: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to insert session: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -282,8 +311,13 @@ class SQLiteManager {
                 preferredLanguage <- reservation.preferredLanguage
             )
             try db.run(update)
+            Task { @MainActor in 
+                AppLog.info("Updated reservation: \(reservation.id)")
+            }
         } catch {
-            AppLog.error("SQLite Update error: \(error)")
+            Task { @MainActor in 
+                AppLog.error("SQLite Update error: \(error)")
+            }
         }
     }
     
@@ -292,9 +326,13 @@ class SQLiteManager {
         do {
             let row = reservationsTable.filter(id == reservationID.uuidString)
             try db.run(row.delete())
-            AppLog.info("Deleted reservation: \(reservationID)")
+            Task { @MainActor in 
+                AppLog.info("Deleted reservation: \(reservationID)")
+            }
         } catch {
-            AppLog.error("Failed to delete reservation: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to delete reservation: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -302,8 +340,13 @@ class SQLiteManager {
         do {
             let row = sessionsTable.filter(id == sessionID)
             try db.run(row.delete())
+            Task { @MainActor in 
+                AppLog.info("Deleted session: \(sessionID)")
+            }
         } catch {
-            AppLog.error("SQLite Delete error: \(error)")
+            Task { @MainActor in 
+                AppLog.error("SQLite Delete error: \(error)")
+            }
         }
     }
     
@@ -311,18 +354,26 @@ class SQLiteManager {
         do {
             // This deletes all rows in the table.
             try db.run(reservationsTable.delete())
-            AppLog.info("All reservations deleted from database")
+            Task { @MainActor in 
+                AppLog.info("All reservations deleted from database")
+            }
         } catch {
-            AppLog.error("Failed to delete all reservations: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to delete all reservations: \(error.localizedDescription)")
+            }
         }
     }
     
     func deleteAllSessions() {
         do {
             try db.run(sessionsTable.delete())
-            AppLog.info("All sessions deleted from database")
+            Task { @MainActor in 
+                AppLog.info("All sessions deleted from database")
+            }
         } catch {
-            AppLog.error("Failed to delete all sessions: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to delete all sessions: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -332,17 +383,25 @@ class SQLiteManager {
         var reservations: [Reservation] = []
         do {
             for row in try db.prepare(reservationsTable) {
-                AppLog.debug("Processing row for reservation")
-                if let reservation = ReservationMapper.reservation(from: row) {
-                    AppLog.debug("Successfully mapped reservation: \(reservation.name)")
+                Task { @MainActor in 
+                    AppLog.debug("Processing row for reservation")
+                }
+                if let reservation = reservation(from: row) {
+                    Task { @MainActor in 
+                        AppLog.debug("Successfully mapped reservation: \(reservation.name)")
+                    }
                     reservations.append(reservation)
                 }
             }
         } catch {
-            AppLog.error("Failed to fetch reservations: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to fetch reservations: \(error.localizedDescription)")
+            }
         }
         let uniqueReservations = Dictionary(grouping: reservations, by: { $0.id }).compactMap { $0.value.first }
-        AppLog.info("Fetched \(uniqueReservations.count) unique reservations")
+        Task { @MainActor in 
+            AppLog.info("Fetched \(uniqueReservations.count) unique reservations")
+        }
         return uniqueReservations
     }
     
@@ -350,14 +409,22 @@ class SQLiteManager {
         var sessions: [Session] = []
         do {
             for row in try db.prepare(sessionsTable) {
-                AppLog.debug("Processing row for session")
-                if let session = SessionMapper.session(from: row) {
-                    sessions.append(session)
+                Task { @MainActor in 
+                    AppLog.debug("Processing row for session")
                 }
+                let session = session(from: row)
+                    Task { @MainActor in 
+                        AppLog.debug("Successfully mapped session: \(session.userName)")
+                    }
+                    sessions.append(session)
             }
-            AppLog.info("Fetched \(sessions.count) sessions")
+            Task { @MainActor in 
+                AppLog.info("Fetched \(sessions.count) sessions")
+            }
         } catch {
-            AppLog.error("Failed to fetch sessions: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to fetch sessions: \(error.localizedDescription)")
+            }
         }
         return sessions
     }
@@ -381,9 +448,13 @@ class SQLiteManager {
                 insertDevice(device, profileId: profile.id)
             }
             
-            AppLog.info("Inserted/Updated profile: \(profile.id)")
+            Task { @MainActor in 
+                AppLog.info("Inserted/Updated profile: \(profile.id)")
+            }
         } catch {
-            AppLog.error("Failed to insert profile: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to insert profile: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -397,9 +468,13 @@ class SQLiteManager {
                 deviceIsActive <- device.isActive
             )
             try db.run(insert)
-            AppLog.info("Inserted/Updated device: \(device.id) for profile: \(profileId)")
+            Task { @MainActor in 
+                AppLog.info("Inserted/Updated device: \(device.id) for profile: \(profileId)")
+            }
         } catch {
-            AppLog.error("Failed to insert device: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to insert device: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -408,7 +483,9 @@ class SQLiteManager {
             let query = profilesTable.filter(profileId == id)
             
             guard let row = try db.pluck(query) else {
-                AppLog.debug("No profile found with ID: \(id)")
+                Task { @MainActor in 
+                    AppLog.debug("No profile found with ID: \(id)")
+                }
                 return nil
             }
             
@@ -426,7 +503,9 @@ class SQLiteManager {
                 updatedAt: row[profileUpdatedAt]
             )
         } catch {
-            AppLog.error("Failed to get profile: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to get profile: \(error.localizedDescription)")
+            }
             return nil
         }
     }
@@ -471,7 +550,9 @@ class SQLiteManager {
             
             return profiles
         } catch {
-            AppLog.error("Failed to get all profiles: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to get all profiles: \(error.localizedDescription)")
+            }
             return []
         }
     }
@@ -480,9 +561,13 @@ class SQLiteManager {
         do {
             let device = devicesTable.filter(self.deviceId == deviceId)
             try db.run(device.update(deviceIsActive <- isActive, deviceLastActive <- Date()))
-            AppLog.info("Updated device status: \(deviceId), isActive: \(isActive)")
+            Task { @MainActor in 
+                AppLog.info("Updated device status: \(deviceId), isActive: \(isActive)")
+            }
         } catch {
-            AppLog.error("Failed to update device status: \(error.localizedDescription)")
+            Task { @MainActor in 
+                AppLog.error("Failed to update device status: \(error.localizedDescription)")
+            }
         }
     }
 }

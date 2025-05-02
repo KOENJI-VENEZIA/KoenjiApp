@@ -34,12 +34,6 @@ struct TabsView: View {
     
     private var isCompact: Bool { sizeClass == .compact }
 
-    // MARK: - Dependencies
-    private static let logger = Logger(
-        subsystem: "com.koenjiapp",
-        category: "TabsView"
-    )
-
     // MARK: - Body
     var body: some View {
         GeometryReader { geometry in
@@ -230,7 +224,6 @@ struct TabsView: View {
             Task {
                 await updateActiveReservations()
             }
-            env.resCache.preloadDates(around: appState.selectedDate, range: 5, reservations: env.store.reservations)
         }
         .onChange(of: appState.selectedCategory) {
             Task {
@@ -246,7 +239,6 @@ struct TabsView: View {
             Task {
                 await updateActiveReservations()
             }
-            env.resCache.preloadDates(around: newDate, range: 5, reservations: env.store.reservations)
         }
     }
 
@@ -517,28 +509,17 @@ struct TabsView: View {
     }
     
     private func updateActiveReservations() async {
-        do {
-            let reservations = try await env.resCache.fetchReservations(for: appState.selectedDate).filter {
-                reservation in
-                reservation.category == appState.selectedCategory
-                && reservation.status != .canceled
-                && reservation.status != .deleted
-                && reservation.status != .toHandle
-                && reservation.reservationType != .waitingList
-            }
-            
-            await MainActor.run {
-                self.reservations = reservations
-            }
-            
-            TabsView.logger.info("Reservations count: \(reservations.count)")
-        } catch {
-            TabsView.logger.error("Error fetching reservations: \(error.localizedDescription)")
-            
-            // Update UI on the main thread to show empty state
-            await MainActor.run {
-                self.reservations = []
-            }
+        // Get date string in the same format used for cache keys
+        let dateString = DateHelper.formatDate(appState.selectedDate)
+        
+        // Get all reservations and filter by date string and category
+        let allReservations = env.resCache.getAllReservations()
+        let matchingReservations = allReservations.filter { 
+            $0.dateString == dateString && $0.category == appState.selectedCategory
+        }
+        
+        await MainActor.run {
+            self.reservations = matchingReservations
         }
     }
 }

@@ -7,103 +7,73 @@
 
 import UIKit
 import Foundation
-import OSLog
 
-/// A utility class for getting device information
-@MainActor
-class DeviceInfo {
+actor DeviceInfo {
     // MARK: - Properties
-    
-    /// Shared instance for singleton access
-    static let shared = DeviceInfo()
-    
-    /// Logger for tracking device operations
-    private let logger = Logger(subsystem: "com.koenjiapp", category: "DeviceInfo")
     
     /// Cached device name
     private var cachedDeviceName: String?
     
     /// Cached device identifier
     private var cachedDeviceIdentifier: String?
-    
-    // MARK: - Initialization
-    
-    /// Private initializer to enforce singleton pattern
-    private init() {
-        // Initialize cache
-        initializeCache()
-    }
-    
-    // MARK: - Public Methods
-    
-    /// Returns the current device name with model information
-    ///
-    /// This method returns a user-friendly device name that includes both the device model
-    /// (e.g., "iPhone", "iPad") and the specific model (e.g., "iPhone 13", "iPad Pro").
-    ///
-    /// - Returns: A string containing the device name and model
-    func getDeviceName() -> String {
+
+    func getDeviceName() async -> String {
         if let cachedName = cachedDeviceName {
             return cachedName
         }
         
+        await initializeCache()
         // If cache is empty, initialize it
-        initializeCache()
         return cachedDeviceName ?? "Unknown Device"
     }
     
-    /// Returns a stable device identifier that persists across app launches
-    ///
-    /// This method returns a unique identifier for the device that remains consistent
-    /// across app launches. It uses the device's identifierForVendor if available,
-    /// and falls back to a stored UUID if necessary.
-    ///
-    /// - Returns: A string containing the stable device identifier
-    func getStableDeviceIdentifier() -> String {
+    func getStableDeviceIdentifier() async -> String {
         if let cachedID = cachedDeviceIdentifier {
             return cachedID
         }
         
         // If cache is empty, initialize it
-        initializeCache()
+        await initializeCache()
         return cachedDeviceIdentifier ?? UUID().uuidString
     }
     
     // MARK: - Private Methods
-    
-    /// Initializes the cache with device information
-    private func initializeCache() {
-        // Get device model (thread-safe)
-        let deviceModel = Self.getDeviceModel()
+    func initializeCache() async {
+        let deviceModel: String = Self.getDeviceModel()
         
-        // Get device name (main thread only)
-        let rawDeviceName = UIDevice.current.name
+        let rawDeviceName = await UIDevice.current.name
         
-        // Create the full device name
         if deviceModel != "Unknown" {
             cachedDeviceName = "\(deviceModel) (\(rawDeviceName))"
         } else {
             cachedDeviceName = rawDeviceName
         }
         
-        AppLog.debug("Device name initialized: \(self.cachedDeviceName ?? "Unknown")")
+        Task { @MainActor in
+            AppLog.debug("Device name initialized")
+        }
         
-        // Get device identifier
         let deviceIdentifierKey = "com.koenjiapp.stableDeviceIdentifier"
         
         // Check if we already have a stored identifier
         if let storedIdentifier = UserDefaults.standard.string(forKey: deviceIdentifierKey),
            !storedIdentifier.isEmpty {
             cachedDeviceIdentifier = storedIdentifier
-            AppLog.debug("Using stored device identifier")
+            Task { @MainActor in
+                AppLog.debug("Using stored device identifier")
+            }
         } else {
             // Get a new identifier
-            if let vendorIdentifier = UIDevice.current.identifierForVendor?.uuidString {
+            if let vendorIdentifier = await UIDevice.current.identifierForVendor?.uuidString {
                 cachedDeviceIdentifier = vendorIdentifier
-                AppLog.debug("Using vendor identifier")
+                Task { @MainActor in
+                    AppLog.debug("Using vendor identifier")
+                }
             } else {
                 cachedDeviceIdentifier = UUID().uuidString
-                AppLog.debug("Using generated UUID")
+                Task { @MainActor in
+                    AppLog.debug("Using generated UUID")
+                }
             }
             
             // Store it for future use
@@ -112,10 +82,6 @@ class DeviceInfo {
     }
     
     /// Returns the device model
-    ///
-    /// This method returns the device model (e.g., "iPhone 13", "iPad Pro").
-    ///
-    /// - Returns: A string containing the device model
     static func getDeviceModel() -> String {
         var systemInfo = utsname()
         uname(&systemInfo)
@@ -130,13 +96,7 @@ class DeviceInfo {
     }
     
     /// Maps a device identifier to a user-friendly device model name
-    ///
-    /// This method maps a device identifier (e.g., "iPhone14,2") to a user-friendly
-    /// device model name (e.g., "iPhone 13 Pro").
-    ///
-    /// - Parameter identifier: The device identifier
-    /// - Returns: A user-friendly device model name
-    private static func mapToDeviceModel(identifier: String) -> String {
+    static func mapToDeviceModel(identifier: String) -> String {
         // Simulator
         if identifier == "i386" || identifier == "x86_64" || identifier == "arm64" {
             return "iPhone Simulator"

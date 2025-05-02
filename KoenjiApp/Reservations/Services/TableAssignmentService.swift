@@ -228,11 +228,19 @@ class TableAssignmentService: ObservableObject {
             if reservation.reservationType == .waitingList {
                 return false
             }
+            
+            // First check if this reservation has the table we're checking
+            // Only proceed with date checks if the table is actually assigned
+            guard reservation.tables.contains(where: { $0.id == table.id }) else {
+                return false
+            }
 
+            // Now check dates for reservations that have this table
             guard let reservationDate = reservation.normalizedDate,
                   let reservationStart = reservation.startTimeDate,
-                  let reservationEnd = reservation.endTimeDate,
-                  reservation.tables.contains(where: { $0.id == table.id }) else {
+                  let reservationEnd = reservation.endTimeDate else {
+                // Only log warnings for reservations that claim to have this table
+                // but have invalid date information
                 Task { @MainActor in
                     AppLog.warning("Failed to parse reservation details for: \(reservation.name)")
                 }
@@ -240,9 +248,7 @@ class TableAssignmentService: ObservableObject {
             }
             
             guard reservationDate.isSameDay(as: date) else { return false }
-            // Check if the reservation ends within 5 minutes before the new reservation's start
             
-
             // Adjust reservation times for buffer
             let adjustedReservationEnd = reservationEnd.addingTimeInterval(gracePeriod)
             let reservationEndsCloseToNewStart = adjustedReservationEnd > start && reservationEnd <= start

@@ -38,13 +38,6 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         
         // Log using the new system
         AppLog.info("Application finished launching", category: "AppDelegate")
-
-        // Only setup web reservation notifications if not in preview mode
-        if !isPreview {
-            setupWebReservationNotifications()
-        } else {
-            AppLog.debug("Preview mode: Skipping web reservation notifications setup")
-        }
         
         // Set NotificationManager as the delegate
         UNUserNotificationCenter.current().delegate = NotificationManager.shared

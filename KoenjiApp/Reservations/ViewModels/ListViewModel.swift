@@ -95,53 +95,52 @@ class ListViewModel {
     }
     
     @MainActor func handleCancel(_ reservation: Reservation) {
-
-        if var reservation = store.reservations.first(where: { $0.id == reservation.id }) {
-            reservation.status = .canceled
-            reservation.tables = []
-            reservationService.updateReservation(
-                reservation) {
-                    
-                }
-            changedReservation = reservation
-        }
+        var updatedReservation = reservation
+        updatedReservation.status = .canceled
+        updatedReservation.tables = []
+        
+        changedReservation = updatedReservation
     }
     
     @MainActor func handleDelete(_ reservation: Reservation) {
-            reservationService.deleteReservation(reservation)
-            changedReservation = reservation
+        var updatedReservation = reservation
+        updatedReservation.status = .deleted
+        updatedReservation.tables = []
+        
+        // Use the dependencies from AppDependencies to update the cache
+        changedReservation = updatedReservation
     }
 
     @MainActor
     func handleRecover(_ reservation: Reservation) {
-           if var reservation = store.reservations.first(where: { $0.id == reservation.id }) {
-            reservation.status = .pending
-            let assignmentResult = layoutServices.assignTables(
-                for: reservation, selectedTableID: nil)
-            switch assignmentResult {
-            case .success(let assignedTables):
-                // Direct assignment on the main thread without async dispatch.
-                reservation.tables = assignedTables
-            case .failure(let error):
-                switch error {
-                case .noTablesLeft:
-                    activeAlert = .error(String(localized: "Non ci sono tavoli disponibili."))
-                case .insufficientTables:
-                    activeAlert = .error(String(localized: "Non ci sono abbastanza tavoli per la prenotazione."))
-                case .tableNotFound:
-                    activeAlert = .error(String(localized: "Tavolo selezionato non trovato."))
-                case .tableLocked:
-                    activeAlert = .error(String(localized: "Il tavolo scelto è occupato o bloccato."))
-                case .unknown:
-                    activeAlert = .error(String(localized: "Errore sconosciuto."))
-                }
-                return
+        var updatedReservation = reservation
+        updatedReservation.status = .pending
+        
+        // Get dependencies from AppDependencies
+        
+        // Try to assign tables
+        let assignmentResult = layoutServices.assignTables(
+            for: updatedReservation, selectedTableID: nil)
+        
+        switch assignmentResult {
+        case .success(let assignedTables):
+            updatedReservation.tables = assignedTables
+            
+            changedReservation = updatedReservation
+            
+        case .failure(let error):
+            switch error {
+            case .noTablesLeft:
+                activeAlert = .error(String(localized: "Non ci sono tavoli disponibili."))
+            case .insufficientTables:
+                activeAlert = .error(String(localized: "Non ci sono abbastanza tavoli per la prenotazione."))
+            case .tableNotFound:
+                activeAlert = .error(String(localized: "Tavolo selezionato non trovato."))
+            case .tableLocked:
+                activeAlert = .error(String(localized: "Il tavolo scelto è occupato o bloccato."))
+            case .unknown:
+                activeAlert = .error(String(localized: "Errore sconosciuto."))
             }
-            reservationService.updateReservation(
-                reservation) {
-                   
-                }
-            changedReservation = reservation
         }
     }
     

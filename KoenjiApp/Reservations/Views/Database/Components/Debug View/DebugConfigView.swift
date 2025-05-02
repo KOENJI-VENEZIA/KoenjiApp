@@ -103,9 +103,8 @@ struct DebugConfigView: View {
     }
 
     private func getReservations() -> [Reservation] {
-        // Replace this with your actual reservations from ReservationService
-        return env.store.reservations
-
+        // Get all reservations from the cache
+        return env.resCache.getAllReservations()
     }
 
 }

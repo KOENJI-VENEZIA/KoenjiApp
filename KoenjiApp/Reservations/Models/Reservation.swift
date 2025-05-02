@@ -9,50 +9,47 @@ import Foundation
 import SwiftUI
 import OSLog
 /// Represents a reservation in the system.
-struct Reservation: Identifiable, Hashable, Codable {
-    // Static logger instead of instance logger
-    static let logger = Logger(subsystem: "com.koenjiapp", category: "Reservation")
-    
+public struct Reservation: Identifiable, Hashable, Codable, Sendable {    
     // MARK: - Public Properties
-    let id: UUID
-    var name: String
-    var phone: String
-    var numberOfPersons: Int
-    var dateString: String {
+    public let id: UUID
+    public var name: String
+    public var phone: String
+    public var numberOfPersons: Int
+    public var dateString: String {
         didSet {
             updateCachedDates()
         }
     }
     
-    var category: ReservationCategory
+    public var category: ReservationCategory
     
-    var startTime: String {
+    public var startTime: String {
         didSet {
             updateCachedDates()
         }
     }
     
-    var endTime: String {
+    public var endTime: String {
         didSet {
             updateCachedDates()
         }
     }
-    var acceptance: Acceptance
-    var status: ReservationStatus
-    var reservationType: ReservationType
-    var group: Bool
-    var notes: String?
-    var tables: [TableModel]
-    let creationDate: Date
-    var lastEditedOn: Date      // ← New property to track when the reservation was last edited.
-    var isMock: Bool = false // Distinguish mock data
-    var assignedEmoji: String?
-    var imageData: Data? // Store image data for the reservation
+    public var acceptance: Acceptance
+    public var status: ReservationStatus
+    public var reservationType: ReservationType
+    public var group: Bool
+    public var notes: String?
+    public var tables: [TableModel]
+    public let creationDate: Date
+    public var lastEditedOn: Date      // ← New property to track when the reservation was last edited.
+    public var isMock: Bool = false // Distinguish mock data
+    public var assignedEmoji: String?
+    public var imageData: Data? // Store image data for the reservation
     private var cachedStartTimeDate: Date?
     private var cachedEndTimeDate: Date?
-    var cachedNormalizedDate: Date?
+    public var cachedNormalizedDate: Date?
     
-    var image: Image? {
+    public var image: Image? {
         if let imageData, let uiImage = UIImage(data: imageData) {
             return Image(uiImage: uiImage)
         }
@@ -62,13 +59,13 @@ struct Reservation: Identifiable, Hashable, Codable {
     private(set) var colorHue: Double
     
     // A computed property to convert hue → SwiftUI Color
-    var assignedColor: Color {
+    public var assignedColor: Color {
         Color(hue: colorHue, saturation: 0.6, brightness: 0.8)
     }
     
-    var preferredLanguage: String?
+    public var preferredLanguage: String?
 
-    var effectiveLanguage: String {
+    public var effectiveLanguage: String {
         return preferredLanguage ?? "it"
     }
     
@@ -101,21 +98,21 @@ struct Reservation: Identifiable, Hashable, Codable {
     
     
     // For the sake of simplicity, we will track category as an enum
-    enum ReservationCategory: String, CaseIterable, Identifiable, Equatable {
+    public enum ReservationCategory: String, CaseIterable, Identifiable, Equatable, Sendable {
         case lunch
         case dinner
         case noBookingZone
         
-        var id: String { rawValue }
+        public var id: String { rawValue }
     }
 
-    enum Acceptance: String, CaseIterable {
+    public enum Acceptance: String, CaseIterable, Sendable {
         case confirmed
         case toConfirm
         case na
     }
     
-    enum ReservationStatus: String, CaseIterable {
+    public enum ReservationStatus: String, CaseIterable, Sendable {
         case noShow
         case showedUp
         case canceled
@@ -126,14 +123,14 @@ struct Reservation: Identifiable, Hashable, Codable {
         case na
     }
     
-    enum ReservationType: String, CaseIterable {
+    public enum ReservationType: String, CaseIterable, Sendable {
         case walkIn
         case inAdvance
         case waitingList
         case na
     }
     
-    init(
+    public init(
         id: UUID = UUID(),
         name: String,
         phone: String,
@@ -194,24 +191,24 @@ struct Reservation: Identifiable, Hashable, Codable {
         }
     }
     
-    var startTimeDate: Date? {
+    public var startTimeDate: Date? {
         return cachedStartTimeDate
     }
     
-    var endTimeDate: Date? {
+    public var endTimeDate: Date? {
         return cachedEndTimeDate
     }
     
-    var normalizedDate: Date? {
+    public var normalizedDate: Date? {
         return cachedNormalizedDate
     }
     
-    var duration: String {
+    public var duration: String {
         TimeHelpers.availableTimeString(
             endTime: endTime, startTime: startTime) ?? "0.0"
     }
     
-    private static func stableHue(for uuid: UUID) -> Double {
+    static func stableHue(for uuid: UUID) -> Double {
             let uuidString = uuid.uuidString
             var hash = 5381
             for byte in uuidString.utf8 {
@@ -225,7 +222,7 @@ struct Reservation: Identifiable, Hashable, Codable {
 
 // Add the custom decoding logic here
 extension Reservation {
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
 
             // Decode required properties
@@ -282,7 +279,7 @@ extension Reservation {
               self.determineReservationType()
         }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         // Encode all properties

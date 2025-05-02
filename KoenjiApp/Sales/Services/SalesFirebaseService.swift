@@ -11,7 +11,6 @@ import OSLog
 import Firebase
 import FirebaseFirestore
 
-@MainActor
 class SalesFirebaseService: ObservableObject {    
     private let db: Firestore?
     private let store: SalesStore
@@ -37,9 +36,11 @@ class SalesFirebaseService: ObservableObject {
                 AppLog.debug("Preview mode: Firestore not initialized")
             }
         }
+
+        let safeIsPreview = isPreview
         
         Task { @MainActor in
-            AppLog.debug("SalesFirebaseService initialized (preview mode: \(self.isPreview))")
+            AppLog.debug("SalesFirebaseService initialized (preview mode: \(safeIsPreview))")
         }
     }
     

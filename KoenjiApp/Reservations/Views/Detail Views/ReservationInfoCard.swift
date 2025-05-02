@@ -156,10 +156,6 @@ struct ReservationInfoCard: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     .padding(16)
-                    
-                    if reservation.isWebReservation {
-                        webReservationActions(for: reservation)
-                    }
                 }
                 .background(Color.clear)
                 .scrollContentBackground(.hidden)

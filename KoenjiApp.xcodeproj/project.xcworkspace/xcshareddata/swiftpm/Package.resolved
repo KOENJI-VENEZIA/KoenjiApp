@@ -1,5 +1,5 @@
 {
-  "originHash" : "c99703560df242fdcadb5327a24b7e232487d654e008897d5c87d6c0734bd3e3",
+  "originHash" : "ee89160a01904a193b542e73a7fa12ae1457add7a91eed9e241cc7f94afd1877",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -83,6 +83,15 @@
       }
     },
     {
+      "identity" : "identifiablebystring",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SwiftfulThinking/IdentifiableByString.git",
+      "state" : {
+        "revision" : "7f4a2fc12758def66e070e772d13db95e1f3afa8",
+        "version" : "1.0.0"
+      }
+    },
+    {
       "identity" : "interop-ios-for-google-sdks",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/google/interop-ios-for-google-sdks.git",
@@ -152,6 +161,15 @@
       "state" : {
         "revision" : "d72aed98f8253ec1aa9ea1141e28150f408cf17f",
         "version" : "1.29.0"
+      }
+    },
+    {
+      "identity" : "swiftfulfirestore",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SwiftfulThinking/SwiftfulFirestore.git",
+      "state" : {
+        "revision" : "7fc9e1d74f655d7ae7d5f29016b89cfc83703622",
+        "version" : "11.0.2"
       }
     },
     {

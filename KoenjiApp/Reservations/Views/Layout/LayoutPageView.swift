@@ -11,11 +11,6 @@ import os
 
 struct LayoutPageView: View {
     // MARK: - Dependencies
-    private static let logger = Logger(
-        subsystem: "com.koenjiapp",
-        category: "LayoutPageView"
-    )
-    
     @EnvironmentObject var env: AppDependencies
     @EnvironmentObject var appState: AppState
 
@@ -410,7 +405,7 @@ extension LayoutPageView {
         }
 
         let layoutKey = env.layoutServices.keyFor(date: appState.selectedDate, category: appState.selectedCategory)
-        env.layoutServices.cachedLayouts[layoutKey] = layoutUI.tables
+        env.layoutCache.cachedLayouts[layoutKey] = layoutUI.tables
         env.layoutServices.saveToDisk()
     }
 
@@ -465,7 +460,7 @@ extension LayoutPageView {
         resetInProgress = true
         let key = env.layoutServices.keyFor(date: appState.selectedDate, category: appState.selectedCategory)
         withAnimation {
-            if let baseTables = env.layoutServices.cachedLayouts[key] {
+            if let baseTables = env.layoutCache.cachedLayouts[key] {
                 layoutUI.tables = baseTables
             } else {
                 layoutUI.tables = []
@@ -473,7 +468,7 @@ extension LayoutPageView {
             clusterManager.clusters = []
         }
         env.clusterServices.saveClusters([], for: appState.selectedDate, category: appState.selectedCategory)
-        env.layoutServices.cachedLayouts[key] = nil
+        env.layoutCache.cachedLayouts[key] = nil
         env.layoutServices.saveTables(layoutUI.tables, for: appState.selectedDate, category: appState.selectedCategory)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             resetInProgress = false

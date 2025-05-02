@@ -26,7 +26,7 @@ struct UserOnboardingView: View {
     @FocusState private var isFirstNameFocused: Bool
     @FocusState private var isLastNameFocused: Bool
     @FocusState private var isEmailFocused: Bool
-    
+    @State private var currentDeviceName: String = ""
     let logger: Logger = Logger(subsystem: "com.koenjiapp", category: "UserOnboardingView")
     let showHeader: Bool
     
@@ -118,8 +118,10 @@ struct UserOnboardingView: View {
         .onAppear {
             // Generate device UUID if needed
             if deviceUUID.isEmpty {
-                deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
-                AppLog.debug("Generated stable deviceUUID: \(deviceUUID)")
+                Task {
+                    deviceUUID = await env.deviceInfo.getStableDeviceIdentifier()
+                    AppLog.debug("Generated stable deviceUUID: \(deviceUUID)")
+                }
             }
             
             // Pre-fill email if available
@@ -151,7 +153,7 @@ struct UserOnboardingView: View {
         }
         
         // Check if this user has an existing profile
-        if let existingProfile = env.reservationService.getProfile(withID: userIdentifier) {
+        if let existingProfile = env.profileService.getProfile(withID: userIdentifier) {
             existingAccountFound = true
             existingDisplayName = existingProfile.displayName
             AppLog.info("Found existing profile: \(existingDisplayName)")
@@ -190,16 +192,20 @@ struct UserOnboardingView: View {
         
         // Create or update session with existing data
         if deviceUUID.isEmpty {
-            deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
-            AppLog.debug("Generated stable deviceUUID during profile reuse: \(deviceUUID)")
+            Task {
+                deviceUUID = await env.deviceInfo.getStableDeviceIdentifier()
+                AppLog.debug("Generated stable deviceUUID during profile reuse: \(deviceUUID)")
+            }
         }
         
         do {
             // Get the current device name
-            let currentDeviceName = DeviceInfo.shared.getDeviceName()
+            Task {
+                currentDeviceName = await env.deviceInfo.getDeviceName()
+            }
             
             // Check if a profile with this userIdentifier exists
-            if let existingProfile = env.reservationService.getProfile(withID: userIdentifier) {
+            if let existingProfile = env.profileService.getProfile(withID: userIdentifier) {
                 // Instead of resetting all devices, just add or update the current device
                 var updatedProfile = existingProfile
                 
@@ -227,7 +233,7 @@ struct UserOnboardingView: View {
                 updatedProfile.updatedAt = Date()
                 
                 // Save the updated profile
-                env.reservationService.upsertProfile(updatedProfile)
+                env.profileService.upsertProfile(updatedProfile)
                 
                 // Set the current profile
                 ProfileStore.shared.setCurrentProfile(updatedProfile)
@@ -243,7 +249,7 @@ struct UserOnboardingView: View {
                     deviceName: currentDeviceName
                 )
                 
-                env.reservationService.upsertSession(session)
+                env.sessionService.upsertSession(session)
                 AppLog.info("Updated existing profile and created session")
             } else {
                 // Create a new profile and session with existing name
@@ -272,7 +278,7 @@ struct UserOnboardingView: View {
                 )
                 
                 // Save the profile
-                env.reservationService.upsertProfile(profile)
+                env.profileService.upsertProfile(profile)
                 
                 // Set the current profile
                 ProfileStore.shared.setCurrentProfile(profile)
@@ -288,13 +294,10 @@ struct UserOnboardingView: View {
                     deviceName: currentDeviceName
                 )
                 
-                env.reservationService.upsertSession(session)
+                env.sessionService.upsertSession(session)
                 AppLog.info("Created new profile and session with existing name")
             }
-            
-            // Setup database presence
-            env.reservationService.setupRealtimeDatabasePresence(for: deviceUUID)
-            
+                        
             // Mark profile as complete
             isProfileComplete = true
             
@@ -376,16 +379,20 @@ struct UserOnboardingView: View {
         
         // Make sure device UUID is valid
         if deviceUUID.isEmpty {
-            deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
-            AppLog.debug("Generated stable deviceUUID during profile save: \(deviceUUID)")
+            Task {
+                deviceUUID = await env.deviceInfo.getStableDeviceIdentifier()
+                AppLog.debug("Generated stable deviceUUID during profile save: \(deviceUUID)")
+            }
         }
         
         do {
             // Get the current device name
-            let currentDeviceName = DeviceInfo.shared.getDeviceName()
+            Task {
+                currentDeviceName = await env.deviceInfo.getDeviceName()
+            }
             
             // Check if a profile already exists for this user
-            if let existingProfile = env.reservationService.getProfile(withID: userIdentifier) {
+            if let existingProfile = env.profileService.getProfile(withID: userIdentifier) {
                 // Instead of resetting all devices, just add or update the current device
                 var updatedProfile = existingProfile
                 
@@ -413,7 +420,7 @@ struct UserOnboardingView: View {
                 updatedProfile.updatedAt = Date()
                 
                 // Save the updated profile
-                env.reservationService.upsertProfile(updatedProfile)
+                env.profileService.upsertProfile(updatedProfile)
                 
                 // Set the current profile
                 ProfileStore.shared.setCurrentProfile(updatedProfile)
@@ -429,7 +436,7 @@ struct UserOnboardingView: View {
                     deviceName: currentDeviceName
                 )
                 
-                env.reservationService.upsertSession(session)
+                env.sessionService.upsertSession(session)
                 AppLog.info("Updated existing profile and created session")
             } else {
                 // Create a device for this session
@@ -453,7 +460,7 @@ struct UserOnboardingView: View {
                 )
                 
                 // Save the profile
-                env.reservationService.upsertProfile(profile)
+                env.profileService.upsertProfile(profile)
                 
                 // Set the current profile
                 ProfileStore.shared.setCurrentProfile(profile)
@@ -469,12 +476,9 @@ struct UserOnboardingView: View {
                     deviceName: currentDeviceName
                 )
                 
-                env.reservationService.upsertSession(session)
+                env.sessionService.upsertSession(session)
                 AppLog.info("Created new profile and session")
             }
-            
-            // Setup database presence
-            env.reservationService.setupRealtimeDatabasePresence(for: deviceUUID)
             
             // Mark profile as complete
             isProfileComplete = true

@@ -443,7 +443,7 @@ struct EditReservationView: View {
     private func updateSession(_ isEditing: Bool = false) {
         if var session = SessionStore.shared.sessions.first(where: { $0.uuid == deviceUUID}) {
             session.isEditing = isEditing
-            env.reservationService.upsertSession(session)
+            env.sessionService.upsertSession(session)
         }
     }
     

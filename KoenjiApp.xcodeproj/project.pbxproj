@@ -19,6 +19,7 @@
 		A06F69BE2D70F29400CA2822 /* ScreenshotSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = A06F69BD2D70F29400CA2822 /* ScreenshotSwiftUI */; };
 		A06F69C12D70F2B600CA2822 /* EmojiPalette in Frameworks */ = {isa = PBXBuildFile; productRef = A06F69C02D70F2B600CA2822 /* EmojiPalette */; };
 		A09A820C2DBD8B87003173A4 /* Logging in Frameworks */ = {isa = PBXBuildFile; productRef = A09A820B2DBD8B87003173A4 /* Logging */; };
+		A09A87152DBE33BF003173A4 /* SwiftfulFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = A09A87142DBE33BF003173A4 /* SwiftfulFirestore */; };
 		A0C599D82D42B0FD004A3423 /* Launchscreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A0C599D72D42B0FD004A3423 /* Launchscreen.storyboard */; };
 /* End PBXBuildFile section */
 
@@ -86,6 +87,7 @@
 				A09A820C2DBD8B87003173A4 /* Logging in Frameworks */,
 				A06F69B12D6F07B900CA2822 /* FirebaseAnalytics in Frameworks */,
 				A06F69BB2D6F07B900CA2822 /* FirebaseStorage in Frameworks */,
+				A09A87152DBE33BF003173A4 /* SwiftfulFirestore in Frameworks */,
 				A06F69B32D6F07B900CA2822 /* FirebaseAuth in Frameworks */,
 				A06C2D8E2D75DB480017F621 /* FirebaseFunctions in Frameworks */,
 				A06F69B92D6F07B900CA2822 /* FirebaseFirestore in Frameworks */,
@@ -161,6 +163,7 @@
 				A06F69C02D70F2B600CA2822 /* EmojiPalette */,
 				A06C2D8D2D75DB480017F621 /* FirebaseFunctions */,
 				A09A820B2DBD8B87003173A4 /* Logging */,
+				A09A87142DBE33BF003173A4 /* SwiftfulFirestore */,
 			);
 			productName = KoenjiApp;
 			productReference = A0775E242D1CAA1F00068B00 /* KoenjiApp.app */;
@@ -226,6 +229,7 @@
 				A06F69BC2D70F29400CA2822 /* XCRemoteSwiftPackageReference "ScreenshotSwiftUI" */,
 				A06F69BF2D70F2B600CA2822 /* XCRemoteSwiftPackageReference "EmojiPalette" */,
 				A09A80C32DBD8AE0003173A4 /* XCRemoteSwiftPackageReference "swift-log" */,
+				A09A87132DBE33BF003173A4 /* XCRemoteSwiftPackageReference "SwiftfulFirestore" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A0775E252D1CAA1F00068B00 /* Products */;
@@ -609,6 +613,14 @@
 				minimumVersion = 1.6.3;
 			};
 		};
+		A09A87132DBE33BF003173A4 /* XCRemoteSwiftPackageReference "SwiftfulFirestore" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/SwiftfulThinking/SwiftfulFirestore.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.0.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -671,6 +683,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A09A80C32DBD8AE0003173A4 /* XCRemoteSwiftPackageReference "swift-log" */;
 			productName = Logging;
+		};
+		A09A87142DBE33BF003173A4 /* SwiftfulFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A09A87132DBE33BF003173A4 /* XCRemoteSwiftPackageReference "SwiftfulFirestore" */;
+			productName = SwiftfulFirestore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

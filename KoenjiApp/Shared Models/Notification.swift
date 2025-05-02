@@ -14,7 +14,6 @@ enum NotificationType: Equatable {
     case restored
     case waitingList
     case sync
-    case webReservation // New type for web reservations
 
 }
 
@@ -43,8 +42,6 @@ extension NotificationType {
             return String(localized: "waitinglist")
         case .sync:
             return String(localized: "sincro")
-        case .webReservation:
-            return String(localized: "web reservation")
         }
     }
 }

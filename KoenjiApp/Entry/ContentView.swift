@@ -260,8 +260,7 @@ struct ContentView: View {
                         // Load the current profile if available
                         if !userIdentifier.isEmpty {
                             Task {
-                                if let profile = env.reservationService.getProfile(withID: userIdentifier) {
-                                    ProfileStore.shared.setCurrentProfile(profile)
+                                if let profile = env.profileService.getProfile(withID: userIdentifier) {
                                 }
                             }
                         }
@@ -316,18 +315,18 @@ struct ContentView: View {
                 mainAppScale = 0.95
             }
         }
-        .onChange(of: scenePhase) { old, newPhase in
+        .onChange(of: scenePhase) {
             // Only update session state if we've already initialized a session
             if hasInitializedSession {
-                if newPhase == .background {
+                if scenePhase == .background {
                     Task {
-                         SessionManager.shared.updateSessionStatus(isActive: false)
+                         await env.sessionManager.updateSessionStatus(isActive: false)
                         AppLog.debug("App entered background, session marked inactive")
                     }
-                } else if newPhase == .active {
+                } else if scenePhase == .active {
                     Task {
                         // Mark the session as active
-                         SessionManager.shared.updateSessionStatus(isActive: true)
+                         await env.sessionManager.updateSessionStatus(isActive: true)
                         AppLog.debug("App became active, session marked active")
                         
                         // Add a delay to allow Firebase to sync
@@ -336,7 +335,7 @@ struct ContentView: View {
                         // Check if we need to refresh the profile data
                         if let userIdentifier = UserDefaults.standard.string(forKey: "userIdentifier"),
                            !userIdentifier.isEmpty {
-                            if let profile =  env.reservationService.getProfile(withID: userIdentifier) {
+                            if let profile = env.profileService.getProfile(withID: userIdentifier) {
                                 ProfileStore.shared.setCurrentProfile(profile)
                             }
                         }
@@ -359,8 +358,10 @@ struct ContentView: View {
         startActivityMonitoring()
         
         if deviceUUID.isEmpty {
-            deviceUUID = DeviceInfo.shared.getStableDeviceIdentifier()
-            AppLog.debug("Generated stable deviceUUID: \(deviceUUID)")
+            Task {
+                deviceUUID = await env.deviceInfo.getStableDeviceIdentifier()
+                AppLog.debug("Generated stable deviceUUID: \(deviceUUID)")
+            }
         }
         
         authenticateUser()
@@ -379,10 +380,6 @@ struct ContentView: View {
                 initializeUserSession()
             }
         }
-        
-        Task {
-            await env.backupService.notifsManager.requestNotificationAuthorization()
-        }
     }
     
     private func initializeUserSession() {
@@ -390,7 +387,7 @@ struct ContentView: View {
         
         // Use the SessionManager to initialize the session
         Task {
-            SessionManager.shared.initializeSession(profileID: userIdentifier, userName: userName)
+            await env.sessionManager.initializeSession(profileID: userIdentifier, userName: userName)
             hasInitializedSession = true
         }
         
@@ -415,7 +412,7 @@ struct ContentView: View {
                 // App was likely terminated abnormally
                 if hasInitializedSession {
                     Task {
-                        SessionManager.shared.updateSessionStatus(isActive: false)
+                        await env.sessionManager.updateSessionStatus(isActive: false)
                         AppLog.warning("Session marked inactive due to abnormal termination. Inactive duration: \(Int(inactiveInterval))s")
                     }
                 }
@@ -433,7 +430,7 @@ struct ContentView: View {
     private func performLogout() {
         // Perform the remote logout
         Task {
-            SessionManager.shared.performRemoteLogout()
+            await env.sessionManager.performRemoteLogout()
             
             // Reset user state
             isLoggedIn = false

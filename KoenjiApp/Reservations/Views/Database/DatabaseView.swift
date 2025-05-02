@@ -37,13 +37,6 @@ struct DatabaseView: View {
     
     private var isSorted: Bool { env.listView.sortOption != .removeSorting }
     private var isCompact: Bool { sizeClass == .compact }
-
-    private var filtered: [Reservation] {
-        filterReservationsExpanded(
-            filters: env.listView.selectedFilters,
-            searchText: env.listView.searchText,
-            currentReservations: env.listView.currentReservations)
-    }
     
     // MARK: - Initializer
     init(columnVisibility: Binding<NavigationSplitViewVisibility>, isDatabase: Binding<Bool>) {
@@ -93,20 +86,6 @@ struct DatabaseView: View {
                     
                     if !isCompact {
                         regularToolbarContent
-                    } else {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            webReservationFilter
-                        }
-                    }
-                    
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button(action: {
-                            Task {
-                                refreshReservations()
-                            }
-                        }) {
-                            Label("Refresh", systemImage: "arrow.clockwise")
-                        }
                     }
                 }
             
@@ -131,23 +110,24 @@ struct DatabaseView: View {
                     isDatabase = true
                 }
             }
-            Task {
-                refreshReservations()
-            }
+            // Load reservations from cache on appearance
+            updateReservationsFromCache()
         }
         .onDisappear {
             withAnimation {
                 isDatabase = false
             }
         }
-        .onReceive(env.store.$reservations) { new in
-            AppLog.info("Received \(new.count) reservations from store")
-            env.listView.currentReservations = new
-            refreshID = UUID()
+        .onReceive(env.store.$reservations) { _ in
+            // Don't directly use store reservations, use cache instead
+            updateReservationsFromCache()
         }
-        .onChange(of: env.reservationService.changedReservation) {
-            env.listView.currentReservations = env.store.reservations
-            refreshID = UUID()
+        .onChange(of: env.resCache.cache) { _, _ in
+            // Update when cache changes
+            updateReservationsFromCache()
+        }
+        .onChange(of: appState.changedReservation) {
+            updateReservationsFromCache()
         }
         .onChange(of: env.listView.hasSelectedPeople) { _, newValue in
             if newValue { env.listView.updatePeopleFilter() }
@@ -165,13 +145,12 @@ struct DatabaseView: View {
         }
     }
     
-    // MARK: - Helper Methods
-    
-    @MainActor
-    private func refreshReservations() {
-        AppLog.info("\("Manually refreshing reservations from Firebase")")
-
-        env.reservationService.loadReservationsFromFirebase()
+    // Method to update reservations from cache
+    func updateReservationsFromCache() {
+        let allReservations = env.resCache.getAllReservations()
+        AppLog.info("Loaded \(allReservations.count) reservations from cache")
+        env.listView.currentReservations = allReservations
+        refreshID = UUID()
     }
 }
 
@@ -192,7 +171,7 @@ extension DatabaseView {
         ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16, pinnedViews: .sectionHeaders) {
                     let grouped = groupReservations(
-                        reservations: filtered,
+                        reservations: env.listView.currentReservations,
                         by: env.listView.groupOption,
                         sortOption: env.listView.sortOption)
                     
@@ -336,9 +315,6 @@ extension DatabaseView {
             .environmentObject(env)
         }
         ToolbarItem(placement: .topBarTrailing) {
-            webReservationFilter
-        }
-        ToolbarItem(placement: .topBarTrailing) {
             Button {
                 env.listView.activeSheet = .addReservation
             } label: {
@@ -369,10 +345,13 @@ extension DatabaseView {
         case .addReservation:
             return AnyView(
                 AddReservationView(passedTable: nil, onAdded: { newReservation in
-                    appState.changedReservation = newReservation})
+                    // Update cache instead of relying on store
+                    env.resCache.addOrUpdateReservation(newReservation)
+                    appState.changedReservation = newReservation
+                })
                 .environmentObject(appState)
                 .environmentObject(env)
-                    .presentationBackground(.thinMaterial)
+                .presentationBackground(.thinMaterial)
             )
         case .debugConfig:
             return AnyView(
@@ -401,7 +380,9 @@ extension DatabaseView {
             reservation: reservation,
             onClose: {},
             onChanged: { updatedReservation in
-                env.listView.changedReservation = updatedReservation
+                // Update cache instead of relying on store
+                env.resCache.addOrUpdateReservation(updatedReservation)
+                appState.changedReservation = updatedReservation
             }
         )
         .presentationBackground(.thinMaterial)

@@ -918,9 +918,6 @@
         }
       }
     },
-    "%lld people" : {
-
-    },
     "%lld tavoli" : {
       "localizations" : {
         "en" : {
@@ -1171,9 +1168,6 @@
         }
       }
     },
-    "Additional Notes (Optional)" : {
-
-    },
     "Adesso" : {
       "localizations" : {
         "en" : {
@@ -1365,12 +1359,6 @@
           }
         }
       }
-    },
-    "Approve" : {
-
-    },
-    "Approve Reservation" : {
-
     },
     "Aprile" : {
       "localizations" : {
@@ -1693,9 +1681,6 @@
           }
         }
       }
-    },
-    "Cancel" : {
-
     },
     "Cancellate" : {
       "localizations" : {
@@ -2605,36 +2590,6 @@
           }
         }
       }
-    },
-    "Decline" : {
-
-    },
-    "Decline Request" : {
-
-    },
-    "Decline Reservation" : {
-
-    },
-    "Decline Web Reservation" : {
-
-    },
-    "Declined: Technical issue with the reservation system." : {
-
-    },
-    "Declined: The requested special menu is unavailable for this date." : {
-
-    },
-    "Declined: The requested time slot is fully booked." : {
-
-    },
-    "Declined: Unable to accommodate reservation." : {
-
-    },
-    "Declined: We're experiencing staff shortage for the requested date/time." : {
-
-    },
-    "Declined: We've reached our capacity for the requested time." : {
-
     },
     "Dettagli" : {
       "localizations" : {
@@ -4591,19 +4546,6 @@
         }
       }
     },
-    "New Online Reservation" : {
-
-    },
-    "New reservation for %@ on %@ at %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "New reservation for %1$@ on %2$@ at %3$@"
-          }
-        }
-      }
-    },
     "no show" : {
       "localizations" : {
         "en" : {
@@ -4625,9 +4567,6 @@
           }
         }
       }
-    },
-    "No Web Reservations" : {
-
     },
     "Nome" : {
       "localizations" : {
@@ -4764,9 +4703,6 @@
           }
         }
       }
-    },
-    "Notes" : {
-
     },
     "Nothing" : {
       "localizations" : {
@@ -4966,9 +4902,6 @@
         }
       }
     },
-    "Online reservation requests will appear here for approval." : {
-
-    },
     "Ora" : {
       "localizations" : {
         "en" : {
@@ -5057,9 +4990,6 @@
           }
         }
       }
-    },
-    "Other reason" : {
-
     },
     "Ottimo! Ora, creiamo il tuo profilo" : {
       "localizations" : {
@@ -5164,12 +5094,6 @@
           }
         }
       }
-    },
-    "Pending approval" : {
-
-    },
-    "Pending Approval" : {
-
     },
     "Per data" : {
       "localizations" : {
@@ -5480,9 +5404,6 @@
           }
         }
       }
-    },
-    "Please select a reason" : {
-
     },
     "pranzo" : {
       "localizations" : {
@@ -5916,19 +5837,7 @@
         }
       }
     },
-    "Refresh" : {
-
-    },
-    "Requested %@" : {
-
-    },
-    "Requested time slot is fully booked" : {
-
-    },
     "Reservation Approval" : {
-
-    },
-    "Reservation Declined" : {
 
     },
     "Reservation not found" : {
@@ -6421,9 +6330,6 @@
         }
       }
     },
-    "Search by name, phone, or email" : {
-
-    },
     "Search Emoji" : {
       "localizations" : {
         "en" : {
@@ -6470,9 +6376,6 @@
           }
         }
       }
-    },
-    "Select a Reason" : {
-
     },
     "Select an Image" : {
       "localizations" : {
@@ -6721,9 +6624,6 @@
         }
       }
     },
-    "Special menu unavailable" : {
-
-    },
     "Spesa media a persona" : {
       "localizations" : {
         "en" : {
@@ -6812,9 +6712,6 @@
           }
         }
       }
-    },
-    "Staff shortage" : {
-
     },
     "Stai cercando di prenotare di lunedì. Sei sicuro di voler continuare?" : {
       "localizations" : {
@@ -7057,9 +6954,6 @@
           }
         }
       }
-    },
-    "Technical issue" : {
-
     },
     "Telefono" : {
       "localizations" : {
@@ -7671,9 +7565,6 @@
         }
       }
     },
-    "Waiting for Approval" : {
-
-    },
     "waiting list" : {
       "localizations" : {
         "en" : {
@@ -7762,28 +7653,7 @@
         }
       }
     },
-    "We're at capacity for that time" : {
-
-    },
-    "Web" : {
-
-    },
     "Web Pending" : {
-
-    },
-    "Web Request" : {
-
-    },
-    "Web Requests" : {
-
-    },
-    "web reservation" : {
-
-    },
-    "Web Reservation Request" : {
-
-    },
-    "Web Reservations" : {
 
     },
     "Wed" : {

@@ -77,9 +77,6 @@ struct ReservationCard: View {
                         statusBadge
                         categoryBadge
                         typeBadge
-                        if reservation.isWebReservation {
-                            webReservationBadge(for: reservation)
-                        }
                     }
                     Spacer()
                 }

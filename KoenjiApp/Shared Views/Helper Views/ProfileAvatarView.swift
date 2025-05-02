@@ -127,7 +127,7 @@ struct ProfileAvatarView: View {
         
         if !deviceUUID.isEmpty {
             // Log out this device
-            env.reservationService.updateDeviceStatus(profileID: profile.id, deviceID: deviceUUID, isActive: false)
+            env.profileService.updateDeviceStatus(profileID: profile.id, deviceID: deviceUUID, isActive: false)
         }
         
         // Update AppStorage

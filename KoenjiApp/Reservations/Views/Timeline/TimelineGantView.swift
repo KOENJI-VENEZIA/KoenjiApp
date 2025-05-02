@@ -117,22 +117,22 @@ struct TimelineGantView: View {
             self.currentTime = Date()
             
             // Debug log for reservations
-            print("Timeline loaded with \(reservations.count) reservations")
+            AppLog.debug("Timeline loaded with \(reservations.count) reservations")
             if reservations.isEmpty {
-                print("No reservations found for the current view")
+                AppLog.debug("No reservations found for the current view")
             } else {
-                print("First reservation: \(reservations[0].name) at \(reservations[0].startTime)")
+                AppLog.debug("First reservation: \(reservations[0].name) at \(reservations[0].startTime)")
             }
         }
         // Use onReceive to safely update the currentTime
         .onReceive(timer) { _ in
             self.currentTime = Date()
-            print("Timer fired, current time: \(formatTime(currentTime))")
+            AppLog.debug("Timer fired, current time: \(formatTime(currentTime))")
         }
     }
     
     // Initialize the row assignments to default values
-    private func initializeRowAssignments() {
+    private func initializeRowAssignments() {   
         // Initialize row assignments based on the tableAssignmentOrder
         for (index, tableName) in tableAssignmentOrder.enumerated() {
             if let tableID = tableNameToID[tableName] {
@@ -187,7 +187,7 @@ extension TimelineGantView {
         }
         .onAppear {
             // Debug log for content view
-            print("Content view appeared, category: \(appState.selectedCategory), start hour: \(startHour)")
+            AppLog.debug("Content view appeared, category: \(appState.selectedCategory), start hour: \(startHour)")
         }
     }
     
@@ -458,7 +458,6 @@ extension TimelineGantView {
         let endTotalMinutes = (startHour + totalHours) * 60
         
         let isVisible = currentTotalMinutes >= startTotalMinutes && currentTotalMinutes < endTotalMinutes
-        print("Time visibility check: \(currentHour):\(currentMinute) - Start: \(startHour), End: \(startHour + totalHours), Visible: \(isVisible)")
         
         return isVisible
     }
@@ -477,7 +476,6 @@ extension TimelineGantView {
 
         // Each hour corresponds to (cellSize * 4) points.
         let position = (CGFloat(hoursSinceStart) + minutesFraction) * cellSize * 4
-        print("Time position calculation: \(hour):\(minute) (effective: \(effectiveHour)) → \(position) points from start")
         
         return position
     }
